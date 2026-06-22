@@ -1,0 +1,188 @@
+COMANDOS PERMITIDOS POR ESTADO
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, lista de comandos, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+OBJETIVO
+
+Definir comandos explicitos e nao ambiguos para iniciar fases, auditar, bloquear, pular ou solicitar rollback.
+
+---
+
+COMANDOS GLOBAIS
+
+* Iniciar pelo START HERE
+* Auditar estado atual
+* Auditar sistema de prompts
+* Consultar Current State
+* Consultar Project Snapshot
+* Atualizar snapshot sem alterar estado
+* Registrar bloqueio
+* Solicitar rollback controlado
+* Solicitar SKIP_CONTROLLED com evidencia
+
+COMANDOS DE MODO RESUMIDO
+
+* Consulta simples em modo resumido
+* Auditoria leve em modo resumido
+* Leitura sem alteracao em modo resumido
+
+---
+
+STATE-00 INIT
+
+Comandos permitidos:
+
+* Executar STATE-01 SETUP_PROJECT
+* Solicitar SKIP_CONTROLLED para STATE-01 SETUP_PROJECT com evidencia
+* Auditar estado atual
+
+Comandos proibidos:
+
+* Executar backend
+* Executar frontend
+* Executar banco
+* Executar modulo funcional
+
+---
+
+STATE-01 SETUP_PROJECT
+
+Comandos permitidos:
+
+* Executar STATE-01 SETUP_PROJECT
+* Auditar STATE-01 SETUP_PROJECT
+* Recomendar transicao para STATE-02 ARCHITECTURE
+
+Comandos proibidos:
+
+* Implementar modulo funcional
+* Criar regra de negocio
+
+---
+
+STATE-02 ARCHITECTURE
+
+Comandos permitidos:
+
+* Executar STATE-02 ARCHITECTURE
+* Auditar STATE-02 ARCHITECTURE
+* Recomendar transicao para STATE-03 DATABASE_MODELING
+
+Comandos proibidos:
+
+* Gerar codigo de implementacao
+* Executar tooling
+* Alterar banco, backend ou frontend
+
+---
+
+STATE-03 DATABASE_MODELING
+
+Comandos permitidos:
+
+* Executar STATE-03 DATABASE_MODELING
+* Executar parte de banco de modulo permitido
+* Criar migrations de dominio a partir do schema aprovado
+* Executar Prisma CLI apenas para validar schema e gerar migration sem aplicar em ambiente final
+* Auditar STATE-03 DATABASE_MODELING
+* Recomendar transicao para STATE-04 BACKEND_IMPLEMENTATION
+
+Comandos proibidos:
+
+* Executar Prisma CLI para setup ou comandos fora de migration de dominio
+* Aplicar migrations em ambiente de integracao ou producao
+* Criar backend
+* Criar frontend
+
+---
+
+STATE-04 BACKEND_IMPLEMENTATION
+
+Comandos permitidos:
+
+* Executar STATE-04 BACKEND_IMPLEMENTATION
+* Executar parte backend de modulo permitido
+* Auditar STATE-04 BACKEND_IMPLEMENTATION
+* Recomendar transicao para STATE-05 FRONTEND_IMPLEMENTATION
+
+Comandos proibidos:
+
+* Alterar schema de banco
+* Criar frontend
+* Executar tooling de setup
+
+---
+
+STATE-05 FRONTEND_IMPLEMENTATION
+
+Comandos permitidos:
+
+* Executar STATE-05 FRONTEND_IMPLEMENTATION
+* Executar parte frontend de modulo permitido
+* Auditar STATE-05 FRONTEND_IMPLEMENTATION
+* Recomendar transicao para STATE-06 INTEGRATION
+
+Comandos proibidos:
+
+* Alterar backend
+* Alterar banco
+* Implementar regra de negocio backend na UI
+
+---
+
+STATE-06 INTEGRATION
+
+Comandos permitidos:
+
+* Executar STATE-06 INTEGRATION
+* Integrar modulo existente ponta a ponta
+* Aplicar migrations ja aprovadas em ambiente de integracao
+* Auditar STATE-06 INTEGRATION
+* Recomendar transicao para STATE-07 TESTING_HOMOLOGATION
+
+Comandos proibidos:
+
+* Criar modulo novo
+* Criar regra de negocio nova
+* Alterar schema sem retorno formal a STATE-03 DATABASE_MODELING
+* Criar migration nova
+
+---
+
+STATE-07 TESTING_HOMOLOGATION
+
+Comandos permitidos:
+
+* Executar STATE-07 TESTING_HOMOLOGATION
+* Auditar projeto completo
+* Registrar bugs, riscos e divida tecnica
+* Recomendar transicao para STATE-08 PRODUCTION_RELEASE
+
+Comandos proibidos:
+
+* Criar feature nova
+* Alterar estado
+* Executar tooling de setup
+
+---
+
+STATE-08 PRODUCTION_RELEASE
+
+Comandos permitidos:
+
+* Executar STATE-08 PRODUCTION_RELEASE
+* Executar deploy de migrations aprovadas
+* Registrar release final
+* Auditar release
+
+Comandos proibidos:
+
+* Criar feature nova
+* Criar migration nova
+* Ignorar bloqueio critico
+* Alterar estado fora da State Machine

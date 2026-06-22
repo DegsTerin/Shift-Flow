@@ -1,0 +1,35 @@
+PROMPT SYSTEM VERSION
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, versao, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+VERSAO ATUAL
+
+PROMPT_SYSTEM_VERSION: 1.3.8
+
+Data:
+2026-06-20
+
+Status:
+Baseline canonica criada, camada operacional diaria adicionada, entrypoint oficial definido, nomes dos arquivos normalizados em en-GB, cobertura completa dos estados executaveis, ordem operacional corrigida, fluxo do zero reforcado, lacunas de migrations/modulos fechadas, checklists operacionais alinhados e snapshot limpo para execucao do zero.
+
+---
+
+REGRA DE REGISTRO
+
+Toda mudanca deve atualizar:
+
+* 19 - Prompt System Version.txt, quando alterar versao.
+* 20 - Prompt System Versioning Policy.txt, quando alterar regra de versionamento.
+* 21 - Prompt System Change Log.txt.
+* 09 - Project Snapshot.txt, quando impactar evidencias ou decisoes.
+
+Atualizar versao nao altera estado.
+
+
+
+

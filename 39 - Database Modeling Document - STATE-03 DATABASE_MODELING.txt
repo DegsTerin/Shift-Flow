@@ -1,0 +1,269 @@
+DATABASE MODELING DOCUMENT
+
+Estado:
+STATE-03 DATABASE_MODELING
+
+Projeto:
+ShiftFlow
+
+Data:
+2026-06-21
+
+Regra de escopo:
+Este documento registra a modelagem de dados. Nao cria backend, frontend, runtime ou estado.
+
+---
+
+1. ARTEFATOS GERADOS
+
+Schema Prisma:
+
+* prisma/schema.prisma
+
+Migration de dominio:
+
+* prisma/migrations/20260621120000_state_03_database_modeling/migration.sql
+
+Validacao executada:
+
+* npm run prisma:validate
+
+Resultado:
+
+* Schema Prisma valido.
+
+Observacao:
+
+* A migration foi gerada como arquivo SQL de dominio.
+* A migration nao foi aplicada em ambiente de integracao ou producao.
+
+---
+
+2. ENTIDADES OBRIGATORIAS MODELADAS
+
+Entidades obrigatorias de STATE-03 DATABASE_MODELING:
+
+* Companies: Company.
+* Clients: Client.
+* Teams: Team.
+* Shifts: Shift.
+* Users: User.
+* Roles: Role.
+* Permissions: Permission.
+* Activities: Activity.
+* ActivityHistory: ActivityHistory.
+* Comments: Comment.
+* Attachments: Attachment.
+* Notifications: Notification.
+* ShiftReports: ShiftReport.
+* AuditLogs: AuditLog.
+
+Entidades auxiliares de relacionamento e suporte:
+
+* UserCompany.
+* UserClient.
+* TeamClient.
+* TeamMember.
+* ShiftCoverage.
+* RolePermission.
+* UserRoleAssignment.
+* ShiftReportActivity.
+* RefreshToken.
+
+---
+
+3. RELACIONAMENTOS PRINCIPAIS
+
+Company e o tenant raiz.
+
+* Company possui Clients, Teams, Shifts, Roles, Permissions, Activities, Notifications, ShiftReports e AuditLogs.
+* Entidades operacionais usam companyId para isolamento multiempresa.
+
+Client pertence a Company.
+
+* Activity exige clientId e companyId.
+* Team pode atender multiplos Clients por TeamClient.
+* User pode ter visibilidade restrita a Clients por UserClient.
+* Role assignment pode ser limitado a Client.
+
+Team pertence a Company.
+
+* Team tem membros por TeamMember.
+* TeamMember modela lideres e membros por TeamMemberRole.
+* Shift pertence a Team.
+* Activity pertence a Team.
+* Role assignment pode ser limitado a Team.
+
+Shift pertence a Company e Team.
+
+* Shift guarda janela temporal, timezone e status.
+* ShiftCoverage modela escala, cobertura, plantao, ferias, ausencia e substituicao.
+* Activity pode se vincular ao Shift responsavel.
+* ShiftReport pertence a Shift e Team.
+
+User e transversal.
+
+* User se vincula a Companies por UserCompany.
+* User se vincula a Clients por UserClient.
+* User participa de Teams por TeamMember.
+* User recebe roles por UserRoleAssignment.
+* User pode ser responsavel ou reporter de Activity.
+* User pode criar comentarios, anexos, relatorios, auditoria e tokens de refresh.
+
+RBAC.
+
+* Role agrupa Permissions por RolePermission.
+* Permission usa resource e action granulares.
+* UserRoleAssignment vincula User, Role e Company, com escopo opcional por Client ou Team.
+* RoleScope diferencia GLOBAL, COMPANY, CLIENT e TEAM.
+
+Activity.
+
+* Activity pertence a Company, Client e Team.
+* Activity pode pertencer a Shift.
+* Activity possui status, priority, SLA, responsavel, reporter e timestamps.
+* ActivityHistory registra eventos de mudanca.
+* Comment, Attachment, Notification e AuditLog podem se vincular a Activity.
+
+ShiftReport.
+
+* ShiftReport consolida fechamento de turno.
+* ShiftReportActivity associa atividades ao relatorio.
+* Status cobre rascunho, envio, aprovacao e rejeicao.
+
+AuditLog.
+
+* AuditLog registra actorUserId, action, entityType, entityId, before, after, requestId, ipAddress, userAgent e createdAt.
+* AuditLog pode apontar para Company, Client, Team, Shift, Activity e ShiftReport.
+* O comportamento esperado e append-only na camada de dominio.
+
+---
+
+4. ISOLAMENTO MULTIEMPRESA, MULTICLIENTE, MULTIEQUIPE E MULTITURNO
+
+Multiempresa:
+
+* companyId existe nas entidades operacionais e administrativas sensiveis.
+* Relacionamentos compostos usam companyId em Client, Team, Shift, Activity, Comment, Notification, ShiftReport e AuditLog quando aplicavel.
+* Indices compostos com companyId cobrem consultas operacionais.
+
+Multicliente:
+
+* Client pertence a Company.
+* Activity exige Client.
+* UserClient limita visibilidade por cliente.
+* TeamClient modela quais clientes uma equipe atende.
+* UserRoleAssignment aceita clientId para escopo de permissao.
+
+Multiequipe:
+
+* Team pertence a Company.
+* TeamMember modela membros, lideres e historico por datas.
+* Activity, Shift, ShiftReport e Notification podem filtrar por Team.
+* UserRoleAssignment aceita teamId para escopo de permissao.
+
+Multiturno:
+
+* Shift pertence a Team e Company.
+* Activity pode se vincular a Shift.
+* ShiftCoverage cobre escala, plantao, ferias, ausencia e substituicao.
+* ShiftReport consolida atividades de um Shift.
+
+---
+
+5. INDICES E CONSTRAINTS
+
+Indices principais:
+
+* Activity por companyId, status, priority e slaDueAt para dashboard e SLA.
+* Activity por companyId, clientId, status e updatedAt para filtros por cliente.
+* Activity por companyId, teamId, status e updatedAt para kanban e dashboard por equipe.
+* Activity por companyId, shiftId, status e updatedAt para turno.
+* Activity por companyId, assigneeId, status e updatedAt para produtividade por analista.
+* Shift por companyId, teamId, status e startsAt para escala operacional.
+* Notification por companyId, recipientId, readAt e createdAt para centro de notificacoes.
+* AuditLog por companyId, entityType, entityId e createdAt para trilha de auditoria.
+
+Constraints principais:
+
+* Company name unico.
+* Client unico por companyId e name/code.
+* Team unico por companyId e name.
+* Role unico por companyId e name.
+* Permission unica por companyId, resource e action.
+* RolePermission unico por roleId e permissionId.
+* ShiftReport unico por companyId e shiftId.
+* Tabelas de associacao possuem unicidade composta para evitar duplicidade de vinculo.
+
+Soft delete:
+
+* deletedAt foi incluido em entidades operacionais e administrativas que preservam historico.
+* deletedById foi incluido em entidades criticas quando aplicavel.
+* AuditLog e ActivityHistory nao possuem soft delete por natureza historica.
+
+Auditoria:
+
+* Campos createdAt e updatedAt foram incluidos nas entidades mutaveis.
+* Campos createdById, updatedById e deletedById foram incluidos em entidades criticas quando aplicavel.
+* AuditLog centraliza eventos sensiveis e mutaveis.
+
+---
+
+6. ESTRATEGIA DE MIGRACAO
+
+Criacao:
+
+* A migration de dominio foi gerada em prisma/migrations/20260621120000_state_03_database_modeling/migration.sql.
+* A migration representa a criacao inicial do modelo relacional de dominio.
+
+Aplicacao:
+
+* Nao aplicar esta migration em STATE-03 DATABASE_MODELING.
+* Aplicar em ambiente de integracao apenas em STATE-06 INTEGRATION.
+* Aplicar em producao apenas em STATE-08 PRODUCTION_RELEASE, apos homologacao.
+
+Validacao antes de aplicacao:
+
+* Revisar SQL gerado.
+* Confirmar DATABASE_URL do ambiente alvo fora desta fase.
+* Executar backup antes de producao.
+* Validar rollback operacional por restore, pois esta e a primeira migration de dominio.
+
+Dados iniciais:
+
+* Seeds de roles, permissions e usuario inicial nao foram criados nesta fase.
+* Seed e bootstrap operacional devem ser definidos em fase permitida sem alterar o schema.
+
+Riscos:
+
+* Prisma nao expressa todos os checks semanticos de RBAC e janela temporal; validacoes complementares devem existir no backend.
+* Regras de SLA podem exigir refinamento futuro se a regra operacional detalhar calendario ou horarios uteis.
+* Storage fisico de anexos permanece decisao de ambiente; o banco guarda metadados e storageKey.
+
+---
+
+7. CRITERIOS DE ACEITE STATE-03
+
+Atendidos:
+
+* Schema Prisma atualizado.
+* Entidades obrigatorias modeladas.
+* Relacionamentos multiempresa, multicliente, multiequipe e multiturno definidos.
+* Chaves estrangeiras, indices, constraints, soft delete e auditoria contemplados.
+* Migration de dominio criada como SQL.
+* Estrategia de migracao descrita.
+* Prisma CLI usado apenas para validacao e geracao de migration de dominio.
+* Backend e frontend nao foram criados nesta fase.
+
+Pendencias nao bloqueantes:
+
+* Human CI ainda precisa auditar e aprovar STATE-03 antes de recomendacao formal de transicao.
+* Seeds e bootstrap de permissoes ficam para fase apropriada.
+
+---
+
+8. PROXIMA ACAO RECOMENDADA
+
+Executar auditoria de STATE-03 DATABASE_MODELING e Human CI.
+
+Somente apos aprovacao dos gates, recomendar transicao para STATE-04 BACKEND_IMPLEMENTATION.

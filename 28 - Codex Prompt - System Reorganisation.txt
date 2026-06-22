@@ -1,0 +1,134 @@
+Atue como um System Architect e Engine Designer de workflows de software.
+
+Sua tarefa e manter todos os arquivos de prompts existentes organizados em um unico sistema coerente de State Machine.
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente ou snapshot pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+HIERARQUIA DE AUTORIDADE
+
+1. State Machine
+2. Guard Rails
+3. Acceptance Criteria
+4. Module Phase Matrix, quando houver modulo envolvido
+5. Snapshot como fonte de evidencia
+6. Gates de validacao
+7. Prompt Mestre
+8. Prompt da fase em execucao
+9. Prompt de modulo
+10. Arquivos operacionais
+
+Se houver conflito, prevalece sempre o item de maior autoridade.
+
+---
+
+STATE MACHINE FINAL
+
+A State Machine deve conter apenas estados de execucao.
+Ela nao pode conter features, modulos, gates ou resultados de validacao.
+
+Estados canonicos:
+
+0. INIT
+1. SETUP_PROJECT
+2. ARCHITECTURE
+3. DATABASE_MODELING
+4. BACKEND_IMPLEMENTATION
+5. FRONTEND_IMPLEMENTATION
+6. INTEGRATION
+7. TESTING_HOMOLOGATION
+8. PRODUCTION_RELEASE
+
+Resultados como APROVADO, REPROVADO, READY ou BLOCKED pertencem aos gates.
+Eles nao podem virar nomes de estado.
+
+---
+
+SEPARACAO FORMAL DE CONCEITOS
+
+STATES:
+
+* Fluxo oficial do sistema.
+* Apenas a State Machine pode alterar.
+
+GATES:
+
+* Validam, aprovam, reprovam ou bloqueiam.
+* Nao alteram estado.
+
+MODULES:
+
+* Representam features do produto.
+* So podem ser executados dentro da camada permitida pelo estado atual.
+
+CONSTRAINTS:
+
+* Regras globais de escopo, tooling, arquitetura e autoridade.
+* Tem prioridade sobre prompts de fase e modulo.
+
+---
+
+REGRAS IMPORTANTES
+
+* Nao criar novas fases alem das necessarias.
+* Nao misturar features com state machine.
+* Nao permitir tooling de setup fora de SETUP_PROJECT.
+* Garantir consistencia absoluta entre todos os fluxos.
+* Eliminar redundancias entre prompts.
+* Quebrar modulos cross-layer por fase.
+* Usar Snapshot como evidencia, nao como autoridade de estado.
+* Usar Multi-Agent como validacao por papeis, nao como executor paralelo de estado.
+* Usar 06 - Execution Protocol.txt como roteiro operacional.
+* Usar 11 - Evidence Standard.txt para validar evidencias.
+* Usar 12 - Global Definition of Done.txt antes de recomendar conclusao.
+* Usar 14 - Conflict Resolution Policy.txt para conflitos.
+* Usar 16 - Controlled Rollback Policy.txt para reversoes controladas.
+* Usar 08 - Canonical State and Module IDs.txt para rastreabilidade.
+* Usar 01 - Current State.txt para declarar estado atual e comandos validos.
+* Usar 20 - Prompt System Versioning Policy.txt para versionamento.
+* Usar 21 - Prompt System Change Log.txt para historico de alteracoes.
+* Usar 17 - Phase Handoff Template.txt para passagem de fase.
+* Usar 15 - Blocked State Protocol.txt para bloqueios.
+* Usar 00 - Start Here.txt como ponto de entrada oficial.
+* Usar 22 - Prompt System Audit.txt para auditoria periodica do sistema de prompts.
+* Aplicar regra anti-overengineering antes de criar novos controles.
+
+---
+
+NORMALIZACAO DOS PROMPTS
+
+* 29 - Phase 00 - Project Setup.txt pertence a STATE-01 SETUP_PROJECT.
+* 30 - Phase 01 - Solution Architecture.txt pertence a STATE-02 ARCHITECTURE.
+* 31 - Phase 02 - Database Modelling.txt pertence a STATE-03 DATABASE_MODELING.
+* 32 - Phase 03 - Backend.txt pertence a STATE-04 BACKEND_IMPLEMENTATION.
+* 33 - Phase 04 - Frontend.txt pertence a STATE-05 FRONTEND_IMPLEMENTATION.
+* 34 - Phase 05 - Integration.txt pertence a STATE-06 INTEGRATION.
+* 35 - Phase 06 - Testing and Homologation.txt pertence a STATE-07 TESTING_HOMOLOGATION.
+* 36 - Phase 07 - Production Release.txt pertence a STATE-08 PRODUCTION_RELEASE.
+* 60 a 64 sao prompts de modulo e devem respeitar a fase ativa.
+* Modulos canonicos sem prompt dedicado devem ser tratados pela fase ativa usando 08 - Canonical State and Module IDs.txt e 13 - Module Phase Matrix.txt.
+* Guard Rails, Snapshot, Human CI e Auto Auditor sao gates ou evidencias.
+* Multi-Agent e sistema de validacao por papeis.
+* Official State Machine e o fluxo oficial.
+* Execution Protocol, Conflict Resolution, Evidence Standard, Definition of Done, Rollback Policy, Canonical State and Module IDs, Current State, Prompt Change Log, Prompt Versioning Policy, Phase Handoff Template, Blocked State Protocol, Start Here e Prompt System Audit sao controles operacionais.
+
+---
+
+FORMATO FINAL ESPERADO
+
+Ao executar este prompt, entregue:
+
+* State Machine consolidada.
+* Tabela de classificacao dos prompts.
+* Lista de conflitos encontrados.
+* Versao final corrigida do sistema.
+* Fluxo de execucao recomendado.
+* Confirmacao explicita se ainda ha conflitos.
+
+
+
+

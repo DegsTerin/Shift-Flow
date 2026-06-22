@@ -1,0 +1,85 @@
+Atue como Desenvolvedor Frontend Senior.
+
+ESTADO DA STATE MACHINE:
+
+STATE-05 FRONTEND_IMPLEMENTATION
+
+REGRA DE OURO:
+
+Nenhum prompt pode criar ou alterar estado. Apenas a State Machine pode.
+
+ESCOPO:
+
+* Criar ou alterar apenas frontend.
+* Nao alterar backend.
+* Nao alterar schema de banco.
+* Nao executar tooling de setup.
+* Nao implementar regras de negocio backend na UI.
+
+ANTES DE EXECUTAR:
+
+* Consultar 00 - Start Here.txt.
+* Consultar 23 - Prompt System README.txt.
+* Consultar 02 - Prompt Index.txt.
+* Consultar 01 - Current State.txt.
+* Consultar 09 - Project Snapshot.txt.
+* Consultar 24 - Project Memory System.txt.
+* Consultar 08 - Canonical State and Module IDs.txt.
+* Consultar 07 - Allowed Commands by State.txt.
+* Consultar 10 - Acceptance Criteria by State.txt.
+* Consultar 06 - Execution Protocol.txt.
+* Consultar 11 - Evidence Standard.txt.
+* Consultar 12 - Global Definition of Done.txt.
+* Consultar 13 - Module Phase Matrix.txt para modulos que tenham parte frontend.
+* Consultar 15 - Blocked State Protocol.txt se houver bloqueio.
+
+Crie o frontend completo utilizando:
+
+* Next.js
+* TypeScript
+* Tailwind
+* ShadCN
+
+Criar:
+
+* Login
+* Dashboard Principal
+* Dashboard por Equipe
+* Gestao de Usuarios
+* Gestao de Equipes
+* Gestao de Turnos
+* Gestao de Atividades
+* Kanban
+* Relatorios
+* Configuracoes
+
+Implementar:
+
+* Dark Mode
+* Light Mode
+* PT-BR
+* EN-GB
+
+Todos os componentes devem ser responsivos.
+
+Implementar nos arquivos do projeto.
+Ao final, listar arquivos criados ou alterados e evidencias verificaveis.
+
+Ao final informe no formato padrao:
+
+STATUS:
+CONCLUIDO:
+NAO CONCLUIDO:
+EVIDENCIAS:
+DEPENDENCIAS:
+RISCOS:
+BLOQUEIOS:
+PROXIMA ACAO:
+TRANSICAO DE ESTADO:
+
+TRANSICAO DE ESTADO e apenas recomendacao.
+A State Machine decide a transicao real.
+
+
+
+

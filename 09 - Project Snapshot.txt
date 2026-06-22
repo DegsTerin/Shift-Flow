@@ -1,0 +1,690 @@
+SNAPSHOT DO PROJETO
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente ou snapshot pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+ESTADO OPERACIONAL
+
+Estado atual declarado pela State Machine:
+STATE-08 PRODUCTION_RELEASE
+
+Fase atual:
+STATE-08 PRODUCTION_RELEASE
+
+Proxima fase permitida:
+Encerramento de release
+
+Versao do sistema de prompts:
+1.3.8
+
+Ultima atualizacao:
+2026-06-21
+
+---
+
+WORKSPACE ATUAL
+
+* STATE-01 SETUP_PROJECT executado em 2026-06-20 e aprovado para transicao pela State Machine em 2026-06-21.
+* STATE-02 ARCHITECTURE executado documentalmente e aprovado por Human CI em 2026-06-21.
+* Estado operacional atual: STATE-08 PRODUCTION_RELEASE.
+* Estrutura tecnica base criada.
+* package.json e package-lock.json criados.
+* Diretorios tecnicos criados:
+  * apps/api
+  * apps/web
+  * prisma
+* Configuracoes iniciais criadas:
+  * tsconfig.json
+  * apps/api/tsconfig.json
+  * apps/web/tsconfig.json
+  * eslint.config.mjs
+  * .prettierrc
+  * .env.example
+  * docker-compose.yml
+  * prisma.config.ts
+  * .gitignore
+* Repositorio Git local inicializado em .git com branch principal main.
+* Nenhum remote Git configurado.
+* Nenhum commit inicial criado.
+* Scaffold Prisma inicializado sem modelos de dominio e sem migrations.
+* Artefatos de build gerados para validacao e removidos apos verificacao.
+
+---
+
+FASES AINDA NAO EXECUTADAS
+
+Arquitetura:
+
+* Executada documentalmente em 2026-06-21.
+* Documento de arquitetura criado em 37 - Solution Architecture Document.txt.
+* 30 - Phase 01 - Solution Architecture.txt define STATE-02 ARCHITECTURE.
+
+Banco de dados:
+
+* STATE-03 DATABASE_MODELING executado documentalmente e tecnicamente em 2026-06-21.
+* 31 - Phase 02 - Database Modelling.txt define STATE-03 DATABASE_MODELING.
+* prisma/schema.prisma atualizado com modelo de dominio completo.
+* Migration de dominio criada em prisma/migrations/20260621120000_state_03_database_modeling/migration.sql.
+* Explicacao de relacionamentos, indices, constraints, soft delete, auditoria e estrategia de migracao registrada em 39 - Database Modeling Document - STATE-03 DATABASE_MODELING.txt.
+* npm run prisma:validate executado com sucesso.
+* Migration nao aplicada em ambiente de integracao ou producao.
+* Human CI de STATE-03 aprovado em 2026-06-21.
+
+Backend:
+
+* STATE-04 BACKEND_IMPLEMENTATION executado tecnicamente em 2026-06-21.
+* 32 - Phase 03 - Backend.txt define STATE-04 BACKEND_IMPLEMENTATION.
+* Estrutura backend criada em apps/api/src com Express, TypeScript, middlewares, rotas, controllers, services, repositories, DTOs e validators.
+* Modulos implementados no backend: Auth, Users, Teams, Shifts, Activities, Comments, Notifications, Reports, Dashboard, Audit e RBAC.
+* JWT, refresh token persistido em RefreshToken, middleware authenticate e middleware requirePermission implementados.
+* Nenhum schema Prisma foi alterado em STATE-04.
+* Nenhuma migration foi criada ou aplicada em STATE-04.
+* Nenhum frontend foi criado ou alterado em STATE-04.
+* Auditoria tecnica e Human CI de STATE-04 aprovados em 2026-06-21.
+
+Frontend:
+
+* STATE-05 FRONTEND_IMPLEMENTATION executado tecnicamente em 2026-06-21.
+* 33 - Phase 04 - Frontend.txt define STATE-05 FRONTEND_IMPLEMENTATION.
+* apps/web/app/page.tsx implementa Login, Dashboard Principal, Dashboard por Equipe, Gestao de Usuarios, Gestao de Equipes, Gestao de Turnos, Gestao de Atividades, Kanban, Relatorios e Configuracoes.
+* apps/web/app/globals.css implementa tokens de tema, dark mode, light mode, layout responsivo, tabelas responsivas, grid de KPIs, paineis, kanban e navegacao mobile.
+* PT-BR e EN-GB implementados por dicionario local na UI.
+* Dark Mode e Light Mode implementados por estado visual e atributo data-theme.
+* Kanban implementado visualmente com HTML5 drag and drop local, sem persistencia.
+* Frontend usa dados demonstrativos locais nesta fase. Integracao real com APIs fica reservada para STATE-06 INTEGRATION.
+* Nenhum backend, schema Prisma, migration, package.json ou configuracao de runtime foi alterado em STATE-05.
+* Auditoria tecnica e Human CI de STATE-05 aprovados em 2026-06-21.
+* Reauditoria retrospectiva e Human CI retrospectivo de STATE-05 executados em 2026-06-21 durante STATE-06:
+  * 48 - Automatic Review Audit - STATE-05 FRONTEND_IMPLEMENTATION.txt atualizado.
+  * 49 - Human CI Validation - STATE-05 FRONTEND_IMPLEMENTATION.txt atualizado.
+  * npm run build:web aprovado.
+  * npx tsc -p apps/web/tsconfig.json --noEmit aprovado.
+  * npx eslint apps/web/app aprovado.
+  * Resultado: aprovado, sem alterar estado.
+* State Machine decidiu transicao formal para STATE-06 INTEGRATION em 2026-06-21.
+
+Integracao:
+
+* STATE-06 INTEGRATION e o estado operacional atual.
+* 34 - Phase 05 - Integration.txt define STATE-06 INTEGRATION.
+* STATE-06 INTEGRATION executado parcialmente em 2026-06-21.
+* apps/web/app/page.tsx foi integrado aos endpoints reais existentes do backend.
+* Frontend agora consome Auth, Dashboard, Activities/Kanban, Users, Teams, Shifts, Notifications e RBAC via API.
+* Kanban chama POST /api/activities/:id/move para persistir movimentacao.
+* Prisma Client foi gerado pelo script existente npm run prisma:generate para permitir runtime de integracao.
+* Migration aprovada em STATE-03 foi aplicada com sucesso em PostgreSQL local de integracao por npx prisma migrate deploy na retomada de 2026-06-21.
+* Endpoint publico /health respondeu 200 em execucao local da API.
+* Endpoint autenticado POST /api/auth/login respondeu inicialmente 503 PRISMA_CLIENT_UNAVAILABLE porque o Prisma Client 7 exige driver adapter ou opcoes equivalentes de runtime.
+* Apos autorizacao explicita, @prisma/adapter-pg 7.8.0 foi instalado e POST /api/auth/login passou a responder 401 UNAUTHORIZED por banco sem usuario inicial.
+* Relatorio de execucao registrado em 50 - Integration Execution Report - STATE-06 INTEGRATION.txt.
+
+---
+
+CONTROLES ATIVOS
+
+* State Machine canonica definida em 03 - Official State Machine.txt.
+* Estado operacional declarado em 01 - Current State.txt.
+* Indice canonico definido em 02 - Prompt Index.txt.
+* IDs canonicos definidos em 08 - Canonical State and Module IDs.txt.
+* Comandos por estado definidos em 07 - Allowed Commands by State.txt.
+* Roteiro obrigatorio definido em 06 - Execution Protocol.txt.
+* Memoria do projeto definida em 24 - Project Memory System.txt.
+* Criterios de aceite definidos em 10 - Acceptance Criteria by State.txt.
+* Evidencias definidas em 11 - Evidence Standard.txt.
+* DoD global definido em 12 - Global Definition of Done.txt.
+* Matriz modulo x fase definida em 13 - Module Phase Matrix.txt.
+* Resolucao de conflitos definida em 14 - Conflict Resolution Policy.txt.
+* Bloqueios definidos em 15 - Blocked State Protocol.txt.
+* Rollback controlado definido em 16 - Controlled Rollback Policy.txt.
+* Handoff definido em 17 - Phase Handoff Template.txt.
+* Logs definidos em 18 - State Transition Log.txt e 21 - Prompt System Change Log.txt.
+* Versao definida em 19 - Prompt System Version.txt.
+* Versionamento definido em 20 - Prompt System Versioning Policy.txt.
+* Auditoria do sistema de prompts definida em 22 - Prompt System Audit.txt.
+* README operacional definido em 23 - Prompt System README.txt.
+* Gates definidos em 25 - Human Gate Validation Checklist.txt, 26 - Automatic Review Audit.txt e 27 - Engineering Multi-Agent System.txt.
+
+---
+
+DECISOES FIXAS
+
+* Regra de ouro: nenhum prompt cria ou altera estado; apenas a State Machine altera estado.
+* Snapshot registra evidencias e decisoes; snapshot nao altera estado.
+* Gates aprovam, reprovam ou bloqueiam; gates nao alteram estado.
+* Tooling de setup permitido apenas em STATE-01 SETUP_PROJECT.
+* Migrations seguem permissoes explicitas por fase: criar em DATABASE_MODELING, aplicar em INTEGRATION, fazer deploy em PRODUCTION_RELEASE.
+* Modulos canonicos devem respeitar 13 - Module Phase Matrix.txt.
+* Modulos sem prompt dedicado sao tratados pela fase ativa correspondente usando 08 - Canonical State and Module IDs.txt e 13 - Module Phase Matrix.txt.
+* Prompts de fase e modulo devem consultar 00 - Start Here.txt, 23 - Prompt System README.txt e 24 - Project Memory System.txt antes de execucao.
+* Backend e frontend devem ser implementados em arquivos reais e finalizar com evidencias verificaveis.
+
+---
+
+ARQUITETURA DEFINIDA
+
+Documento principal:
+
+* 37 - Solution Architecture Document.txt.
+
+Resumo:
+
+* Monorepo modular mantido com apps/web para Next.js e apps/api para Express.
+* Frontend definido com Next.js, React, TypeScript, Tailwind, shadcn/ui, Radix base, react-hook-form, validacao client-side e cliente HTTP centralizado.
+* Backend definido com Node.js, Express, TypeScript, Prisma Client, PostgreSQL, zod, JWT, bcryptjs, helmet, cors e middlewares operacionais.
+* Banco definido como PostgreSQL com Prisma; schema de dominio e migrations ficam para STATE-03 DATABASE_MODELING.
+* Company definida como tenant raiz; Client, Team e Shift refinam escopo operacional.
+* RBAC definido como autorizacao obrigatoria no backend, com guards visuais no frontend apenas como apoio.
+* Auditoria definida como requisito transversal para operacoes sensiveis e mutaveis.
+* Estrategias de i18n pt-BR/en-GB, tema light/dark, multiempresa, multicliente, multiequipe, multiturno, backup e escalabilidade foram documentadas.
+* Human CI executado e aprovado em 2026-06-21 para STATE-02 ARCHITECTURE.
+
+Decisoes arquiteturais:
+
+* ADR-01: Monorepo com apps/web e apps/api mantido como estrutura base.
+* ADR-02: Frontend usa Next.js, TypeScript, Tailwind e shadcn/ui.
+* ADR-03: Backend usa Node.js, Express, TypeScript e Prisma.
+* ADR-04: PostgreSQL e o banco transacional principal.
+* ADR-05: RBAC e obrigatorio no backend e apenas refletido visualmente no frontend.
+* ADR-06: Company e o tenant raiz; Client, Team e Shift refinam escopo operacional.
+* ADR-07: Auditoria e requisito transversal para operacoes sensiveis e mutaveis.
+* ADR-08: Schema de dominio, constraints e migrations ficam para STATE-03 DATABASE_MODELING.
+* ADR-09: Implementacao de APIs fica para STATE-04 BACKEND_IMPLEMENTATION.
+* ADR-10: Implementacao de telas e componentes fica para STATE-05 FRONTEND_IMPLEMENTATION.
+* ADR-11: Integracao ponta a ponta fica para STATE-06 INTEGRATION.
+* Auditoria retrospectiva de STATE-02 ARCHITECTURE executada em 2026-06-21:
+  * 46 - Automatic Review Audit - STATE-02 ARCHITECTURE.txt.
+  * 47 - Human CI Validation - STATE-02 ARCHITECTURE - Retrospective.txt.
+  * Resultado: aprovado.
+  * Observacao: validacao retrospectiva nao altera estado atual STATE-04 BACKEND_IMPLEMENTATION.
+
+Evidencias de conclusao:
+
+* 37 - Solution Architecture Document.txt.
+* 38 - Human CI Validation - STATE-02 ARCHITECTURE.txt.
+* 17 - Phase Handoff Template.txt.
+* 18 - State Transition Log.txt.
+
+---
+
+MODELO DE DADOS
+
+Estado:
+
+* STATE-03 DATABASE_MODELING executado em 2026-06-21.
+
+Artefatos:
+
+* prisma/schema.prisma.
+* prisma/migrations/20260621120000_state_03_database_modeling/migration.sql.
+* 39 - Database Modeling Document - STATE-03 DATABASE_MODELING.txt.
+* 40 - Human CI Validation - STATE-03 DATABASE_MODELING.txt.
+* 41 - Automatic Review Audit - STATE-03 DATABASE_MODELING.txt.
+
+Entidades obrigatorias modeladas:
+
+* Company.
+* Client.
+* Team.
+* Shift.
+* User.
+* Role.
+* Permission.
+* Activity.
+* ActivityHistory.
+* Comment.
+* Attachment.
+* Notification.
+* ShiftReport.
+* AuditLog.
+
+Entidades auxiliares:
+
+* UserCompany.
+* UserClient.
+* TeamClient.
+* TeamMember.
+* ShiftCoverage.
+* RolePermission.
+* UserRoleAssignment.
+* ShiftReportActivity.
+* RefreshToken.
+
+Resumo tecnico:
+
+* Company e o tenant raiz.
+* Client, Team e Shift refinam escopo operacional.
+* Activity centraliza kanban, SLA, prioridade, responsavel, cliente, equipe e turno.
+* ActivityHistory registra historico operacional.
+* RBAC usa Role, Permission, RolePermission e UserRoleAssignment com escopo por company, client e team.
+* ShiftCoverage modela escala, cobertura, plantao, ferias, ausencia e substituicao.
+* ShiftReport consolida fechamento de turno e atividades vinculadas.
+* AuditLog registra eventos sensiveis e mutaveis.
+* Soft delete, timestamps, indices e constraints foram contemplados no schema.
+
+Validacao:
+
+* npm run prisma:validate: aprovado.
+* Human CI de STATE-03 DATABASE_MODELING: aprovado em 2026-06-21.
+* Auditoria tecnica de STATE-03 DATABASE_MODELING: aprovada em 2026-06-21.
+
+Estrategia de migracao:
+
+* Migration criada em STATE-03 apenas como artefato de dominio.
+* Aplicacao em integracao fica reservada para STATE-06 INTEGRATION.
+* Deploy em producao fica reservado para STATE-08 PRODUCTION_RELEASE.
+
+---
+
+BACKEND IMPLEMENTADO
+
+Estado:
+
+* STATE-04 BACKEND_IMPLEMENTATION executado tecnicamente em 2026-06-21.
+
+Artefatos principais:
+
+* apps/api/src/server.ts.
+* apps/api/src/shared/http/app.ts.
+* apps/api/src/shared/middlewares/authenticate.ts.
+* apps/api/src/shared/middlewares/authorize.ts.
+* apps/api/src/shared/middlewares/validate.ts.
+* apps/api/src/shared/middlewares/tenant-context.ts.
+* apps/api/src/shared/repositories/base.repository.ts.
+* apps/api/src/shared/services/base.service.ts.
+* apps/api/src/shared/services/audit-writer.ts.
+* apps/api/src/modules/auth.
+* apps/api/src/modules/users.
+* apps/api/src/modules/teams.
+* apps/api/src/modules/shifts.
+* apps/api/src/modules/activities.
+* apps/api/src/modules/comments.
+* apps/api/src/modules/notifications.
+* apps/api/src/modules/reports.
+* apps/api/src/modules/dashboard.
+* apps/api/src/modules/audit.
+* apps/api/src/modules/rbac.
+
+APIs implementadas:
+
+* Auth: POST /api/auth/login, POST /api/auth/refresh, POST /api/auth/logout, GET /api/auth/me.
+* Users: GET/POST /api/users, GET/PATCH/DELETE /api/users/:id.
+* Teams: GET/POST /api/teams, GET/PATCH/DELETE /api/teams/:id, POST /api/teams/:id/members, DELETE /api/teams/:id/members/:userId.
+* Shifts: GET/POST /api/shifts, GET/PATCH/DELETE /api/shifts/:id, POST /api/shifts/:id/close, POST /api/shifts/:id/reopen, POST /api/shifts/:id/coverages.
+* Activities/Kanban: GET/POST /api/activities, GET /api/activities/kanban, GET/PATCH/DELETE /api/activities/:id, POST /api/activities/:id/move, POST /api/activities/:id/assign, POST /api/activities/:id/close.
+* Comments: GET/POST /api/comments, GET/PATCH/DELETE /api/comments/:id.
+* Notifications: GET/POST /api/notifications, GET /api/notifications/unread-count, POST /api/notifications/mark-all-read, POST /api/notifications/:id/read, DELETE /api/notifications/:id.
+* Reports: GET /api/reports/activities, GET/POST /api/reports/shifts, GET/PATCH /api/reports/shifts/:id, POST /api/reports/shifts/:id/submit, POST /api/reports/shifts/:id/approve.
+* Dashboard: GET /api/dashboard/summary, GET /api/dashboard/charts, GET /api/dashboard/operational-list.
+* Audit: GET /api/audit, GET /api/audit/:id.
+* RBAC: GET /api/rbac/check, GET/POST/PATCH /api/rbac/roles, POST /api/rbac/roles/:roleId/permissions, GET/POST /api/rbac/permissions, POST /api/rbac/assignments.
+
+Separacao Controller / Service / Repository:
+
+* Controllers ficam em apps/api/src/modules/*/*.controller.ts e apenas tratam HTTP.
+* Services ficam em apps/api/src/modules/*/*.service.ts e concentram regras de negocio, auditoria e orquestracao.
+* Repositories ficam em apps/api/src/modules/*/*.repository.ts e isolam acesso Prisma.
+* DTOs e validators ficam em apps/api/src/modules/*/*.dto.ts e apps/api/src/modules/*/*.validators.ts.
+
+Validacoes executadas:
+
+* npm run build:api: aprovado.
+* npx eslint apps/api/src: aprovado.
+* npm test: aprovado, 2 arquivos de teste e 6 testes passaram.
+* Auditoria tecnica de STATE-04: aprovada em 42 - Automatic Review Audit - STATE-04 BACKEND_IMPLEMENTATION.txt.
+* Human CI de STATE-04: aprovado em 43 - Human CI Validation - STATE-04 BACKEND_IMPLEMENTATION.txt.
+
+Pendencias de backend:
+
+* Prisma Client foi gerado pelo script existente npm run prisma:generate em STATE-06.
+* Runtime database-backed foi corrigido em STATE-06 com @prisma/adapter-pg 7.8.0 apos autorizacao explicita.
+* Seed/bootstrap operacional de roles, permissions e usuario inicial ainda nao existe.
+* Testes de integracao com PostgreSQL e migracao aplicada foram iniciados em STATE-06; endpoints com banco agora acessam o PostgreSQL, mas a validacao autenticada depende de massa operacional inicial.
+
+---
+
+FRONTEND IMPLEMENTADO
+
+Estado:
+
+* STATE-05 FRONTEND_IMPLEMENTATION executado tecnicamente em 2026-06-21.
+
+Artefatos principais:
+
+* apps/web/app/page.tsx.
+* apps/web/app/globals.css.
+
+Telas implementadas:
+
+* Login.
+* Dashboard Principal.
+* Dashboard por Equipe.
+* Gestao de Usuarios.
+* Gestao de Equipes.
+* Gestao de Turnos.
+* Gestao de Atividades.
+* Kanban.
+* Relatorios.
+* Configuracoes.
+
+Componentes e estados visuais:
+
+* Navegacao lateral responsiva.
+* Topbar com busca, notificacoes, idioma e tema.
+* Cards de KPI.
+* Graficos visuais em barras.
+* Filtros visuais por equipe, analista, cliente, prioridade, status e turno.
+* Tabelas operacionais responsivas.
+* Cards de equipe com lider, membros, cor e SLA.
+* Quadro Kanban com colunas, cartoes e drag and drop local.
+* Interface administrativa visual de perfis e permissoes RBAC.
+
+Temas e idiomas:
+
+* Light Mode implementado.
+* Dark Mode implementado.
+* PT-BR implementado.
+* EN-GB implementado.
+
+Validacoes executadas:
+
+* npm run build:web: aprovado.
+* npx tsc -p apps/web/tsconfig.json --noEmit: aprovado.
+* npx eslint apps/web/app: aprovado.
+* Auditoria tecnica de STATE-05: aprovada em 48 - Automatic Review Audit - STATE-05 FRONTEND_IMPLEMENTATION.txt.
+* Human CI de STATE-05: aprovado em 49 - Human CI Validation - STATE-05 FRONTEND_IMPLEMENTATION.txt.
+
+Pendencias de frontend:
+
+* Integracao com endpoints reais foi implementada parcialmente em STATE-06.
+* Validacao ponta a ponta em navegador com banco real permanece pendente porque o banco de integracao esta sem massa operacional inicial.
+* Dados reais dependem de seed/bootstrap operacional minimo.
+
+---
+
+INTEGRACAO EXECUTADA
+
+Estado:
+
+* STATE-06 INTEGRATION executado parcialmente em 2026-06-21.
+* Nova retomada em 2026-06-21 10:52 -03:00 confirmou PostgreSQL disponivel, migration sem pendencias e bloqueio persistente de runtime Prisma Client 7.
+* Correcao do runtime Prisma/PostgreSQL autorizada em 2026-06-21 e aplicada com @prisma/adapter-pg 7.8.0.
+* Prisma Client passou a instanciar com adapter PrismaPg em apps/api/src/shared/lib/prisma.ts.
+* Consulta Prisma real aprovada com banco vazio: companies 0, users 0, roles 0, activities 0.
+* POST /api/auth/login passou de 503 PRISMA_CLIENT_UNAVAILABLE para 401 UNAUTHORIZED por ausencia de usuario/credencial inicial.
+* Seed/bootstrap operacional minimo criado em prisma/integration-seed.mjs e executado com sucesso.
+* Seed reexecutado com sucesso para validar idempotencia.
+* Credencial de integracao criada: integration.admin@shiftflow.local / ShiftFlow#2026.
+* Validacao automatizada com Supertest aprovou Auth login, Dashboard summary, Dashboard charts, Dashboard operational-list, Users list, Teams list, Shifts list, Activities kanban, Notifications unread-count, RBAC roles e POST /api/activities/:id/move.
+* Dashboard summary com dados reais retornou total 4, pending 1, inProgress 1, done 1, critical 1 e slaAtRisk 1.
+* apps/api/src/shared/middlewares/validate.ts corrigido para nao reatribuir req.query em Express atual.
+
+Artefatos:
+
+* apps/web/app/page.tsx.
+* apps/api/src/shared/lib/prisma.ts.
+* apps/api/src/shared/middlewares/validate.ts.
+* prisma/integration-seed.mjs.
+* generated/prisma, gerado por npm run prisma:generate.
+* 50 - Integration Execution Report - STATE-06 INTEGRATION.txt.
+
+Contratos conectados:
+
+* POST /api/auth/login.
+* GET /api/dashboard/summary.
+* GET /api/dashboard/charts.
+* GET /api/dashboard/operational-list.
+* GET /api/users.
+* GET /api/teams.
+* GET /api/shifts.
+* GET /api/notifications/unread-count.
+* GET /api/rbac/roles.
+* POST /api/activities/:id/move.
+
+Validacoes executadas:
+
+* npm run prisma:validate: aprovado.
+* npm run prisma:generate: aprovado.
+* npm run build:api: aprovado.
+* npx tsc -p apps/web/tsconfig.json --noEmit: aprovado.
+* npm run build:web: aprovado.
+* npm test: aprovado, 2 arquivos de teste e 6 testes passaram.
+* npx eslint apps/web/app apps/api/src: aprovado.
+* npx prisma migrate status: aprovado; database schema up to date.
+* npx prisma migrate deploy: aprovado; no pending migrations to apply.
+* getPrisma() isolado: reprovado com PRISMA_CLIENT_UNAVAILABLE por PrismaClientOptions ausentes.
+* POST /api/auth/login via app Express em memoria: reprovado com 503 PRISMA_CLIENT_UNAVAILABLE.
+* Apos correcao autorizada, npm install @prisma/adapter-pg@7.8.0: aprovado.
+* Apos correcao autorizada, npm install --package-lock-only: aprovado.
+* Apos correcao autorizada, npm run build:api: aprovado.
+* Apos correcao autorizada, npx eslint apps/web/app apps/api/src: aprovado.
+* Apos correcao autorizada, npm test: aprovado, 2 arquivos de teste e 6 testes passaram.
+* Apos correcao autorizada, npm run build:web: aprovado.
+* Apos correcao autorizada, npm run typecheck: aprovado.
+* Apos correcao autorizada, npm run build: aprovado.
+* Apos correcao autorizada, consulta Prisma real: aprovada; banco vazio para companies, users, roles e activities.
+* Apos correcao autorizada, POST /api/auth/login via app Express em memoria: 401 UNAUTHORIZED, sem erro PRISMA_CLIENT_UNAVAILABLE.
+* node prisma/integration-seed.mjs: aprovado.
+* node prisma/integration-seed.mjs reexecutado: aprovado, confirmando idempotencia.
+* Validacao ponta a ponta automatizada com Supertest: todos os endpoints solicitados responderam 200.
+* npx eslint apps/web/app apps/api/src prisma/integration-seed.mjs: aprovado.
+* npm run typecheck: aprovado.
+* npm run build:api: aprovado.
+* npm run build:web: aprovado apos remover artefato .next bloqueado por EPERM do OneDrive.
+* npm run build: aprovado.
+
+Pendencias bloqueantes:
+
+* Nenhuma pendencia tecnica bloqueante identificada apos seed e validacao automatizada dos fluxos de integracao solicitados.
+* Encerramento formal de STATE-06 ainda depende de auditoria/Human CI e decisao da State Machine.
+
+Escopo preservado:
+
+* Nenhum modulo novo criado.
+* Nenhuma regra de negocio nova criada.
+* Nenhum schema Prisma alterado.
+* Nenhuma migration nova criada.
+* Seed/fixture de integracao criada sem alterar schema ou criar migration.
+* @prisma/adapter-pg 7.8.0 instalada apos autorizacao explicita para correcao de runtime Prisma/PostgreSQL.
+* package.json e package-lock.json alterados apenas para registrar @prisma/adapter-pg 7.8.0.
+
+---
+
+TESTING / HOMOLOGATION EXECUTADA
+
+Estado:
+
+* STATE-07 TESTING_HOMOLOGATION executado parcialmente em 2026-06-21.
+* Validacoes tecnicas aprovadas: docker compose ps com shiftflow-postgres healthy, npm run prisma:validate, npx prisma migrate status, node prisma/integration-seed.mjs, npm test, npm run typecheck, npx eslint apps/web/app apps/api/src prisma/integration-seed.mjs, npm run build:api e npm run build:web.
+* Validacao autenticada por Supertest aprovou Auth, Dashboard, Users, Teams, Shifts, Activities/Kanban, Notifications, RBAC, Reports e Audit com token real.
+* Testes negativos basicos de seguranca aprovaram sem token 401, token invalido 401 e senha invalida 400.
+* Validacao estatica confirmou PT-BR, EN-GB, Dark Mode, Light Mode e breakpoints responsivos em apps/web/app/page.tsx e apps/web/app/globals.css.
+* Validacao visual desktop em Chrome foi executada apos retomada: login autenticado aprovado, Dashboard com dados reais aprovado, Dark Mode aprovado, EN-GB parcial aprovado e navegacao principal aprovada.
+* Validacao visual mobile, acessibilidade e screenshot automatico nao foram concluidos.
+* Reexecucao solicitada de STATE-07 em 2026-06-21 manteve banco, seed, testes, typecheck, lint restrito, build API, build Web e contratos autenticados aprovados.
+* Na reexecucao, npm audit e npm run lint global continuaram reprovados pelos mesmos motivos ja registrados.
+* Na reexecucao, login com integration.admin@shiftflow.local / ShiftFlow#2026 retornou 200 e login com defaults atuais retornou 401.
+* Apos autorizacao explicita do usuario, os bugs registrados foram corrigidos em STATE-07 sem criar feature nova:
+  * apps/web/app/page.tsx alinhou defaults de login a integration.admin@shiftflow.local / ShiftFlow#2026.
+  * apps/web/app/page.tsx internacionalizou labels de status para PT-BR e EN-GB no Kanban e tabelas.
+  * eslint.config.mjs passou a ignorar **/.next/**.
+  * package.json e package-lock.json receberam overrides transitivos para corrigir npm audit sem --force.
+* npm audit --audit-level=moderate passou a retornar 0 vulnerabilidades.
+* npm run lint, npm run typecheck, npm test e npm run build aprovaram apos correcoes.
+* Homologacao visual final executada em Chrome headless via DevTools Protocol, sem instalar Playwright:
+  * Desktop Dashboard aprovado.
+  * Dark Mode aprovado.
+  * Kanban EN-GB aprovado.
+  * Mobile 390px aprovado sem overflow de body.
+  * Acessibilidade basica por DOM aprovada.
+* Screenshots finais: dist/state07-prod-desktop-dashboard.png, dist/state07-prod-desktop-dark.png, dist/state07-prod-desktop-kanban-en.png e dist/state07-prod-mobile-dashboard.png.
+* Apos solicitacao explicita do usuario, novos testes Playwright foram adicionados e executados:
+  * @playwright/test adicionado como devDependency.
+  * playwright.config.ts criado usando Chrome local via executablePath, sem download de browsers.
+  * tests/e2e/state07-homologation.spec.ts criado para login, KPIs, Dark Mode, EN-GB, Kanban e mobile.
+  * npm run test:e2e aprovado com 5 passed e 1 skipped intencional para caso mobile-only no projeto desktop.
+  * npm run lint, npm run typecheck, npm audit --audit-level=moderate e npm run build continuaram aprovados.
+
+Artefatos:
+
+* 53 - Testing Homologation Report - STATE-07 TESTING_HOMOLOGATION.txt.
+* 54 - Automatic Review Audit - STATE-07 TESTING_HOMOLOGATION.txt.
+* 55 - Human CI Validation - STATE-07 TESTING_HOMOLOGATION.txt.
+
+Bugs registrados:
+
+* BUG-STATE07-001: apps/web/app/page.tsx preenche coordenador@shiftflow.local / shiftflow, mas a credencial de integracao ativa e integration.admin@shiftflow.local / ShiftFlow#2026; login com defaults retorna 401.
+* BUG-STATE07-002: npm run lint global falha apos build porque eslint.config.mjs ignora ".next/**", mas os artefatos gerados ficam em apps/web/.next.
+* BUG-STATE07-003: npm audit --audit-level=moderate segue reprovado por 5 vulnerabilidades moderadas transitivas; correcao automatica exige --force com breaking/downgrade.
+* BUG-STATE07-004: em EN-GB, a tela Kanban manteve labels de colunas em portugues.
+
+Resultado:
+
+* STATE-07 TESTING_HOMOLOGATION nao foi aprovada para recomendacao a STATE-08 nesta execucao.
+* Manter STATE-07 ativo ate concluir homologacao visual/manual e tratar ou aceitar explicitamente os bugs registrados.
+* Reexecucao de STATE-07 manteve a decisao de nao recomendar STATE-08.
+* Apos correcoes e homologacao final, STATE-07 TESTING_HOMOLOGATION ficou aprovada para recomendacao de transicao para STATE-08 PRODUCTION_RELEASE.
+* Apos testes Playwright, a recomendacao para STATE-08 PRODUCTION_RELEASE permanece aprovada.
+
+---
+
+DEPENDENCIAS
+
+* Tecnologias planejadas: Next.js, TypeScript, Tailwind, ShadCN, Node.js, Express, Prisma, PostgreSQL.
+* Dependencias instaladas em STATE-01 SETUP_PROJECT:
+  * Frontend: Next.js, React, React DOM, Tailwind, Radix base, lucide-react, react-hook-form, validacao e cliente HTTP.
+  * Backend: Express, TypeScript, Prisma Client, Prisma PostgreSQL adapter, pg, zod, jsonwebtoken, bcryptjs, cors, helmet, morgan, dotenv.
+  * Banco: Prisma CLI e Prisma Client com datasource PostgreSQL.
+  * Qualidade: ESLint, Prettier, TypeScript, Vitest, Supertest, scripts de build/check.
+  * Ambiente: Docker Compose com PostgreSQL e .env.example.
+* Lockfile gerado: package-lock.json.
+
+---
+
+EVIDENCIAS DE SETUP_PROJECT
+
+* 29 - Phase 00 - Project Setup.txt executado.
+* package.json criado com scripts:
+  * dev
+  * dev:web
+  * dev:api
+  * build
+  * build:api
+  * build:web
+  * typecheck
+  * lint
+  * format
+  * format:check
+  * test
+  * prisma:generate
+  * prisma:validate
+* package-lock.json criado.
+* prisma/schema.prisma criado sem modelos de dominio.
+* docker-compose.yml criado para PostgreSQL local.
+* .env.example criado.
+* Git local inicializado:
+  * Comando executado: git init -b main.
+  * Branch principal: main.
+  * Remote: nao configurado.
+  * Commit inicial: nao criado.
+* Auditoria retrospectiva de STATE-01 SETUP_PROJECT executada em 2026-06-21:
+  * 44 - Automatic Review Audit - STATE-01 SETUP_PROJECT.txt.
+  * 45 - Human CI Validation - STATE-01 SETUP_PROJECT.txt.
+  * Resultado: aprovado.
+  * Observacao: validacao retrospectiva nao altera estado atual STATE-04 BACKEND_IMPLEMENTATION.
+* Validacoes executadas:
+  * npm run typecheck: aprovado.
+  * npm run lint: aprovado.
+  * npm test: aprovado, 1 arquivo de teste e 1 teste passaram.
+  * npm run prisma:validate: aprovado.
+  * npm run build: aprovado para API e Web.
+* npm audit --audit-level=moderate: reprovado por 5 vulnerabilidades moderadas transitivas em Prisma/Next; correcoes sugeridas pelo npm exigem --force com alteracoes breaking/downgrade, portanto pendencia registrada como risco nao bloqueante para acompanhamento.
+
+---
+
+HISTORICO RESUMIDO DO SISTEMA DE PROMPTS
+
+* Baseline canonica consolidada com State Machine, gates, modulos e controles.
+* Arquivos .txt renomeados para en-GB com prefixos numericos na ordem operacional.
+* Estados executaveis cobertos por prompts de fase.
+* Project Memory incluido no fluxo obrigatorio.
+* Rollback da renumeracao em intervalos de 10 preservado em log.
+* Testing/Homologation e Production Release posicionados na sequencia de fases.
+* Modulos movidos para faixa posterior de referencia.
+* Referencias antigas de prompts numericos corrigidas.
+* Setup reforcado como ponto unico de instalacao de dependencias e scaffold Prisma.
+* Fluxo de correcoes apos Testing/Homologation formalizado.
+* Fluxo de migrations de dominio formalizado.
+* 13 - Module Phase Matrix.txt completada para todos os modulos canonicos.
+* Checklists e protocolos secundarios alinhados ao roteiro obrigatorio atual.
+* Acentuacao dos .txt normalizada para ASCII.
+* Diretorio prisma removido para permitir execucao limpa a partir de STATE-01 SETUP_PROJECT.
+
+Historico detalhado:
+
+* 18 - State Transition Log.txt.
+* 21 - Prompt System Change Log.txt.
+
+---
+
+PENDENCIAS
+
+* STATE-08 PRODUCTION_RELEASE executado em 2026-06-21.
+* Relatorio final de release registrado em 56 - Production Release Report - STATE-08 PRODUCTION_RELEASE.txt.
+* Auditoria automatica de release registrada em 57 - Automatic Review Audit - STATE-08 PRODUCTION_RELEASE.txt.
+* Human CI de release registrado em 58 - Human CI Validation - STATE-08 PRODUCTION_RELEASE.txt.
+* Tentativa anterior de executar STATE-08 PRODUCTION_RELEASE em 2026-06-21 foi bloqueada como BLOCK-STATE antes da decisao formal; a State Machine decidiu transicionar para STATE-08 em 2026-06-21 e a execucao posterior foi concluida.
+* Atualizar este snapshot ao final de cada fase executada.
+* Definir ambiente remoto/pipeline de producao quando houver alvo externo declarado.
+* Configurar remote Git quando o destino for definido.
+
+---
+
+RISCOS
+
+* npm audit foi corrigido por overrides transitivos sem --force; acompanhar compatibilidade desses overrides em upgrades futuros.
+* Git local nao possui remote nem commit inicial.
+* RBAC multi-escopo, dashboards agregados e regras de turno/SLA foram implementados no backend em STATE-04, mas exigem validacao com dados reais em integracao e homologacao.
+* Storage de anexos ainda precisa de decisao concreta por ambiente em fase posterior, sem bloquear a arquitetura.
+* Prisma Client foi gerado em STATE-06 pelo script existente para runtime de integracao.
+* PostgreSQL de integracao esta disponivel via docker compose; migration aprovada em STATE-03 foi aplicada.
+* Endpoints database-backed acessam PostgreSQL apos correcao com @prisma/adapter-pg 7.8.0.
+* npm run lint global foi corrigido para ignorar artefatos gerados em apps/web/.next.
+* Contratos reais foram conectados no frontend e validados por Supertest com banco e dados reais de integracao.
+* STATE-06 INTEGRATION foi aprovada em auditoria tecnica e Human CI; State Machine decidiu transicao para STATE-07 TESTING_HOMOLOGATION.
+* STATE-07 TESTING_HOMOLOGATION identificou bloqueio de homologacao visual/manual por indisponibilidade do navegador interno iab e ausencia de Playwright instalado.
+* Bloqueio de navegador desktop foi corrigido por validacao via Chrome controlado pela sessao, sem instalar Playwright no projeto.
+* Defaults atuais do login foram corrigidos para a credencial de integracao.
+* npm run lint global foi corrigido para ignorar apps/web/.next.
+* Traducao EN-GB do Kanban foi corrigida.
+* npm audit foi corrigido por overrides transitivos sem --force; risco remanescente e acompanhar compatibilidade de overrides em upgrades futuros.
+* Playwright e @axe-core/playwright foram adicionados como tooling de teste por solicitacao explicita do usuario durante STATE-07; manter revisao desse tooling em manutencoes futuras.
+* Reexecucao STATE-07 com Playwright em 2026-06-21 aprovada: npm audit, lint, typecheck, npm test, build e npm run test:e2e passaram.
+* Auditoria formal e Human CI de STATE-07 em 2026-06-21 aprovados: banco, backend, frontend, APIs, seguranca, performance basica, responsividade, traducoes, Dark Mode e Light Mode validados com evidencia tecnica.
+* Pendencias nao bloqueantes de STATE-07 corrigidas em 2026-06-21: axe dedicado aprovado, teste de carga aprovado e massa ampla idempotente de homologacao criada com 120 atividades adicionais.
+* npm run test:e2e agora inclui homologacao funcional, axe dedicado e teste de carga local com skips intencionais para cenarios especificos por projeto.
+* Auditoria formal e Human CI pos-correcoes de STATE-07 em 2026-06-21 aprovados: docker compose ps, prisma validate, migrate status, integration seed, homologation seed, npm audit, lint, typecheck, unit, build, Playwright completo, npm explain @hono/node-server e npm explain postcss validados.
+* Riscos remanescentes de STATE-07 corrigidos em 2026-06-21: npm run audit:overrides criado e aprovado; npm run test:load:stress criado e aprovado; overrides e carga deixam de ser riscos bloqueantes abertos.
+* Auditoria formal e Human CI final com gates de risco em 2026-06-21 aprovados: npm run audit:overrides, npm run test:e2e e npm run test:load:stress aprovados; nenhum risco bloqueante remanescente para STATE-07.
+* Recomendacao formal de transicao para STATE-08 PRODUCTION_RELEASE registrada e aceita pela State Machine em 2026-06-21.
+* State Machine decidiu transicionar de STATE-07 TESTING_HOMOLOGATION para STATE-08 PRODUCTION_RELEASE em 2026-06-21.
+* STATE-08 PRODUCTION_RELEASE executado em 2026-06-21 sem criar feature nova, migration nova, schema, backend, frontend, package.json ou runtime config.
+* Deploy/verificacao de migration aprovada executado em STATE-08 por npx prisma migrate deploy; resultado: No pending migrations to apply.
+* Gates finais de release aprovados em 2026-06-21: docker compose ps healthy; npm run prisma:validate; npx prisma migrate status; npx prisma migrate deploy; node prisma/integration-seed.mjs; npm run homologation:seed; npm audit --audit-level=moderate; npm run audit:overrides; npm run lint; npm run typecheck; npm test; npm run build; npm run test:e2e; npm run test:load:stress.
+* Risco aceito de STATE-08: nenhum ambiente remoto de producao foi declarado no workspace; release final foi validado no DATABASE_URL local configurado.
+* Pendencias operacionais pos-release executadas parcialmente em 2026-06-21:
+  * .github/workflows/release-gates.yml criado para CI de release gates.
+  * docs/production-runbook.md criado com ordem de deploy, variaveis e gates.
+  * docs/attachment-storage-strategy.md criado com estrategia de storage de anexos.
+  * Commit inicial local criado.
+* Pendencia externa remanescente: configurar remote Git depende da URL do repositorio remoto.
+
+---
+
+OBSERVACAO
+
+Este snapshot registra evidencia.
+Ele nao altera estado.

@@ -1,0 +1,43 @@
+CURRENT STATE
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, current state, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+Estado atual:
+STATE-08 PRODUCTION_RELEASE
+
+Fase permitida:
+STATE-08 PRODUCTION_RELEASE
+
+Ultima transicao:
+STATE-07 TESTING_HOMOLOGATION para STATE-08 PRODUCTION_RELEASE apos auditoria final, Human CI, gates de risco e decisao da State Machine.
+
+Proxima fase esperada:
+Encerramento de release
+
+Bloqueios:
+Nenhum bloqueio operacional registrado.
+
+Ultima atualizacao:
+2026-06-21
+
+---
+
+COMANDOS VALIDOS NO ESTADO ATUAL
+
+* Executar STATE-08 PRODUCTION_RELEASE
+* Executar deploy de migrations aprovadas
+* Registrar release final
+* Auditar release
+
+---
+
+OBSERVACAO
+
+Este arquivo declara o estado atual para consulta operacional.
+Ele nao altera estado por si mesmo.
+A State Machine e a unica autoridade de transicao.

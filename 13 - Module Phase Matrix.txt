@@ -1,0 +1,459 @@
+MATRIZ MODULO X FASE
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, matriz ou modulo pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+OBJETIVO
+
+Definir em qual fase cada parte dos modulos pode ser tratada.
+
+Esta matriz orienta escopo.
+Ela nao altera estado.
+
+---
+
+LEGENDA
+
+D = DATABASE_MODELING
+B = BACKEND_IMPLEMENTATION
+F = FRONTEND_IMPLEMENTATION
+I = INTEGRATION
+T = TESTING_HOMOLOGATION
+
+---
+
+MOD-11 RBAC
+
+D:
+
+* Roles
+* Permissions
+* Relacionamentos usuario/empresa/cliente/permissao
+* Constraints e indices
+
+B:
+
+* Middleware de autorizacao
+* Services de permissao
+* Policies
+* Validacao obrigatoria no backend
+
+F:
+
+* Interface administrativa
+* Guards visuais
+* Controle de navegacao
+
+I:
+
+* Validacao ponta a ponta por perfil
+* Validacao multiempresa
+* Bloqueios por permissao
+
+T:
+
+* Auditoria de seguranca
+* Testes de acesso indevido
+
+---
+
+MOD-03 TEAMS / GESTAO DE EQUIPES
+
+D:
+
+* Entidade Team
+* Lider
+* Membros
+* Turnos vinculados
+* Soft delete
+
+B:
+
+* APIs de criar, editar, inativar e excluir logicamente
+* Movimentacao de analistas
+* RBAC e multiempresa
+
+F:
+
+* Tela de equipes
+* Formulario de equipe
+* Fluxo de movimentacao de analistas
+
+I:
+
+* Fluxo completo de CRUD e movimentacao
+
+T:
+
+* Testes de permissao, integridade e isolamento multiempresa
+
+---
+
+MOD-04 SHIFTS / GESTAO DE TURNOS
+
+D:
+
+* Entidade Shift
+* Escala
+* Cobertura
+* Plantao
+* Ferias
+* Substituicao
+
+B:
+
+* APIs de criar, editar, encerrar e reabrir
+* Regras de escala, cobertura, plantao, ferias e substituicao
+
+F:
+
+* Tela de turnos
+* Fluxos visuais de escala, cobertura, plantao, ferias e substituicao
+
+I:
+
+* Validacao ponta a ponta dos fluxos de turno
+
+T:
+
+* Auditoria de regras, permissao e consistencia temporal
+
+---
+
+MOD-09 DASHBOARD_EXECUTIVO
+
+D:
+
+* Campos e indices para KPIs
+* Relacionamentos necessarios para agregacoes
+
+B:
+
+* Endpoints de KPIs
+* Services de agregacao
+* Filtros por equipe, analista, cliente, prioridade, status e turno
+
+F:
+
+* Cards de KPI
+* Graficos
+* Filtros
+* Lista operacional em tempo real
+
+I:
+
+* Integracao de dados reais
+* Validacao de filtros
+* Atualizacao em tempo real
+
+T:
+
+* Auditoria de numeros, performance e permissao
+
+---
+
+MOD-10 KANBAN_OPERACIONAL
+
+D:
+
+* Status
+* Prioridade
+* SLA
+* Historico de atividade
+
+B:
+
+* APIs de listagem, movimentacao e atualizacao
+* Registro de historico
+* Regras de SLA e prioridade
+
+F:
+
+* Quadro Kanban
+* Colunas
+* Cartoes
+* Drag and drop
+
+I:
+
+* Persistencia de movimentacao
+* Atualizacao em tempo real
+* Validacao de historico
+
+T:
+
+* Testes de concorrencia, permissao, SLA e responsividade
+
+---
+
+MOD-01 AUTH
+
+D:
+
+* Campos de usuario, credenciais, tokens e auditoria, se aplicavel
+
+B:
+
+* Login
+* Refresh Token
+* JWT
+* Logout
+* Protecao de rotas
+
+F:
+
+* Tela de login
+* Estado de sessao visual
+* Redirecionamentos
+
+I:
+
+* Fluxo completo de autenticacao
+* Expiracao e refresh
+
+T:
+
+* Testes de seguranca e sessao
+
+---
+
+MOD-02 USERS
+
+D:
+
+* Entidade User
+* Relacionamentos com Company, Client, Team, Roles e Permissions
+* Campos de perfil, status, idioma, tema e auditoria
+
+B:
+
+* APIs de criar, editar, inativar e listar usuarios
+* Services de perfil, status e associacoes
+* Validacao de multiempresa e RBAC
+
+F:
+
+* Tela de gestao de usuarios
+* Formularios de usuario e perfil
+* Controles visuais de status, permissao e associacao a equipes
+
+I:
+
+* Fluxo completo de CRUD de usuarios
+* Validacao de isolamento multiempresa
+* Validacao de permissoes por perfil
+
+T:
+
+* Testes de permissao, isolamento, status e auditoria de usuario
+
+---
+
+MOD-12 AUDIT
+
+D:
+
+* AuditLogs
+* Relacionamentos de usuario, entidade e acao
+
+B:
+
+* Registro de eventos relevantes
+* Services de auditoria
+
+F:
+
+* Visualizacao administrativa, se prevista pela arquitetura
+
+I:
+
+* Validacao de eventos ponta a ponta
+
+T:
+
+* Auditoria de cobertura e integridade dos logs
+
+---
+
+MOD-05 ACTIVITIES
+
+D:
+
+* Entidade Activity
+* Status, prioridade, SLA, responsavel, cliente, equipe e turno
+* Relacionamentos com historico, comentarios, anexos e auditoria
+
+B:
+
+* APIs de criar, editar, mover, atribuir e encerrar atividades
+* Services de status, prioridade, SLA e responsaveis
+* Validacoes de permissao e isolamento
+
+F:
+
+* Tela de atividades
+* Formularios de criacao e edicao
+* Listas, filtros e estados visuais de prioridade/SLA
+
+I:
+
+* Fluxos ponta a ponta de criacao, edicao, movimentacao e encerramento
+* Validacao de historico e auditoria
+
+T:
+
+* Testes de SLA, permissao, concorrencia e consistencia de status
+
+---
+
+MOD-06 COMMENTS
+
+D:
+
+* Entidade Comment
+* Relacionamento com Activity, User e AuditLogs
+* Soft delete e timestamps
+
+B:
+
+* APIs de criar, editar, excluir logicamente e listar comentarios
+* Services de validacao de autor, permissao e atividade vinculada
+
+F:
+
+* Thread ou lista de comentarios em atividades
+* Formulario de comentario
+* Estados visuais de edicao, exclusao e auditoria
+
+I:
+
+* Fluxo ponta a ponta de comentarios em atividades
+* Validacao de permissao por usuario e equipe
+
+T:
+
+* Testes de permissao, auditoria, soft delete e integridade de vinculo
+
+---
+
+MOD-07 NOTIFICATIONS
+
+D:
+
+* Entidade Notification
+* Relacionamento com User, Activity, Team e eventos de auditoria
+* Campos de leitura, tipo, prioridade e canal
+
+B:
+
+* Services de geracao de notificacoes
+* APIs de listar, marcar como lida e limpar notificacoes
+* Regras de disparo por SLA, atribuicao e mudanca de status
+
+F:
+
+* Centro de notificacoes
+* Indicadores de nao lidas
+* Estados visuais de leitura e prioridade
+
+I:
+
+* Fluxos ponta a ponta de notificacao por eventos reais
+* Validacao de leitura e atualizacao em tempo real, se previsto
+
+T:
+
+* Testes de disparo, permissao, duplicidade e performance
+
+---
+
+MOD-08 REPORTS
+
+D:
+
+* Campos e indices para relatorios
+* Relacionamentos necessarios para filtros e agregacoes
+
+B:
+
+* Endpoints de relatorios
+* Services de filtros, agregacoes e exportacao, se prevista
+* Validacao de permissao por escopo
+
+F:
+
+* Tela de relatorios
+* Filtros, tabelas, graficos e exportacao, se prevista
+
+I:
+
+* Validacao de dados reais em relatorios
+* Validacao de filtros e escopo multiempresa
+
+T:
+
+* Auditoria de numeros, permissao, performance e exportacao
+
+---
+
+MOD-13 ATTACHMENTS
+
+D:
+
+* Entidade Attachment
+* Relacionamento com Activity, Comment, User e AuditLogs
+* Metadados de arquivo, tamanho, tipo e armazenamento
+
+B:
+
+* APIs de upload, download, listagem e exclusao logica
+* Validacao de tipo, tamanho, permissao e escopo
+* Integracao com storage definido na arquitetura
+
+F:
+
+* Componentes de upload e lista de anexos
+* Estados de progresso, erro e remocao
+
+I:
+
+* Fluxo ponta a ponta de upload/download
+* Validacao de permissao e auditoria
+
+T:
+
+* Testes de seguranca, tamanho, tipo, permissao e integridade
+
+---
+
+MOD-14 SHIFT_REPORTS
+
+D:
+
+* Entidade ShiftReport
+* Relacionamento com Shift, Team, User, Activities e AuditLogs
+* Campos de resumo, indicadores, pendencias e aprovacao
+
+B:
+
+* APIs de gerar, editar, aprovar e consultar relatorios de turno
+* Services de consolidacao de atividades, pendencias e indicadores
+
+F:
+
+* Tela de relatorio de turno
+* Formularios de fechamento e aprovacao
+* Visualizacao de indicadores e pendencias
+
+I:
+
+* Fluxo ponta a ponta de fechamento de turno
+* Validacao com atividades, equipe e auditoria
+
+T:
+
+* Testes de consistencia temporal, permissao, consolidacao e auditoria

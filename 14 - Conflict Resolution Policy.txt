@@ -1,0 +1,102 @@
+POLITICA DE RESOLUCAO DE CONFLITOS
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, politica, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+OBJETIVO
+
+Definir como resolver conflitos entre arquivos, prompts, gates, modulos, criterios e instrucoes do usuario.
+
+---
+
+HIERARQUIA DE AUTORIDADE
+
+1. 03 - Official State Machine.txt
+2. 04 - System Guard Rails.txt
+3. 10 - Acceptance Criteria by State.txt
+4. 13 - Module Phase Matrix.txt, quando houver modulo envolvido
+5. 09 - Project Snapshot.txt como fonte de evidencia
+6. Gates de validacao:
+   * 25 - Human Gate Validation Checklist.txt
+   * 26 - Automatic Review Audit.txt
+   * 27 - Engineering Multi-Agent System.txt
+7. 05 - Controlled Phase Execution System.txt
+8. Prompt da fase em execucao
+9. Prompt de modulo
+10. Arquivos operacionais:
+   * 02 - Prompt Index.txt
+   * 06 - Execution Protocol.txt
+   * 11 - Evidence Standard.txt
+   * 12 - Global Definition of Done.txt
+   * 16 - Controlled Rollback Policy.txt
+   * 18 - State Transition Log.txt
+
+Se houver conflito, prevalece o item de maior autoridade.
+
+---
+
+TIPOS DE CONFLITO
+
+CONFLITO DE ESTADO:
+
+* Dois arquivos indicam estados diferentes.
+* Resolucao: prevalece a State Machine; snapshot e log registram evidencia.
+
+CONFLITO DE ESCOPO:
+
+* Um prompt pede acao fora da fase atual.
+* Resolucao: prevalecem Guard Rails e Module Phase Matrix.
+
+CONFLITO DE TOOLING:
+
+* Um prompt pede instalacao, setup, package.json ou runtime fora de SETUP_PROJECT.
+* Um prompt pede Prisma CLI fora das permissoes explicitas de migration.
+* Resolucao: bloquear execucao.
+
+CONFLITO DE EVIDENCIA:
+
+* Uma fase e declarada concluida sem artefatos verificaveis.
+* Resolucao: bloquear conclusao ate cumprir Evidence Standard e Acceptance Criteria.
+
+CONFLITO DE MODULO:
+
+* Um modulo pede banco, backend e frontend ao mesmo tempo.
+* Resolucao: executar apenas a parte permitida pelo estado atual.
+
+CONFLITO DE GATE:
+
+* Um gate aprova e outro reprova.
+* Resolucao: qualquer reprova ou bloqueio critico impede recomendacao de transicao.
+
+CONFLITO COM INSTRUCAO DO USUARIO:
+
+* O usuario solicita algo fora da State Machine ou fora da fase.
+* Resolucao: reportar conflito, aplicar Guard Rails e aguardar comando valido ou SKIP_CONTROLLED.
+
+---
+
+FORMATO DE RELATO DE CONFLITO
+
+CONFLITO:
+ARQUIVOS ENVOLVIDOS:
+TIPO:
+AUTORIDADE APLICADA:
+DECISAO:
+IMPACTO:
+CORRECAO NECESSARIA:
+STATUS:
+
+---
+
+REGRA FINAL
+
+Resolver conflito nao altera estado.
+A State Machine decide qualquer transicao.
+
+
+
+

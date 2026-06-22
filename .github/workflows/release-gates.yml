@@ -1,0 +1,82 @@
+name: Release gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  release-gates:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shiftflow
+          POSTGRES_PASSWORD: shiftflow
+          POSTGRES_DB: shiftflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shiftflow -d shiftflow"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://shiftflow:shiftflow@localhost:5432/shiftflow?schema=public
+      JWT_SECRET: ci-local-secret
+      API_PORT: 3001
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+      PLAYWRIGHT_CHROME_EXECUTABLE_PATH: /usr/bin/google-chrome
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
+
+      - name: Deploy approved migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed integration data
+        run: node prisma/integration-seed.mjs
+
+      - name: Seed homologation data
+        run: npm run homologation:seed
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate
+
+      - name: Verify overrides
+        run: npm run audit:overrides
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Playwright E2E
+        run: npm run test:e2e
+
+      - name: Load stress
+        run: npm run test:load:stress

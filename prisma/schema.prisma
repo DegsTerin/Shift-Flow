@@ -1,0 +1,698 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum UserTheme {
+  SYSTEM
+  LIGHT
+  DARK
+}
+
+enum Locale {
+  PT_BR
+  EN_GB
+}
+
+enum RoleScope {
+  GLOBAL
+  COMPANY
+  CLIENT
+  TEAM
+}
+
+enum TeamMemberRole {
+  LEADER
+  MEMBER
+}
+
+enum ShiftStatus {
+  PLANNED
+  OPEN
+  CLOSED
+  REOPENED
+  CANCELLED
+}
+
+enum ShiftCoverageType {
+  REGULAR
+  ON_CALL
+  VACATION
+  SUBSTITUTE
+  ABSENCE
+}
+
+enum ActivityStatus {
+  PENDING
+  IN_PROGRESS
+  WAITING_THIRD_PARTY
+  MONITORING
+  DONE
+  CANCELLED
+}
+
+enum ActivityPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ActivityHistoryType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNED
+  UNASSIGNED
+  MOVED_TEAM
+  MOVED_SHIFT
+  SLA_UPDATED
+  COMMENTED
+  ATTACHMENT_ADDED
+  CLOSED
+  REOPENED
+}
+
+enum NotificationType {
+  ACTIVITY_ASSIGNED
+  ACTIVITY_STATUS_CHANGED
+  SLA_AT_RISK
+  SLA_BREACHED
+  COMMENT_ADDED
+  SHIFT_REPORT_READY
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum ShiftReportStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model Company {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String        @db.VarChar(160)
+  legalName   String?       @db.VarChar(200)
+  document    String?       @db.VarChar(64)
+  timezone    String        @default("America/Sao_Paulo") @db.VarChar(64)
+  status      CompanyStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?     @db.Timestamptz(6)
+
+  clients             Client[]
+  users               UserCompany[]
+  teams               Team[]
+  shifts              Shift[]
+  roles               Role[]
+  permissions         Permission[]
+  rolePermissions     RolePermission[]
+  userRoleAssignments UserRoleAssignment[]
+  activities          Activity[]
+  activityHistory     ActivityHistory[]
+  comments            Comment[]
+  attachments         Attachment[]
+  notifications       Notification[]
+  shiftReports        ShiftReport[]
+  auditLogs           AuditLog[]
+
+  @@unique([name])
+  @@unique([id, status])
+  @@index([status, deletedAt])
+  @@map("companies")
+}
+
+model Client {
+  id          String       @id @default(uuid()) @db.Uuid
+  companyId   String       @db.Uuid
+  name        String       @db.VarChar(160)
+  code        String?      @db.VarChar(64)
+  status      ClientStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?    @db.Timestamptz(6)
+  createdById String?      @db.Uuid
+  updatedById String?      @db.Uuid
+  deletedById String?      @db.Uuid
+
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  userClients         UserClient[]
+  teams               TeamClient[]
+  roleAssignments     UserRoleAssignment[]
+  activities          Activity[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@unique([id, companyId])
+  @@index([companyId, status, deletedAt])
+  @@map("clients")
+}
+
+model User {
+  id               String     @id @default(uuid()) @db.Uuid
+  email            String     @unique @db.VarChar(254)
+  passwordHash     String     @db.VarChar(255)
+  displayName      String     @db.VarChar(160)
+  jobTitle         String?    @db.VarChar(120)
+  status           UserStatus @default(INVITED)
+  preferredLocale  Locale     @default(PT_BR)
+  preferredTheme   UserTheme  @default(SYSTEM)
+  lastLoginAt      DateTime?  @db.Timestamptz(6)
+  passwordChangedAt DateTime? @db.Timestamptz(6)
+  createdAt        DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt        DateTime?  @db.Timestamptz(6)
+
+  companies           UserCompany[]
+  clients             UserClient[]
+  teamMemberships     TeamMember[]
+  shiftCoverages      ShiftCoverage[]  @relation("ShiftCoverageUser")
+  shiftReplacements   ShiftCoverage[]  @relation("ShiftCoverageReplacement")
+  roleAssignments     UserRoleAssignment[]
+  assignedActivities  Activity[]        @relation("ActivityAssignee")
+  reportedActivities  Activity[]        @relation("ActivityReporter")
+  activityHistory     ActivityHistory[]
+  comments            Comment[]
+  attachments         Attachment[]
+  notifications       Notification[]
+  authoredReports     ShiftReport[]     @relation("ShiftReportAuthor")
+  approvedReports     ShiftReport[]     @relation("ShiftReportApprover")
+  auditLogs           AuditLog[]        @relation("AuditActor")
+  refreshTokens       RefreshToken[]
+
+  @@index([status, deletedAt])
+  @@map("users")
+}
+
+model UserCompany {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  userId      String    @db.Uuid
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, userId])
+  @@index([userId, deletedAt])
+  @@map("user_companies")
+}
+
+model UserClient {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @db.Uuid
+  clientId  String    @db.Uuid
+  userId    String    @db.Uuid
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  client Client @relation(fields: [clientId, companyId], references: [id, companyId], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, clientId, userId])
+  @@index([companyId, userId, deletedAt])
+  @@map("user_clients")
+}
+
+model Team {
+  id                  String    @id @default(uuid()) @db.Uuid
+  companyId           String    @db.Uuid
+  name                String    @db.VarChar(160)
+  description         String?   @db.Text
+  color               String?   @db.VarChar(16)
+  defaultSlaMinutes   Int?
+  createdAt           DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt           DateTime? @db.Timestamptz(6)
+  createdById         String?   @db.Uuid
+  updatedById         String?   @db.Uuid
+  deletedById         String?   @db.Uuid
+
+  company         Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  clients         TeamClient[]
+  members         TeamMember[]
+  shifts          Shift[]
+  shiftReports    ShiftReport[]
+  roleAssignments UserRoleAssignment[]
+  activities      Activity[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+
+  @@unique([companyId, name])
+  @@unique([id, companyId])
+  @@index([companyId, deletedAt])
+  @@map("teams")
+}
+
+model TeamClient {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @db.Uuid
+  teamId    String    @db.Uuid
+  clientId  String    @db.Uuid
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  team   Team   @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+  client Client @relation(fields: [clientId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  @@unique([companyId, teamId, clientId])
+  @@index([companyId, clientId, deletedAt])
+  @@map("team_clients")
+}
+
+model TeamMember {
+  id        String         @id @default(uuid()) @db.Uuid
+  companyId String         @db.Uuid
+  teamId    String         @db.Uuid
+  userId    String         @db.Uuid
+  role      TeamMemberRole @default(MEMBER)
+  startsAt  DateTime       @default(now()) @db.Timestamptz(6)
+  endsAt    DateTime?      @db.Timestamptz(6)
+  createdAt DateTime       @default(now()) @db.Timestamptz(6)
+  deletedAt DateTime?      @db.Timestamptz(6)
+
+  team Team @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, teamId, role, deletedAt])
+  @@index([companyId, userId, deletedAt])
+  @@map("team_members")
+}
+
+model Shift {
+  id          String      @id @default(uuid()) @db.Uuid
+  companyId   String      @db.Uuid
+  teamId      String      @db.Uuid
+  name        String      @db.VarChar(160)
+  startsAt    DateTime    @db.Timestamptz(6)
+  endsAt      DateTime    @db.Timestamptz(6)
+  timezone    String      @default("America/Sao_Paulo") @db.VarChar(64)
+  status      ShiftStatus @default(PLANNED)
+  closedAt    DateTime?   @db.Timestamptz(6)
+  reopenedAt  DateTime?   @db.Timestamptz(6)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?   @db.Timestamptz(6)
+  createdById String?     @db.Uuid
+  updatedById String?     @db.Uuid
+  deletedById String?     @db.Uuid
+
+  company       Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  team          Team            @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+  coverages     ShiftCoverage[]
+  activities    Activity[]
+  shiftReports  ShiftReport[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@unique([id, companyId])
+  @@index([companyId, teamId, status, startsAt])
+  @@index([companyId, status, deletedAt])
+  @@map("shifts")
+}
+
+model ShiftCoverage {
+  id            String            @id @default(uuid()) @db.Uuid
+  companyId     String            @db.Uuid
+  shiftId       String            @db.Uuid
+  userId        String            @db.Uuid
+  replacementForUserId String?    @db.Uuid
+  type          ShiftCoverageType @default(REGULAR)
+  startsAt      DateTime          @db.Timestamptz(6)
+  endsAt        DateTime          @db.Timestamptz(6)
+  note          String?           @db.Text
+  createdAt     DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime          @updatedAt @db.Timestamptz(6)
+  deletedAt     DateTime?         @db.Timestamptz(6)
+
+  shift              Shift @relation(fields: [shiftId, companyId], references: [id, companyId], onDelete: Restrict)
+  user               User  @relation("ShiftCoverageUser", fields: [userId], references: [id], onDelete: Restrict)
+  replacementForUser User? @relation("ShiftCoverageReplacement", fields: [replacementForUserId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, shiftId, type, deletedAt])
+  @@index([companyId, userId, startsAt, endsAt])
+  @@map("shift_coverages")
+}
+
+model Role {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String?   @db.Uuid
+  name        String    @db.VarChar(120)
+  description String?   @db.Text
+  scope       RoleScope @default(COMPANY)
+  isSystem    Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  company         Company?             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  permissions     RolePermission[]
+  assignments     UserRoleAssignment[]
+
+  @@unique([companyId, name])
+  @@unique([id, companyId])
+  @@index([companyId, scope, deletedAt])
+  @@map("roles")
+}
+
+model Permission {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String?   @db.Uuid
+  resource    String    @db.VarChar(80)
+  action      String    @db.VarChar(80)
+  description String?   @db.Text
+  isSystem    Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  company Company?        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  roles   RolePermission[]
+
+  @@unique([companyId, resource, action])
+  @@unique([id, companyId])
+  @@index([resource, action, deletedAt])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String?  @db.Uuid
+  roleId       String   @db.Uuid
+  permissionId String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  company    Company?   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([companyId, roleId])
+  @@map("role_permissions")
+}
+
+model UserRoleAssignment {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @db.Uuid
+  userId    String    @db.Uuid
+  roleId    String    @db.Uuid
+  clientId  String?   @db.Uuid
+  teamId    String?   @db.Uuid
+  startsAt  DateTime  @default(now()) @db.Timestamptz(6)
+  endsAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  client  Client? @relation(fields: [clientId, companyId], references: [id, companyId], onDelete: Restrict)
+  team    Team?   @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  @@index([companyId, userId, deletedAt])
+  @@index([companyId, clientId, userId])
+  @@index([companyId, teamId, userId])
+  @@map("user_role_assignments")
+}
+
+model Activity {
+  id                  String           @id @default(uuid()) @db.Uuid
+  companyId           String           @db.Uuid
+  clientId            String           @db.Uuid
+  teamId              String           @db.Uuid
+  shiftId             String?          @db.Uuid
+  assigneeId          String?          @db.Uuid
+  reporterId          String?          @db.Uuid
+  title               String           @db.VarChar(220)
+  description         String?          @db.Text
+  systemName          String?          @db.VarChar(120)
+  status              ActivityStatus   @default(PENDING)
+  priority            ActivityPriority @default(MEDIUM)
+  slaDueAt            DateTime?        @db.Timestamptz(6)
+  startedAt           DateTime?        @db.Timestamptz(6)
+  completedAt         DateTime?        @db.Timestamptz(6)
+  createdAt           DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt           DateTime?        @db.Timestamptz(6)
+  createdById         String?          @db.Uuid
+  updatedById         String?          @db.Uuid
+  deletedById         String?          @db.Uuid
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  client    Client  @relation(fields: [clientId, companyId], references: [id, companyId], onDelete: Restrict)
+  team      Team    @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+  shift     Shift?  @relation(fields: [shiftId, companyId], references: [id, companyId], onDelete: Restrict)
+  assignee  User?   @relation("ActivityAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  reporter  User?   @relation("ActivityReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  history   ActivityHistory[]
+  comments  Comment[]
+  attachments Attachment[]
+  notifications Notification[]
+  shiftReportItems ShiftReportActivity[]
+  auditLogs AuditLog[]
+
+  @@unique([id, companyId])
+  @@index([companyId, status, priority, slaDueAt])
+  @@index([companyId, clientId, status, updatedAt])
+  @@index([companyId, teamId, status, updatedAt])
+  @@index([companyId, shiftId, status, updatedAt])
+  @@index([companyId, assigneeId, status, updatedAt])
+  @@index([companyId, deletedAt])
+  @@map("activities")
+}
+
+model ActivityHistory {
+  id          String              @id @default(uuid()) @db.Uuid
+  companyId   String              @db.Uuid
+  activityId  String              @db.Uuid
+  actorUserId String?             @db.Uuid
+  type        ActivityHistoryType
+  fromStatus  ActivityStatus?
+  toStatus    ActivityStatus?
+  fromPriority ActivityPriority?
+  toPriority   ActivityPriority?
+  note        String?             @db.Text
+  metadata    Json?
+  createdAt   DateTime            @default(now()) @db.Timestamptz(6)
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  activity Activity @relation(fields: [activityId, companyId], references: [id, companyId], onDelete: Cascade)
+  actor    User?    @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, activityId, createdAt])
+  @@index([companyId, type, createdAt])
+  @@map("activity_history")
+}
+
+model Comment {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  activityId  String    @db.Uuid
+  authorId    String    @db.Uuid
+  body        String    @db.Text
+  editedAt    DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+  deletedById String?   @db.Uuid
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  activity    Activity     @relation(fields: [activityId, companyId], references: [id, companyId], onDelete: Cascade)
+  author      User         @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  attachments Attachment[]
+
+  @@unique([id, companyId])
+  @@index([companyId, activityId, createdAt])
+  @@index([companyId, authorId, deletedAt])
+  @@map("comments")
+}
+
+model Attachment {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  activityId    String    @db.Uuid
+  commentId     String?   @db.Uuid
+  uploadedById  String    @db.Uuid
+  fileName      String    @db.VarChar(255)
+  mimeType      String    @db.VarChar(160)
+  byteSize      BigInt
+  storageKey    String    @db.VarChar(512)
+  checksumSha256 String?  @db.VarChar(64)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt     DateTime? @db.Timestamptz(6)
+  deletedById   String?   @db.Uuid
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  activity   Activity @relation(fields: [activityId, companyId], references: [id, companyId], onDelete: Cascade)
+  comment    Comment? @relation(fields: [commentId, companyId], references: [id, companyId], onDelete: Cascade)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([companyId, activityId, createdAt])
+  @@index([companyId, commentId, createdAt])
+  @@index([companyId, uploadedById, deletedAt])
+  @@map("attachments")
+}
+
+model Notification {
+  id          String               @id @default(uuid()) @db.Uuid
+  companyId   String               @db.Uuid
+  recipientId String               @db.Uuid
+  clientId    String?              @db.Uuid
+  teamId      String?              @db.Uuid
+  shiftId     String?              @db.Uuid
+  activityId  String?              @db.Uuid
+  type        NotificationType
+  priority    NotificationPriority @default(NORMAL)
+  channel     NotificationChannel  @default(IN_APP)
+  title       String               @db.VarChar(180)
+  body        String?              @db.Text
+  readAt      DateTime?            @db.Timestamptz(6)
+  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+  deletedAt   DateTime?            @db.Timestamptz(6)
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  recipient User      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  client    Client?   @relation(fields: [clientId, companyId], references: [id, companyId], onDelete: Restrict)
+  team      Team?     @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+  shift     Shift?    @relation(fields: [shiftId, companyId], references: [id, companyId], onDelete: Restrict)
+  activity  Activity? @relation(fields: [activityId, companyId], references: [id, companyId], onDelete: Cascade)
+
+  @@index([companyId, recipientId, readAt, createdAt])
+  @@index([companyId, type, createdAt])
+  @@index([companyId, activityId, createdAt])
+  @@map("notifications")
+}
+
+model ShiftReport {
+  id           String            @id @default(uuid()) @db.Uuid
+  companyId    String            @db.Uuid
+  shiftId      String            @db.Uuid
+  teamId       String            @db.Uuid
+  authorId     String            @db.Uuid
+  approvedById String?           @db.Uuid
+  status       ShiftReportStatus @default(DRAFT)
+  summary      String            @db.Text
+  pendingNotes String?           @db.Text
+  metrics      Json?
+  submittedAt  DateTime?         @db.Timestamptz(6)
+  approvedAt   DateTime?         @db.Timestamptz(6)
+  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime          @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime?         @db.Timestamptz(6)
+
+  company    Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  shift      Shift                 @relation(fields: [shiftId, companyId], references: [id, companyId], onDelete: Restrict)
+  team       Team                  @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+  author     User                  @relation("ShiftReportAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  approvedBy User?                 @relation("ShiftReportApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  activities ShiftReportActivity[]
+  auditLogs  AuditLog[]
+
+  @@unique([companyId, shiftId])
+  @@unique([id, companyId])
+  @@index([companyId, teamId, status, createdAt])
+  @@map("shift_reports")
+}
+
+model ShiftReportActivity {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  shiftReportId String   @db.Uuid
+  activityId    String   @db.Uuid
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  shiftReport ShiftReport @relation(fields: [shiftReportId, companyId], references: [id, companyId], onDelete: Cascade)
+  activity    Activity    @relation(fields: [activityId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  @@unique([companyId, shiftReportId, activityId])
+  @@index([companyId, activityId])
+  @@map("shift_report_activities")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String?  @db.Uuid
+  clientId    String?  @db.Uuid
+  teamId      String?  @db.Uuid
+  shiftId     String?  @db.Uuid
+  activityId  String?  @db.Uuid
+  shiftReportId String? @db.Uuid
+  actorUserId String?  @db.Uuid
+  entityType  String   @db.VarChar(120)
+  entityId    String   @db.VarChar(80)
+  action      String   @db.VarChar(120)
+  before      Json?
+  after       Json?
+  requestId   String?  @db.VarChar(120)
+  ipAddress   String?  @db.VarChar(80)
+  userAgent   String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  client      Client?      @relation(fields: [clientId, companyId], references: [id, companyId], onDelete: Restrict)
+  team        Team?        @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+  shift       Shift?       @relation(fields: [shiftId, companyId], references: [id, companyId], onDelete: Restrict)
+  activity    Activity?    @relation(fields: [activityId, companyId], references: [id, companyId], onDelete: Restrict)
+  shiftReport ShiftReport? @relation(fields: [shiftReportId, companyId], references: [id, companyId], onDelete: Restrict)
+  actor       User?        @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, entityType, entityId, createdAt])
+  @@index([companyId, actorUserId, createdAt])
+  @@index([companyId, action, createdAt])
+  @@map("audit_logs")
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique @db.VarChar(255)
+  userAgent   String?   @db.Text
+  ipAddress   String?   @db.VarChar(80)
+  expiresAt   DateTime  @db.Timestamptz(6)
+  revokedAt   DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt, revokedAt])
+  @@map("refresh_tokens")
+}

@@ -1,0 +1,134 @@
+PROMPT CHANGE LOG
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, change log, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+OBJETIVO
+
+Registrar alteracoes feitas no sistema de prompts.
+
+---
+
+FORMATO
+
+Data:
+Versao:
+Tipo:
+Arquivos alterados:
+Resumo:
+Impacto:
+Conflitos resolvidos:
+Estado afetado:
+
+---
+
+REGISTROS
+
+Data: 2026-06-20
+Versao: 1.3.8
+Tipo: patch
+Arquivos alterados: todos os arquivos .txt, 09 - Project Snapshot.txt, 18 - State Transition Log.txt, 19 - Prompt System Version.txt, 21 - Prompt System Change Log.txt
+Resumo: Normalizada acentuacao para ASCII, reorganizado Project Snapshot para separar estado atual, workspace limpo, controles ativos e historico resumido, mantendo historico detalhado nos logs.
+Impacto: Reduz ruido visual e melhora a leitura para iniciar execucao do zero sem apagar historico nem alterar estado.
+Conflitos resolvidos: variacao de acentuacao, snapshot excessivamente carregado com historico operacional e mistura entre estado atual e evidencias historicas.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.3.7
+Tipo: patch
+Arquivos alterados: 05 - Controlled Phase Execution System.txt, 09 - Project Snapshot.txt, 15 - Blocked State Protocol.txt, 19 - Prompt System Version.txt, 21 - Prompt System Change Log.txt, 25 - Human Gate Validation Checklist.txt
+Resumo: Ajustados textos residuais de tooling, completado registro de data no changelog e alinhados checklists secundarios ao roteiro obrigatorio atual.
+Impacto: Reduz falso positivo de auditoria e melhora rastreabilidade sem alterar estados, fases ou autoridade da State Machine.
+Conflitos resolvidos: wording generico de tooling, campo Data ausente em 1.3.4, Human Gate sem todos os arquivos obrigatorios atuais e Controlled Phase Execution System menos completo que o Execution Protocol.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.3.6
+Tipo: patch
+Arquivos alterados: 00 - Start Here.txt, 03 - Official State Machine.txt, 04 - System Guard Rails.txt, 06 - Execution Protocol.txt, 07 - Allowed Commands by State.txt, 09 - Project Snapshot.txt, 10 - Acceptance Criteria by State.txt, 11 - Evidence Standard.txt, 13 - Module Phase Matrix.txt, 19 - Prompt System Version.txt, 21 - Prompt System Change Log.txt, 23 - Prompt System README.txt, 26 - Automatic Review Audit.txt, 29-36 Phase prompts, 60-64 Module prompts
+Resumo: Fechado fluxo de migrations de dominio sem criar novo estado, completada matriz para todos os modulos canonicos, alinhado protocolo para fase solicitada permitida, adicionada consulta obrigatoria ao README em prompts de fase/modulo e ajustados backend/frontend para implementacao em arquivos.
+Impacto: O fluxo de criacao do sistema do zero passa a cobrir banco aplicavel, modulos canonicos completos e execucao operacional menos ambigua.
+Conflitos resolvidos: migrations sem fase autorizada, modulos canonicos sem matriz, ambiguidade entre fase atual e fase solicitada, README fora do roteiro obrigatorio e orientacao de mostrar codigo em vez de implementar arquivos.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.3.5
+Tipo: patch
+Arquivos alterados: 08 - Canonical State and Module IDs.txt, 09 - Project Snapshot.txt, 19 - Prompt System Version.txt, 21 - Prompt System Change Log.txt, 28 - Codex Prompt - System Reorganisation.txt, 29 - Phase 00 - Project Setup.txt, 35 - Phase 06 - Testing and Homologation.txt
+Resumo: Corrigidas referencias antigas de prompts, reforcado setup como ponto unico de dependencias e scaffold Prisma, formalizado fluxo de correcoes apos homologacao e documentado tratamento de modulos canonicos sem prompt dedicado.
+Impacto: Reduz ambiguidade na criacao do sistema do zero sem alterar estados, autoridade da State Machine ou ordem de execucao.
+Conflitos resolvidos: referencias Prompt 01/02/03/04 desatualizadas, risco de dependencia esquecida apos SETUP_PROJECT, ambiguidade de correcao em TESTING_HOMOLOGATION e duvida sobre modulos canonicos sem prompt dedicado.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.3.4
+Tipo: patch
+Arquivos alterados: 02 - Prompt Index.txt, 09 - Project Snapshot.txt, 18 - State Transition Log.txt, 19 - Prompt System Version.txt, 21 - Prompt System Change Log.txt, 30-36 Phase prompts, 60-64 Module prompts
+Resumo: Corrigida a ordem operacional dos arquivos, movendo Testing e Release para a sequencia de fases e modulos para faixa posterior; adicionadas consultas obrigatorias a Start Here e Project Memory em prompts antigos.
+Impacto: A listagem alfabetica agora reflete melhor o fluxo de execucao e todos os prompts de fase/modulo passam pelo entrypoint e memoria do projeto.
+Conflitos resolvidos: lacuna Phase 06, modulos antes de testing/release, prompts antigos sem Start Here e Project Memory.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.3.3
+Tipo: patch
+Arquivos alterados: 00 - Start Here.txt, 02 - Prompt Index.txt, 03 - Official State Machine.txt, 05 - Controlled Phase Execution System.txt, 06 - Execution Protocol.txt, 09 - Project Snapshot.txt, 10 - Acceptance Criteria by State.txt, 11 - Evidence Standard.txt, 18 - State Transition Log.txt, 19 - Prompt System Version.txt, 26 - Automatic Review Audit.txt, 29 - Phase 00 - Project Setup.txt, 34 - Phase 05 - Integration.txt, 36 - Phase 07 - Production Release.txt
+Resumo: Correcao de cobertura de estados executaveis, inclusao de Project Memory no fluxo obrigatorio, remocao de ambiguidade sobre migrations e registro historico do rollback da renumeracao.
+Impacto: Todos os estados executaveis agora possuem prompt de fase correspondente e o fluxo obrigatorio passa a incluir o gate de memoria.
+Conflitos resolvidos: estados sem prompt executor, Project Memory fora do roteiro obrigatorio, texto ambiguo sobre migrations, rollback sem historico preservado.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.3.2
+Tipo: patch
+Arquivos alterados: todos os arquivos .txt de controle, fase e modulo
+Resumo: Renomeacao dos arquivos para en-GB e aplicacao de prefixos numericos para ordenar por sequencia operacional de execucao.
+Impacto: A listagem alfabetica do diretorio agora reflete a ordem de uso do sistema.
+Conflitos resolvidos: nomes em portugues quando a convencao desejada era en-GB; arquivos sem ordenacao de execucao no nome.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.3.1
+Tipo: patch
+Arquivos alterados: arquivos de controle .txt, 02 - Prompt Index.txt, 09 - Project Snapshot.txt, 18 - State Transition Log.txt, 19 - Prompt System Version.txt
+Resumo: Renomeacao dos arquivos de controle para nomes canonicos em portugues e atualizacao das referencias internas.
+Impacto: Melhora legibilidade e reduz ambiguidade de nomes sem alterar a State Machine.
+Conflitos resolvidos: nomes inconsistentes entre titulo, funcao e arquivo.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.3.0
+Tipo: minor
+Arquivos alterados: 00 - Start Here.txt, 22 - Prompt System Audit.txt, 03 - Official State Machine.txt, 05 - Controlled Phase Execution System.txt, 06 - Execution Protocol.txt, 23 - Prompt System README.txt, 07 - Allowed Commands by State.txt, 02 - Prompt Index.txt, 08 - Canonical State and Module IDs.txt, 09 - Project Snapshot.txt, 19 - Prompt System Version.txt
+Resumo: Inclusao do entrypoint oficial, regra anti-overengineering, modo resumido, arquivos obrigatorios por contexto e auditoria periodica do sistema de prompts.
+Impacto: Reduz custo operacional, melhora usabilidade e evita crescimento desnecessario de controles.
+Conflitos resolvidos: multiplos pontos de entrada, excesso de arquivos obrigatorios por execucao, ausencia de auditoria periodica do sistema de prompts.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.2.0
+Tipo: minor
+Arquivos alterados: 23 - Prompt System README.txt, 01 - Current State.txt, 07 - Allowed Commands by State.txt, 21 - Prompt System Change Log.txt, 19 - Prompt System Version.txt, 20 - Prompt System Versioning Policy.txt, 17 - Phase Handoff Template.txt, 15 - Blocked State Protocol.txt, 08 - Canonical State and Module IDs.txt, 09 - Project Snapshot.txt, 18 - State Transition Log.txt
+Resumo: Inclusao da camada de operacao diaria, comandos permitidos, versionamento dedicado, handoff e protocolo de bloqueio.
+Impacto: Reduz ambiguidade operacional e melhora rastreabilidade.
+Conflitos resolvidos: comandos ambiguos, ausencia de estado atual dedicado, ausencia de procedimento formal para bloqueios, referencia de versionamento sem arquivo dedicado.
+Estado afetado: STATE-00 INIT
+
+Data: 2026-06-20
+Versao: 1.0.0
+Tipo: major
+Arquivos alterados: prompts 01 a 10, prompts de gates, state machine, arquivos de controle
+Resumo: Consolidacao do sistema de prompts em uma State Machine canonica com gates, constraints, modulos e controles operacionais.
+Impacto: Sistema passou a ter fluxo unico, criterios de aceite, matriz modulo x fase, snapshot, log de transicao, evidencia, DoD, rollback e IDs canonicos.
+Conflitos resolvidos: estados duplicados, modulos misturados com fases, gates tentando controlar estado, snapshot como autoridade de estado, tooling fora de fase.
+Estado afetado: STATE-00 INIT
+
+
+
+
+
+
