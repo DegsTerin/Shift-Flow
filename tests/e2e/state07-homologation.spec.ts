@@ -15,6 +15,14 @@ async function login(page: Page) {
   await expect(page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })).toBeVisible();
 }
 
+async function navigateToKanban(page: Page, isMobile: boolean) {
+  if (isMobile) {
+    await page.getByRole("button", { name: /Collapse navigation|Recolher navegacao/ }).click();
+  }
+
+  await page.getByRole("button", { name: "Kanban" }).click();
+}
+
 test.describe("STATE-07 homologation", () => {
   test("authenticates with seeded credentials and renders dashboard metrics", async ({ page }) => {
     await login(page);
@@ -38,7 +46,19 @@ test.describe("STATE-07 homologation", () => {
     expect(metrics[5]).toBeGreaterThanOrEqual(1);
   });
 
-  test("supports dark mode and EN-GB Kanban labels", async ({ page }) => {
+  test("keeps the authenticated session after page reload", async ({ page }) => {
+    await login(page);
+    await expect
+      .poll(() => page.evaluate(() => Boolean(localStorage.getItem("shiftflow.session"))))
+      .toBe(true);
+
+    await page.reload();
+
+    await expect(page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Acesso operacional|Operations access/ })).toHaveCount(0);
+  });
+
+  test("supports dark mode and EN-GB Kanban labels", async ({ page, isMobile }) => {
     await login(page);
 
     await page.getByRole("button", { name: /Escuro|Dark/ }).click();
@@ -47,15 +67,38 @@ test.describe("STATE-07 homologation", () => {
     await page.getByRole("button", { name: /pt-BR/ }).click();
     await expect(page.getByRole("heading", { name: "Main Dashboard" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Kanban" }).click();
+    await navigateToKanban(page, isMobile);
     await expect(page.getByRole("heading", { name: "Kanban" })).toBeVisible();
     await expect(page.locator(".kanban-column h2")).toHaveText([
       "Pending",
       "In progress",
+      "Waiting for customer",
       "Waiting for third party",
       "Monitoring",
-      "Completed"
+      "Completed",
+      "Cancelled"
     ]);
+  });
+
+  test("keeps TV mode full width after desktop navigation is collapsed", async ({ page, isMobile }) => {
+    test.skip(isMobile, "Desktop-only TV mode assertion.");
+
+    await login(page);
+
+    const shell = page.locator("main.app-shell");
+    await expect(page.getByText(/Dados carregados de endpoints reais|Loaded from live endpoints/)).toHaveCount(0);
+    await page.getByRole("button", { name: /Recolher navegacao|Collapse navigation/ }).click();
+    await expect(shell).toHaveClass(/nav-collapsed/);
+
+    await page.getByRole("button", { name: /Modo TV|TV Mode/ }).click();
+    await expect(shell).toHaveClass(/monitor-mode/);
+    await expect(shell).not.toHaveClass(/nav-collapsed/);
+    await expect(page.locator(".sidebar")).toHaveCount(0);
+    await expect(page.getByText(/Dados carregados de endpoints reais|Loaded from live endpoints/)).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })).toHaveCSS("font-size", "26.4px");
+    await expect
+      .poll(() => shell.evaluate((element) => getComputedStyle(element).gridTemplateColumns))
+      .not.toMatch(/^76px\b/);
   });
 
   test("keeps mobile dashboard responsive and accessible at a basic level", async ({ page, isMobile }) => {
@@ -69,8 +112,13 @@ test.describe("STATE-07 homologation", () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(overflow).toBe(false);
 
+    await expect(page.getByRole("navigation")).toBeHidden();
+    await page.getByRole("button", { name: /Collapse navigation|Recolher navegacao/ }).click();
     await expect(page.getByRole("navigation")).toBeVisible();
+    await page.getByRole("button", { name: "Kanban" }).click();
+    await expect(page.getByRole("navigation")).toBeHidden();
+    await expect(page.getByRole("heading", { name: "Kanban" })).toBeVisible();
     await expect(page.getByPlaceholder(/Search|Pesquisar/)).toBeVisible();
-    await expect(page.locator("table").first()).toContainText(/Client|Cliente|Integration Client/);
+    await expect(page.locator(".kanban-column").first()).toBeVisible();
   });
 });

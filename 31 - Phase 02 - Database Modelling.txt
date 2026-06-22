@@ -50,6 +50,39 @@ Requisitos:
 * Multicliente
 * Multi-equipe
 * Multi-turno
+* Atividade como dossie operacional completo
+* Historico operacional imutavel/append-only
+* Auditoria e soft delete sem perda de informacao
+
+Atividade deve contemplar, quando aplicavel:
+
+* ID
+* Titulo
+* Cliente
+* Sistema
+* Servico
+* Equipe
+* Turno
+* Responsavel
+* Status
+* Prioridade
+* Descricao inicial
+* O que foi identificado
+* O que foi realizado
+* O que esta pendente
+* Proximas acoes
+* Resultado final
+* Criado por/data criacao
+* Ultima alteracao por/ultima alteracao em
+* Excluido por/data exclusao
+
+ActivityHistory deve armazenar:
+
+* Usuario
+* Data e hora
+* Tipo de acao
+* Conteudo registrado
+* Valor anterior e valor novo quando aplicavel
 
 Implementar:
 
@@ -58,6 +91,7 @@ Implementar:
 * Constraints
 * Soft Delete
 * Auditoria
+* Indices para filtros por cliente, sistema, equipe, turno, responsavel, prioridade, status, datas e texto pesquisavel quando aplicavel
 
 Entregue:
 

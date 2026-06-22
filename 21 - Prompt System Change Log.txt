@@ -28,6 +28,15 @@ Estado afetado:
 
 REGISTROS
 
+Data: 2026-06-22
+Versao: 1.4.0
+Tipo: minor
+Arquivos alterados: Prompt Restructuring.txt, Prompt Revision.txt, 02 - Prompt Index.txt, 09 - Project Snapshot.txt, 10 - Acceptance Criteria by State.txt, 12 - Global Definition of Done.txt, 13 - Module Phase Matrix.txt, 19 - Prompt System Version.txt, 21 - Prompt System Change Log.txt, 23 - Prompt System README.txt, 37 - Solution Architecture Document.txt, 60 - Module 01 - Executive Dashboard.txt, 61 - Module 02 - Operational Kanban.txt
+Resumo: Incorporada revisao operacional global baseada nos prompts e na conversa atual: ShiftFlow deve ser orientado a passagem de turno corporativa, dossie operacional por atividade, historico imutavel, filtros reais, busca global, CRUD completo, modais de detalhe, dashboards executivo/operacional e modo TV.
+Impacto: Os prompts canonicos passam a orientar uma nova rodada de diagnostico e correcao pos-release sem alterar o estado atual. A release local permanece registrada em STATE-08, mas existe uma demanda nova de reestruturacao funcional a ser executada por fase permitida e com gates.
+Conflitos resolvidos: Prompts livres de revisao/restruturacao nao estavam catalogados no indice, nem refletidos nos criterios de aceite, matriz de modulos e arquitetura.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
 Data: 2026-06-20
 Versao: 1.3.8
 Tipo: patch

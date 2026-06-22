@@ -6,6 +6,7 @@ export type CreateActivityDto = {
   title: string;
   description?: string;
   systemName?: string;
+  serviceName?: string;
   priority?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   slaDueAt?: Date;
 };

@@ -67,6 +67,7 @@ enum ShiftCoverageType {
 enum ActivityStatus {
   PENDING
   IN_PROGRESS
+  WAITING_CUSTOMER
   WAITING_THIRD_PARTY
   MONITORING
   DONE
@@ -94,6 +95,7 @@ enum ActivityHistoryType {
   ATTACHMENT_ADDED
   CLOSED
   REOPENED
+  SOFT_DELETED
 }
 
 enum NotificationType {
@@ -178,8 +180,6 @@ model Client {
   notifications       Notification[]
   auditLogs           AuditLog[]
 
-  @@unique([companyId, name])
-  @@unique([companyId, code])
   @@unique([id, companyId])
   @@index([companyId, status, deletedAt])
   @@map("clients")
@@ -270,14 +270,12 @@ model Team {
   company         Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
   clients         TeamClient[]
   members         TeamMember[]
-  shifts          Shift[]
   shiftReports    ShiftReport[]
   roleAssignments UserRoleAssignment[]
   activities      Activity[]
   notifications   Notification[]
   auditLogs       AuditLog[]
 
-  @@unique([companyId, name])
   @@unique([id, companyId])
   @@index([companyId, deletedAt])
   @@map("teams")
@@ -321,7 +319,6 @@ model TeamMember {
 model Shift {
   id          String      @id @default(uuid()) @db.Uuid
   companyId   String      @db.Uuid
-  teamId      String      @db.Uuid
   name        String      @db.VarChar(160)
   startsAt    DateTime    @db.Timestamptz(6)
   endsAt      DateTime    @db.Timestamptz(6)
@@ -337,7 +334,6 @@ model Shift {
   deletedById String?     @db.Uuid
 
   company       Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  team          Team            @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
   coverages     ShiftCoverage[]
   activities    Activity[]
   shiftReports  ShiftReport[]
@@ -345,7 +341,7 @@ model Shift {
   auditLogs     AuditLog[]
 
   @@unique([id, companyId])
-  @@index([companyId, teamId, status, startsAt])
+  @@index([companyId, status, startsAt])
   @@index([companyId, status, deletedAt])
   @@map("shifts")
 }
@@ -464,7 +460,14 @@ model Activity {
   reporterId          String?          @db.Uuid
   title               String           @db.VarChar(220)
   description         String?          @db.Text
+  requested           String?          @db.Text
+  performed           String?          @db.Text
+  inProgressDetail    String?          @db.Text
+  pendingDetail       String?          @db.Text
+  finalizationDetail  String?          @db.Text
+  observations        String?          @db.Text
   systemName          String?          @db.VarChar(120)
+  serviceName         String?          @db.VarChar(120)
   status              ActivityStatus   @default(PENDING)
   priority            ActivityPriority @default(MEDIUM)
   slaDueAt            DateTime?        @db.Timestamptz(6)

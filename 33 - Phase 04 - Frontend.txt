@@ -62,6 +62,17 @@ Implementar:
 
 Todos os componentes devem ser responsivos.
 
+Requisitos operacionais globais quando estiverem no escopo do frontend:
+
+* Validar desktop, notebook, tablet, mobile, Light Mode, Dark Mode, PT-BR e EN-GB.
+* Padronizar menu lateral em largura, alinhamento, espacamento, altura dos itens, icones e comportamento responsivo.
+* Garantir que botoes "+ Novo" abram o fluxo correto de criacao.
+* Garantir que registros abram modal, drawer ou painel de detalhes sobre a tela atual.
+* Exibir em atividade: resumo, dados principais, descricao completa, historico/timeline, anexos, auditoria e acoes permitidas.
+* Expor filtros reais na UI e pesquisa por ID, cliente, sistema, equipe, responsavel, status e texto livre quando o backend suportar.
+* Criar layout de dashboard operacional/TV com auto refresh, cards grandes, destaques de criticos e SLA em risco quando o modulo estiver no escopo.
+* Nenhum elemento deve gerar scroll horizontal indevido ou ultrapassar a largura da tela.
+
 Implementar nos arquivos do projeto.
 Ao final, listar arquivos criados ou alterados e evidencias verificaveis.
 

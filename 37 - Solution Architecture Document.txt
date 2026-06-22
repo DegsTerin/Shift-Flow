@@ -16,7 +16,9 @@ Este documento define arquitetura e decisoes tecnicas. Nao cria codigo de implem
 
 1. VISAO GERAL
 
-ShiftFlow e uma plataforma web multiempresa para gestao de turnos, equipes e atividades operacionais. O sistema deve suportar operacao continua, acompanhamento executivo, kanban operacional, gestao de equipes, gestao de turnos, autenticacao, RBAC, auditoria, notificacoes, comentarios, anexos, relatorios e relatorios de turno.
+ShiftFlow e uma plataforma web multiempresa para passagem de turno, registro operacional, gestao de atividades, gestao de equipes, gestao de clientes, gestao de ocorrencias, acompanhamento gerencial e monitoramento em tempo real. O sistema deve suportar operacao continua, acompanhamento executivo, kanban operacional, gestao de equipes, gestao de turnos, autenticacao, RBAC, auditoria, notificacoes, comentarios, anexos, relatorios e relatorios de turno.
+
+O historico operacional e elemento central do dominio. Cada atividade deve funcionar como um dossie operacional completo, podendo permanecer aberta por horas, dias, semanas ou meses, com atualizacoes cronologicas de multiplos usuarios e preservacao integral das movimentacoes.
 
 A arquitetura adotada e monorepo modular com separacao por aplicacao:
 
@@ -31,7 +33,10 @@ Principios:
 * Autorizacao obrigatoria no backend.
 * Frontend orientado a workflows operacionais, sem regra de negocio sensivel.
 * Auditoria para eventos relevantes.
+* Timeline operacional append-only para atividades.
 * Paginacao e filtros obrigatorios em listas operacionais.
+* Busca global e filtros reais por dados persistidos.
+* Interface apta a desktop, notebook, tablet, mobile e TV/monitoramento.
 * Estrutura preparada para crescimento modular sem antecipar implementacao.
 
 ---
@@ -196,8 +201,12 @@ Regras frontend:
 
 * Guards visuais podem ocultar acoes sem permissao, mas nao substituem autorizacao backend.
 * Listas operacionais devem suportar filtros, paginacao, estados vazios, loading e erro.
+* Filtros devem refletir dados reais e funcionar de forma combinada em dashboards, kanban, relatorios e listagens.
+* Pesquisa global deve suportar ID, titulo, cliente, sistema, equipe, usuario/responsavel, status e texto livre quando o contrato de API expuser esses campos.
+* Registros operacionais devem abrir detalhe em modal, drawer ou painel sobre a tela atual, exibindo dados completos, historico, comentarios, anexos, auditoria e acoes permitidas.
+* Botao "+ Novo" deve abrir fluxo funcional de criacao em todas as telas aplicaveis.
 * Datas e horarios devem respeitar locale e timezone operacional.
-* UI deve ser responsiva, priorizando uso desktop operacional e suporte mobile para consulta e acoes simples.
+* UI deve ser responsiva, priorizando uso desktop operacional, suporte mobile para consulta e acoes simples e modo TV para monitoramento continuo.
 
 ---
 
@@ -259,6 +268,8 @@ Regras backend:
 * Repositories nao decidem permissao.
 * Todas as consultas sensiveis devem filtrar por escopo multiempresa e, quando aplicavel, cliente, equipe e turno.
 * Operacoes mutaveis relevantes devem registrar auditoria.
+* Operacoes de atividade devem registrar historico operacional imutavel com usuario, data, hora, tipo de acao e conteudo registrado.
+* Exclusoes operacionais devem ser logicas quando houver necessidade de preservar historico.
 
 ---
 
@@ -297,6 +308,8 @@ Diretrizes de modelagem:
 * Soft delete deve ser usado para entidades operacionais e administrativas que nao possam perder historico.
 * Timestamps de criacao e atualizacao devem ser padrao.
 * createdBy, updatedBy e deletedBy devem ser considerados para entidades criticas.
+* Activities devem contemplar identificacao, cliente, sistema, servico, equipe, turno, responsavel, status, prioridade, descricao inicial, campos operacionais, resultado final e metadados de auditoria.
+* ActivityHistory deve preservar timeline append-only com usuario, data, hora, tipo de acao e conteudo registrado.
 * Indices devem cobrir filtros operacionais de dashboard, kanban, atividades, SLA, empresa, cliente, equipe, turno, status e prioridade.
 * Constraints devem impedir vinculos cruzados entre empresas diferentes.
 
@@ -469,6 +482,7 @@ Eventos auditaveis:
 * Criacao, edicao, inativacao e exclusao logica de usuarios, equipes, turnos, clientes e empresas.
 * Alteracoes de roles e permissions.
 * Criacao, edicao, movimentacao, atribuicao e encerramento de atividades.
+* Reabertura de atividades, alteracao de responsavel, mudanca de status, comentarios relevantes, anexos, exclusao logica e resultado final.
 * Comentarios editados ou excluidos logicamente.
 * Upload, download sensivel e exclusao de anexos.
 * Geracao, edicao e aprovacao de relatorios de turno.
@@ -568,6 +582,9 @@ Company e o tenant raiz; Client, Team e Shift refinam escopo operacional.
 
 ADR-07:
 Auditoria e requisito transversal para operacoes sensiveis e mutaveis.
+
+ADR-07A:
+Historico operacional de atividade e requisito central e deve ser tratado como timeline imutavel/append-only.
 
 ADR-08:
 Schema de dominio, constraints e migrations ficam para STATE-03 DATABASE_MODELING.

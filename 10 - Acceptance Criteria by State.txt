@@ -154,6 +154,11 @@ Pode ser considerado concluido quando:
   * Configuracoes
 * Dark Mode, Light Mode, PT-BR e EN-GB foram implementados.
 * Componentes sao responsivos.
+* Menu lateral possui largura, alinhamento, espacamento, altura de itens e comportamento consistentes em desktop, notebook, tablet e mobile.
+* Botao "+ Novo" abre o fluxo funcional correto em todas as telas que possuem criacao.
+* Listagens e registros abrem detalhe em modal, drawer ou painel sobre a tela atual quando aplicavel.
+* Telas operacionais suportam filtros e pesquisa global na interface sem quebrar layout.
+* Dashboard operacional possui layout apto a TV/monitoramento quando previsto pelo modulo.
 * Backend e banco nao foram alterados.
 * Snapshot foi atualizado.
 
@@ -173,6 +178,11 @@ Pode ser considerado concluido quando:
 * Migrations aprovadas foram aplicadas no ambiente de integracao, quando aplicavel.
 * Contratos de API foram validados.
 * Auth, RBAC, Dashboard, Kanban, Teams, Shifts e Activities funcionam ponta a ponta.
+* Filtros atualizam dados reais em Dashboard Principal, Dashboard por Equipe, Kanban, Relatorios e listagens aplicaveis.
+* Pesquisa global consulta dados reais por ID, titulo, cliente, sistema, equipe, responsavel, status e texto livre quando o contrato suportar.
+* CRUD completo funciona ponta a ponta para os modulos com criacao, edicao, atualizacao e exclusao logica previstas.
+* Atividades preservam historico operacional/timeline em criacao, edicao, comentario, mudanca de status, mudanca de responsavel, anexo, exclusao, reabertura e encerramento quando aplicavel.
+* Modal ou painel de detalhes exibe resumo, dados principais, descricao completa, historico, anexos, auditoria e acoes permitidas.
 * Nao foram criadas novas regras de negocio.
 * Nao foram criados novos modulos.
 * Snapshot foi atualizado.
@@ -200,6 +210,10 @@ Pode ser considerado concluido quando:
 * Responsividade foi validada.
 * Traducoes foram validadas.
 * Dark Mode e Light Mode foram validados.
+* PT-BR e EN-GB foram validados nos principais fluxos operacionais.
+* Responsividade foi validada em desktop, notebook/tablet, mobile e layout de TV/monitoramento quando aplicavel.
+* Filtros, pesquisa global, botoes "+ Novo", CRUD, detalhes de registro, historico imutavel, soft delete e reabertura/encerramento foram testados nos modulos aplicaveis.
+* Dashboards executivo e operacional foram validados quanto a KPIs, graficos, dados reais, atividades criticas e SLA em risco.
 * Bugs, riscos e divida tecnica foram documentados.
 * Nenhuma feature nova foi criada.
 * Snapshot foi atualizado.

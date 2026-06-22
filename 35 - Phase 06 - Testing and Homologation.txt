@@ -40,6 +40,13 @@ Esta fase pode:
 * Validar traducoes.
 * Validar Dark Mode.
 * Validar Light Mode.
+* Validar filtros reais.
+* Validar pesquisa global.
+* Validar botoes "+ Novo".
+* Validar CRUD completo e soft delete.
+* Validar modal/drawer de detalhes.
+* Validar historico operacional/timeline imutavel.
+* Validar dashboard executivo e modo TV/monitoramento.
 * Gerar relatorio de bugs.
 * Gerar correcoes necessarias.
 * Gerar melhorias recomendadas.
@@ -70,6 +77,13 @@ Validar:
 * Traducoes
 * Dark Mode
 * Light Mode
+* PT-BR
+* EN-GB
+* Filtros em Dashboard Principal, Dashboard por Equipe, Kanban, Relatorios e listagens
+* Pesquisa por ID, cliente, sistema, equipe, responsavel, status e texto livre
+* Fluxos "+ Novo", criar, visualizar, editar, atualizar, excluir logicamente, reabrir e encerrar
+* Atividades como dossie operacional com timeline completa, comentarios, anexos e auditoria
+* Modo monitoramento para TV com auto refresh, cards grandes, atividades criticas e SLA em risco
 
 Gerar:
 

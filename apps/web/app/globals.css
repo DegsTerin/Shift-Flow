@@ -20,7 +20,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -45,6 +47,11 @@ button {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
+  transition: grid-template-columns 180ms ease;
+}
+
+.app-shell.nav-collapsed {
+  grid-template-columns: 76px minmax(0, 1fr);
 }
 
 .app-shell[data-theme="dark"] {
@@ -110,6 +117,17 @@ button {
 .guard-note {
   color: var(--muted);
   margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.form-error {
+  background: rgb(185 28 28 / 12%);
+  border: 1px solid rgb(185 28 28 / 32%);
+  border-radius: var(--radius);
+  color: var(--danger);
+  font-weight: 800;
+  margin: 0 0 14px;
+  padding: 10px 12px;
 }
 
 .eyebrow {
@@ -129,7 +147,9 @@ label {
   font-weight: 700;
 }
 
-input {
+input,
+select,
+textarea {
   background: var(--surface-strong);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -139,8 +159,25 @@ input {
   width: 100%;
 }
 
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 18px, calc(100% - 11px) 18px;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+  padding-right: 30px;
+}
+
+textarea {
+  line-height: 1.45;
+  min-height: 96px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
 .primary-button,
 .compact-button,
+.danger-button,
 .icon-button,
 .nav-button,
 .select-button,
@@ -161,6 +198,13 @@ input {
   font-weight: 800;
 }
 
+.danger-button {
+  background: rgb(185 28 28 / 12%);
+  border-color: rgb(185 28 28 / 30%);
+  color: var(--danger);
+  padding: 0 12px;
+}
+
 .compact-button,
 .icon-button,
 .select-button,
@@ -168,6 +212,12 @@ input {
   background: var(--surface);
   color: var(--text);
   padding: 0 12px;
+}
+
+.compact-button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
 }
 
 .icon-button {
@@ -189,6 +239,13 @@ input {
 .topbar-actions,
 .filter-bar {
   flex-wrap: wrap;
+}
+
+.topbar-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .segmented {
@@ -217,20 +274,65 @@ input {
   display: grid;
   gap: 24px;
   grid-template-rows: auto 1fr;
-  padding: 22px 18px;
+  min-height: 100vh;
+  padding: 28px 18px;
+  width: 280px;
+  transition: transform 180ms ease, width 180ms ease, padding 180ms ease;
+}
+
+.sidebar-brand {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.nav-collapsed .sidebar {
+  padding: 28px 10px;
+  width: 76px;
+}
+
+.nav-collapsed .brand-mark {
+  justify-content: center;
+}
+
+.nav-collapsed .brand-mark span,
+.nav-collapsed .nav-button span {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 0;
 }
 
 .sidebar nav {
   display: grid;
-  gap: 6px;
+  align-content: start;
+  gap: 8px;
 }
 
 .nav-button {
   background: transparent;
   color: var(--muted);
   justify-content: flex-start;
-  padding: 0 12px;
+  min-height: 54px;
+  overflow: hidden;
+  padding: 0 14px;
+  position: relative;
   width: 100%;
+}
+
+.nav-button svg {
+  flex: 0 0 auto;
+}
+
+.nav-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 160ms ease;
+  white-space: nowrap;
+}
+
+.nav-collapsed .nav-button {
+  justify-content: center;
+  padding: 0;
 }
 
 .nav-button.active {
@@ -246,10 +348,37 @@ input {
 
 .topbar {
   align-items: center;
-  display: flex;
+  display: grid;
   gap: 16px;
-  justify-content: space-between;
+  grid-template-columns: auto minmax(260px, 1fr) auto;
   margin-bottom: 22px;
+  min-width: 0;
+}
+
+.topbar-title {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.topbar-title .eyebrow,
+.topbar-title h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-title .eyebrow {
+  flex: 0 1 auto;
+  margin: 0;
+}
+
+.topbar-title h1 {
+  flex: 1 1 auto;
+  font-size: 1.65rem;
+  line-height: 1.1;
 }
 
 .search-box {
@@ -261,13 +390,20 @@ input {
   gap: 8px;
   min-height: 38px;
   padding: 0 10px;
-  width: min(100%, 260px);
+  width: 260px;
 }
 
 .search-box input {
   background: transparent;
   border: 0;
   min-height: auto;
+  padding: 0;
+}
+
+.drawer-backdrop {
+  background: transparent;
+  border: 0;
+  display: none;
   padding: 0;
 }
 
@@ -320,6 +456,20 @@ th {
   display: inline-flex;
   font-weight: 800;
   gap: 8px;
+}
+
+.select-label,
+.date-label {
+  min-width: 150px;
+}
+
+.select-label span,
+.date-label span {
+  display: none;
+}
+
+.date-filter {
+  max-width: 160px;
 }
 
 .dashboard-panels {
@@ -393,6 +543,10 @@ tbody tr:hover {
   background: var(--surface-strong);
 }
 
+tbody tr {
+  cursor: pointer;
+}
+
 .priority {
   border-radius: 999px;
   display: inline-block;
@@ -417,8 +571,13 @@ tbody tr:hover {
 }
 
 .priority.low {
-  background: rgb(21 128 61 / 14%);
-  color: var(--success);
+  background: rgb(20 83 45 / 18%);
+  color: #14532d;
+}
+
+.app-shell[data-theme="dark"] .priority.low {
+  background: rgb(74 222 128 / 20%);
+  color: #86efac;
 }
 
 .team-summary,
@@ -473,7 +632,7 @@ dt {
 .kanban-board {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  grid-template-columns: repeat(7, minmax(220px, 1fr));
   overflow-x: auto;
   padding-bottom: 8px;
 }
@@ -535,6 +694,151 @@ dt {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.monitor-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-shell.monitor-mode.nav-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.monitor-mode .workspace {
+  padding: 18px;
+}
+
+.monitor-mode .kpi-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.monitor-mode .metric-card {
+  min-height: 170px;
+}
+
+.monitor-mode .metric-card strong {
+  font-size: 3.5rem;
+}
+
+.modal-backdrop {
+  align-items: stretch;
+  background: rgb(15 23 42 / 46%);
+  display: flex;
+  inset: 0;
+  justify-content: flex-end;
+  padding: 18px;
+  position: fixed;
+  z-index: 50;
+}
+
+.record-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 70px rgb(15 23 42 / 24%);
+  color: var(--text);
+  max-width: 980px;
+  overflow: auto;
+  padding: 18px;
+  width: min(100%, 980px);
+}
+
+.modal-header,
+.modal-actions,
+.comment-form {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.modal-header {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-header h2 {
+  font-size: 1.35rem;
+  margin: 0;
+}
+
+.modal-grid,
+.detail-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.span-2 {
+  grid-column: 1 / -1;
+}
+
+.modal-actions {
+  justify-content: flex-end;
+}
+
+.detail-grid {
+  margin-top: 16px;
+}
+
+.timeline {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.timeline div {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.timeline span,
+.timeline small,
+.info-list dt {
+  color: var(--muted);
+}
+
+.info-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.info-list div {
+  display: grid;
+  gap: 3px;
+}
+
+.info-list dt,
+.info-list dd {
+  margin: 0;
+}
+
+.info-list dd {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.comment-form {
+  margin-bottom: 12px;
+}
+
+.comment-form .compact-button {
+  width: 44px;
+}
+
+.json-detail {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 70vh;
+  overflow: auto;
+  padding: 14px;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 1180px) {
   .kpi-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -550,28 +854,95 @@ dt {
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: minmax(0, 1fr);
+    overflow-x: hidden;
+  }
+
+  .app-shell.nav-collapsed {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar {
-    border-bottom: 1px solid var(--border);
-    border-right: 0;
-    overflow-x: auto;
+    background: var(--bg);
+    border-bottom: 0;
+    border-right: 1px solid var(--border);
+    box-shadow: 18px 0 44px rgb(15 23 42 / 18%);
+    gap: 20px;
+    height: 100dvh;
+    left: 0;
+    min-height: 100dvh;
+    overflow-y: auto;
+    padding: 24px 16px;
+    position: fixed;
+    top: 0;
+    transform: translateX(-102%);
+    visibility: hidden;
+    width: min(82vw, 320px);
+    z-index: 40;
+  }
+
+  .drawer-open .sidebar {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .drawer-open .drawer-backdrop {
+    background: rgb(15 23 42 / 42%);
+    display: block;
+    inset: 0;
+    position: fixed;
+    z-index: 30;
+  }
+
+  .nav-collapsed .sidebar {
+    padding: 24px 16px;
+    width: min(82vw, 320px);
+  }
+
+  .nav-collapsed .brand-mark {
+    justify-content: flex-start;
+  }
+
+  .nav-collapsed .brand-mark span,
+  .nav-collapsed .nav-button span {
+    opacity: 1;
+    pointer-events: auto;
+    position: static;
+    width: auto;
   }
 
   .sidebar nav {
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(150px, 1fr);
-    overflow-x: auto;
+    display: grid;
+    gap: 8px;
+    overflow: visible;
+    padding-bottom: 0;
   }
 
-  .topbar,
-  .topbar-actions {
-    align-items: stretch;
+  .nav-button {
+    flex: initial;
+    justify-content: flex-start;
+    min-height: 50px;
+    padding: 0 12px;
+  }
+
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .topbar-title {
+    align-items: flex-start;
     flex-direction: column;
+    gap: 4px;
+  }
+
+  .topbar-actions {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .search-box {
-    width: 100%;
+    flex: 1 1 220px;
+    width: auto;
   }
 
   .dashboard-panels {
@@ -580,9 +951,12 @@ dt {
 }
 
 @media (max-width: 620px) {
-  .workspace,
-  .sidebar {
+  .workspace {
     padding: 14px;
+  }
+
+  .sidebar {
+    padding: 28px 18px;
   }
 
   .kpi-grid,
@@ -593,14 +967,38 @@ dt {
   }
 
   .auth-actions,
-  .filter-bar {
+  .filter-bar,
+  .modal-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
   .compact-button,
+  .danger-button,
   .select-button,
-  .segmented {
+  .segmented,
+  .select-label,
+  .date-label,
+  .date-filter {
     width: 100%;
+    max-width: none;
+  }
+
+  .topbar-actions .icon-button,
+  .topbar-actions .compact-button {
+    width: 38px;
+  }
+
+  .modal-backdrop {
+    padding: 0;
+  }
+
+  .record-modal {
+    border-radius: 0;
+  }
+
+  .modal-grid,
+  .detail-grid {
+    grid-template-columns: 1fr;
   }
 }

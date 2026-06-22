@@ -17,3 +17,4 @@ activityRoutes.delete("/:id", requirePermission("activities", "delete"), Activit
 activityRoutes.post("/:id/move", requirePermission("activities", "write"), validate("body", moveActivitySchema), ActivitiesController.move);
 activityRoutes.post("/:id/assign", requirePermission("activities", "write"), validate("body", assignActivitySchema), ActivitiesController.assign);
 activityRoutes.post("/:id/close", requirePermission("activities", "write"), ActivitiesController.close);
+activityRoutes.post("/:id/reopen", requirePermission("activities", "write"), ActivitiesController.reopen);

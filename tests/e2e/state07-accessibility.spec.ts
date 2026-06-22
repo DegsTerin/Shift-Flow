@@ -32,8 +32,16 @@ async function expectNoSeriousAxeViolations(page: Page) {
   ).toEqual([]);
 }
 
+async function navigateToKanban(page: Page, isMobile: boolean) {
+  if (isMobile) {
+    await page.getByRole("button", { name: /Collapse navigation|Recolher navegacao/ }).click();
+  }
+
+  await page.getByRole("button", { name: "Kanban" }).click();
+}
+
 test.describe("STATE-07 dedicated axe accessibility", () => {
-  test("validates login, dashboard, dark mode and kanban with axe", async ({ page }) => {
+  test("validates login, dashboard, dark mode and kanban with axe", async ({ page, isMobile }) => {
     await page.goto("/");
     await expect(page.getByLabel(/E-mail|Email/)).toHaveValue(credentials.email);
     await expect(page.getByLabel(/Senha|Password/)).toHaveValue(credentials.password);
@@ -46,7 +54,7 @@ test.describe("STATE-07 dedicated axe accessibility", () => {
     await expect(page.locator("main")).toHaveAttribute("data-theme", "dark");
     await expectNoSeriousAxeViolations(page);
 
-    await page.getByRole("button", { name: "Kanban" }).click();
+    await navigateToKanban(page, isMobile);
     await expect(page.getByRole("heading", { name: "Kanban" })).toBeVisible();
     await expectNoSeriousAxeViolations(page);
   });

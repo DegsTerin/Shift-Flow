@@ -57,6 +57,16 @@ Modulos:
 * Dashboard
 * Audit
 
+Requisitos operacionais globais quando estiverem no escopo do backend:
+
+* Activities devem funcionar como dossie operacional auditavel.
+* ActivityHistory deve registrar timeline append-only com usuario, data, hora, tipo de acao e conteudo.
+* Operacoes mutaveis devem preservar auditoria e, quando aplicavel, before/after.
+* Excluir registros operacionais deve ser soft delete quando houver historico a preservar.
+* Filtros reais devem ser implementados por cliente, sistema, equipe, turno, responsavel, prioridade, status e periodo quando o modulo expuser esses campos.
+* Busca deve suportar ID, titulo, cliente, sistema, equipe, responsavel, status e texto livre quando previsto pelo contrato.
+* Dashboard deve expor KPIs executivos, agregacoes e dados de monitoramento/TV sem depender de dados mockados.
+
 Entregue:
 
 * Estrutura de diretorios

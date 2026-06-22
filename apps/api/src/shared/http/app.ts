@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import { authRoutes } from "../../modules/auth/auth.routes.js";
+import { clientRoutes } from "../../modules/clients/clients.routes.js";
 import { userRoutes } from "../../modules/users/users.routes.js";
 import { teamRoutes } from "../../modules/teams/teams.routes.js";
 import { shiftRoutes } from "../../modules/shifts/shifts.routes.js";
@@ -33,6 +34,7 @@ export function createServer() {
   });
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/clients", clientRoutes);
   app.use("/api/users", userRoutes);
   app.use("/api/teams", teamRoutes);
   app.use("/api/shifts", shiftRoutes);

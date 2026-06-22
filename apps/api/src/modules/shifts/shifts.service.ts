@@ -19,7 +19,8 @@ export class ShiftsService extends BaseService {
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
     if (data.startsAt || data.endsAt) {
-      this.assertPeriod(data.startsAt, data.endsAt);
+      const current = (await this.get(req, id)) as { startsAt?: Date; endsAt?: Date };
+      this.assertPeriod(data.startsAt ?? current.startsAt, data.endsAt ?? current.endsAt);
     }
     return super.update(req, id, data);
   }

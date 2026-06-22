@@ -153,3 +153,52 @@ Definir ambiente remoto/pipeline e remote Git quando houver decisao operacional 
 
 TRANSICAO DE ESTADO:
 Sem nova transicao recomendada. STATE-08 PRODUCTION_RELEASE foi executado e encerrado como release final local; a State Machine permanece como unica autoridade de estado.
+
+---
+
+ADENDO POS-RELEASE - 2026-06-22 - NAVEGACAO RESPONSIVA
+
+Contexto:
+
+* Solicitacao posterior ao encerramento local de STATE-08: implementar comportamento responsivo e consistente para menu de navegacao.
+* Registro classificado como manutencao pos-release no workspace, sem criar nova transicao de estado.
+
+Ajustes implementados:
+
+* Mobile/tablet: sidebar fixa substituida por drawer/offcanvas acionado por icone hamburguer.
+* Mobile/tablet: drawer fecha automaticamente ao selecionar uma opcao ou clicar fora do painel.
+* Mobile/tablet: conteudo principal ocupa toda a largura quando o drawer esta fechado.
+* Desktop/notebook: sidebar permanece visivel por padrao.
+* Desktop/notebook: icone hamburguer recolhe/expande a navegacao.
+* Desktop recolhido: apenas icones dos modulos, largura reduzida para maximizar area util.
+* Desktop expandido: icones e descricoes dos modulos.
+* Estado desktop recolhido/expandido persistido em localStorage por shiftflow.navCollapsed.
+* Light Mode, Dark Mode, PT-BR e EN-GB preservados.
+* Transicoes suaves adicionadas para largura, grid, padding e transform.
+* Texto longo de erro ganhou quebra segura para evitar corte em mobile.
+
+Arquivos alterados:
+
+* apps/web/app/page.tsx.
+* apps/web/app/globals.css.
+* apps/web/app/lib/i18n.ts.
+* tests/e2e/state07-homologation.spec.ts.
+
+Validacoes:
+
+* npm run typecheck: aprovado.
+* npm run lint: aprovado.
+* npm run build:web: aprovado.
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile": aprovado.
+
+Correcao operacional relacionada:
+
+* A primeira execucao do Playwright mobile falhou antes da validacao do drawer porque POST /api/auth/login retornava erro Prisma ECONNREFUSED.
+* Causa: PostgreSQL local nao estava rodando.
+* Correcao: docker compose up -d postgres; npx prisma migrate deploy; npm run prisma:generate; npm run prisma:validate; node prisma/integration-seed.mjs; npm run homologation:seed; reinicio da API.
+* Resultado: API voltou a autenticar com status 200 e o teste mobile especifico passou.
+
+Status:
+
+* Ajuste pos-release documentado e validado localmente.
+* Nenhuma nova transicao de estado executada por este adendo.

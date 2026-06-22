@@ -4,7 +4,8 @@ import type { NextFunction, Response } from "express";
 import type { ApiRequest, AuthenticatedUser } from "../http/request-types.js";
 import { unauthorized } from "../errors/app-error.js";
 
-const accessTokenSecret = process.env.JWT_ACCESS_SECRET ?? "shiftflow-dev-access-secret";
+const accessTokenSecret =
+  process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET ?? "shiftflow-dev-access-secret";
 
 export function signAccessToken(user: AuthenticatedUser) {
   const options: SignOptions = {

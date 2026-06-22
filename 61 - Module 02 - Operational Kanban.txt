@@ -36,6 +36,7 @@ QUEBRA POR FASE
 DATABASE_MODELING:
 
 * Garantir campos de status, prioridade, SLA e historico.
+* Garantir status Pendente, Em Andamento, Aguardando Cliente, Aguardando Terceiros, Monitoramento, Finalizada e Cancelada.
 * Definir indices para filtros e ordenacao.
 * Nao criar backend ou frontend.
 
@@ -43,7 +44,9 @@ BACKEND_IMPLEMENTATION:
 
 * Criar endpoints para listar, mover e atualizar atividades.
 * Registrar historico de movimentacao.
+* Registrar timeline append-only para comentario, atualizacao, mudanca de status, mudanca de responsavel, anexo, exclusao, reabertura e encerramento.
 * Calcular ou expor prioridade e SLA conforme regra definida.
+* Implementar filtros e busca por ID, cliente, sistema, equipe, responsavel, status e texto livre quando previsto pelo contrato.
 * Nao criar UI.
 * Nao alterar schema.
 
@@ -52,6 +55,8 @@ FRONTEND_IMPLEMENTATION:
 * Criar quadro Kanban corporativo.
 * Implementar drag and drop.
 * Exibir cartoes e colunas.
+* Exibir modal/drawer de detalhes com resumo, dados principais, descricao completa, historico, anexos, auditoria e acoes permitidas.
+* Criar modo monitoramento para TV com atualizacao automatica e destaque de atividades criticas/SLA em risco.
 * Nao alterar APIs.
 * Nao alterar banco.
 
@@ -60,6 +65,7 @@ INTEGRATION:
 * Conectar drag and drop aos endpoints existentes.
 * Validar atualizacao em tempo real.
 * Validar historico e SLA ponta a ponta.
+* Validar filtros simultaneos, busca global, detalhe de registro e preservacao do historico.
 
 ---
 
@@ -69,9 +75,11 @@ Colunas:
 
 * Pendente
 * Em Andamento
+* Aguardando Cliente
 * Aguardando Terceiros
 * Monitoramento
 * Finalizada
+* Cancelada
 
 Implementar:
 
@@ -79,7 +87,11 @@ Implementar:
 * Atualizacao em tempo real
 * Prioridade automatica
 * SLA
-* Historico
+* Historico operacional imutavel
+* Filtros reais
+* Busca global
+* Detalhe em modal/drawer
+* Reabertura e encerramento quando permitidos
 
 Cada cartao deve possuir:
 
@@ -87,9 +99,10 @@ Cada cartao deve possuir:
 * Cliente
 * Sistema
 * Equipe
-* Analista
+* Responsavel
 * Prioridade
 * Status
+* SLA
 * Ultima atualizacao
 
 ---

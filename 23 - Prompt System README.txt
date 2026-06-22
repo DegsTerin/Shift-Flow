@@ -30,6 +30,20 @@ COMO USAR
 
 ---
 
+COMO USAR PROMPTS DE REVISAO GLOBAL
+
+Prompt Revision.txt e Prompt Restructuring.txt sao entradas operacionais pos-release.
+Eles nao substituem a State Machine, nao liberam alteracao fora da fase permitida e nao concluem diagnostico por si mesmos.
+
+Quando forem usados:
+
+1. Tratar os documentos como escopo consolidado de diagnostico e correcao.
+2. Separar achados por camada: arquitetura, banco, backend, frontend, integracao, testes e release.
+3. Executar apenas a camada permitida pelo estado atual ou registrar bloqueio/conflito.
+4. Registrar problemas encontrados, correcoes realizadas, evidencias, riscos e pendencias no snapshot e nos relatorios aplicaveis.
+
+---
+
 ARQUIVOS PRINCIPAIS
 
 00 - Start Here.txt:

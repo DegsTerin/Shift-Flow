@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { AppError } from "../errors/app-error.js";
+import { AppError, conflict } from "../errors/app-error.js";
 
 export function notFoundHandler(req: Request, res: Response) {
   res.status(404).json({
@@ -28,10 +28,38 @@ export function errorHandler(
     return;
   }
 
+  if (isPrismaUniqueConstraintError(error)) {
+    const fields = Array.isArray(error.meta?.target) ? error.meta.target.join(", ") : undefined;
+    const message =
+      fields && fields.includes("name")
+        ? "Ja existe um registro com este nome."
+        : "Ja existe um registro com estes dados.";
+    const appError = conflict(message, fields ? { fields } : undefined);
+    res.status(appError.statusCode).json({
+      error: {
+        code: appError.code,
+        message: appError.message,
+        details: appError.details,
+      },
+    });
+    return;
+  }
+
   res.status(500).json({
     error: {
       code: "INTERNAL_ERROR",
       message: error instanceof Error ? error.message : "Unexpected error",
     },
   });
+}
+
+function isPrismaUniqueConstraintError(
+  error: unknown,
+): error is { code: "P2002"; meta?: { target?: unknown } } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }

@@ -1,0 +1,9 @@
+ALTER TYPE "ActivityHistoryType" ADD VALUE IF NOT EXISTS 'SOFT_DELETED';
+
+ALTER TABLE "activities"
+  ADD COLUMN IF NOT EXISTS "requested" TEXT,
+  ADD COLUMN IF NOT EXISTS "performed" TEXT,
+  ADD COLUMN IF NOT EXISTS "inProgressDetail" TEXT,
+  ADD COLUMN IF NOT EXISTS "pendingDetail" TEXT,
+  ADD COLUMN IF NOT EXISTS "finalizationDetail" TEXT,
+  ADD COLUMN IF NOT EXISTS "observations" TEXT;

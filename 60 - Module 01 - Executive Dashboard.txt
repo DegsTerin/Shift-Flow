@@ -44,6 +44,8 @@ BACKEND_IMPLEMENTATION:
 * Criar endpoints e services de KPIs.
 * Implementar filtros e agregacoes.
 * Garantir RBAC e multiempresa.
+* Expor agregacoes por equipe, cliente, turno, prioridade e evolucao temporal.
+* Expor indicadores de SLA em risco e atividades criticas.
 * Nao criar componentes React.
 * Nao alterar schema.
 
@@ -51,6 +53,8 @@ FRONTEND_IMPLEMENTATION:
 
 * Criar componentes React do dashboard.
 * Criar filtros, cards, graficos e lista operacional.
+* Criar visao executiva com totalizadores e graficos corporativos.
+* Criar modo TV/monitoramento com cards grandes, tela limpa e auto refresh.
 * Nao alterar APIs.
 * Nao alterar banco.
 
@@ -58,6 +62,8 @@ INTEGRATION:
 
 * Conectar UI aos endpoints existentes.
 * Validar filtros, contratos e dados em tempo real.
+* Validar consistencia entre KPIs, graficos, lista operacional e kanban.
+* Validar auto refresh no modo monitoramento.
 * Nao criar novas regras de negocio.
 
 ---
@@ -82,12 +88,23 @@ KPIs:
 Graficos:
 
 * Atividades por equipe
+* Atividades por cliente
+* Atividades por prioridade
 * SLA por equipe
 * Incidentes por turno
-* Evolucao mensal
+* Evolucao temporal
 * Produtividade por analista
 
 Lista operacional em tempo real.
+
+Modo TV/monitoramento:
+
+* Auto atualizacao
+* Tela limpa
+* Cards grandes
+* Atividades criticas destacadas
+* SLA em risco destacado
+* Kanban ou lista operacional em tempo real quando aplicavel
 
 Filtros:
 
@@ -97,6 +114,8 @@ Filtros:
 * Prioridade
 * Status
 * Turno
+* Data inicial
+* Data final
 
 ---
 

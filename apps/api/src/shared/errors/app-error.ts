@@ -20,3 +20,6 @@ export const forbidden = (message = "Permission denied") =>
 
 export const notFound = (message = "Resource not found") =>
   new AppError(message, 404, "NOT_FOUND");
+
+export const conflict = (message = "Resource already exists", details?: unknown) =>
+  new AppError(message, 409, "CONFLICT", details);

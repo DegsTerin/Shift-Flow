@@ -60,6 +60,20 @@ PROMPTS DE CONTROLE
 * Autoridade: Normalizacao do sistema de prompts
 * Funcao: Reorganizar prompts em State Machine, gates, modules e constraints.
 
+Prompt Revision.txt
+
+* Tipo: GLOBAL REVISION REQUEST
+* Autoridade: Entrada operacional pos-release
+* Funcao: Consolidar problemas funcionais, responsividade, filtros, pesquisa, CRUD, registros, modo TV e criterios de aceite para revisao completa do ShiftFlow.
+* Regra: Nao altera estado. Deve ser executado apenas por fase permitida e validado por gates.
+
+Prompt Restructuring.txt
+
+* Tipo: GLOBAL RESTRUCTURING REQUEST
+* Autoridade: Entrada operacional pos-release
+* Funcao: Reposicionar o ShiftFlow como plataforma corporativa de passagem de turno, registro operacional, dossie de atividades, historico imutavel, acompanhamento gerencial e monitoramento em tempo real.
+* Regra: Nao altera estado. Deve orientar diagnostico, lista de correcoes, implementacao controlada, relatorio final e pendencias futuras.
+
 09 - Project Snapshot.txt
 
 * Tipo: SNAPSHOT

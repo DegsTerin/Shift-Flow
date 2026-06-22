@@ -41,6 +41,12 @@ PERMITIDO
 * Ajustar contratos existentes quando necessario.
 * Validar fluxos ponta a ponta.
 * Validar Auth, RBAC, Dashboard, Kanban, Teams, Shifts e Activities.
+* Validar filtros reais em Dashboard Principal, Dashboard por Equipe, Kanban, Relatorios e listagens.
+* Validar pesquisa global por ID, cliente, sistema, equipe, responsavel, status e texto livre quando suportado.
+* Validar botoes "+ Novo", formularios, modais/drawers, APIs e persistencia.
+* Validar CRUD completo, soft delete, reabertura e encerramento nos modulos aplicaveis.
+* Validar timeline operacional e auditoria de atividades ponta a ponta.
+* Validar dashboard executivo e modo monitoramento/TV com dados reais.
 * Aplicar migrations ja aprovadas em ambiente de integracao.
 * Corrigir incompatibilidades de integracao sem criar regra de negocio nova.
 
@@ -65,6 +71,7 @@ ENTREGAVEIS
 * Lista de incompatibilidades corrigidas.
 * Lista de pendencias de integracao.
 * Evidencias de que nenhum modulo novo foi criado.
+* Evidencias de filtros, busca, CRUD, detalhes, historico e modo TV quando aplicaveis.
 
 ---
 

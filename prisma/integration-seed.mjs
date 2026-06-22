@@ -65,7 +65,7 @@ async function main() {
     },
   );
 
-  const passwordHash = await bcrypt.hash(integrationUser.password, 12);
+  const passwordHash = await bcrypt.hash(integrationUser.password, Number(process.env.SEED_BCRYPT_ROUNDS ?? 4));
   const admin = await findOrCreate(
     prisma.user,
     { email: integrationUser.email },
@@ -191,10 +191,9 @@ async function main() {
 
   const shift = await findOrCreate(
     prisma.shift,
-    { companyId: company.id, teamId: team.id, name: "Integration Day Shift" },
+    { companyId: company.id, name: "Integration Day Shift" },
     {
       companyId: company.id,
-      teamId: team.id,
       name: "Integration Day Shift",
       startsAt,
       endsAt,
@@ -230,6 +229,9 @@ async function main() {
   const permissions = [
     ["*", "*"],
     ["dashboard", "read"],
+    ["clients", "read"],
+    ["clients", "write"],
+    ["clients", "delete"],
     ["users", "read"],
     ["users", "write"],
     ["teams", "read"],
@@ -312,9 +314,10 @@ async function main() {
     },
     {
       title: "Review third-party callback",
-      status: "MONITORING",
+      status: "WAITING_CUSTOMER",
       priority: "MEDIUM",
       systemName: "API Gateway",
+      serviceName: "Client callback",
       slaDueAt: slaLater,
     },
     {
@@ -322,6 +325,7 @@ async function main() {
       status: "DONE",
       priority: "LOW",
       systemName: "Identity",
+      serviceName: "Access management",
       slaDueAt: slaLater,
       completedAt: now,
     },
@@ -342,7 +346,14 @@ async function main() {
         reporterId: admin.id,
         title: spec.title,
         description: "STATE-06 integration fixture activity.",
+        requested: `Request handling for ${spec.title}.`,
+        performed: "Initial triage completed and operational context validated.",
+        inProgressDetail: spec.status === "IN_PROGRESS" ? "Execution is currently underway." : "No active execution at this stage.",
+        pendingDetail: spec.status === "DONE" ? "No pending action." : "Awaiting next operational update.",
+        finalizationDetail: spec.status === "DONE" ? "Resolved and closed during the current shift." : "Not finalised yet.",
+        observations: "Integration fixture with complete operational report fields.",
         systemName: spec.systemName,
+        serviceName: spec.serviceName ?? "Operational support",
         status: spec.status,
         priority: spec.priority,
         slaDueAt: spec.slaDueAt,
@@ -358,7 +369,14 @@ async function main() {
         assigneeId: analyst.id,
         reporterId: admin.id,
         description: "STATE-06 integration fixture activity.",
+        requested: `Request handling for ${spec.title}.`,
+        performed: "Initial triage completed and operational context validated.",
+        inProgressDetail: spec.status === "IN_PROGRESS" ? "Execution is currently underway." : "No active execution at this stage.",
+        pendingDetail: spec.status === "DONE" ? "No pending action." : "Awaiting next operational update.",
+        finalizationDetail: spec.status === "DONE" ? "Resolved and closed during the current shift." : "Not finalised yet.",
+        observations: "Integration fixture with complete operational report fields.",
         systemName: spec.systemName,
+        serviceName: spec.serviceName ?? "Operational support",
         status: spec.status,
         priority: spec.priority,
         slaDueAt: spec.slaDueAt,

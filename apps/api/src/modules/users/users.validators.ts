@@ -8,6 +8,7 @@ export const createUserSchema = z.object({
   status: z.enum(["INVITED", "ACTIVE", "INACTIVE", "LOCKED"]).optional(),
   preferredLocale: z.enum(["PT_BR", "EN_GB"]).optional(),
   preferredTheme: z.enum(["SYSTEM", "LIGHT", "DARK"]).optional(),
+  roleId: z.string().uuid().optional(),
 });
 
 export const updateUserSchema = createUserSchema

@@ -640,6 +640,63 @@ PENDENCIAS
 * Atualizar este snapshot ao final de cada fase executada.
 * Definir ambiente remoto/pipeline de producao quando houver alvo externo declarado.
 * Configurar remote Git quando o destino for definido.
+* Revisao operacional global solicitada em 2026-06-22:
+  * Prompt Revision.txt e Prompt Restructuring.txt lidos e incorporados como entrada operacional pos-release.
+  * Objetivo atualizado: ShiftFlow deve representar uma plataforma corporativa de passagem de turno, registro operacional, gestao de atividades/equipes/clientes/ocorrencias, acompanhamento gerencial e monitoramento em tempo real.
+  * Atividade deve ser tratada como dossie operacional auditavel com timeline imutavel, campos completos, anexos, auditoria, reabertura, encerramento e exclusao logica.
+  * Correcoes exigidas: responsividade em desktop/notebook/tablet/mobile/TV, Light Mode, Dark Mode, PT-BR, EN-GB, menu lateral consistente, filtros reais, busca global, botoes "+ Novo", CRUD completo, modal/drawer de detalhe, dashboard executivo e dashboard operacional/TV.
+  * A demanda nao altera STATE-08 PRODUCTION_RELEASE por si mesma; execucao deve seguir fase permitida, gates, diagnostico previo e evidencias.
+* Execucao de Prompt Restructuring.txt em 2026-06-22:
+  * Diagnostico: schema/API/UI nao contemplavam WAITING_CUSTOMER; atividade nao possuia serviceName; Dashboard Executivo nao agregava por cliente; movimentar/atribuir atividade gerava historico duplicado; modal nao possuia acoes explicitas de reabrir/encerrar; anexos eram exibidos apenas como contador; mobile mantinha sidebar lateral com risco de scroll horizontal; testes E2E ainda esperavam Kanban antigo de 5 colunas.
+  * Correcoes implementadas: migration 20260622103000_operational_dossier_status_service; enum WAITING_CUSTOMER; campo serviceName; validadores atualizados; busca por serviceName; dashboard charts com byClient; Kanban com Pendente, Em Andamento, Aguardando Cliente, Aguardando Terceiros, Monitoramento, Finalizada e Cancelada; modal com servico, auditoria, timeline, anexos, encerrar e reabrir; responsividade mobile sem shell horizontal; seeds atualizadas; teste E2E atualizado.
+  * Evidencias: npm run prisma:validate; npm run prisma:generate; npm run typecheck; npm run lint; npm test; npm run build; npx prisma migrate deploy; node prisma/integration-seed.mjs; npm run homologation:seed; npm run test:e2e; npx prisma migrate status.
+* Ajuste de navegacao e menu lateral em 2026-06-22:
+  * Mobile/tablet: menu lateral deixou de permanecer fixo; botao hamburguer abre drawer/offcanvas; selecao de item e clique externo fecham o painel; conteudo principal ocupa toda a largura quando o drawer esta fechado.
+  * Desktop/notebook: sidebar permanece visivel por padrao; o mesmo botao hamburguer recolhe/expande a navegacao; modo recolhido mostra apenas icones e reduz largura para 76px; modo expandido mostra icones e descricoes.
+  * Estado da navegacao desktop persistido em localStorage por shiftflow.navCollapsed.
+  * Light Mode, Dark Mode, PT-BR e EN-GB preservados por tokens CSS e mensagens em apps/web/app/lib/i18n.ts.
+  * Animacoes suaves aplicadas por transicoes de grid, largura, padding e transform.
+  * Teste mobile de Playwright atualizado para validar drawer fechado por padrao, abertura por hamburguer, fechamento apos selecionar Kanban e ausencia de overflow horizontal.
+  * Correcoes adicionais: textos longos de erro agora usam overflow-wrap:anywhere para evitar corte em resolucoes estreitas.
+  * Evidencias: npm run typecheck aprovado; npm run lint aprovado; npm run build:web aprovado; npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile" aprovado.
+* Correcao operacional de ambiente Playwright/API em 2026-06-22:
+  * Falha inicial do Playwright mobile ocorria antes do drawer porque POST /api/auth/login retornava 500 por Prisma ECONNREFUSED.
+  * Causa: PostgreSQL local nao estava rodando.
+  * Correcao executada: docker compose up -d postgres; healthcheck healthy; npx prisma migrate deploy; npm run prisma:generate; npm run prisma:validate; node prisma/integration-seed.mjs; npm run homologation:seed; reinicio da API.
+  * Resultado: login de integration.admin@shiftflow.local / ShiftFlow#2026 voltou a responder 200 e teste mobile especifico passou.
+* Revalidacao solicitada em 2026-06-22:
+  * Servicos ativos: web em 3000, API em 3001, PostgreSQL Docker healthy em 5432.
+  * npm run typecheck: aprovado.
+  * npm run lint: aprovado.
+  * npm run build:web: aprovado.
+  * npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile": aprovado.
+* Correcao do modo TV em 2026-06-22:
+  * Defeito: quando a navegacao desktop estava recolhida, entrar em Modo TV mantinha a classe nav-collapsed e a grade de 76px, deixando uma coluna fantasma sem sidebar e desconfigurando o layout.
+  * Correcao: app-shell nao recebe nav-collapsed nem drawer-open quando monitorMode esta ativo; alternar Modo TV fecha qualquer drawer aberto; CSS ganhou regra defensiva .app-shell.monitor-mode.nav-collapsed com uma unica coluna.
+  * Teste adicionado: Playwright desktop valida que, apos recolher a navegacao e entrar em Modo TV, o shell fica monitor-mode, nao fica nav-collapsed, nao renderiza sidebar e nao usa grid iniciando em 76px.
+  * Evidencias: npm run typecheck aprovado; npm run lint aprovado; npm run build:web aprovado; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode" aprovado; npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile" aprovado.
+* Ajuste visual do cabecalho do Modo TV em 2026-06-22:
+  * Frase "- Dados carregados de endpoints reais" removida apenas do contexto do Modo TV.
+  * Titulo do Modo TV voltou ao tamanho padrao da topbar, removendo o override de fonte gigante.
+  * Teste Playwright desktop do Modo TV passou a validar ausencia da frase integrada e font-size padrao de 26.4px para o heading.
+  * Evidencias: npm run typecheck aprovado; npm run lint aprovado; npm run build:web aprovado; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode" aprovado.
+* Ajuste visual do cabecalho padrao em 2026-06-22:
+  * Frase "- Dados carregados de endpoints reais" removida tambem do modo normal autenticado.
+  * Cabecalho passa a exibir apenas o nome/e-mail do usuario em modo normal e em Modo TV.
+  * Tamanho do titulo em modo normal permanece no padrao da topbar.
+  * Evidencias: npm run typecheck aprovado; npm run lint aprovado; npm run build:web aprovado; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode" aprovado.
+* Correcao de persistencia de sessao em 2026-06-22:
+  * Defeito: ao atualizar a pagina com F5, a sessao React em memoria era perdida e o usuario voltava para a tela de login.
+  * Correcao: LoginResponse passou a ser persistido em localStorage por shiftflow.session; a sessao e restaurada na hidratacao da pagina; logout remove a sessao persistida; JSON salvo invalido e descartado com seguranca.
+  * Teste adicionado: Playwright desktop valida login, existencia de shiftflow.session, page.reload() e permanencia no Dashboard sem retornar para "Acesso operacional".
+  * Evidencias: npm run typecheck aprovado; npm run lint aprovado; npm run build:web aprovado; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "authenticated session after page reload" aprovado; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode" aprovado.
+* Auditoria formal e Human CI de STATE-08 executados em 2026-06-22:
+  * Achado 1: testes mobile de Kanban ainda tentavam clicar item direto apesar da navegacao mobile atual usar drawer/hamburguer.
+  * Correcao: tests/e2e/state07-homologation.spec.ts e tests/e2e/state07-accessibility.spec.ts abrem o drawer em mobile antes de clicar Kanban.
+  * Achado 2: npm run test:load:stress falhou inicialmente por p95 local acima do limite, 1522ms/1535ms contra 1500ms.
+  * Correcao: apps/api/src/modules/dashboard/dashboard.service.ts reduziu counts separados no summary usando groupBy para status/prioridade.
+  * Evidencias finais aprovadas: docker compose ps; npm run prisma:validate; npx prisma migrate status; npx prisma migrate deploy; npm audit --audit-level=moderate; npm run audit:overrides; npm run lint; npm run typecheck; npm test; npm run build; node prisma/integration-seed.mjs; npm run homologation:seed; npm run test:e2e; npm run test:load:stress.
+  * Resultado: APROVADO COM OBSERVACAO; ambiente local atual tecnicamente aprovado, com pendencia operacional de versionar/publicar alteracoes pos-release.
 
 ---
 
@@ -675,12 +732,17 @@ RISCOS
 * Deploy/verificacao de migration aprovada executado em STATE-08 por npx prisma migrate deploy; resultado: No pending migrations to apply.
 * Gates finais de release aprovados em 2026-06-21: docker compose ps healthy; npm run prisma:validate; npx prisma migrate status; npx prisma migrate deploy; node prisma/integration-seed.mjs; npm run homologation:seed; npm audit --audit-level=moderate; npm run audit:overrides; npm run lint; npm run typecheck; npm test; npm run build; npm run test:e2e; npm run test:load:stress.
 * Risco aceito de STATE-08: nenhum ambiente remoto de producao foi declarado no workspace; release final foi validado no DATABASE_URL local configurado.
+* A revisao operacional global de 2026-06-22 pode revelar divergencias entre a release local validada e a experiencia funcional esperada em ambiente corporativo real; tratar como nova rodada controlada de diagnostico/correcao, nao como alteracao retroativa da release encerrada.
+* A execucao de Prompt Restructuring.txt criou e aplicou migration local em 2026-06-22; ambientes remotos ainda precisam receber a mesma migration por pipeline/deploy quando houver alvo externo.
+* A navegacao responsiva foi validada no teste Playwright mobile especifico e por build/lint/typecheck; manter validacao visual/manual em dispositivos reais quando houver ambiente externo.
+* O teste Playwright mobile depende de PostgreSQL local, API e web ativos ou dos web servers do Playwright. Se o banco local estiver parado, o login falha antes de validar UI.
 * Pendencias operacionais pos-release executadas parcialmente em 2026-06-21:
   * .github/workflows/release-gates.yml criado para CI de release gates.
   * docs/production-runbook.md criado com ordem de deploy, variaveis e gates.
   * docs/attachment-storage-strategy.md criado com estrategia de storage de anexos.
   * Commit inicial local criado.
 * Pendencia externa remanescente: configurar remote Git depende da URL do repositorio remoto.
+* Pendencia operacional em 2026-06-22: ha alteracoes pos-release ainda nao commitadas apos a auditoria; criar commit e push quando o remote for definido.
 
 ---
 

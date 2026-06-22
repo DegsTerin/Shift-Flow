@@ -8,16 +8,23 @@ export const activitySchema = z.object({
   reporterId: z.string().uuid().optional(),
   title: z.string().min(2).max(220),
   description: z.string().max(10000).optional(),
+  requested: z.string().max(10000).optional(),
+  performed: z.string().max(10000).optional(),
+  inProgressDetail: z.string().max(10000).optional(),
+  pendingDetail: z.string().max(10000).optional(),
+  finalizationDetail: z.string().max(10000).optional(),
+  observations: z.string().max(10000).optional(),
   systemName: z.string().max(120).optional(),
+  serviceName: z.string().max(120).optional(),
   status: z
-    .enum(["PENDING", "IN_PROGRESS", "WAITING_THIRD_PARTY", "MONITORING", "DONE", "CANCELLED"])
+    .enum(["PENDING", "IN_PROGRESS", "WAITING_CUSTOMER", "WAITING_THIRD_PARTY", "MONITORING", "DONE", "CANCELLED"])
     .optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
   slaDueAt: z.coerce.date().optional(),
 });
 
 export const moveActivitySchema = z.object({
-  status: z.enum(["PENDING", "IN_PROGRESS", "WAITING_THIRD_PARTY", "MONITORING", "DONE", "CANCELLED"]),
+  status: z.enum(["PENDING", "IN_PROGRESS", "WAITING_CUSTOMER", "WAITING_THIRD_PARTY", "MONITORING", "DONE", "CANCELLED"]),
   note: z.string().max(5000).optional(),
 });
 

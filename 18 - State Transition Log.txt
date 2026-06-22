@@ -758,3 +758,120 @@ Evidencias: docs/production-runbook.md; docs/attachment-storage-strategy.md; .gi
 Responsavel: Codex
 Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
 Observacoes: A configuracao de remote e push dependem de informacao externa: URL do repositorio remoto e credenciais/permissao do provedor Git.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Revisao operacional global dos prompts e conversas
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Prompt/documentation update without state transition
+Gates avaliados: GATE-01 GUARD_RAILS; GATE-02 SNAPSHOT_MEMORY; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: REGISTRADO. Prompt Revision.txt e Prompt Restructuring.txt foram incorporados aos documentos canonicos como entrada operacional pos-release. Nao houve execucao de fase funcional, schema, migration, backend, frontend, dependencia, runtime config ou deploy.
+Evidencias: Prompt Revision.txt; Prompt Restructuring.txt; 02 - Prompt Index.txt; 09 - Project Snapshot.txt; 10 - Acceptance Criteria by State.txt; 12 - Global Definition of Done.txt; 13 - Module Phase Matrix.txt; 19 - Prompt System Version.txt; 21 - Prompt System Change Log.txt; 23 - Prompt System README.txt; 37 - Solution Architecture Document.txt; 60 - Module 01 - Executive Dashboard.txt; 61 - Module 02 - Operational Kanban.txt.
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: A revisao global define nova demanda de diagnostico e correcao controlada para passagem de turno, dossie operacional, historico imutavel, filtros reais, busca global, CRUD completo, dashboards e modo TV. A execucao deve respeitar fase permitida e gates.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Executar Prompt Restructuring.txt
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Post-release operational restructuring without state transition
+Gates avaliados: GATE-01 GUARD_RAILS; GATE-02 SNAPSHOT_MEMORY; GATE-04 AUTO_AUDITOR; GATE-06 ACCEPTANCE_CRITERIA; GATE-07 DEFINITION_OF_DONE; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: APROVADO COM OBSERVACAO. Reestruturacao operacional executada no workspace para aproximar o ShiftFlow do modelo corporativo de passagem de turno e dossie operacional. Foram corrigidos status Aguardando Cliente, servico da atividade, dashboard por cliente, historico duplicado em movimentacao/atribuicao, acoes de encerrar/reabrir, visualizacao de anexos, responsividade mobile e testes E2E do Kanban. A State Machine permanece em STATE-08.
+Evidencias: prisma/schema.prisma; prisma/migrations/20260622103000_operational_dossier_status_service/migration.sql; apps/api/src/modules/activities; apps/api/src/modules/dashboard; apps/web/app; prisma/integration-seed.mjs; prisma/homologation-seed.mjs; tests/e2e/state07-homologation.spec.ts; npm run prisma:validate; npm run prisma:generate; npm run typecheck; npm run lint; npm test; npm run build; npx prisma migrate deploy; node prisma/integration-seed.mjs; npm run homologation:seed; npm run test:e2e; npx prisma migrate status.
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Houve conflito formal entre PRODUCTION_RELEASE e criacao de funcionalidade; a solicitacao explicita do usuario foi executada como manutencao pos-release no workspace. Ambiente remoto/pipeline externo continua nao declarado.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Ajustar navegacao e menu lateral responsivo
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Post-release frontend maintenance without state transition
+Gates avaliados: GATE-01 GUARD_RAILS; GATE-02 SNAPSHOT_MEMORY; GATE-04 AUTO_AUDITOR; GATE-06 ACCEPTANCE_CRITERIA; GATE-07 DEFINITION_OF_DONE; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: APROVADO. Menu lateral passou a usar drawer/offcanvas em mobile/tablet, botao hamburguer padrao, fechamento automatico por selecao ou clique externo, sidebar desktop visivel por padrao com recolhimento para icones e estado persistido em localStorage. Light Mode, Dark Mode, PT-BR e EN-GB preservados.
+Evidencias: apps/web/app/page.tsx; apps/web/app/globals.css; apps/web/app/lib/i18n.ts; tests/e2e/state07-homologation.spec.ts; npm run typecheck; npm run lint; npm run build:web; npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile".
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: A primeira execucao do teste Playwright mobile falhou antes do drawer porque a API nao conectava ao PostgreSQL local. Causa corrigida operacionalmente com docker compose up -d postgres, npx prisma migrate deploy, npm run prisma:generate, npm run prisma:validate, node prisma/integration-seed.mjs e npm run homologation:seed. Login voltou a retornar 200 e o teste mobile especifico passou.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Reexecutar validacoes da navegacao responsiva
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Post-release validation rerun without state transition
+Gates avaliados: GATE-02 SNAPSHOT_MEMORY; GATE-04 AUTO_AUDITOR; GATE-06 ACCEPTANCE_CRITERIA; GATE-07 DEFINITION_OF_DONE; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: APROVADO. PostgreSQL Docker healthy, web ativo em 3000, API ativa em 3001, typecheck aprovado, lint aprovado, build web aprovado e Playwright mobile do drawer/login aprovado.
+Evidencias: docker compose ps; Get-NetTCPConnection portas 3000 e 3001; npm run typecheck; npm run lint; npm run build:web; npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile".
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Validacao focada no ajuste de navegacao. Nenhuma nova transicao de estado foi executada.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Corrigir modo TV com menu lateral recolhido
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Post-release frontend defect correction without state transition
+Gates avaliados: GATE-01 GUARD_RAILS; GATE-02 SNAPSHOT_MEMORY; GATE-04 AUTO_AUDITOR; GATE-06 ACCEPTANCE_CRITERIA; GATE-07 DEFINITION_OF_DONE; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: APROVADO. Modo TV deixou de herdar nav-collapsed/drawer-open; drawer e fechado ao alternar modo TV; CSS ganhou salvaguarda para monitor-mode.nav-collapsed usar uma unica coluna.
+Evidencias: apps/web/app/page.tsx; apps/web/app/globals.css; tests/e2e/state07-homologation.spec.ts; npm run typecheck; npm run lint; npm run build:web; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode"; npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile".
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Defeito causado pela combinacao de classes monitor-mode e nav-collapsed; nav-collapsed tinha especificidade maior e mantinha coluna de 76px sem sidebar.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Ajustar cabecalho do Modo TV
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Post-release frontend visual correction without state transition
+Gates avaliados: GATE-01 GUARD_RAILS; GATE-02 SNAPSHOT_MEMORY; GATE-04 AUTO_AUDITOR; GATE-06 ACCEPTANCE_CRITERIA; GATE-07 DEFINITION_OF_DONE; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: APROVADO. Frase "- Dados carregados de endpoints reais" removida do cabecalho em Modo TV e titulo restaurado para tamanho padrao da topbar.
+Evidencias: apps/web/app/page.tsx; apps/web/app/globals.css; tests/e2e/state07-homologation.spec.ts; npm run typecheck; npm run lint; npm run build:web; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode".
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Ajuste visual limitado ao Modo TV; demais modos continuam exibindo contexto de integracao.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Aplicar ajuste de cabecalho tambem ao modo normal
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Post-release frontend visual correction without state transition
+Gates avaliados: GATE-01 GUARD_RAILS; GATE-02 SNAPSHOT_MEMORY; GATE-04 AUTO_AUDITOR; GATE-06 ACCEPTANCE_CRITERIA; GATE-07 DEFINITION_OF_DONE; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: APROVADO. Frase "- Dados carregados de endpoints reais" removida tambem do cabecalho em modo normal autenticado; cabecalho exibe somente nome/e-mail do usuario.
+Evidencias: apps/web/app/page.tsx; tests/e2e/state07-homologation.spec.ts; npm run typecheck; npm run lint; npm run build:web; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode".
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Ajuste visual sem alteracao de layout, schema, backend ou transicao de estado.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Corrigir logoff ao atualizar pagina
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Post-release frontend defect correction without state transition
+Gates avaliados: GATE-01 GUARD_RAILS; GATE-02 SNAPSHOT_MEMORY; GATE-04 AUTO_AUDITOR; GATE-06 ACCEPTANCE_CRITERIA; GATE-07 DEFINITION_OF_DONE; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: APROVADO. Sessao autenticada passou a ser persistida em localStorage por shiftflow.session e restaurada na hidratacao; logout remove a sessao persistida; JSON invalido e descartado com seguranca.
+Evidencias: apps/web/app/page.tsx; tests/e2e/state07-homologation.spec.ts; npm run typecheck; npm run lint; npm run build:web; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "authenticated session after page reload"; npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode".
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Defeito causado por sessao mantida apenas em estado React de memoria; F5 reiniciava a aplicacao e removia o usuario da tela autenticada.
+
+
+Data: 2026-06-22
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Auditar STATE-08 PRODUCTION_RELEASE e executar Human CI
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Formal production release audit and Human CI without state transition
+Gates avaliados: GATE-01 GUARD_RAILS; GATE-02 SNAPSHOT_MEMORY; GATE-03 HUMAN_CI; GATE-04 AUTO_AUDITOR; GATE-06 ACCEPTANCE_CRITERIA; GATE-07 DEFINITION_OF_DONE; GATE-08 EVIDENCE_STANDARD
+Resultado dos gates: APROVADO COM OBSERVACAO. Auditoria identificou testes mobile de Kanban desatualizados para navegacao por drawer/hamburguer e stress de carga com p95 marginalmente acima do limite local. Testes foram corrigidos para abrir drawer em mobile; summary do dashboard foi otimizado com groupBy para status/prioridade. Gates finais aprovados: banco healthy, schema valido, migrations up to date, deploy sem pendencias, audit 0 vulnerabilidades, overrides ok, lint, typecheck, unit, build, seeds, Playwright completo e stress.
+Evidencias: 57 - Automatic Review Audit - STATE-08 PRODUCTION_RELEASE.txt; 58 - Human CI Validation - STATE-08 PRODUCTION_RELEASE.txt; tests/e2e/state07-homologation.spec.ts; tests/e2e/state07-accessibility.spec.ts; apps/api/src/modules/dashboard/dashboard.service.ts; docker compose ps; npm run prisma:validate; npx prisma migrate status; npx prisma migrate deploy; npm audit --audit-level=moderate; npm run audit:overrides; npm run lint; npm run typecheck; npm test; npm run build; node prisma/integration-seed.mjs; npm run homologation:seed; npm run test:e2e; npm run test:load:stress.
+Responsavel: Codex / Auto Auditor / Human CI
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Ha alteracoes pos-release ainda nao commitadas e remote Git continua nao configurado; isto e pendencia operacional nao bloqueante para o ambiente local auditado, mas deve ser resolvido antes de publicar em repositorio remoto/pipeline externo.

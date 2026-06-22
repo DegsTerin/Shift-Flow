@@ -32,13 +32,11 @@ export class RbacService {
 
   static async hasPermission(user: AuthenticatedUser, rule: PermissionRule) {
     const required = `${rule.resource}:${rule.action}`;
-    if (user.permissions?.includes(superAdminPermission) || user.permissions?.includes(required)) {
-      return true;
-    }
+    const companyId = rule.tenant?.companyId ?? user.companyId;
 
     const assignments = (await RbacService.repository.findAssignmentsForUser(
       user.id,
-      rule.tenant?.companyId ?? user.companyId,
+      companyId,
     )) as Assignment[];
 
     return assignments.some((assignment) => {

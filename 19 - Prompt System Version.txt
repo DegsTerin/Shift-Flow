@@ -9,13 +9,13 @@ Apenas a State Machine pode alterar estado.
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.3.8
+PROMPT_SYSTEM_VERSION: 1.4.0
 
 Data:
-2026-06-20
+2026-06-22
 
 Status:
-Baseline canonica criada, camada operacional diaria adicionada, entrypoint oficial definido, nomes dos arquivos normalizados em en-GB, cobertura completa dos estados executaveis, ordem operacional corrigida, fluxo do zero reforcado, lacunas de migrations/modulos fechadas, checklists operacionais alinhados e snapshot limpo para execucao do zero.
+Revisao operacional global incorporada aos prompts canonicos. O ShiftFlow passa a ser tratado explicitamente como plataforma corporativa de passagem de turno, registro operacional, gestao de atividades, gestao de equipes, gestao de clientes, gestao de ocorrencias, acompanhamento gerencial e monitoramento em tempo real. Atividade passa a ser definida como dossie operacional auditavel com timeline imutavel, filtros reais, busca global, CRUD completo, modal de detalhes, dashboards executivo/operacional e modo TV como criterios de evolucao pos-release.
 
 ---
 

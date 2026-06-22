@@ -35,6 +35,9 @@ Uma fase so pode ser recomendada como concluida quando:
 * Pendencias foram classificadas como bloqueantes ou nao bloqueantes.
 * Riscos foram documentados.
 * Proxima acao foi definida.
+* Quando houver revisao global, o diagnostico foi registrado antes das correcoes.
+* Quando houver atividade operacional no escopo, historico/timeline, auditoria, soft delete e preservacao de informacao foram validados.
+* Quando houver interface no escopo, responsividade, temas, idiomas, filtros, busca, modais/drawers e botoes de criacao foram validados com evidencia.
 
 ---
 

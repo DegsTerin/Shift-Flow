@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const shiftSchema = z.object({
-  teamId: z.string().uuid(),
   name: z.string().min(2).max(160),
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date(),

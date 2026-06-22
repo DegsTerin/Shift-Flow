@@ -20,6 +20,9 @@ export const ActivitiesController = {
   close: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.close(req, param(req.params.id, "id"))));
   }),
+  reopen: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.reopen(req, param(req.params.id, "id"), req.body.note)));
+  }),
   kanban: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.kanban(req)));
   }),

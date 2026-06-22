@@ -130,12 +130,15 @@ D:
 
 * Campos e indices para KPIs
 * Relacionamentos necessarios para agregacoes
+* Campos necessarios para total de atividades, pendentes, em andamento, finalizadas, SLA em risco, criticas, equipe, cliente, turno, prioridade e evolucao temporal
 
 B:
 
 * Endpoints de KPIs
 * Services de agregacao
 * Filtros por equipe, analista, cliente, prioridade, status e turno
+* Agregacoes por equipe, cliente, turno, prioridade e periodo
+* Contratos para dashboard executivo e visao operacional/TV quando compartilharem indicadores
 
 F:
 
@@ -143,16 +146,20 @@ F:
 * Graficos
 * Filtros
 * Lista operacional em tempo real
+* Visao executiva com totalizadores, graficos por equipe, cliente, turno, prioridade e evolucao temporal
+* Layout de monitoramento com cards grandes, atualizacao automatica e destaque de SLA em risco/atividades criticas
 
 I:
 
 * Integracao de dados reais
 * Validacao de filtros
 * Atualizacao em tempo real
+* Validacao de auto refresh e consistencia de numeros entre dashboard, kanban e listagens
 
 T:
 
 * Auditoria de numeros, performance e permissao
+* Validacao visual em desktop, notebook/tablet, mobile e TV/monitoramento
 
 ---
 
@@ -164,12 +171,15 @@ D:
 * Prioridade
 * SLA
 * Historico de atividade
+* Status obrigatorios: Pendente, Em Andamento, Aguardando Cliente, Aguardando Terceiros, Monitoramento, Finalizada e Cancelada
 
 B:
 
 * APIs de listagem, movimentacao e atualizacao
 * Registro de historico
 * Regras de SLA e prioridade
+* Registro imutavel de mudanca de status, responsavel, comentario, anexo, exclusao, reabertura e encerramento quando aplicavel
+* Filtros por cliente, sistema, equipe, turno, responsavel, prioridade, status e periodo
 
 F:
 
@@ -177,16 +187,21 @@ F:
 * Colunas
 * Cartoes
 * Drag and drop
+* Cartoes com ID, cliente, sistema, equipe, responsavel, prioridade, status, SLA e ultima atualizacao
+* Modal/drawer de detalhes com timeline completa e acoes permitidas
+* Modo monitoramento em tempo real com destaque visual de criticos e SLA em risco
 
 I:
 
 * Persistencia de movimentacao
 * Atualizacao em tempo real
 * Validacao de historico
+* Validacao de filtros simultaneos, busca e consistencia entre cartao, detalhe e timeline
 
 T:
 
 * Testes de concorrencia, permissao, SLA e responsividade
+* Testes de imutabilidade do historico operacional e preservacao de informacao
 
 ---
 
@@ -286,27 +301,37 @@ D:
 * Entidade Activity
 * Status, prioridade, SLA, responsavel, cliente, equipe e turno
 * Relacionamentos com historico, comentarios, anexos e auditoria
+* Campos de dossie operacional: titulo, sistema, servico, descricao inicial, o que foi identificado, o que foi realizado, o que esta pendente, proximas acoes e resultado final
+* Metadados automaticos: criado por, data criacao, ultima alteracao por, ultima alteracao em, excluido por e data exclusao
 
 B:
 
 * APIs de criar, editar, mover, atribuir e encerrar atividades
 * Services de status, prioridade, SLA e responsaveis
 * Validacoes de permissao e isolamento
+* CRUD completo com exclusao logica, reabertura e encerramento
+* Timeline append-only para comentario, atualizacao, mudanca de status, mudanca de responsavel, anexo, exclusao, reabertura e encerramento
+* Busca por ID, cliente, sistema, equipe, responsavel, status e texto livre
 
 F:
 
 * Tela de atividades
 * Formularios de criacao e edicao
 * Listas, filtros e estados visuais de prioridade/SLA
+* Detalhe de atividade em modal, drawer ou painel sobre a tela atual
+* Exibicao de resumo, dados principais, descricao completa, historico, anexos, auditoria e acoes permitidas
+* Botao "+ Novo" funcional em todos os pontos de entrada de atividade
 
 I:
 
 * Fluxos ponta a ponta de criacao, edicao, movimentacao e encerramento
 * Validacao de historico e auditoria
+* Validacao de filtros, pesquisa global, soft delete, reabertura, encerramento e preservacao de timeline
 
 T:
 
 * Testes de SLA, permissao, concorrencia e consistencia de status
+* Testes de responsividade, temas, idiomas, CRUD completo e imutabilidade de historico
 
 ---
 
