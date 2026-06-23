@@ -2,9 +2,10 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: shiftflow-postgres
+    # Development-only credentials. Production must use managed secrets and a non-public database endpoint.
     environment:
       POSTGRES_USER: shiftflow
-      POSTGRES_PASSWORD: shiftflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: shiftflow
     ports:
       - "5432:5432"

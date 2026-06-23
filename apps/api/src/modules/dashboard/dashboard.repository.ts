@@ -11,7 +11,7 @@ const publicUserSelect = {
   email: true,
   displayName: true,
   jobTitle: true,
-  status: true,
+  status: true
 };
 
 export class DashboardRepository {
@@ -27,7 +27,7 @@ export class DashboardRepository {
     return (await this.activities()).groupBy({
       by: [field],
       where,
-      _count: { _all: true },
+      _count: { _all: true }
     });
   }
 
@@ -36,7 +36,7 @@ export class DashboardRepository {
       where,
       take: 50,
       orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
-      include: { client: true, team: true, assignee: { select: publicUserSelect }, shift: true },
+      include: { client: true, team: true, assignee: { select: publicUserSelect }, shift: true }
     });
   }
 }

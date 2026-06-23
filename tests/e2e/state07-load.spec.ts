@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-const apiBaseUrl = "http://localhost:3001";
+const apiBaseUrl = process.env.API_BASE_URL ?? "http://localhost:3001";
 const credentials = {
-  email: "integration.admin@shiftflow.local",
-  password: "ShiftFlow#2026",
+  email: process.env.E2E_EMAIL ?? "integration.admin@shiftflow.local",
+  password: process.env.E2E_PASSWORD ?? "replace-with-a-local-e2e-password"
 };
 const concurrency = Number(process.env.LOAD_CONCURRENCY ?? 8);
 const minimumActivities = Number(process.env.LOAD_MIN_ACTIVITIES ?? 120);
@@ -25,7 +25,7 @@ function percentile(values: number[], percentileValue: number) {
 test.describe("STATE-07 representative load", () => {
   test("keeps authenticated dashboard APIs responsive with homologation volume", async ({
     request,
-    isMobile,
+    isMobile
   }) => {
     test.skip(isMobile, "API load scenario runs once in the desktop project.");
 
@@ -46,7 +46,7 @@ test.describe("STATE-07 representative load", () => {
       "/api/dashboard/operational-list",
       "/api/activities",
       "/api/teams",
-      "/api/shifts",
+      "/api/shifts"
     ];
     const durations: number[] = [];
 
@@ -54,12 +54,12 @@ test.describe("STATE-07 representative load", () => {
       Array.from({ length: concurrency }, async (_, batchIndex) => {
         for (const endpoint of endpoints) {
           const { value: response, durationMs } = await timed(() =>
-            request.get(`${apiBaseUrl}${endpoint}`, { headers }),
+            request.get(`${apiBaseUrl}${endpoint}`, { headers })
           );
           expect(response.ok(), `${endpoint} batch ${batchIndex}`).toBe(true);
           durations.push(durationMs);
         }
-      }),
+      })
     );
 
     expect(durations).toHaveLength(concurrency * endpoints.length);

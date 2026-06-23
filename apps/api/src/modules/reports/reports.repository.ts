@@ -16,7 +16,7 @@ export class ReportsRepository extends BaseRepository {
     const [byStatus, byPriority, total] = await Promise.all([
       activity.groupBy({ by: ["status"], where, _count: { _all: true } }),
       activity.groupBy({ by: ["priority"], where, _count: { _all: true } }),
-      activity.count({ where }),
+      activity.count({ where })
     ]);
     return { total, byStatus, byPriority };
   }

@@ -18,6 +18,8 @@ export const ShiftsController = {
     res.json(ok(await service.reopen(req, param(req.params.id, "id"))));
   }),
   addCoverage: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.status(201).json(created(await service.addCoverage(req, param(req.params.id, "id"), req.body)));
-  }),
+    res
+      .status(201)
+      .json(created(await service.addCoverage(req, param(req.params.id, "id"), req.body)));
+  })
 };

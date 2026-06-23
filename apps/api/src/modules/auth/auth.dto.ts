@@ -5,5 +5,5 @@ export type LoginDto = {
 };
 
 export type RefreshTokenDto = {
-  refreshToken: string;
+  refreshToken?: string;
 };

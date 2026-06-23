@@ -26,7 +26,7 @@ EVIDENCIAS TECNICAS
 * docker compose ps: shiftflow-postgres em estado healthy.
 * npm run prisma:validate: aprovado.
 * npx prisma migrate status: aprovado; database schema is up to date.
-* node prisma/integration-seed.mjs: aprovado; credencial integration.admin@shiftflow.local / ShiftFlow#2026.
+* node prisma/integration-seed.mjs: aprovado; credencial integration.admin@shiftflow.local / <E2E_PASSWORD>.
 * npm test: aprovado, 2 arquivos e 6 testes passaram.
 * npm run typecheck: aprovado.
 * npm run build:api: aprovado.
@@ -34,7 +34,7 @@ EVIDENCIAS TECNICAS
 * npx eslint apps/web/app apps/api/src prisma/integration-seed.mjs: aprovado.
 * Supertest autenticado aprovou Auth, Dashboard, Users, Teams, Shifts, Activities/Kanban, Notifications, RBAC, Reports e Audit.
 * Testes negativos basicos aprovaram sem token 401, token invalido 401 e senha invalida 400.
-* Chrome desktop autenticado: login com integration.admin@shiftflow.local / ShiftFlow#2026 aprovado.
+* Chrome desktop autenticado: login com integration.admin@shiftflow.local / <E2E_PASSWORD> aprovado.
 * Chrome desktop autenticado: Dashboard Principal carregou dados reais com KPIs 4, 1, 1, 0, 1, 1.
 * Chrome desktop autenticado: Dark Mode alternou data-theme de light para dark.
 * Chrome desktop autenticado: idioma EN-GB alterou Dashboard Principal para Main Dashboard e menus para Team Dashboard, User Management, Team Management, Shift Management, Activity Management, Reports e Settings.
@@ -48,10 +48,10 @@ BUG-STATE07-001
 
 * Origem classificada: STATE-06 INTEGRATION / STATE-05 FRONTEND_IMPLEMENTATION.
 * Severidade: media.
-* Evidencia: apps/web/app/page.tsx linhas 332 e 336 preenchem coordenador@shiftflow.local / shiftflow.
+* Evidencia: apps/web/app/page.tsx linhas 332 e 336 preenchem <legacy-demo-credential>.
 * Resultado observado: POST /api/auth/login com esses valores retorna 401.
 * Impacto: homologacao manual por navegador falha no primeiro acesso se o avaliador usar os defaults da tela.
-* Correcao necessaria: ajustar defaults do login para integration.admin@shiftflow.local / ShiftFlow#2026 ou remover defaults e documentar credencial de homologacao.
+* Correcao necessaria: ajustar defaults do login para integration.admin@shiftflow.local / <E2E_PASSWORD> ou remover defaults e documentar credencial de homologacao.
 
 BUG-STATE07-002
 
@@ -164,7 +164,7 @@ CORRECOES E HOMOLOGACAO FINAL - 2026-06-21
 
 Correcoes aplicadas com autorizacao explicita do usuario:
 
-* BUG-STATE07-001 resolvido: apps/web/app/page.tsx agora preenche integration.admin@shiftflow.local / ShiftFlow#2026.
+* BUG-STATE07-001 resolvido: apps/web/app/page.tsx agora preenche integration.admin@shiftflow.local / <E2E_PASSWORD>.
 * BUG-STATE07-002 resolvido: eslint.config.mjs agora ignora **/.next/** e npm run lint global passou.
 * BUG-STATE07-003 resolvido sem --force: package.json recebeu overrides transitivos para @hono/node-server 1.19.13 e postcss via $postcss; package-lock.json foi atualizado por npm install normal; npm audit --audit-level=moderate retornou 0 vulnerabilidades.
 * BUG-STATE07-004 resolvido: labels de status usados por Kanban e tabelas agora sao internacionalizados por locale; EN-GB exibe Pending, In progress, Waiting for third party, Monitoring e Completed.

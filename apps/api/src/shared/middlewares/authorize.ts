@@ -13,7 +13,7 @@ export function requirePermission(resource: string, action: string) {
     const hasPermission = await RbacService.hasPermission(req.auth, {
       resource,
       action,
-      tenant: req.tenant,
+      tenant: req.tenant
     });
 
     if (!hasPermission) {

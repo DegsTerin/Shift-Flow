@@ -26,7 +26,7 @@ const sensitiveKeys = new Set([
   "token",
   "tokenHash",
   "accessToken",
-  "authorization",
+  "authorization"
 ]);
 
 function redact(value: unknown): unknown {
@@ -40,8 +40,8 @@ function redact(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [
       key,
-      sensitiveKeys.has(key) ? "[REDACTED]" : redact(entry),
-    ]),
+      sensitiveKeys.has(key) ? "[REDACTED]" : redact(entry)
+    ])
   );
 }
 
@@ -56,7 +56,7 @@ export async function writeAudit(req: ApiRequest, input: AuditInput) {
       actorUserId: req.auth?.id,
       requestId: req.context?.requestId,
       ipAddress: req.context?.ipAddress,
-      userAgent: req.context?.userAgent,
-    },
+      userAgent: req.context?.userAgent
+    }
   });
 }

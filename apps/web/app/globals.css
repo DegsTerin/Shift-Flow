@@ -161,10 +161,16 @@ textarea {
 
 select {
   appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position: calc(100% - 16px) 18px, calc(100% - 11px) 18px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 18px,
+    calc(100% - 11px) 18px;
   background-repeat: no-repeat;
-  background-size: 5px 5px, 5px 5px;
+  background-size:
+    5px 5px,
+    5px 5px;
   padding-right: 30px;
 }
 
@@ -277,7 +283,10 @@ textarea {
   min-height: 100vh;
   padding: 28px 18px;
   width: 280px;
-  transition: transform 180ms ease, width 180ms ease, padding 180ms ease;
+  transition:
+    transform 180ms ease,
+    width 180ms ease,
+    padding 180ms ease;
 }
 
 .sidebar-brand {

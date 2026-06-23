@@ -2,17 +2,21 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
 const credentials = {
-  email: "integration.admin@shiftflow.local",
-  password: "ShiftFlow#2026"
+  email: process.env.E2E_EMAIL ?? "integration.admin@shiftflow.local",
+  password: process.env.E2E_PASSWORD ?? "replace-with-a-local-e2e-password"
 };
 
 async function login(page: Page) {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Acesso operacional|Operations access/ })).toBeVisible();
-  await expect(page.getByLabel(/E-mail|Email/)).toHaveValue(credentials.email);
-  await expect(page.getByLabel(/Senha|Password/)).toHaveValue(credentials.password);
+  await expect(
+    page.getByRole("heading", { name: /Acesso operacional|Operations access/ })
+  ).toBeVisible();
+  await page.getByLabel(/E-mail|Email/).fill(credentials.email);
+  await page.getByLabel(/Senha|Password/).fill(credentials.password);
   await page.getByRole("button", { name: /Entrar|Sign in/ }).click();
-  await expect(page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })
+  ).toBeVisible();
 }
 
 async function navigateToKanban(page: Page, isMobile: boolean) {
@@ -30,12 +34,18 @@ test.describe("STATE-07 homologation", () => {
     await expect(page.getByText(/INTEGRATION ADMIN/i)).toBeVisible();
     await expect(page.getByText(/Atividades totais|Total activities/)).toBeVisible();
     await expect
-      .poll(async () => (await page.locator(".metric-card strong").allTextContents()).map((value) => Number(value))[0], {
-        message: "dashboard total metric should load from the API",
-      })
+      .poll(
+        async () =>
+          (await page.locator(".metric-card strong").allTextContents()).map((value) =>
+            Number(value)
+          )[0],
+        {
+          message: "dashboard total metric should load from the API"
+        }
+      )
       .toBeGreaterThanOrEqual(4);
     const metrics = (await page.locator(".metric-card strong").allTextContents()).map((value) =>
-      Number(value),
+      Number(value)
     );
     expect(metrics).toHaveLength(6);
     expect(metrics[0]).toBeGreaterThanOrEqual(4);
@@ -49,13 +59,17 @@ test.describe("STATE-07 homologation", () => {
   test("keeps the authenticated session after page reload", async ({ page }) => {
     await login(page);
     await expect
-      .poll(() => page.evaluate(() => Boolean(localStorage.getItem("shiftflow.session"))))
-      .toBe(true);
+      .poll(() => page.evaluate(() => localStorage.getItem("shiftflow.session")))
+      .toBeNull();
 
     await page.reload();
 
-    await expect(page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Acesso operacional|Operations access/ })).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Acesso operacional|Operations access/ })
+    ).toHaveCount(0);
   });
 
   test("supports dark mode and EN-GB Kanban labels", async ({ page, isMobile }) => {
@@ -80,13 +94,18 @@ test.describe("STATE-07 homologation", () => {
     ]);
   });
 
-  test("keeps TV mode full width after desktop navigation is collapsed", async ({ page, isMobile }) => {
+  test("keeps TV mode full width after desktop navigation is collapsed", async ({
+    page,
+    isMobile
+  }) => {
     test.skip(isMobile, "Desktop-only TV mode assertion.");
 
     await login(page);
 
     const shell = page.locator("main.app-shell");
-    await expect(page.getByText(/Dados carregados de endpoints reais|Loaded from live endpoints/)).toHaveCount(0);
+    await expect(
+      page.getByText(/Dados carregados de endpoints reais|Loaded from live endpoints/)
+    ).toHaveCount(0);
     await page.getByRole("button", { name: /Recolher navegacao|Collapse navigation/ }).click();
     await expect(shell).toHaveClass(/nav-collapsed/);
 
@@ -94,14 +113,21 @@ test.describe("STATE-07 homologation", () => {
     await expect(shell).toHaveClass(/monitor-mode/);
     await expect(shell).not.toHaveClass(/nav-collapsed/);
     await expect(page.locator(".sidebar")).toHaveCount(0);
-    await expect(page.getByText(/Dados carregados de endpoints reais|Loaded from live endpoints/)).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })).toHaveCSS("font-size", "26.4px");
+    await expect(
+      page.getByText(/Dados carregados de endpoints reais|Loaded from live endpoints/)
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })
+    ).toHaveCSS("font-size", "26.4px");
     await expect
       .poll(() => shell.evaluate((element) => getComputedStyle(element).gridTemplateColumns))
       .not.toMatch(/^76px\b/);
   });
 
-  test("keeps mobile dashboard responsive and accessible at a basic level", async ({ page, isMobile }) => {
+  test("keeps mobile dashboard responsive and accessible at a basic level", async ({
+    page,
+    isMobile
+  }) => {
     test.skip(!isMobile, "Mobile-only responsive assertion.");
 
     await login(page);
@@ -109,7 +135,9 @@ test.describe("STATE-07 homologation", () => {
     await expect(page.getByRole("heading", { name: "Main Dashboard" })).toBeVisible();
 
     await expect(page.locator("body")).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth
+    );
     expect(overflow).toBe(false);
 
     await expect(page.getByRole("navigation")).toBeHidden();

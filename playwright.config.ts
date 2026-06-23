@@ -1,6 +1,14 @@
+import "dotenv/config";
 import { defineConfig, devices } from "@playwright/test";
 
-const chromeExecutablePath = process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const chromeExecutablePath =
+  process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH ??
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required to run Playwright release gates.");
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -25,8 +33,9 @@ export default defineConfig({
       reuseExistingServer: true,
       timeout: 20_000,
       env: {
-        DATABASE_URL: process.env.DATABASE_URL ?? "postgresql://shiftflow:shiftflow@localhost:5432/shiftflow?schema=public",
+        DATABASE_URL: databaseUrl,
         JWT_SECRET: process.env.JWT_SECRET ?? "replace-with-a-local-secret",
+        CORS_ORIGIN: "http://localhost:3000",
         API_PORT: "3001"
       }
     },

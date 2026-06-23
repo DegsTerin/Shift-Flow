@@ -9,7 +9,7 @@ describe("ShiftFlow API", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       status: "ok",
-      service: "shiftflow-api",
+      service: "shiftflow-api"
     });
   });
 

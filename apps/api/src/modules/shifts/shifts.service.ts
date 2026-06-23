@@ -1,7 +1,11 @@
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { badRequest } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
-import { activeCompanyId, assertShiftInCompany, assertUserInCompany } from "../../shared/services/scope.service.js";
+import {
+  activeCompanyId,
+  assertShiftInCompany,
+  assertUserInCompany
+} from "../../shared/services/scope.service.js";
 import { ShiftsRepository } from "./shifts.repository.js";
 
 export class ShiftsService extends BaseService {
@@ -48,17 +52,24 @@ export class ShiftsService extends BaseService {
     await Promise.all([
       assertShiftInCompany(shiftId, companyId),
       assertUserInCompany(String(data.userId), companyId),
-      assertUserInCompany(data.replacementForUserId ? String(data.replacementForUserId) : undefined, companyId),
+      assertUserInCompany(
+        data.replacementForUserId ? String(data.replacementForUserId) : undefined,
+        companyId
+      )
     ]);
     return this.shiftsRepository.addCoverage({
       ...data,
       shiftId,
-      companyId,
+      companyId
     });
   }
 
   private assertPeriod(startsAt: unknown, endsAt: unknown) {
-    if (startsAt && endsAt && new Date(startsAt as Date).getTime() >= new Date(endsAt as Date).getTime()) {
+    if (
+      startsAt &&
+      endsAt &&
+      new Date(startsAt as Date).getTime() >= new Date(endsAt as Date).getTime()
+    ) {
       throw badRequest("endsAt must be after startsAt");
     }
   }

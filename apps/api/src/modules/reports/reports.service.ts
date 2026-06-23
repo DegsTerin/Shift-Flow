@@ -1,7 +1,12 @@
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { badRequest } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
-import { activeCompanyId, assertShiftInCompany, assertTeamInCompany, assertUserInCompany } from "../../shared/services/scope.service.js";
+import {
+  activeCompanyId,
+  assertShiftInCompany,
+  assertTeamInCompany,
+  assertUserInCompany
+} from "../../shared/services/scope.service.js";
 import { ReportsRepository } from "./reports.repository.js";
 
 export class ReportsService extends BaseService {
@@ -11,7 +16,7 @@ export class ReportsService extends BaseService {
     const repository = new ReportsRepository();
     super(repository, "ShiftReport", {
       userStamps: false,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "desc" }
     });
     this.reportsRepository = repository;
   }
@@ -21,7 +26,7 @@ export class ReportsService extends BaseService {
     await Promise.all([
       assertShiftInCompany(String(data.shiftId), companyId),
       assertTeamInCompany(String(data.teamId), companyId),
-      assertUserInCompany(req.auth?.id, companyId),
+      assertUserInCompany(req.auth?.id, companyId)
     ]);
     return super.create(req, { ...data, authorId: req.auth?.id });
   }
@@ -30,7 +35,7 @@ export class ReportsService extends BaseService {
     const companyId = activeCompanyId(req);
     await Promise.all([
       assertShiftInCompany(data.shiftId ? String(data.shiftId) : undefined, companyId),
-      assertTeamInCompany(data.teamId ? String(data.teamId) : undefined, companyId),
+      assertTeamInCompany(data.teamId ? String(data.teamId) : undefined, companyId)
     ]);
     return super.update(req, id, data);
   }
@@ -45,8 +50,13 @@ export class ReportsService extends BaseService {
       ...(query.shiftId ? { shiftId: query.shiftId } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.from || query.to
-        ? { createdAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lte: query.to } : {}) } }
-        : {}),
+        ? {
+            createdAt: {
+              ...(query.from ? { gte: query.from } : {}),
+              ...(query.to ? { lte: query.to } : {})
+            }
+          }
+        : {})
     });
   }
 
@@ -68,7 +78,7 @@ export class ReportsService extends BaseService {
     return this.update(req, id, {
       status: "APPROVED",
       approvedAt: new Date(),
-      approvedById: req.auth?.id,
+      approvedById: req.auth?.id
     });
   }
 }

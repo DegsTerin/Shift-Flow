@@ -43,7 +43,7 @@ Seed/bootstrap operacional minimo em 2026-06-21:
 * prisma/integration-seed.mjs foi criado como fixture idempotente de integracao.
 * A seed cria ou atualiza company, client, usuarios, role, permissions, user-role assignment, team, team members, shift, shift coverage, activities, activity history e notification.
 * Usuario de validacao: integration.admin@shiftflow.local.
-* Senha de validacao: ShiftFlow#2026.
+* Senha de validacao: <E2E_PASSWORD>.
 * A seed foi executada com sucesso e reexecutada com sucesso para validar idempotencia.
 * Correcoes de integracao adicionais: apps/api/src/shared/middlewares/validate.ts deixou de reatribuir req.query, evitando erro em rotas com query validation no Express atual.
 

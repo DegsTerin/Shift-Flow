@@ -1,4 +1,4 @@
-import { getDelegate } from "../../shared/lib/prisma.js";
+import { getDelegate, getPrisma } from "../../shared/lib/prisma.js";
 
 type UserDelegate = {
   findUnique(args: unknown): Promise<unknown | null>;
@@ -9,6 +9,10 @@ type RefreshTokenDelegate = {
   create(args: unknown): Promise<unknown>;
   findUnique(args: unknown): Promise<unknown | null>;
   update(args: unknown): Promise<unknown>;
+};
+
+type TransactionClient = {
+  refreshToken: RefreshTokenDelegate;
 };
 
 export class AuthRepository {
@@ -31,20 +35,20 @@ export class AuthRepository {
             role: {
               include: {
                 permissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
-      },
+                  include: { permission: true }
+                }
+              }
+            }
+          }
+        }
+      }
     });
   }
 
   async updateLastLogin(userId: string) {
     return (await this.users()).update({
       where: { id: userId },
-      data: { lastLoginAt: new Date() },
+      data: { lastLoginAt: new Date() }
     });
   }
 
@@ -65,27 +69,35 @@ export class AuthRepository {
                 role: {
                   include: {
                     permissions: {
-                      include: { permission: true },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+                      include: { permission: true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     });
   }
 
   async revokeRefreshToken(id: string) {
     return (await this.refreshTokens()).update({
       where: { id },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date() }
     });
   }
 
   async rotateRefreshToken(id: string, data: Record<string, unknown>) {
-    await this.revokeRefreshToken(id);
-    return this.createRefreshToken(data);
+    const prisma = (await getPrisma()) as {
+      $transaction<T>(callback: (tx: TransactionClient) => Promise<T>): Promise<T>;
+    };
+    return prisma.$transaction(async (tx) => {
+      await tx.refreshToken.update({
+        where: { id },
+        data: { revokedAt: new Date() }
+      });
+      return tx.refreshToken.create({ data });
+    });
   }
 }

@@ -418,7 +418,7 @@ Estado:
 * POST /api/auth/login passou de 503 PRISMA_CLIENT_UNAVAILABLE para 401 UNAUTHORIZED por ausencia de usuario/credencial inicial.
 * Seed/bootstrap operacional minimo criado em prisma/integration-seed.mjs e executado com sucesso.
 * Seed reexecutado com sucesso para validar idempotencia.
-* Credencial de integracao criada: integration.admin@shiftflow.local / ShiftFlow#2026.
+* Credencial de integracao criada: integration.admin@shiftflow.local / <E2E_PASSWORD>.
 * Validacao automatizada com Supertest aprovou Auth login, Dashboard summary, Dashboard charts, Dashboard operational-list, Users list, Teams list, Shifts list, Activities kanban, Notifications unread-count, RBAC roles e POST /api/activities/:id/move.
 * Dashboard summary com dados reais retornou total 4, pending 1, inProgress 1, done 1, critical 1 e slaAtRisk 1.
 * apps/api/src/shared/middlewares/validate.ts corrigido para nao reatribuir req.query em Express atual.
@@ -507,9 +507,9 @@ Estado:
 * Validacao visual mobile, acessibilidade e screenshot automatico nao foram concluidos.
 * Reexecucao solicitada de STATE-07 em 2026-06-21 manteve banco, seed, testes, typecheck, lint restrito, build API, build Web e contratos autenticados aprovados.
 * Na reexecucao, npm audit e npm run lint global continuaram reprovados pelos mesmos motivos ja registrados.
-* Na reexecucao, login com integration.admin@shiftflow.local / ShiftFlow#2026 retornou 200 e login com defaults atuais retornou 401.
+* Na reexecucao, login com integration.admin@shiftflow.local / <E2E_PASSWORD> retornou 200 e login com defaults atuais retornou 401.
 * Apos autorizacao explicita do usuario, os bugs registrados foram corrigidos em STATE-07 sem criar feature nova:
-  * apps/web/app/page.tsx alinhou defaults de login a integration.admin@shiftflow.local / ShiftFlow#2026.
+  * apps/web/app/page.tsx alinhou defaults de login a integration.admin@shiftflow.local / <E2E_PASSWORD>.
   * apps/web/app/page.tsx internacionalizou labels de status para PT-BR e EN-GB no Kanban e tabelas.
   * eslint.config.mjs passou a ignorar **/.next/**.
   * package.json e package-lock.json receberam overrides transitivos para corrigir npm audit sem --force.
@@ -537,7 +537,7 @@ Artefatos:
 
 Bugs registrados:
 
-* BUG-STATE07-001: apps/web/app/page.tsx preenche coordenador@shiftflow.local / shiftflow, mas a credencial de integracao ativa e integration.admin@shiftflow.local / ShiftFlow#2026; login com defaults retorna 401.
+* BUG-STATE07-001: apps/web/app/page.tsx preenche <legacy-demo-credential>, mas a credencial de integracao ativa e integration.admin@shiftflow.local / <E2E_PASSWORD>; login com defaults retorna 401.
 * BUG-STATE07-002: npm run lint global falha apos build porque eslint.config.mjs ignora ".next/**", mas os artefatos gerados ficam em apps/web/.next.
 * BUG-STATE07-003: npm audit --audit-level=moderate segue reprovado por 5 vulnerabilidades moderadas transitivas; correcao automatica exige --force com breaking/downgrade.
 * BUG-STATE07-004: em EN-GB, a tela Kanban manteve labels de colunas em portugues.
@@ -706,7 +706,7 @@ PENDENCIAS
   * Falha inicial do Playwright mobile ocorria antes do drawer porque POST /api/auth/login retornava 500 por Prisma ECONNREFUSED.
   * Causa: PostgreSQL local nao estava rodando.
   * Correcao executada: docker compose up -d postgres; healthcheck healthy; npx prisma migrate deploy; npm run prisma:generate; npm run prisma:validate; node prisma/integration-seed.mjs; npm run homologation:seed; reinicio da API.
-  * Resultado: login de integration.admin@shiftflow.local / ShiftFlow#2026 voltou a responder 200 e teste mobile especifico passou.
+  * Resultado: login de integration.admin@shiftflow.local / <E2E_PASSWORD> voltou a responder 200 e teste mobile especifico passou.
 * Revalidacao solicitada em 2026-06-22:
   * Servicos ativos: web em 3000, API em 3001, PostgreSQL Docker healthy em 5432.
   * npm run typecheck: aprovado.

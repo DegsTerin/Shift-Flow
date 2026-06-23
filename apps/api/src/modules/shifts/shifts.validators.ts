@@ -5,7 +5,7 @@ export const shiftSchema = z.object({
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date(),
   timezone: z.string().min(3).max(64).optional(),
-  status: z.enum(["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"]).optional(),
+  status: z.enum(["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"]).optional()
 });
 
 export const coverageSchema = z.object({
@@ -14,5 +14,5 @@ export const coverageSchema = z.object({
   type: z.enum(["REGULAR", "ON_CALL", "VACATION", "SUBSTITUTE", "ABSENCE"]).default("REGULAR"),
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date(),
-  note: z.string().max(5000).optional(),
+  note: z.string().max(5000).optional()
 });

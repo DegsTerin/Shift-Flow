@@ -19,5 +19,5 @@ export const NotificationsController = {
   }),
   unreadCount: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.unreadCount(req)));
-  }),
+  })
 };

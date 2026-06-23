@@ -19,5 +19,5 @@ export const ReportsController = {
   }),
   approve: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.approve(req, param(req.params.id, "id"))));
-  }),
+  })
 };

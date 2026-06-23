@@ -1,8 +1,4 @@
-const redactedResponseKeys = new Set([
-  "password",
-  "passwordHash",
-  "tokenHash",
-]);
+const redactedResponseKeys = new Set(["password", "passwordHash", "tokenHash"]);
 
 function sanitizeResponse(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -14,8 +10,8 @@ function sanitizeResponse(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [
       key,
-      redactedResponseKeys.has(key) ? undefined : sanitizeResponse(entry),
-    ]),
+      redactedResponseKeys.has(key) ? undefined : sanitizeResponse(entry)
+    ])
   );
 }
 

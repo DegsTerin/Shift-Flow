@@ -9,7 +9,17 @@ export const clientRoutes = Router();
 
 clientRoutes.use(authenticate);
 clientRoutes.get("/", requirePermission("clients", "read"), ClientsController.list);
-clientRoutes.post("/", requirePermission("clients", "write"), validate("body", clientSchema), ClientsController.create);
+clientRoutes.post(
+  "/",
+  requirePermission("clients", "write"),
+  validate("body", clientSchema),
+  ClientsController.create
+);
 clientRoutes.get("/:id", requirePermission("clients", "read"), ClientsController.get);
-clientRoutes.patch("/:id", requirePermission("clients", "write"), validate("body", clientSchema.partial()), ClientsController.update);
+clientRoutes.patch(
+  "/:id",
+  requirePermission("clients", "write"),
+  validate("body", clientSchema.partial()),
+  ClientsController.update
+);
 clientRoutes.delete("/:id", requirePermission("clients", "delete"), ClientsController.remove);

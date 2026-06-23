@@ -52,17 +52,17 @@ export class RbacRepository {
         userId,
         ...(companyId ? { companyId } : {}),
         deletedAt: null,
-        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
       },
       include: {
         role: {
           include: {
             permissions: {
-              include: { permission: true },
-            },
-          },
-        },
-      },
+              include: { permission: true }
+            }
+          }
+        }
+      }
     });
   }
 
@@ -72,13 +72,13 @@ export class RbacRepository {
 
   async assignPermission(roleId: string, permissionId: string, companyId?: string) {
     return (await this.rolePermissions()).create({
-      data: { roleId, permissionId, companyId },
+      data: { roleId, permissionId, companyId }
     });
   }
 
   async findRole(roleId: string, companyId: string) {
     return (await this.roleDelegate()).findFirst({
-      where: { id: roleId, companyId, deletedAt: null },
+      where: { id: roleId, companyId, deletedAt: null }
     });
   }
 
@@ -87,14 +87,14 @@ export class RbacRepository {
       where: {
         id: permissionId,
         deletedAt: null,
-        OR: [{ companyId }, { companyId: null }],
-      },
+        OR: [{ companyId }, { companyId: null }]
+      }
     });
   }
 
   async findUserCompany(userId: string, companyId: string) {
     return (await this.userCompanies()).findFirst({
-      where: { userId, companyId, deletedAt: null },
+      where: { userId, companyId, deletedAt: null }
     });
   }
 }

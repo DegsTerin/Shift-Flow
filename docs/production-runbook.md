@@ -14,10 +14,12 @@ No remote production environment is currently configured in this workspace. Unti
 - `DATABASE_URL`
 - `API_PORT`
 - `NODE_ENV`
-- `JWT_SECRET`
+- `JWT_ACCESS_SECRET` or `JWT_SECRET`
+- `JWT_REFRESH_EXPIRES_DAYS`
+- `CORS_ORIGIN`
 - `NEXT_PUBLIC_API_BASE_URL`
 
-Production values must not be committed to Git.
+Production values must not be committed to Git. Store database credentials and JWT/CORS values in the target platform secret manager.
 
 ## Release Gates
 

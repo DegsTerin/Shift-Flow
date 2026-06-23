@@ -9,10 +9,25 @@ export const shiftRoutes = Router();
 
 shiftRoutes.use(authenticate);
 shiftRoutes.get("/", requirePermission("shifts", "read"), ShiftsController.list);
-shiftRoutes.post("/", requirePermission("shifts", "write"), validate("body", shiftSchema), ShiftsController.create);
+shiftRoutes.post(
+  "/",
+  requirePermission("shifts", "write"),
+  validate("body", shiftSchema),
+  ShiftsController.create
+);
 shiftRoutes.get("/:id", requirePermission("shifts", "read"), ShiftsController.get);
-shiftRoutes.patch("/:id", requirePermission("shifts", "write"), validate("body", shiftSchema.partial()), ShiftsController.update);
+shiftRoutes.patch(
+  "/:id",
+  requirePermission("shifts", "write"),
+  validate("body", shiftSchema.partial()),
+  ShiftsController.update
+);
 shiftRoutes.delete("/:id", requirePermission("shifts", "delete"), ShiftsController.remove);
 shiftRoutes.post("/:id/close", requirePermission("shifts", "write"), ShiftsController.close);
 shiftRoutes.post("/:id/reopen", requirePermission("shifts", "write"), ShiftsController.reopen);
-shiftRoutes.post("/:id/coverages", requirePermission("shifts", "write"), validate("body", coverageSchema), ShiftsController.addCoverage);
+shiftRoutes.post(
+  "/:id/coverages",
+  requirePermission("shifts", "write"),
+  validate("body", coverageSchema),
+  ShiftsController.addCoverage
+);

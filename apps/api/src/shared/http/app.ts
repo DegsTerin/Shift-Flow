@@ -27,9 +27,12 @@ if (process.env.NODE_ENV === "production" && !corsOrigin) {
 
 export function createServer() {
   const app = express();
+  const corsOptions = corsOrigin
+    ? { origin: corsOrigin.split(",").map((origin) => origin.trim()), credentials: true }
+    : { origin: true, credentials: true };
 
   app.use(helmet());
-  app.use(cors(corsOrigin ? { origin: corsOrigin.split(",").map((origin) => origin.trim()) } : undefined));
+  app.use(cors(corsOptions));
   app.use(express.json({ limit: "1mb" }));
   app.use(morgan("dev"));
   app.use(requestContext);

@@ -6,7 +6,7 @@ import {
   assertClientInCompany,
   assertShiftInCompany,
   assertTeamInCompany,
-  assertUserInCompany,
+  assertUserInCompany
 } from "../../shared/services/scope.service.js";
 import { NotificationsRepository } from "./notifications.repository.js";
 
@@ -17,7 +17,7 @@ export class NotificationsService extends BaseService {
     const repository = new NotificationsRepository();
     super(repository, "Notification", {
       userStamps: false,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "desc" }
     });
     this.notificationsRepository = repository;
   }
@@ -29,7 +29,7 @@ export class NotificationsService extends BaseService {
       assertClientInCompany(data.clientId ? String(data.clientId) : undefined, companyId),
       assertTeamInCompany(data.teamId ? String(data.teamId) : undefined, companyId),
       assertShiftInCompany(data.shiftId ? String(data.shiftId) : undefined, companyId),
-      assertActivityInCompany(data.activityId ? String(data.activityId) : undefined, companyId),
+      assertActivityInCompany(data.activityId ? String(data.activityId) : undefined, companyId)
     ]);
     return super.create(req, data);
   }
@@ -39,6 +39,11 @@ export class NotificationsService extends BaseService {
   }
 
   async unreadCount(req: ApiRequest) {
-    return { unread: await this.notificationsRepository.unreadCount(this.companyId(req), String(req.auth?.id)) };
+    return {
+      unread: await this.notificationsRepository.unreadCount(
+        this.companyId(req),
+        String(req.auth?.id)
+      )
+    };
   }
 }

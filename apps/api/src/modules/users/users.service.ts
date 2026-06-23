@@ -32,7 +32,7 @@ const roleRanks: Record<string, number> = {
   Supervisor: 30,
   Gestor: 40,
   Administrador: 50,
-  "Integration Admin": 50,
+  "Integration Admin": 50
 };
 
 export class UsersService extends BaseService {
@@ -40,7 +40,7 @@ export class UsersService extends BaseService {
     super(new UsersRepository(), "User", {
       hasCompanyScope: false,
       userStamps: false,
-      orderBy: { updatedAt: "desc" },
+      orderBy: { updatedAt: "desc" }
     });
   }
 
@@ -49,9 +49,7 @@ export class UsersService extends BaseService {
     const pagination = toPagination(req.query);
     const where = {
       deletedAt: null,
-      ...(companyId
-        ? { companies: { some: { companyId, deletedAt: null } } }
-        : {}),
+      ...(companyId ? { companies: { some: { companyId, deletedAt: null } } } : {})
     };
     const [items, total] = await Promise.all([
       this.repository.list({
@@ -63,13 +61,13 @@ export class UsersService extends BaseService {
             where: {
               ...(companyId ? { companyId } : {}),
               deletedAt: null,
-              OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+              OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
             },
-            include: { role: true },
-          },
-        },
+            include: { role: true }
+          }
+        }
       }),
-      this.repository.count(where),
+      this.repository.count(where)
     ]);
 
     return { items, total, ...pagination };
@@ -83,7 +81,7 @@ export class UsersService extends BaseService {
     delete rest.roleId;
     const created = await super.create(req, {
       ...rest,
-      passwordHash: await bcrypt.hash(password, 12),
+      passwordHash: await bcrypt.hash(password, 12)
     });
     await this.attachToCurrentCompany(req, String((created as { id: string }).id), roleId);
     return created;
@@ -107,7 +105,7 @@ export class UsersService extends BaseService {
       updated = await super.update(req, id, {
         ...rest,
         passwordHash: await bcrypt.hash(String(password), 12),
-        passwordChangedAt: new Date(),
+        passwordChangedAt: new Date()
       });
     } else {
       updated = await super.update(req, id, data);
@@ -131,20 +129,18 @@ export class UsersService extends BaseService {
       where: {
         id,
         deletedAt: null,
-        ...(companyId
-          ? { companies: { some: { companyId, deletedAt: null } } }
-          : {}),
+        ...(companyId ? { companies: { some: { companyId, deletedAt: null } } } : {})
       },
       include: {
         roleAssignments: {
           where: {
             ...(companyId ? { companyId } : {}),
             deletedAt: null,
-            OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+            OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
           },
-          include: { role: true },
-        },
-      },
+          include: { role: true }
+        }
+      }
     });
   }
 
@@ -156,7 +152,7 @@ export class UsersService extends BaseService {
     await userCompany.upsert({
       where: { companyId_userId: { companyId, userId } },
       create: { companyId, userId, isDefault: true },
-      update: { deletedAt: null },
+      update: { deletedAt: null }
     });
 
     const roles = await getDelegate<RoleDelegate>("role");
@@ -164,20 +160,24 @@ export class UsersService extends BaseService {
       (requestedRoleId
         ? await roles.findFirst({ where: { id: requestedRoleId, companyId, deletedAt: null } })
         : null) ??
-      (await (await getDelegate<RoleDelegate>("role")).findFirst({
+      (await (
+        await getDelegate<RoleDelegate>("role")
+      ).findFirst({
         where: {
           companyId,
           deletedAt: null,
-          name: "Operador",
+          name: "Operador"
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "asc" }
       })) ??
-      (await (await getDelegate<RoleDelegate>("role")).findFirst({
+      (await (
+        await getDelegate<RoleDelegate>("role")
+      ).findFirst({
         where: {
           companyId,
-          deletedAt: null,
+          deletedAt: null
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "asc" }
       }));
     if (!role) return;
 
@@ -185,15 +185,15 @@ export class UsersService extends BaseService {
     await this.assertCanAssignRole(assignments, req.auth?.id, companyId, role.name);
     await assignments.updateMany({
       where: { companyId, userId, deletedAt: null, NOT: { roleId: role.id } },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date() }
     });
     const existingAssignment = await assignments.findFirst({
-      where: { companyId, userId, roleId: role.id },
+      where: { companyId, userId, roleId: role.id }
     });
     if (existingAssignment) {
       await assignments.update({
         where: { id: existingAssignment.id },
-        data: { deletedAt: null, endsAt: null },
+        data: { deletedAt: null, endsAt: null }
       });
       return;
     }
@@ -205,7 +205,7 @@ export class UsersService extends BaseService {
     assignments: UserRoleAssignmentDelegate,
     actorUserId: string | undefined,
     companyId: string,
-    targetRoleName?: string,
+    targetRoleName?: string
   ) {
     if (!actorUserId || !targetRoleName) return;
     const actorAssignments = await assignments.findMany({
@@ -213,13 +213,13 @@ export class UsersService extends BaseService {
         companyId,
         userId: actorUserId,
         deletedAt: null,
-        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
       },
-      include: { role: true },
+      include: { role: true }
     });
     const actorRank = Math.max(
       0,
-      ...actorAssignments.map((assignment) => roleRanks[assignment.role?.name ?? ""] ?? 0),
+      ...actorAssignments.map((assignment) => roleRanks[assignment.role?.name ?? ""] ?? 0)
     );
     const targetRank = roleRanks[targetRoleName] ?? 0;
     if (actorRank < roleRanks.Administrador && targetRank >= actorRank) {

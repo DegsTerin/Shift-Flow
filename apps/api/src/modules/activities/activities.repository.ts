@@ -10,7 +10,7 @@ const publicUserSelect = {
   email: true,
   displayName: true,
   jobTitle: true,
-  status: true,
+  status: true
 };
 
 export class ActivitiesRepository extends BaseRepository {
@@ -33,10 +33,10 @@ export class ActivitiesRepository extends BaseRepository {
           team: true,
           shift: true,
           assignee: { select: publicUserSelect },
-          reporter: { select: publicUserSelect },
-        },
+          reporter: { select: publicUserSelect }
+        }
       }),
-      delegate.count({ where }),
+      delegate.count({ where })
     ]);
     return { items, total, page: 1, pageSize: 100 };
   }

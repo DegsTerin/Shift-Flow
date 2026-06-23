@@ -372,7 +372,7 @@ EVIDENCIAS:
 Integration-Execution-Report.txt; Automatic-Review-Audit-Integration.txt; Human-CI-Validation-Integration.txt; apps/web/app/page.tsx; apps/api/src/shared/lib/prisma.ts; apps/api/src/shared/middlewares/validate.ts; prisma/integration-seed.mjs; package.json; package-lock.json; docker-compose.yml; Project-Snapshot.txt; State-Transition-Log.txt; docker compose up -d postgres aprovado; npm run prisma:validate aprovado; npx prisma migrate status aprovado; node prisma/integration-seed.mjs aprovado; npm run typecheck aprovado; npm test aprovado; npx eslint apps/web/app apps/api/src prisma/integration-seed.mjs aprovado; npm run build aprovado; Supertest autenticado aprovado.
 
 DEPENDENCIAS:
-Manter PostgreSQL local acessivel em localhost:5432 ou configurar DATABASE_URL equivalente para repeticao da suite de integracao e homologacao. Usar credencial de integracao integration.admin@shiftflow.local / ShiftFlow#2026 quando necessario.
+Manter PostgreSQL local acessivel em localhost:5432 ou configurar DATABASE_URL equivalente para repeticao da suite de integracao e homologacao. Usar credencial de integracao integration.admin@shiftflow.local / <E2E_PASSWORD> quando necessario.
 
 RISCOS:
 npm audit mantem vulnerabilidades moderadas transitivas conhecidas. Seed minimo nao substitui massa ampla de homologacao. Formulario de login pode precisar de ajuste de valores default para facilitar validacao manual.
@@ -417,7 +417,7 @@ EVIDENCIAS:
 Testing-Homologation-Report.txt; Automatic-Review-Audit-Testing-Homologation.txt; Human-CI-Validation-Testing-Homologation.txt; Project-Snapshot.txt; State-Transition-Log.txt; apps/web/app/page.tsx; eslint.config.mjs; package.json; package-lock.json; playwright.config.ts; tests/e2e/state07-homologation.spec.ts; npm audit --audit-level=moderate aprovado com 0 vulnerabilidades; npm run lint aprovado; npm run typecheck aprovado; npm test aprovado; npm run test:e2e aprovado; npm run build aprovado; Supertest autenticado aprovado; screenshots em dist/state07-prod-desktop-dashboard.png, dist/state07-prod-desktop-dark.png, dist/state07-prod-desktop-kanban-en.png e dist/state07-prod-mobile-dashboard.png.
 
 DEPENDENCIAS:
-PostgreSQL local via docker compose ou DATABASE_URL equivalente para repetir validacoes. Credencial de homologacao: integration.admin@shiftflow.local / ShiftFlow#2026.
+PostgreSQL local via docker compose ou DATABASE_URL equivalente para repetir validacoes. Credencial de homologacao: integration.admin@shiftflow.local / <E2E_PASSWORD>.
 
 RISCOS:
 Nenhum risco bloqueante remanescente para STATE-07. Overrides transitivos sao controlados por npm run audit:overrides. Carga local reforcada e controlada por npm run test:load e npm run test:load:stress.

@@ -17,14 +17,19 @@ export class NotificationsRepository extends BaseRepository {
 
   async markRead(companyId: string | undefined, recipientId: string, id?: string) {
     return (await this.notifications()).updateMany({
-      where: { ...(companyId ? { companyId } : {}), recipientId, ...(id ? { id } : {}), readAt: null },
-      data: { readAt: new Date() },
+      where: {
+        ...(companyId ? { companyId } : {}),
+        recipientId,
+        ...(id ? { id } : {}),
+        readAt: null
+      },
+      data: { readAt: new Date() }
     });
   }
 
   async unreadCount(companyId: string | undefined, recipientId: string) {
     return (await this.notifications()).count({
-      where: { ...(companyId ? { companyId } : {}), recipientId, readAt: null, deletedAt: null },
+      where: { ...(companyId ? { companyId } : {}), recipientId, readAt: null, deletedAt: null }
     });
   }
 }

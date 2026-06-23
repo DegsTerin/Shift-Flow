@@ -4,22 +4,84 @@ import type { messages } from "./i18n";
 
 export type Locale = "pt-BR" | "en-GB";
 export type Theme = "light" | "dark";
-export type View = "dashboard" | "team-dashboard" | "users" | "clients" | "teams" | "shifts" | "activities" | "kanban" | "reports" | "settings";
+export type View =
+  | "dashboard"
+  | "team-dashboard"
+  | "users"
+  | "clients"
+  | "teams"
+  | "shifts"
+  | "activities"
+  | "kanban"
+  | "reports"
+  | "settings";
 export type ApiEnvelope<T> = { data: T };
-export type SessionUser = { id: string; email: string; displayName?: string; companyId?: string; permissions?: string[] };
-export type LoginResponse = { accessToken: string; refreshToken: string; user: SessionUser };
+export type SessionUser = {
+  id: string;
+  email: string;
+  displayName?: string;
+  companyId?: string;
+  permissions?: string[];
+};
+export type LoginResponse = { accessToken: string; user: SessionUser };
 export type ListResponse<T> = { items: T[]; total: number };
-export type DashboardSummary = { total: number; pending: number; inProgress: number; done: number; critical: number; slaAtRisk: number };
-export type GroupCount = { _count?: { _all?: number }; teamId?: string | null; clientId?: string | null; status?: string | null; priority?: string | null; shiftId?: string | null };
-export type DashboardCharts = { byTeam: GroupCount[]; byClient: GroupCount[]; byStatus: GroupCount[]; byPriority: GroupCount[]; byShift: GroupCount[] };
+export type DashboardSummary = {
+  total: number;
+  pending: number;
+  inProgress: number;
+  done: number;
+  critical: number;
+  slaAtRisk: number;
+};
+export type GroupCount = {
+  _count?: { _all?: number };
+  teamId?: string | null;
+  clientId?: string | null;
+  status?: string | null;
+  priority?: string | null;
+  shiftId?: string | null;
+};
+export type DashboardCharts = {
+  byTeam: GroupCount[];
+  byClient: GroupCount[];
+  byStatus: GroupCount[];
+  byPriority: GroupCount[];
+  byShift: GroupCount[];
+};
 export type ClientRef = { id?: string; name?: string; code?: string; status?: string };
-export type TeamRef = { id?: string; name?: string; color?: string; defaultSlaMinutes?: number; members?: unknown[] };
+export type TeamRef = {
+  id?: string;
+  name?: string;
+  color?: string;
+  defaultSlaMinutes?: number;
+  members?: unknown[];
+};
 export type RoleRef = { id?: string; name?: string; description?: string; scope?: string };
 export type UserRoleAssignmentRef = { roleId?: string; role?: RoleRef };
-export type UserRef = { id?: string; displayName?: string; email?: string; jobTitle?: string; status?: string; roleAssignments?: UserRoleAssignmentRef[] };
-export type ShiftRef = { id?: string; name?: string; startsAt?: string; endsAt?: string; status?: string; timezone?: string };
+export type UserRef = {
+  id?: string;
+  displayName?: string;
+  email?: string;
+  jobTitle?: string;
+  status?: string;
+  roleAssignments?: UserRoleAssignmentRef[];
+};
+export type ShiftRef = {
+  id?: string;
+  name?: string;
+  startsAt?: string;
+  endsAt?: string;
+  status?: string;
+  timezone?: string;
+};
 export type CommentItem = { id: string; body: string; createdAt?: string; author?: UserRef };
-export type AttachmentItem = { id?: string; fileName?: string; mimeType?: string; byteSize?: string | number; createdAt?: string };
+export type AttachmentItem = {
+  id?: string;
+  fileName?: string;
+  mimeType?: string;
+  byteSize?: string | number;
+  createdAt?: string;
+};
 export type HistoryItem = {
   id: string;
   type: string;
@@ -62,7 +124,16 @@ export type ActivityItem = {
   comments?: CommentItem[];
   attachments?: AttachmentItem[];
 };
-export type Filters = { clientId: string; teamId: string; shiftId: string; assigneeId: string; priority: string; status: string; from: string; to: string };
+export type Filters = {
+  clientId: string;
+  teamId: string;
+  shiftId: string;
+  assigneeId: string;
+  priority: string;
+  status: string;
+  from: string;
+  to: string;
+};
 export type ModalState = { mode: "create" | "detail"; entity: View; record?: unknown } | null;
 export type Texts = (typeof messages)["pt-BR"];
 export type MenuItem = { id: View; icon: typeof LayoutDashboard };

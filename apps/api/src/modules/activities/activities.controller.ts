@@ -12,10 +12,14 @@ const crud = new CrudController(service);
 export const ActivitiesController = {
   ...crud,
   move: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(await service.move(req, param(req.params.id, "id"), req.body.status, req.body.note)));
+    res.json(
+      ok(await service.move(req, param(req.params.id, "id"), req.body.status, req.body.note))
+    );
   }),
   assign: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(await service.assign(req, param(req.params.id, "id"), req.body.assigneeId, req.body.note)));
+    res.json(
+      ok(await service.assign(req, param(req.params.id, "id"), req.body.assigneeId, req.body.note))
+    );
   }),
   close: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.close(req, param(req.params.id, "id"))));
@@ -25,5 +29,5 @@ export const ActivitiesController = {
   }),
   kanban: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.kanban(req)));
-  }),
+  })
 };

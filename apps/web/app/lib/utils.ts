@@ -1,9 +1,36 @@
 import type { FormEvent } from "react";
 import { apiRequest } from "./api";
-import type { ActivityItem, ClientRef, Filters, Locale, ShiftRef, TeamRef, Texts, UserRef, View } from "./types";
+import type {
+  ActivityItem,
+  ClientRef,
+  Filters,
+  Locale,
+  ShiftRef,
+  TeamRef,
+  Texts,
+  UserRef,
+  View
+} from "./types";
 
-export const emptyFilters: Filters = { clientId: "", teamId: "", shiftId: "", assigneeId: "", priority: "", status: "", from: "", to: "" };
-export const statusGroups = ["PENDING", "IN_PROGRESS", "WAITING_CUSTOMER", "WAITING_THIRD_PARTY", "MONITORING", "DONE", "CANCELLED"];
+export const emptyFilters: Filters = {
+  clientId: "",
+  teamId: "",
+  shiftId: "",
+  assigneeId: "",
+  priority: "",
+  status: "",
+  from: "",
+  to: ""
+};
+export const statusGroups = [
+  "PENDING",
+  "IN_PROGRESS",
+  "WAITING_CUSTOMER",
+  "WAITING_THIRD_PARTY",
+  "MONITORING",
+  "DONE",
+  "CANCELLED"
+];
 export const priorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 export const activityStatuses = statusGroups;
 export const shiftStatuses = ["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"];
@@ -14,12 +41,16 @@ export function countOf(item: { _count?: { _all?: number } }) {
 
 export function formatDateTime(value?: string | null, locale: Locale = "pt-BR") {
   if (!value) return "-";
-  return new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(
+    new Date(value)
+  );
 }
 
 export function formatTime(value?: string | null, locale: Locale = "pt-BR") {
   if (!value) return "-";
-  return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(
+    new Date(value)
+  );
 }
 
 export function slaLabel(value?: string | null) {
@@ -53,7 +84,9 @@ export function userOptionLabel(user: UserRef) {
 }
 
 export function idOf(row: unknown) {
-  return typeof row === "object" && row && "id" in row ? String((row as { id?: unknown }).id ?? "") : "";
+  return typeof row === "object" && row && "id" in row
+    ? String((row as { id?: unknown }).id ?? "")
+    : "";
 }
 
 export function toDateInputValue(value: Date) {
@@ -115,10 +148,7 @@ export function userRoleId(user: UserRef) {
 }
 
 export function hasPermission(permissions: string[] | undefined, resource: string, action: string) {
-  return Boolean(
-    permissions?.includes("*:*") ||
-      permissions?.includes(`${resource}:${action}`),
-  );
+  return Boolean(permissions?.includes("*:*") || permissions?.includes(`${resource}:${action}`));
 }
 
 export function teamPayload(form: FormData) {
@@ -149,25 +179,61 @@ export function recordEndpoint(entity: View, id: string) {
   return "";
 }
 
-export function recordPayload(entity: View, form: FormData, clients: ClientRef[], teams: TeamRef[]) {
+export function recordPayload(
+  entity: View,
+  form: FormData,
+  clients: ClientRef[],
+  teams: TeamRef[]
+) {
   if (entity === "users") return userPayload(form);
   if (entity === "clients") return clientPayload(form);
   if (entity === "teams") return teamPayload(form);
   if (entity === "shifts") return shiftPayload(form);
-  if (entity === "activities" || entity === "kanban") return {
-    ...activityPayload(form),
-    clientId: String(form.get("clientId") || clients[0]?.id || ""),
-    teamId: String(form.get("teamId") || teams[0]?.id || "")
-  };
+  if (entity === "activities" || entity === "kanban")
+    return {
+      ...activityPayload(form),
+      clientId: String(form.get("clientId") || clients[0]?.id || ""),
+      teamId: String(form.get("teamId") || teams[0]?.id || "")
+    };
   return Object.fromEntries(form);
 }
 
-export async function createRecord(entity: View, form: FormData, token: string, clients: ClientRef[], teams: TeamRef[]) {
-  if (entity === "users") return apiRequest("/api/users", token, { method: "POST", body: JSON.stringify(userPayload(form, true)) });
-  if (entity === "clients") return apiRequest("/api/clients", token, { method: "POST", body: JSON.stringify(clientPayload(form)) });
-  if (entity === "teams") return apiRequest("/api/teams", token, { method: "POST", body: JSON.stringify(teamPayload(form)) });
-  if (entity === "shifts") return apiRequest<ShiftRef>("/api/shifts", token, { method: "POST", body: JSON.stringify(shiftPayload(form)) });
-  if (entity === "activities" || entity === "kanban") return apiRequest<ActivityItem>("/api/activities", token, { method: "POST", body: JSON.stringify({ ...activityPayload(form), clientId: String(form.get("clientId") || clients[0]?.id || ""), teamId: String(form.get("teamId") || teams[0]?.id || "") }) });
+export async function createRecord(
+  entity: View,
+  form: FormData,
+  token: string,
+  clients: ClientRef[],
+  teams: TeamRef[]
+) {
+  if (entity === "users")
+    return apiRequest("/api/users", token, {
+      method: "POST",
+      body: JSON.stringify(userPayload(form, true))
+    });
+  if (entity === "clients")
+    return apiRequest("/api/clients", token, {
+      method: "POST",
+      body: JSON.stringify(clientPayload(form))
+    });
+  if (entity === "teams")
+    return apiRequest("/api/teams", token, {
+      method: "POST",
+      body: JSON.stringify(teamPayload(form))
+    });
+  if (entity === "shifts")
+    return apiRequest<ShiftRef>("/api/shifts", token, {
+      method: "POST",
+      body: JSON.stringify(shiftPayload(form))
+    });
+  if (entity === "activities" || entity === "kanban")
+    return apiRequest<ActivityItem>("/api/activities", token, {
+      method: "POST",
+      body: JSON.stringify({
+        ...activityPayload(form),
+        clientId: String(form.get("clientId") || clients[0]?.id || ""),
+        teamId: String(form.get("teamId") || teams[0]?.id || "")
+      })
+    });
   return undefined;
 }
 

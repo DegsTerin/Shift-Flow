@@ -8,7 +8,7 @@ const packageLock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
 const expectedOverrides = {
   "@hono/node-server": "1.19.13",
-  postcss: "$postcss",
+  postcss: "$postcss"
 };
 
 function fail(message) {
@@ -19,7 +19,7 @@ function fail(message) {
 function npmExplain(packageName) {
   return execSync(`npm explain ${packageName}`, {
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe"]
   });
 }
 
@@ -56,7 +56,9 @@ if (!postcssExplain.includes("next@16.2.9")) {
 }
 
 if (!postcssExplain.includes("@tailwindcss/postcss@4.3.1")) {
-  fail("postcss override no longer references Tailwind; review whether the override is still needed.");
+  fail(
+    "postcss override no longer references Tailwind; review whether the override is still needed."
+  );
 }
 
 if (process.exitCode) {
@@ -70,10 +72,10 @@ console.log(
       overrides: expectedOverrides,
       resolved: {
         "@hono/node-server": honoLock,
-        postcss: postcssLock,
-      },
+        postcss: postcssLock
+      }
     },
     null,
-    2,
-  ),
+    2
+  )
 );

@@ -15,5 +15,5 @@ export const DashboardController = {
   }),
   operationalList: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.operationalList(req)));
-  }),
+  })
 };

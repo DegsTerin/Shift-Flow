@@ -23,7 +23,8 @@
     "test": "vitest run apps/api/src/server.test.ts",
     "homologation:seed": "node prisma/homologation-seed.mjs",
     "prisma:generate": "prisma generate",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "seed:integration": "node prisma/integration-seed.mjs"
   },
   "keywords": [],
   "author": "",

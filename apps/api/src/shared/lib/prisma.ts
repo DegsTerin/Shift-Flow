@@ -15,14 +15,13 @@ type PrismaClientOptions = {
 let client: PrismaLike | undefined;
 
 async function importPrismaClient() {
-  const importer = new Function(
-    "specifier",
-    "return import(specifier)",
-  ) as (specifier: string) => Promise<{
+  const importer = new Function("specifier", "return import(specifier)") as (
+    specifier: string
+  ) => Promise<{
     PrismaClient: new (options: PrismaClientOptions) => PrismaLike;
   }>;
   const generatedClientUrl = pathToFileURL(
-    join(process.cwd(), "generated", "prisma", "client.js"),
+    join(process.cwd(), "generated", "prisma", "client.js")
   ).href;
 
   return importer(generatedClientUrl);
@@ -42,7 +41,7 @@ export async function getPrisma() {
     }
 
     client = new PrismaClient({
-      adapter: new PrismaPg({ connectionString }),
+      adapter: new PrismaPg({ connectionString })
     });
     return client;
   } catch (error) {
@@ -50,7 +49,7 @@ export async function getPrisma() {
       "Prisma Client is not generated. Run the existing prisma:generate script before using database-backed endpoints.",
       503,
       "PRISMA_CLIENT_UNAVAILABLE",
-      error instanceof Error ? error.message : error,
+      error instanceof Error ? error.message : error
     );
   }
 }

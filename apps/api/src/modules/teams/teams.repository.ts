@@ -18,7 +18,7 @@ export class TeamsRepository extends BaseRepository {
   async removeMember(companyId: string, teamId: string, userId: string) {
     return (await getDelegate<TeamMemberDelegate>("teamMember")).updateMany({
       where: { companyId, teamId, userId, deletedAt: null },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date() }
     });
   }
 }

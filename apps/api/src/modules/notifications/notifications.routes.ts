@@ -8,9 +8,34 @@ import { notificationSchema } from "./notifications.validators.js";
 export const notificationRoutes = Router();
 
 notificationRoutes.use(authenticate);
-notificationRoutes.get("/", requirePermission("notifications", "read"), NotificationsController.list);
-notificationRoutes.get("/unread-count", requirePermission("notifications", "read"), NotificationsController.unreadCount);
-notificationRoutes.post("/", requirePermission("notifications", "write"), validate("body", notificationSchema), NotificationsController.create);
-notificationRoutes.post("/mark-all-read", requirePermission("notifications", "write"), NotificationsController.markAllRead);
-notificationRoutes.post("/:id/read", requirePermission("notifications", "write"), NotificationsController.markRead);
-notificationRoutes.delete("/:id", requirePermission("notifications", "delete"), NotificationsController.remove);
+notificationRoutes.get(
+  "/",
+  requirePermission("notifications", "read"),
+  NotificationsController.list
+);
+notificationRoutes.get(
+  "/unread-count",
+  requirePermission("notifications", "read"),
+  NotificationsController.unreadCount
+);
+notificationRoutes.post(
+  "/",
+  requirePermission("notifications", "write"),
+  validate("body", notificationSchema),
+  NotificationsController.create
+);
+notificationRoutes.post(
+  "/mark-all-read",
+  requirePermission("notifications", "write"),
+  NotificationsController.markAllRead
+);
+notificationRoutes.post(
+  "/:id/read",
+  requirePermission("notifications", "write"),
+  NotificationsController.markRead
+);
+notificationRoutes.delete(
+  "/:id",
+  requirePermission("notifications", "delete"),
+  NotificationsController.remove
+);

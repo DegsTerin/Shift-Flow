@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import type { ApiRequest, AuthenticatedUser } from "../../shared/http/request-types.js";
-import { badRequest, forbidden, unauthorized } from "../../shared/errors/app-error.js";
+import { forbidden, unauthorized } from "../../shared/errors/app-error.js";
 import { signAccessToken } from "../../shared/middlewares/authenticate.js";
 import { AuthRepository } from "./auth.repository.js";
 import type { LoginDto } from "./auth.dto.js";
@@ -25,12 +25,16 @@ type DbUser = {
 type DbRefreshToken = {
   id: string;
   userId: string;
+  companyId?: string | null;
   expiresAt: Date;
   revokedAt?: Date | null;
   user?: DbUser;
 };
 
-const refreshTokenDays = Number(process.env.JWT_REFRESH_EXPIRES_DAYS ?? 30);
+const refreshTokenDays = Number.parseInt(process.env.JWT_REFRESH_EXPIRES_DAYS ?? "30", 10);
+
+const effectiveRefreshTokenDays =
+  Number.isFinite(refreshTokenDays) && refreshTokenDays > 0 ? refreshTokenDays : 30;
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -43,8 +47,8 @@ function permissionsFrom(user: DbUser) {
         ?.flatMap((assignment) => assignment.role?.permissions ?? [])
         .map((rolePermission) => rolePermission.permission)
         .filter(Boolean)
-        .map((permission) => `${permission?.resource}:${permission?.action}`) ?? [],
-    ),
+        .map((permission) => `${permission?.resource}:${permission?.action}`) ?? []
+    )
   );
 }
 
@@ -81,18 +85,19 @@ export class AuthService {
       id: user.id,
       email: user.email,
       companyId: resolveCompany(user, input.companyId),
-      permissions: permissionsFrom(user),
+      permissions: permissionsFrom(user)
     };
     const accessToken = signAccessToken(authUser);
     const refreshToken = crypto.randomBytes(48).toString("base64url");
-    const expiresAt = new Date(Date.now() + refreshTokenDays * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + effectiveRefreshTokenDays * 24 * 60 * 60 * 1000);
 
     await this.repository.createRefreshToken({
       userId: user.id,
+      companyId: authUser.companyId,
       tokenHash: hashToken(refreshToken),
       userAgent: req.context?.userAgent,
       ipAddress: req.context?.ipAddress,
-      expiresAt,
+      expiresAt
     });
     await this.repository.updateLastLogin(user.id);
 
@@ -105,14 +110,17 @@ export class AuthService {
         email: user.email,
         displayName: user.displayName,
         companyId: authUser.companyId,
-        permissions: authUser.permissions,
-      },
+        permissions: authUser.permissions
+      }
     };
   }
 
-  async refresh(req: ApiRequest, refreshToken: string) {
+  async refresh(req: ApiRequest, refreshToken?: string) {
+    if (!refreshToken) {
+      throw unauthorized("Invalid refresh token");
+    }
     const stored = (await this.repository.findRefreshToken(
-      hashToken(refreshToken),
+      hashToken(refreshToken)
     )) as DbRefreshToken | null;
 
     if (!stored || stored.revokedAt || stored.expiresAt.getTime() <= Date.now() || !stored.user) {
@@ -124,33 +132,41 @@ export class AuthService {
       id: user.id,
       email: user.email,
       permissions: permissionsFrom(user),
-      companyId: resolveCompany(user),
+      companyId: resolveCompany(user, stored.companyId ?? undefined)
     };
     const nextRefreshToken = crypto.randomBytes(48).toString("base64url");
-    const expiresAt = new Date(Date.now() + refreshTokenDays * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + effectiveRefreshTokenDays * 24 * 60 * 60 * 1000);
 
     await this.repository.rotateRefreshToken(stored.id, {
       userId: user.id,
+      companyId: authUser.companyId,
       tokenHash: hashToken(nextRefreshToken),
       userAgent: req.context?.userAgent,
       ipAddress: req.context?.ipAddress,
-      expiresAt,
+      expiresAt
     });
 
     return {
       accessToken: signAccessToken(authUser),
       refreshToken: nextRefreshToken,
       expiresAt,
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        companyId: authUser.companyId,
+        permissions: authUser.permissions
+      }
     };
   }
 
   async logout(refreshToken?: string) {
     if (!refreshToken) {
-      throw badRequest("refreshToken is required");
+      return { loggedOut: true };
     }
 
     const stored = (await this.repository.findRefreshToken(
-      hashToken(refreshToken),
+      hashToken(refreshToken)
     )) as DbRefreshToken | null;
 
     if (stored && !stored.revokedAt) {

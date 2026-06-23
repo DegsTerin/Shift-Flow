@@ -13,13 +13,13 @@ userRoutes.post(
   "/",
   requirePermission("users", "write"),
   validate("body", createUserSchema),
-  UsersController.create,
+  UsersController.create
 );
 userRoutes.get("/:id", requirePermission("users", "read"), UsersController.get);
 userRoutes.patch(
   "/:id",
   requirePermission("users", "write"),
   validate("body", updateUserSchema),
-  UsersController.update,
+  UsersController.update
 );
 userRoutes.delete("/:id", requirePermission("users", "delete"), UsersController.remove);

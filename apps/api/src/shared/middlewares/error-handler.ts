@@ -5,25 +5,20 @@ export function notFoundHandler(req: Request, res: Response) {
   res.status(404).json({
     error: {
       code: "NOT_FOUND",
-      message: `Route ${req.method} ${req.path} not found`,
-    },
+      message: `Route ${req.method} ${req.path} not found`
+    }
   });
 }
 
-export function errorHandler(
-  error: unknown,
-  _req: Request,
-  res: Response,
-  _next: NextFunction,
-) {
+export function errorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction) {
   void _next;
   if (error instanceof AppError) {
     res.status(error.statusCode).json({
       error: {
         code: error.code,
         message: error.message,
-        details: error.details,
-      },
+        details: error.details
+      }
     });
     return;
   }
@@ -39,8 +34,8 @@ export function errorHandler(
       error: {
         code: appError.code,
         message: appError.message,
-        details: appError.details,
-      },
+        details: appError.details
+      }
     });
     return;
   }
@@ -53,13 +48,13 @@ export function errorHandler(
           ? "Unexpected error"
           : error instanceof Error
             ? error.message
-            : "Unexpected error",
-    },
+            : "Unexpected error"
+    }
   });
 }
 
 function isPrismaUniqueConstraintError(
-  error: unknown,
+  error: unknown
 ): error is { code: "P2002"; meta?: { target?: unknown } } {
   return (
     typeof error === "object" &&

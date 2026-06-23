@@ -8,7 +8,7 @@ export class AuditService extends BaseService {
       deletedAtFilter: false,
       userStamps: false,
       auditWrites: false,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "desc" }
     });
   }
 
@@ -18,7 +18,7 @@ export class AuditService extends BaseService {
       ...(query.entityType ? { entityType: query.entityType } : {}),
       ...(query.entityId ? { entityId: query.entityId } : {}),
       ...(query.action ? { action: query.action } : {}),
-      ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
+      ...(query.actorUserId ? { actorUserId: query.actorUserId } : {})
     });
   }
 }

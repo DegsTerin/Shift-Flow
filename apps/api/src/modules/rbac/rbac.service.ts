@@ -25,19 +25,22 @@ const superAdminPermission = "*:*";
 export class RbacService {
   private static repository = new RbacRepository();
   static roles = new BaseService(RbacService.repository.roles, "Role", {
-    userStamps: false,
+    userStamps: false
   });
   static permissions = new BaseService(RbacService.repository.permissions, "Permission", {
-    userStamps: false,
+    userStamps: false
   });
 
   static async hasPermission(user: AuthenticatedUser, rule: PermissionRule) {
     const required = `${rule.resource}:${rule.action}`;
+    if (rule.tenant?.companyId && rule.tenant.companyId !== user.companyId) {
+      return false;
+    }
     const companyId = rule.tenant?.companyId ?? user.companyId;
 
     const assignments = (await RbacService.repository.findAssignmentsForUser(
       user.id,
-      companyId,
+      companyId
     )) as Assignment[];
 
     return assignments.some((assignment) => {
@@ -46,15 +49,24 @@ export class RbacService {
         (!rule.tenant?.teamId || assignment.teamId === rule.tenant.teamId);
       const permissions =
         assignment.role?.permissions?.map(
-          (item) => `${item.permission?.resource}:${item.permission?.action}`,
+          (item) => `${item.permission?.resource}:${item.permission?.action}`
         ) ?? [];
 
-      return scoped && (permissions.includes(required) || permissions.includes(superAdminPermission));
+      return (
+        scoped && (permissions.includes(required) || permissions.includes(superAdminPermission))
+      );
     });
   }
 
   private static effectiveCompany(user: AuthenticatedUser | undefined, tenant?: TenantContext) {
-    const companyId = tenant?.companyId ?? user?.companyId;
+    const tenantCompanyId = tenant?.companyId;
+    const userCompanyId = user?.companyId;
+
+    if (tenantCompanyId && userCompanyId && tenantCompanyId !== userCompanyId) {
+      throw forbidden("Invalid company context");
+    }
+
+    const companyId = tenantCompanyId ?? userCompanyId;
     if (!companyId) {
       throw badRequest("Company context is required");
     }
@@ -64,7 +76,7 @@ export class RbacService {
   static async assignRole(
     actor: AuthenticatedUser | undefined,
     tenant: TenantContext | undefined,
-    data: Record<string, unknown>,
+    data: Record<string, unknown>
   ) {
     const companyId = RbacService.effectiveCompany(actor, tenant);
     if (String(data.companyId) !== companyId) {
@@ -76,7 +88,10 @@ export class RbacService {
       throw badRequest("Role does not belong to the active company");
     }
 
-    const userCompany = await RbacService.repository.findUserCompany(String(data.userId), companyId);
+    const userCompany = await RbacService.repository.findUserCompany(
+      String(data.userId),
+      companyId
+    );
     if (!userCompany) {
       throw badRequest("User is not linked to the active company");
     }
@@ -89,7 +104,7 @@ export class RbacService {
     tenant: TenantContext | undefined,
     roleId: string,
     permissionId: string,
-    requestedCompanyId?: string,
+    requestedCompanyId?: string
   ) {
     const companyId = RbacService.effectiveCompany(actor, tenant);
     if (requestedCompanyId && requestedCompanyId !== companyId) {
@@ -98,7 +113,7 @@ export class RbacService {
 
     const [role, permission] = await Promise.all([
       RbacService.repository.findRole(roleId, companyId),
-      RbacService.repository.findPermission(permissionId, companyId),
+      RbacService.repository.findPermission(permissionId, companyId)
     ]);
     if (!role) {
       throw badRequest("Role does not belong to the active company");

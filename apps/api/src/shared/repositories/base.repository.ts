@@ -39,15 +39,15 @@ export class BaseRepository {
     id: string,
     companyId?: string,
     include?: Record<string, unknown>,
-    includeDeletedFilter = true,
+    includeDeletedFilter = true
   ) {
     return (await this.delegate()).findFirst({
       where: {
         id,
         ...(companyId ? { companyId } : {}),
-        ...(includeDeletedFilter ? { deletedAt: null } : {}),
+        ...(includeDeletedFilter ? { deletedAt: null } : {})
       },
-      include,
+      include
     });
   }
 
@@ -57,8 +57,10 @@ export class BaseRepository {
 
   async update(id: string, data: Record<string, unknown>, companyId?: string) {
     if (companyId) {
-      const scoped = await (await this.delegate()).findFirst({
-        where: { id, companyId, deletedAt: null },
+      const scoped = await (
+        await this.delegate()
+      ).findFirst({
+        where: { id, companyId, deletedAt: null }
       });
       if (!scoped) {
         throw notFound("Resource not found");
@@ -72,7 +74,7 @@ export class BaseRepository {
     return this.update(
       id,
       { deletedAt: new Date(), ...(actorUserId ? { deletedById: actorUserId } : {}) },
-      companyId,
+      companyId
     );
   }
 

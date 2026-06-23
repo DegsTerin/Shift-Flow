@@ -8,5 +8,10 @@ import { auditFilterSchema } from "./audit.validators.js";
 export const auditRoutes = Router();
 
 auditRoutes.use(authenticate);
-auditRoutes.get("/", requirePermission("audit", "read"), validate("query", auditFilterSchema.partial()), AuditController.list);
+auditRoutes.get(
+  "/",
+  requirePermission("audit", "read"),
+  validate("query", auditFilterSchema.partial()),
+  AuditController.list
+);
 auditRoutes.get("/:id", requirePermission("audit", "read"), AuditController.get);

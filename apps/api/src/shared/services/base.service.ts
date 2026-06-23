@@ -3,6 +3,7 @@ import { toPagination, toSkipTake } from "../http/pagination.js";
 import { badRequest, notFound } from "../errors/app-error.js";
 import type { BaseRepository } from "../repositories/base.repository.js";
 import { writeAudit } from "./audit-writer.js";
+import { activeCompanyId } from "./scope.service.js";
 
 type BaseServiceOptions = {
   hasCompanyScope?: boolean;
@@ -18,19 +19,19 @@ export class BaseService {
   constructor(
     protected readonly repository: BaseRepository,
     private readonly entityType: string,
-    options: BaseServiceOptions = {},
+    options: BaseServiceOptions = {}
   ) {
     this.options = {
       hasCompanyScope: options.hasCompanyScope ?? true,
       deletedAtFilter: options.deletedAtFilter ?? true,
       userStamps: options.userStamps ?? false,
       auditWrites: options.auditWrites ?? true,
-      orderBy: options.orderBy ?? { updatedAt: "desc" },
+      orderBy: options.orderBy ?? { updatedAt: "desc" }
     };
   }
 
   protected companyId(req: ApiRequest) {
-    return req.tenant?.companyId ?? req.auth?.companyId;
+    return req.tenant?.companyId ? activeCompanyId(req) : req.auth?.companyId;
   }
 
   protected requireCompanyId(req: ApiRequest) {
@@ -47,16 +48,16 @@ export class BaseService {
     const where = {
       ...filters,
       ...(this.options.hasCompanyScope && companyId ? { companyId } : {}),
-      ...(this.options.deletedAtFilter ? { deletedAt: null } : {}),
+      ...(this.options.deletedAtFilter ? { deletedAt: null } : {})
     };
 
     const [items, total] = await Promise.all([
       this.repository.list({
         where,
         ...toSkipTake(pagination),
-        orderBy: this.options.orderBy,
+        orderBy: this.options.orderBy
       }),
-      this.repository.count(where),
+      this.repository.count(where)
     ]);
 
     return { items, total, ...pagination };
@@ -67,7 +68,7 @@ export class BaseService {
       id,
       this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined,
       undefined,
-      this.options.deletedAtFilter,
+      this.options.deletedAtFilter
     );
     if (!item) {
       throw notFound(`${this.entityType} not found`);
@@ -80,9 +81,7 @@ export class BaseService {
     const created = await this.repository.create({
       ...data,
       ...(this.options.hasCompanyScope && companyId ? { companyId } : {}),
-      ...(this.options.userStamps
-        ? { createdById: req.auth?.id, updatedById: req.auth?.id }
-        : {}),
+      ...(this.options.userStamps ? { createdById: req.auth?.id, updatedById: req.auth?.id } : {})
     });
     if (this.options.auditWrites) {
       await writeAudit(req, {
@@ -90,7 +89,7 @@ export class BaseService {
         entityId: String((created as { id?: string }).id ?? "unknown"),
         action: "CREATE",
         after: created,
-        companyId,
+        companyId
       });
     }
     return created;
@@ -102,9 +101,9 @@ export class BaseService {
       id,
       {
         ...data,
-        ...(this.options.userStamps ? { updatedById: req.auth?.id } : {}),
+        ...(this.options.userStamps ? { updatedById: req.auth?.id } : {})
       },
-      this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined,
+      this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined
     );
     if (this.options.auditWrites) {
       await writeAudit(req, {
@@ -112,7 +111,7 @@ export class BaseService {
         entityId: id,
         action: "UPDATE",
         after: updated,
-        companyId: this.companyId(req),
+        companyId: this.companyId(req)
       });
     }
     return updated;
@@ -123,7 +122,7 @@ export class BaseService {
     const removed = await this.repository.softDelete(
       id,
       this.options.userStamps ? req.auth?.id : undefined,
-      this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined,
+      this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined
     );
     if (this.options.auditWrites) {
       await writeAudit(req, {
@@ -131,7 +130,7 @@ export class BaseService {
         entityId: id,
         action: "SOFT_DELETE",
         after: removed,
-        companyId: this.companyId(req),
+        companyId: this.companyId(req)
       });
     }
     return removed;

@@ -6,7 +6,7 @@ import {
   assignPermissionSchema,
   assignRoleSchema,
   permissionSchema,
-  roleSchema,
+  roleSchema
 } from "./rbac.validators.js";
 import { RbacController } from "./rbac.controller.js";
 
@@ -19,30 +19,30 @@ rbacRoutes.post(
   "/roles",
   requirePermission("rbac", "write"),
   validate("body", roleSchema),
-  RbacController.roles.create,
+  RbacController.roles.create
 );
 rbacRoutes.patch(
   "/roles/:id",
   requirePermission("rbac", "write"),
   validate("body", roleSchema.partial()),
-  RbacController.roles.update,
+  RbacController.roles.update
 );
 rbacRoutes.post(
   "/roles/:roleId/permissions",
   requirePermission("rbac", "write"),
   validate("body", assignPermissionSchema),
-  RbacController.assignPermission,
+  RbacController.assignPermission
 );
 rbacRoutes.get("/permissions", requirePermission("rbac", "read"), RbacController.permissions.list);
 rbacRoutes.post(
   "/permissions",
   requirePermission("rbac", "write"),
   validate("body", permissionSchema),
-  RbacController.permissions.create,
+  RbacController.permissions.create
 );
 rbacRoutes.post(
   "/assignments",
   requirePermission("rbac", "write"),
   validate("body", assignRoleSchema),
-  RbacController.assignRole,
+  RbacController.assignRole
 );

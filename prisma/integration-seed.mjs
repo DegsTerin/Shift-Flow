@@ -12,12 +12,12 @@ if (!connectionString) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString }),
+  adapter: new PrismaPg({ connectionString })
 });
 
 const integrationUser = {
   email: "integration.admin@shiftflow.local",
-  password: "ShiftFlow#2026",
+  password: process.env.E2E_PASSWORD ?? "replace-with-a-local-e2e-password"
 };
 
 async function findOrCreate(delegate, where, create, update = {}) {
@@ -26,7 +26,7 @@ async function findOrCreate(delegate, where, create, update = {}) {
   if (existing) {
     return delegate.update({
       where: { id: existing.id },
-      data: update,
+      data: update
     });
   }
 
@@ -55,17 +55,20 @@ async function main() {
       legalName: "ShiftFlow Integration Company Ltd.",
       document: "STATE06-INTEGRATION",
       timezone: "America/Sao_Paulo",
-      status: "ACTIVE",
+      status: "ACTIVE"
     },
     {
       legalName: "ShiftFlow Integration Company Ltd.",
       timezone: "America/Sao_Paulo",
       status: "ACTIVE",
-      deletedAt: null,
-    },
+      deletedAt: null
+    }
   );
 
-  const passwordHash = await bcrypt.hash(integrationUser.password, Number(process.env.SEED_BCRYPT_ROUNDS ?? 4));
+  const passwordHash = await bcrypt.hash(
+    integrationUser.password,
+    Number(process.env.SEED_BCRYPT_ROUNDS ?? 4)
+  );
   const admin = await findOrCreate(
     prisma.user,
     { email: integrationUser.email },
@@ -77,7 +80,7 @@ async function main() {
       status: "ACTIVE",
       preferredLocale: "PT_BR",
       preferredTheme: "SYSTEM",
-      passwordChangedAt: now,
+      passwordChangedAt: now
     },
     {
       passwordHash,
@@ -86,8 +89,8 @@ async function main() {
       status: "ACTIVE",
       preferredLocale: "PT_BR",
       preferredTheme: "SYSTEM",
-      deletedAt: null,
-    },
+      deletedAt: null
+    }
   );
 
   const analyst = await findOrCreate(
@@ -101,26 +104,26 @@ async function main() {
       status: "ACTIVE",
       preferredLocale: "PT_BR",
       preferredTheme: "LIGHT",
-      passwordChangedAt: now,
+      passwordChangedAt: now
     },
     {
       passwordHash,
       displayName: "Integration Analyst",
       jobTitle: "Support Analyst",
       status: "ACTIVE",
-      deletedAt: null,
-    },
+      deletedAt: null
+    }
   );
 
   await ensureLink(
     prisma.userCompany,
     { companyId: company.id, userId: admin.id },
-    { companyId: company.id, userId: admin.id, isDefault: true },
+    { companyId: company.id, userId: admin.id, isDefault: true }
   );
   await ensureLink(
     prisma.userCompany,
     { companyId: company.id, userId: analyst.id },
-    { companyId: company.id, userId: analyst.id, isDefault: false },
+    { companyId: company.id, userId: analyst.id, isDefault: false }
   );
 
   const client = await findOrCreate(
@@ -132,14 +135,14 @@ async function main() {
       code: "INT-CLIENT",
       status: "ACTIVE",
       createdById: admin.id,
-      updatedById: admin.id,
+      updatedById: admin.id
     },
     {
       code: "INT-CLIENT",
       status: "ACTIVE",
       deletedAt: null,
-      updatedById: admin.id,
-    },
+      updatedById: admin.id
+    }
   );
 
   const team = await findOrCreate(
@@ -152,41 +155,41 @@ async function main() {
       color: "#2563eb",
       defaultSlaMinutes: 240,
       createdById: admin.id,
-      updatedById: admin.id,
+      updatedById: admin.id
     },
     {
       description: "Team used for STATE-06 integration validation.",
       color: "#2563eb",
       defaultSlaMinutes: 240,
       deletedAt: null,
-      updatedById: admin.id,
-    },
+      updatedById: admin.id
+    }
   );
 
   await ensureLink(
     prisma.teamClient,
     { companyId: company.id, teamId: team.id, clientId: client.id },
-    { companyId: company.id, teamId: team.id, clientId: client.id },
+    { companyId: company.id, teamId: team.id, clientId: client.id }
   );
   await ensureLink(
     prisma.userClient,
     { companyId: company.id, clientId: client.id, userId: admin.id },
-    { companyId: company.id, clientId: client.id, userId: admin.id },
+    { companyId: company.id, clientId: client.id, userId: admin.id }
   );
   await ensureLink(
     prisma.userClient,
     { companyId: company.id, clientId: client.id, userId: analyst.id },
-    { companyId: company.id, clientId: client.id, userId: analyst.id },
+    { companyId: company.id, clientId: client.id, userId: analyst.id }
   );
   await ensureLink(
     prisma.teamMember,
     { companyId: company.id, teamId: team.id, userId: admin.id, deletedAt: null },
-    { companyId: company.id, teamId: team.id, userId: admin.id, role: "LEADER" },
+    { companyId: company.id, teamId: team.id, userId: admin.id, role: "LEADER" }
   );
   await ensureLink(
     prisma.teamMember,
     { companyId: company.id, teamId: team.id, userId: analyst.id, deletedAt: null },
-    { companyId: company.id, teamId: team.id, userId: analyst.id, role: "MEMBER" },
+    { companyId: company.id, teamId: team.id, userId: analyst.id, role: "MEMBER" }
   );
 
   const shift = await findOrCreate(
@@ -200,7 +203,7 @@ async function main() {
       timezone: "America/Sao_Paulo",
       status: "OPEN",
       createdById: admin.id,
-      updatedById: admin.id,
+      updatedById: admin.id
     },
     {
       startsAt,
@@ -208,8 +211,8 @@ async function main() {
       timezone: "America/Sao_Paulo",
       status: "OPEN",
       deletedAt: null,
-      updatedById: admin.id,
-    },
+      updatedById: admin.id
+    }
   );
 
   await ensureLink(
@@ -222,8 +225,8 @@ async function main() {
       type: "REGULAR",
       startsAt,
       endsAt,
-      note: "Integration validation coverage.",
-    },
+      note: "Integration validation coverage."
+    }
   );
 
   const permissions = [
@@ -244,7 +247,7 @@ async function main() {
     ["notifications", "write"],
     ["rbac", "read"],
     ["rbac", "write"],
-    ["reports", "read"],
+    ["reports", "read"]
   ];
 
   const role = await findOrCreate(
@@ -255,14 +258,14 @@ async function main() {
       name: "Integration Admin",
       description: "Role used for STATE-06 integration validation.",
       scope: "COMPANY",
-      isSystem: true,
+      isSystem: true
     },
     {
       description: "Role used for STATE-06 integration validation.",
       scope: "COMPANY",
       isSystem: true,
-      deletedAt: null,
-    },
+      deletedAt: null
+    }
   );
 
   for (const [resource, action] of permissions) {
@@ -274,26 +277,26 @@ async function main() {
         resource,
         action,
         description: `Integration permission ${resource}:${action}`,
-        isSystem: true,
+        isSystem: true
       },
       {
         description: `Integration permission ${resource}:${action}`,
         isSystem: true,
-        deletedAt: null,
-      },
+        deletedAt: null
+      }
     );
 
     await ensureLink(
       prisma.rolePermission,
       { roleId: role.id, permissionId: permission.id },
-      { companyId: company.id, roleId: role.id, permissionId: permission.id },
+      { companyId: company.id, roleId: role.id, permissionId: permission.id }
     );
   }
 
   await ensureLink(
     prisma.userRoleAssignment,
     { companyId: company.id, userId: admin.id, roleId: role.id, deletedAt: null },
-    { companyId: company.id, userId: admin.id, roleId: role.id },
+    { companyId: company.id, userId: admin.id, roleId: role.id }
   );
 
   const activitySpecs = [
@@ -302,7 +305,7 @@ async function main() {
       status: "PENDING",
       priority: "CRITICAL",
       systemName: "Core Banking",
-      slaDueAt: slaSoon,
+      slaDueAt: slaSoon
     },
     {
       title: "Monitor batch settlement delay",
@@ -310,7 +313,7 @@ async function main() {
       priority: "HIGH",
       systemName: "Payments",
       slaDueAt: slaLater,
-      startedAt: now,
+      startedAt: now
     },
     {
       title: "Review third-party callback",
@@ -318,7 +321,7 @@ async function main() {
       priority: "MEDIUM",
       systemName: "API Gateway",
       serviceName: "Client callback",
-      slaDueAt: slaLater,
+      slaDueAt: slaLater
     },
     {
       title: "Close resolved access request",
@@ -327,8 +330,8 @@ async function main() {
       systemName: "Identity",
       serviceName: "Access management",
       slaDueAt: slaLater,
-      completedAt: now,
-    },
+      completedAt: now
+    }
   ];
 
   const activities = [];
@@ -348,9 +351,16 @@ async function main() {
         description: "STATE-06 integration fixture activity.",
         requested: `Request handling for ${spec.title}.`,
         performed: "Initial triage completed and operational context validated.",
-        inProgressDetail: spec.status === "IN_PROGRESS" ? "Execution is currently underway." : "No active execution at this stage.",
-        pendingDetail: spec.status === "DONE" ? "No pending action." : "Awaiting next operational update.",
-        finalizationDetail: spec.status === "DONE" ? "Resolved and closed during the current shift." : "Not finalised yet.",
+        inProgressDetail:
+          spec.status === "IN_PROGRESS"
+            ? "Execution is currently underway."
+            : "No active execution at this stage.",
+        pendingDetail:
+          spec.status === "DONE" ? "No pending action." : "Awaiting next operational update.",
+        finalizationDetail:
+          spec.status === "DONE"
+            ? "Resolved and closed during the current shift."
+            : "Not finalised yet.",
         observations: "Integration fixture with complete operational report fields.",
         systemName: spec.systemName,
         serviceName: spec.serviceName ?? "Operational support",
@@ -360,7 +370,7 @@ async function main() {
         startedAt: spec.startedAt,
         completedAt: spec.completedAt,
         createdById: admin.id,
-        updatedById: admin.id,
+        updatedById: admin.id
       },
       {
         clientId: client.id,
@@ -371,9 +381,16 @@ async function main() {
         description: "STATE-06 integration fixture activity.",
         requested: `Request handling for ${spec.title}.`,
         performed: "Initial triage completed and operational context validated.",
-        inProgressDetail: spec.status === "IN_PROGRESS" ? "Execution is currently underway." : "No active execution at this stage.",
-        pendingDetail: spec.status === "DONE" ? "No pending action." : "Awaiting next operational update.",
-        finalizationDetail: spec.status === "DONE" ? "Resolved and closed during the current shift." : "Not finalised yet.",
+        inProgressDetail:
+          spec.status === "IN_PROGRESS"
+            ? "Execution is currently underway."
+            : "No active execution at this stage.",
+        pendingDetail:
+          spec.status === "DONE" ? "No pending action." : "Awaiting next operational update.",
+        finalizationDetail:
+          spec.status === "DONE"
+            ? "Resolved and closed during the current shift."
+            : "Not finalised yet.",
         observations: "Integration fixture with complete operational report fields.",
         systemName: spec.systemName,
         serviceName: spec.serviceName ?? "Operational support",
@@ -383,8 +400,8 @@ async function main() {
         startedAt: spec.startedAt ?? null,
         completedAt: spec.completedAt ?? null,
         deletedAt: null,
-        updatedById: admin.id,
-      },
+        updatedById: admin.id
+      }
     );
     activities.push(activity);
 
@@ -396,8 +413,8 @@ async function main() {
         activityId: activity.id,
         actorUserId: admin.id,
         type: "CREATED",
-        note: "Integration fixture bootstrap.",
-      },
+        note: "Integration fixture bootstrap."
+      }
     );
   }
 
@@ -407,7 +424,7 @@ async function main() {
       companyId: company.id,
       recipientId: admin.id,
       title: "Integration fixture ready",
-      deletedAt: null,
+      deletedAt: null
     },
     {
       companyId: company.id,
@@ -420,25 +437,25 @@ async function main() {
       priority: "NORMAL",
       channel: "IN_APP",
       title: "Integration fixture ready",
-      body: "STATE-06 integration data is available for validation.",
-    },
+      body: "STATE-06 integration data is available for validation."
+    }
   );
 
   console.log(
     JSON.stringify(
       {
         status: "ok",
-        login: integrationUser,
+        login: { email: integrationUser.email },
         companyId: company.id,
         clientId: client.id,
         teamId: team.id,
         shiftId: shift.id,
         userIds: [admin.id, analyst.id],
-        activityIds: activities.map((activity) => activity.id),
+        activityIds: activities.map((activity) => activity.id)
       },
       null,
-      2,
-    ),
+      2
+    )
   );
 }
 

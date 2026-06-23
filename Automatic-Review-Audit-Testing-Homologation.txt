@@ -64,7 +64,7 @@ PROBLEMAS CRITICOS
 
 PROBLEMAS NAO CRITICOS
 
-* Login preenche coordenador@shiftflow.local / shiftflow, mas a credencial seedada e integration.admin@shiftflow.local / ShiftFlow#2026. O login com os defaults atuais retorna 401.
+* Login preenche <legacy-demo-credential>, mas a credencial seedada e integration.admin@shiftflow.local / <E2E_PASSWORD>. O login com os defaults atuais retorna 401.
 * npm run lint global falha apos build porque eslint.config.mjs ignora ".next/**", mas os artefatos estao em apps/web/.next.
 * npm audit mantem 5 vulnerabilidades moderadas transitivas; correcao automatica exige --force com breaking/downgrade.
 * Em EN-GB, a tela Kanban mantem labels de colunas em portugues, indicando traducao incompleta de status.

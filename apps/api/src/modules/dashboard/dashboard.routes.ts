@@ -12,17 +12,17 @@ dashboardRoutes.get(
   "/summary",
   requirePermission("dashboard", "read"),
   validate("query", dashboardFilterSchema.partial()),
-  DashboardController.summary,
+  DashboardController.summary
 );
 dashboardRoutes.get(
   "/charts",
   requirePermission("dashboard", "read"),
   validate("query", dashboardFilterSchema.partial()),
-  DashboardController.charts,
+  DashboardController.charts
 );
 dashboardRoutes.get(
   "/operational-list",
   requirePermission("dashboard", "read"),
   validate("query", dashboardFilterSchema.partial()),
-  DashboardController.operationalList,
+  DashboardController.operationalList
 );

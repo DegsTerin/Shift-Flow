@@ -25,9 +25,9 @@ export const RbacController = {
             req.tenant,
             param(req.params.roleId, "roleId"),
             req.body.permissionId,
-            req.body.companyId ?? req.tenant?.companyId,
-          ),
-        ),
+            req.body.companyId ?? req.tenant?.companyId
+          )
+        )
       );
   }),
   check: asyncHandler(async (req: ApiRequest, res: Response) => {
@@ -37,10 +37,10 @@ export const RbacController = {
           ? await RbacService.hasPermission(req.auth, {
               resource: String(req.query.resource),
               action: String(req.query.action),
-              tenant: req.tenant,
+              tenant: req.tenant
             })
-          : false,
-      }),
+          : false
+      })
     );
-  }),
+  })
 };
