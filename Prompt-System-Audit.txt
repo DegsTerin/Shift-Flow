@@ -86,11 +86,22 @@ RECOMENDACAO:
 
 ULTIMA AUDITORIA REGISTRADA
 
-Data: 2026-06-22
-Versao: 1.4.16
-Arquivos auditados: Current-State.txt, Prompt-Index.txt, Project-Snapshot.txt, Conflict-Resolution-Policy.txt, Prompt-System-Version.txt, Prompt-System-Versioning-Policy.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Prompt-System-Readme.txt, Revision-Prompt.txt, Restructuring-Prompt.txt.
+Data: 2026-06-23
+Versao: 1.4.24
+Arquivos auditados: Todos os 69 arquivos .txt.
 Status: APROVADO COM OBSERVACAO DOCUMENTAL
 Conflitos encontrados:
+* Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt tinham redundancia, organizacao irregular e encoding inconsistente.
+* Official-State-Machine.txt continha setas Unicode em um sistema documental padronizado em ASCII.
+* Relatorios Human CI historicos mencionavam Current-State.txt declarando STATE-02, STATE-05 ou STATE-06 sem deixar claro que eram registros historicos.
+* Varios .txt continham trailing whitespace ou CR residual.
+* Production-Release-Phase.txt e Allowed-Commands-By-State.txt proibiam criar migration nova de forma absoluta em STATE-08, enquanto a regra 1.4.22 permitia manutencao funcional pos-release explicitamente solicitada e registrada.
+* Phase-Handoff-Template.txt mantinha frase historica dizendo que STATE-05 FRONTEND_IMPLEMENTATION era o estado operacional atual, criando risco de leitura conflitante com Current-State.txt.
+* Prompt-Index.txt catalogava prompts e controles, mas nao listava os artefatos de evidencia e relatorios, reduzindo rastreabilidade dos 69 .txt.
+* Project-Snapshot.txt declarava versao 1.4.16 no cabecalho, enquanto Prompt-System-Version.txt declarava 1.4.21.
+* Prompt-Security.txt, Prompt-Systematization.txt e Prompt-Audit-Human-CI.txt existiam na raiz, mas nao estavam catalogados em Prompt-Index.txt.
+* Registros pos-release mencionavam migrations, backend, frontend, testes e comportamento de produto dentro de STATE-08 PRODUCTION_RELEASE sem uma classificacao canonica suficiente entre patch documental e manutencao funcional pos-release.
+* Production-Release-Phase.txt proibia alteracoes funcionais em release, mas nao explicitava a excecao operacional controlada para manutencao pos-release solicitada pelo usuario.
 * Project-Snapshot.txt declarava versao 1.3.8, enquanto Prompt-System-Version.txt declarava 1.4.0.
 * Ajustes e melhorias ja estavam descritos na conversa e em entradas pos-release, mas precisavam de registro documental canonico.
 * O patch 1.4.1 registrava os ajustes, mas o README e o log de transicao ainda nao centralizavam explicitamente o fluxo de documentacao.
@@ -165,6 +176,21 @@ Correcoes aplicadas:
 * Current State, snapshot, changelog, auditoria e log de transicao receberam registro dos ajustes finais deste chat.
 * Confirmado que Prompt-Audit-Human-CI.txt foi reexecutado, os achados residuais foram corrigidos, a migration 20260623010000_refresh_tokens_company_scope foi criada, os testes de auth foram adicionados, credenciais fixas foram removidas/redigidas, Playwright passou a exigir DATABASE_URL via ambiente, artefatos gerados foram limpos e o commit dedf74f foi criado.
 * Confirmado por evidencias locais que format:check, lint, typecheck, prisma validate, unit tests, auth tests, build, migrate status, npm audit, overrides, E2E e gitleaks historico/worktree passaram.
+* Versao do sistema de prompts atualizada para 1.4.22.
+* Project-Snapshot.txt foi alinhado ao versionamento atual.
+* Prompt-Security.txt, Prompt-Systematization.txt e Prompt-Audit-Human-CI.txt foram adicionados ao Prompt-Index.txt.
+* Production-Release-Phase.txt e Official-State-Machine.txt passaram a explicitar que manutencao pos-release solicitada pelo usuario nao cria novo estado e nao altera STATE-08 PRODUCTION_RELEASE.
+* Registros que envolvem codigo, schema, migration, testes, comportamento de produto ou configuracao operacional apos release devem ser classificados como manutencao funcional pos-release, nao como patch puramente documental.
+* Versao do sistema de prompts atualizada para 1.4.23.
+* Production-Release-Phase.txt e Allowed-Commands-By-State.txt passaram a proibir migration nova apenas fora de manutencao funcional pos-release explicitamente solicitada e registrada.
+* Phase-Handoff-Template.txt passou a tratar a mencao a STATE-05 como historica e a apontar Current-State.txt como fonte do estado vigente.
+* Prompt-Index.txt recebeu secao de artefatos de evidencia e relatorios para listar os 22 .txt restantes sem transforma-los em prompts operacionais.
+* Versao do sistema de prompts atualizada para 1.4.24.
+* Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt foram reestruturados em formato limpo, ASCII e operacional.
+* Official-State-Machine.txt passou a usar setas ASCII.
+* Human-CI-Validation-Architecture.txt, Human-CI-Validation-Frontend-Implementation.txt e Human-CI-Validation-Integration.txt passaram a declarar estados antigos como historicos.
+* Todos os 69 .txt foram normalizados sem trailing whitespace.
+* Validacoes finais: 69 .txt, UTF-8 valido, zero caracteres nao ASCII, zero referencias .txt quebradas, zero arquivos fora de Prompt-Index.txt e git diff --check limpo para .txt.
 Risco:
 * Alteracoes funcionais futuras continuam dependendo de fase/estado permitido, gates e evidencias.
 * Referencias manuais aos 17 prompts antigos podem causar confusao se forem usadas como fonte operacional sem consultar Start-Here.txt e Prompt-Index.txt.
@@ -175,10 +201,16 @@ Risco:
 * IDEs podem preservar abas antigas apos renomeacoes; essas abas devem ser tratadas como referencias legadas, nao como demanda para recriar arquivos antigos.
 * Alteracoes funcionais pos-release ainda dependem de push conforme politica de entrega e remote Git disponivel.
 * Secrets reais do GitHub/CI remoto nao podem ser validados localmente sem acesso ao ambiente remoto; a verificacao local confirma apenas ausencia de leaks no historico/worktree.
+* A classificacao incorreta de manutencao funcional pos-release como patch documental pode ocultar risco operacional; usar a regra 1.4.22 como criterio de desempate.
+* Blocos historicos de handoff podem ser confundidos com estado atual se forem lidos isoladamente; Current-State.txt deve prevalecer.
+* Reducoes de prompts externos preservam o escopo operacional, mas deixam de manter a redacao longa original; usar os registros historicos de snapshot/log para contexto de execucoes anteriores.
 Recomendacao:
 * Continuar usando Start-Here.txt como entrypoint e aplicar Conflict-Resolution-Policy.txt para qualquer conflito novo.
 * Nao criar novos arquivos de controle para solicitacoes repetidas de documentacao quando changelog, snapshot, auditoria, versionamento, README e log de transicao bastarem.
 * Antes de entrega remota, confirmar que os secrets POSTGRES_PASSWORD, DATABASE_URL e JWT_SECRET existem no GitHub/CI remoto.
+* Para manutencoes pos-release, registrar pedido explicito, diagnostico, arquivos alterados, evidencias, gates proporcionais, riscos e pendencias, preservando STATE-08 PRODUCTION_RELEASE.
+* Ao auditar estado atual, desconsiderar frases historicas de handoff como autoridade vigente e consultar Current-State.txt.
+* Manter os prompts globais curtos, classificados e com regra de autoridade explicita para evitar redundancia e execucao fora de fluxo.
 
 ---
 
@@ -186,7 +218,4 @@ REGRA FINAL
 
 Auditoria recomenda correcoes.
 Auditoria nao altera estado.
-
-
-
 

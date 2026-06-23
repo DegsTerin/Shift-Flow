@@ -49,10 +49,33 @@ PROIBIDO
 
 * Criar feature nova.
 * Ignorar bloqueio critico.
-* Criar migration nova.
+* Criar migration nova fora de manutencao funcional pos-release explicitamente solicitada e registrada.
 * Alterar estado fora da State Machine.
 * Executar tooling de setup.
 * Alterar schema, backend ou frontend para criar funcionalidade.
+
+---
+
+MANUTENCAO POS-RELEASE
+
+Depois do encerramento local de STATE-08, solicitacoes explicitas do usuario podem gerar manutencao pos-release no workspace.
+
+Manutencao pos-release nao e uma nova fase e nao altera estado.
+
+Obrigatorio quando houver manutencao pos-release:
+
+* Classificar o registro como manutencao funcional pos-release quando alterar codigo, schema, migration, testes, comportamento de produto ou configuracao operacional.
+* Nao classificar alteracao funcional como patch puramente documental.
+* Registrar diagnostico, arquivos alterados, evidencias, gates, riscos e pendencias.
+* Registrar no Project-Snapshot.txt e State-Transition-Log.txt que STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+* Executar validacoes proporcionais ao impacto.
+* Declarar explicitamente se houve migration local e se ainda falta deploy remoto.
+
+Proibido em manutencao pos-release:
+
+* Declarar nova transicao de estado sem decisao da State Machine.
+* Apagar historico de release, auditoria ou bloqueio.
+* Usar manutencao pos-release para burlar gates ou ocultar mudanca funcional.
 
 ---
 

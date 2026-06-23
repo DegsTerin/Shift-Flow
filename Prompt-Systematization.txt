@@ -1,168 +1,120 @@
-Objetivo Geral
+PROMPT DE SISTEMATIZACAO GLOBAL
 
-Realizar uma reestruturação completa do projeto, transformando-o em uma solução profissional, escalável, modular e preparada para crescimento de longo prazo, seguindo padrões utilizados por empresas internacionais de tecnologia.
+REGRA DE OURO
 
-Escopo da Análise
+Este prompt nao altera estado e nao autoriza refatoracao fora da fase permitida.
+Qualquer mudanca funcional exige pedido explicito, classificacao, evidencias e gates.
 
-Analise integralmente a aplicação, incluindo:
+---
 
-* Código-fonte.
-* Estrutura de diretórios.
+OBJETIVO
+
+Sistematizar o projeto para torna-lo organizado, modular, auditavel, escalavel e facil de manter.
+
+---
+
+ESCOPO DE ANALISE
+
+Analisar:
+
+* Codigo-fonte.
+* Estrutura de diretorios.
 * Arquitetura.
-* Dependências.
-* Configurações.
+* Dependencias.
+* Configuracoes.
 * Processos.
-* Documentação.
+* Documentacao.
 * Fluxos de desenvolvimento.
 * Pipeline de entrega.
-* Segurança.
+* Seguranca.
 * Observabilidade.
 
-Reestruturação e Organização
+---
 
-1. Reorganizar a estrutura do projeto utilizando uma arquitetura clara, modular e escalável.
+ORGANIZACAO
 
-2. Padronizar:
+Avaliar e propor:
 
-   * Estrutura de pastas.
-   * Convenções de nomenclatura.
-   * Organização de módulos.
-   * Componentes.
-   * Serviços.
-   * APIs.
-   * Banco de dados.
-   * Configurações.
+* Estrutura clara de pastas.
+* Modulos com responsabilidade unica.
+* Convencoes de nomenclatura.
+* Separacao entre dominio, infraestrutura, interface e testes.
+* Padronizacao de componentes, servicos e APIs.
+* Remocao de duplicidades reais.
+* Remocao de codigo morto.
+* Reducao de acoplamento.
 
-3. Eliminar:
+---
 
-   * Código morto.
-   * Dependências não utilizadas.
-   * Arquivos obsoletos.
-   * Duplicações.
-   * Configurações redundantes.
-   * Comentários desatualizados.
+QUALIDADE
 
-4. Refatorar o código visando:
+Aplicar quando fizer sentido:
 
-   * Legibilidade.
-   * Manutenibilidade.
-   * Escalabilidade.
-   * Testabilidade.
-   * Segurança.
+* SOLID.
+* DRY.
+* KISS.
+* YAGNI.
+* Separation of concerns.
+* Clean code.
+* Clean architecture.
+* Domain-driven design.
+* Modular architecture.
+* Convention over configuration.
 
-Princípios Obrigatórios
+---
 
-Aplicar sempre que apropriado:
+GOVERNANCA
 
-* SOLID
-* DRY
-* KISS
-* YAGNI
-* Separation of Concerns
-* Clean Code
-* Clean Architecture
-* Domain Driven Design (quando fizer sentido)
-* Modular Architecture
-* Convention over Configuration
+Definir ou revisar:
 
-Sistematização
+* Padroes de desenvolvimento.
+* Padroes de documentacao.
+* Padroes de versionamento.
+* Padroes de deploy.
+* Padroes de testes.
+* Padroes de monitoramento.
+* Padroes de tratamento de erros.
+* Padroes de logging.
+* Padroes de configuracao de ambientes.
 
-Criar uma estrutura sistematizada que reduza dependência de conhecimento individual.
+---
 
-Implementar:
+AUTOMACAO E OBSERVABILIDADE
 
-* Padrões de desenvolvimento.
-* Padrões de documentação.
-* Padrões de versionamento.
-* Padrões de deploy.
-* Padrões de testes.
-* Padrões de monitoramento.
-* Padrões de tratamento de erros.
-* Padrões de logging.
-* Padrões de configuração de ambientes.
-
-Garantir que novos desenvolvedores possam compreender e contribuir para o projeto rapidamente.
-
-Governança Técnica
-
-Definir e estruturar:
-
-* Convenções de desenvolvimento.
-* Boas práticas obrigatórias.
-* Estrutura de revisão de código.
-* Controle de qualidade.
-* Regras de linting.
-* Regras de formatação.
-* Estratégias de branching.
-* Estratégias de versionamento.
-
-Automação
-
-Implementar ou preparar:
+Avaliar:
 
 * CI/CD.
 * Testes automatizados.
-* Verificações de qualidade.
-* Validações de segurança.
+* Validacoes de qualidade.
+* Validacoes de seguranca.
 * Build automatizado.
 * Deploy automatizado.
-* Análise estática de código.
-
-Qualidade
-
-Identificar e corrigir:
-
-* Acoplamento excessivo.
-* Baixa coesão.
-* Complexidade desnecessária.
-* Funções muito grandes.
-* Arquivos com múltiplas responsabilidades.
-* Gargalos evidentes.
-* Problemas de performance simples.
-* Possíveis riscos de segurança.
-
-Observabilidade
-
-Preparar a aplicação para:
-
+* Analise estatica.
 * Logging estruturado.
 * Monitoramento.
 * Rastreamento de erros.
-* Métricas.
+* Metricas.
 * Auditoria.
-* Diagnóstico operacional.
 
-Documentação
+---
 
-Criar ou atualizar:
+RESTRICOES
 
-* README profissional.
-* Arquitetura da aplicação.
-* Fluxo de execução.
-* Estrutura dos módulos.
-* Processo de instalação.
-* Processo de deploy.
-* Guia para novos desenvolvedores.
-* Padrões adotados.
+* Nao alterar regra de negocio sem justificativa tecnica.
+* Nao remover funcionalidade existente sem analise de impacto.
+* Preservar comportamento funcional atual quando nao houver pedido explicito de mudanca.
+* Nao criar abstracoes sem reducao real de complexidade.
+* Nao duplicar documentos de controle quando os atuais forem suficientes.
 
-Restrições
+---
 
-* Não alterar regras de negócio sem justificativa técnica.
-* Não remover funcionalidades existentes sem análise de impacto.
-* Preservar o comportamento funcional atual da aplicação.
-* Manter compatibilidade com o ecossistema utilizado.
+ENTREGAVEIS
 
-Resultado Esperado
+Gerar:
 
-Entregar:
-
-1. Estrutura final reorganizada.
-2. Código refatorado e padronizado.
-3. Arquitetura documentada.
-4. Relatório detalhado das alterações.
-5. Lista de problemas encontrados.
-6. Lista de melhorias futuras.
-7. Roadmap técnico de evolução.
-8. Recomendações para escalabilidade futura.
-
-A solução final deve refletir padrões encontrados em empresas de tecnologia de porte internacional, priorizando escalabilidade, governança, automação, segurança, observabilidade e facilidade de manutenção.
+* Diagnostico de organizacao.
+* Lista de conflitos e redundancias.
+* Plano de sistematizacao.
+* Alteracoes propostas por prioridade.
+* Evidencias.
+* Riscos e pendencias.

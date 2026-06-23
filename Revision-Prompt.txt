@@ -1,336 +1,89 @@
+PROMPT DE REVISAO GLOBAL
+
+REGRA DE OURO
+
+Este prompt e uma entrada operacional pos-release.
+Ele nao altera estado, nao substitui a State Machine e so pode gerar correcoes quando houver solicitacao explicita, evidencias e gates.
+
+---
+
 OBJETIVO
 
-Status da revisao:
-Documento consolidado em 2026-06-22 como entrada operacional pos-release.
-Este arquivo nao altera estado, nao substitui a State Machine e deve ser executado somente por fase permitida, com diagnostico previo, evidencias, gates e atualizacao dos documentos canonicos.
+Revisar o ShiftFlow para corrigir problemas funcionais, usabilidade, responsividade e fluxo operacional.
 
-Realizar uma revisão completa do sistema ShiftFlow para corrigir problemas funcionais, de usabilidade, responsividade e fluxo operacional.
+O sistema deve funcionar em:
 
-O sistema deve funcionar corretamente em:
-
-* Desktop
-* Mobile
-* Tablet
-* Light Mode
-* Dark Mode
-* PT-BR
-* EN-GB
-
-O objetivo principal do sistema é servir como plataforma de reporte operacional de turnos, permitindo que equipes, coordenadores, gestores e outros turnos visualizem em tempo real o status das atividades operacionais.
-
-O sistema também deve ser adequado para exibição contínua em TVs e painéis de monitoramento.
+* Desktop.
+* Mobile.
+* Tablet.
+* Light mode.
+* Dark mode.
+* PT-BR.
+* EN-GB.
+* Modo TV.
 
 ---
 
-ANÁLISE GERAL OBRIGATÓRIA
+ANALISE OBRIGATORIA
 
-Antes de implementar qualquer correção:
+Antes de implementar qualquer correcao, auditar:
 
-1. Auditar todo o frontend.
-2. Auditar todo o backend.
-3. Auditar integrações frontend/backend.
-4. Auditar estados globais.
-5. Auditar componentes reutilizáveis.
-6. Auditar rotas.
-7. Auditar formulários.
-8. Auditar filtros.
-9. Auditar sistema de pesquisa.
-10. Auditar responsividade.
-
-Gerar relatório dos problemas encontrados antes das correções.
+* Frontend.
+* Backend.
+* Integracoes frontend/backend.
+* Estados globais.
+* Componentes reutilizaveis.
+* Rotas.
+* Formularios.
+* Filtros.
+* Pesquisa.
+* Responsividade.
 
 ---
 
-CORREÇÃO 01 - RESPONSIVIDADE
+ESCOPO FUNCIONAL
 
-Problema:
+Validar e corrigir quando autorizado:
 
-O sistema não está totalmente responsivo.
-
-Objetivo:
-
-Garantir funcionamento correto em:
-
-* Mobile
-* Tablet
-* Desktop
-* TVs corporativas
-
-Validar:
-
-* Menus
-* Dashboards
-* Kanban
-* Tabelas
-* Formulários
-* Modais
-* Cards
-* Gráficos
-
-Critérios:
-
-* Nenhum elemento pode ultrapassar a largura da tela.
-* Nenhum scroll horizontal indevido.
-* Componentes devem reorganizar automaticamente conforme resolução.
+* Responsividade.
+* Menu lateral.
+* Filtros.
+* Registro completo de atividades.
+* Historico completo.
+* Botao "+ Novo".
+* Visualizacao de registro.
+* Edicao de registros.
+* Pesquisa global.
+* Modo monitoramento.
 
 ---
 
-CORREÇÃO 02 - MENU LATERAL
+CRITERIOS DE ACEITE
 
-Problema:
-
-Itens possuem tamanhos inconsistentes.
-
-Objetivo:
-
-Padronizar completamente o menu lateral.
-
-Requisitos:
-
-* Altura idêntica para todos os itens.
-* Espaçamento uniforme.
-* Alinhamento consistente.
-* Ícones padronizados.
-* Melhor aproveitamento vertical.
-* Comportamento consistente entre desktop e mobile.
-
----
-
-CORREÇÃO 03 - FILTROS
-
-Problema:
-
-Filtros não estão funcionando.
-
-Objetivo:
-
-Implementar filtros reais conectados aos dados.
-
-Aplicar em:
-
-* Dashboard Principal
-* Dashboard por Equipe
-* Kanban
-* Gestão de Equipes
-* Gestão de Turnos
-* Gestão de Usuários
-* Relatórios
-
-Permitir filtragem por:
-
-* Cliente
-* Equipe
-* Turno
-* Analista
-* Prioridade
-* Status
-* Data inicial
-* Data final
-
-Critérios:
-
-* Filtros devem funcionar simultaneamente.
-* Persistência de filtros durante navegação.
-* Atualização automática dos dados exibidos.
-
----
-
-CORREÇÃO 04 - REGISTRO COMPLETO DE ATIVIDADES
-
-Toda atividade deve possuir:
-
-Identificação:
-
-* ID
-* Empresa
-* Cliente
-* Equipe
-* Turno
-
-Informações:
-
-* Título
-* Detalhe da atividade
-
-Campos obrigatórios:
-
-* O que foi solicitado
-* O que foi feito
-* O que está em andamento
-* O que está pendente
-* Como foi finalizado
-* Observações
-
-Metadados automáticos:
-
-* Data de criação
-* Usuário criador
-* Data da última atualização
-* Usuário responsável pela atualização
-
-Esses campos devem ser preenchidos automaticamente pelo sistema quando aplicável.
-
----
-
-CORREÇÃO 05 - HISTÓRICO COMPLETO
-
-Implementar trilha de auditoria.
-
-Registrar:
-
-* Criação
-* Edição
-* Atualização
-* Mudança de status
-* Exclusão lógica
-
-Cada evento deve armazenar:
-
-* Data
-* Hora
-* Usuário
-* Ação executada
-* Valor anterior
-* Valor novo
-
-O histórico deve ser imutável.
-
----
-
-CORREÇÃO 06 - BOTÃO "+ NOVO"
-
-Problema:
-
-Não funciona em nenhuma tela.
-
-Objetivo:
-
-Corrigir todas as ações de criação.
-
-Validar:
-
-* Rotas
-* Formulários
-* Modais
-* APIs
-* Persistência no banco
-
-Critério:
-
-Todo botão "+ Novo" deve abrir corretamente o fluxo de criação correspondente.
-
----
-
-CORREÇÃO 07 - VISUALIZAÇÃO DE REGISTRO
-
-Ao clicar em qualquer registro:
-
-Abrir modal, drawer ou painel lateral contendo:
-
-* Dados completos
-* Histórico
-* Comentários
-* Anexos
-* Informações do responsável
-* Datas importantes
-
-Sem redirecionar para outra página.
-
----
-
-CORREÇÃO 08 - EDIÇÃO DE REGISTROS
-
-Ao abrir um registro:
-
-Disponibilizar:
-
-* Editar
-* Atualizar
-* Salvar
-* Excluir (soft delete)
-
-Toda alteração deve atualizar automaticamente o histórico.
-
----
-
-CORREÇÃO 09 - PESQUISA GLOBAL
-
-Problema:
-
-Campo de pesquisa não funciona.
-
-Objetivo:
-
-Implementar busca funcional.
-
-Pesquisar por:
-
-* ID
-* Título
-* Cliente
-* Equipe
-* Usuário
-* Status
-* Conteúdo textual
-
-Aplicar em todas as telas relevantes.
-
----
-
-CORREÇÃO 10 - MODO MONITORAMENTO
-
-Criar modo especial para TVs.
-
-Características:
-
-* Atualização automática
-* Auto refresh
-* Layout otimizado para tela grande
-* Indicadores visuais de SLA
-* Atividades críticas destacadas
-* Kanban operacional em tempo real
-* Dashboard executivo em tela cheia
-
----
-
-REGRAS DE IMPLEMENTAÇÃO
-
-Não criar novas funcionalidades fora deste escopo.
-
-Não alterar arquitetura principal sem necessidade.
-
-Reutilizar componentes existentes sempre que possível.
-
-Eliminar código duplicado.
-
-Corrigir inconsistências de UI/UX encontradas durante a auditoria.
-
----
-
-CRITÉRIOS DE ACEITE
-
-A tarefa somente poderá ser considerada concluída quando:
+A revisao so pode ser considerada concluida quando:
 
 * Todos os filtros funcionarem.
 * Todas as pesquisas funcionarem.
-* Todos os botões "+ Novo" funcionarem.
+* Todos os botoes "+ Novo" funcionarem.
 * Todos os registros abrirem corretamente.
-* O histórico estiver funcional.
+* O historico estiver funcional.
 * O sistema estiver responsivo.
-* Light Mode funcionar.
-* Dark Mode funcionar.
-* PT-BR funcionar.
-* EN-GB funcionar.
-* Dashboard por Equipe funcionar.
+* Light mode e dark mode funcionarem.
+* PT-BR e EN-GB funcionarem.
+* Dashboard por equipe funcionar.
 * Kanban funcionar.
 * Modo TV funcionar.
-* Nenhum erro de navegação existir.
+* Nao houver erro de navegacao conhecido.
 
-Ao final gerar:
+---
 
-1. Problemas encontrados.
-2. Correções realizadas.
-3. Pendências remanescentes.
-4. Riscos técnicos.
-5. Débitos técnicos.
-6. Evidências das correções.
+ENTREGAVEIS
+
+Gerar:
+
+* Problemas encontrados.
+* Correcoes realizadas.
+* Pendencias remanescentes.
+* Riscos tecnicos.
+* Debitos tecnicos.
+* Evidencias das correcoes.

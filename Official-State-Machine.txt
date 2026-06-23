@@ -27,21 +27,21 @@ Se houver conflito, prevalece sempre o item de maior autoridade.
 ESTADOS CANONICOS
 
 STATE-00 INIT
-  ↓
+  ->
 STATE-01 SETUP_PROJECT
-  ↓
+  ->
 STATE-02 ARCHITECTURE
-  ↓
+  ->
 STATE-03 DATABASE_MODELING
-  ↓
+  ->
 STATE-04 BACKEND_IMPLEMENTATION
-  ↓
+  ->
 STATE-05 FRONTEND_IMPLEMENTATION
-  ↓
+  ->
 STATE-06 INTEGRATION
-  ↓
+  ->
 STATE-07 TESTING_HOMOLOGATION
-  ↓
+  ->
 STATE-08 PRODUCTION_RELEASE
 
 ---
@@ -148,7 +148,17 @@ PRODUCTION_RELEASE:
 
 * Pode preparar liberacao final.
 * Pode executar deploy de migrations aprovadas.
+* Pode registrar manutencao pos-release quando solicitada explicitamente pelo usuario.
 * Nao pode criar funcionalidade.
+
+MANUTENCAO POS-RELEASE:
+
+* Nao e estado novo.
+* Nao altera STATE-08 PRODUCTION_RELEASE.
+* Deve ser registrada como manutencao funcional pos-release quando alterar codigo, schema, migration, testes, comportamento de produto ou configuracao operacional.
+* Nao deve ser registrada como patch puramente documental quando houver alteracao funcional.
+* Exige evidencias, gates proporcionais ao impacto, snapshot e log.
+* Deve declarar migrations locais e pendencias de deploy remoto quando existirem.
 
 ---
 
@@ -208,7 +218,6 @@ REGRA ANTI-OVERENGINEERING
 Nao criar novo arquivo de controle, gate, estado ou modulo se uma regra existente puder ser ajustada.
 Novos controles devem resolver conflito ou risco real.
 Novos controles nao podem alterar estado.
-
 
 
 

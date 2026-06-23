@@ -19,10 +19,10 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.16
+1.4.24
 
 Ultima atualizacao:
-2026-06-22
+2026-06-23
 
 ---
 
@@ -816,7 +816,7 @@ RISCOS
   * O workspace documental atual usa arquivos Pascal-Kebab-Case sem numeracao; nomes como "00 - Start Here.txt" sao referencias legadas do IDE e devem ser resolvidos para Start-Here.txt.
   * Remote Git e push continuam pendentes porque nenhuma URL de repositorio remoto foi declarada.
   * A partir do patch 1.4.15, esta solicitacao atual tambem fica registrada como delta documental: os ajustes de Restructuring-Prompt.txt incluem WAITING_CUSTOMER, serviceName, dashboard por cliente, Kanban com sete status, modal com encerrar/reabrir, anexos listados, correcao de historico duplicado, responsividade mobile, seeds, migration 20260622103000_operational_dossier_status_service e validacoes aprovadas.
-  * O registro 1.4.15 nao executa nova fase, nao altera codigo, nao altera schema e nao muda STATE-08 PRODUCTION_RELEASE; apenas documenta o que ja foi ajustado neste chat.
+  * O registro 1.4.15 nao executa nova fase nem nova alteracao adicional; ele documenta manutencao funcional pos-release ja executada, incluindo migration local, codigo e testes, sem mudar STATE-08 PRODUCTION_RELEASE.
   * A partir do patch 1.4.16, ficam registrados os ajustes funcionais mais recentes deste chat:
     * Servidores locais orientados para acesso em rede: web em 0.0.0.0:3000 e API em 3001, com NEXT_PUBLIC_API_BASE_URL apontando para o IP local quando necessario.
     * Menu lateral padronizado para desktop/mobile, cabecalho compacto em linha unica, idiomas e Modo TV representados por icones, e botao de logout incluido.
@@ -876,6 +876,23 @@ RISCOS
     * Gates aprovados: format:check, lint, typecheck, prisma:validate, unit tests, auth tests, build, migrate status, npm audit, audit:overrides e test:e2e.
     * Commit local criado: dedf74f Hardening audit residual fixes.
   * O registro 1.4.21 documenta alteracoes ja executadas neste chat e nao muda STATE-08 PRODUCTION_RELEASE.
+  * A partir do patch 1.4.22, fica corrigida a classificacao documental de manutencoes pos-release:
+    * Prompt-Security.txt, Prompt-Systematization.txt e Prompt-Audit-Human-CI.txt passam a constar no Prompt-Index.txt.
+    * Registros que documentam migrations, backend, frontend, testes ou comportamento de produto apos STATE-08 devem ser classificados como manutencao funcional pos-release, nao como patch puramente documental.
+    * Manutencao funcional pos-release exige solicitacao explicita, evidencias, gates, registro no snapshot/log e declaracao de que nao houve transicao de estado.
+    * O cabecalho deste snapshot foi alinhado ao Prompt-System-Version.txt.
+  * O registro 1.4.22 corrige governanca documental e nao muda STATE-08 PRODUCTION_RELEASE.
+  * A partir do patch 1.4.23, fica corrigida a segunda rodada de auditoria de conflitos:
+    * Production-Release-Phase.txt e Allowed-Commands-By-State.txt nao proibem mais migration de forma absoluta quando a mudanca for manutencao funcional pos-release explicitamente solicitada e registrada.
+    * Phase-Handoff-Template.txt nao declara mais STATE-05 como estado atual; a frase foi convertida em historico e Current-State.txt permanece a fonte vigente.
+    * Prompt-Index.txt passa a listar os artefatos de evidencia e relatorios para melhorar rastreabilidade dos 69 .txt.
+  * O registro 1.4.23 corrige fluxo documental e nao muda STATE-08 PRODUCTION_RELEASE.
+  * A partir do patch 1.4.24, fica registrada a limpeza e sistematizacao final dos 69 .txt:
+    * Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt foram reestruturados para formato ASCII limpo, com regra de ouro, escopo, checklist e entregaveis.
+    * Official-State-Machine.txt passou a usar setas ASCII no fluxo de estados.
+    * Relatorios Human CI historicos passaram a declarar que STATE-02, STATE-05 e STATE-06 eram estados vigentes na validacao historica, nao o estado atual.
+    * Todos os .txt foram normalizados sem trailing whitespace, sem UTF-8 invalido, sem caracteres nao ASCII, sem referencias .txt quebradas e com cobertura completa no Prompt-Index.txt.
+  * O registro 1.4.24 corrige organizacao documental e nao muda STATE-08 PRODUCTION_RELEASE.
 
 ---
 

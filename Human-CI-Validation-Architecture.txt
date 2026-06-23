@@ -58,7 +58,7 @@ APROVADO
 
 Validacao:
 
-* Current-State.txt declara STATE-02 ARCHITECTURE como estado atual e fase permitida.
+* Current-State.txt declarava STATE-02 ARCHITECTURE como estado vigente nesta validacao historica.
 * Solution-Architecture-Phase.txt foi usado como prompt da fase.
 * Acceptance-Criteria-By-State.txt foi atendido para STATE-02.
 * Evidence-Standard.txt foi atendido com documento de arquitetura e decisoes registradas.

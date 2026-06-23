@@ -9,7 +9,7 @@ Apenas a State Machine pode alterar estado.
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.21
+PROMPT_SYSTEM_VERSION: 1.4.24
 
 Data:
 2026-06-23
@@ -80,6 +80,15 @@ Registrada nova solicitacao em 2026-06-23 para documentar os ajustes e melhorias
 Patch 1.4.21:
 Registrados os ajustes finais deste chat apos novas execucoes de Prompt-Audit-Human-CI.txt e correcao dos achados residuais. O registro cobre refresh token escopado por empresa, migration 20260623010000_refresh_tokens_company_scope, testes de auth, remocao/redacao de credenciais fixas em seeds/testes/documentos, Playwright carregando .env e exigindo DATABASE_URL, limpeza de artefatos gerados com chaves Next, varreduras gitleaks sem leaks no historico e worktree, gates locais aprovados e commit local dedf74f Hardening audit residual fixes. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
 
+Patch 1.4.22:
+Corrigidos conflitos documentais e de fluxo identificados apos a leitura dos 69 arquivos .txt. O snapshot foi alinhado a versao atual, Prompt-Audit-Human-CI.txt, Prompt-Security.txt e Prompt-Systematization.txt foram catalogados no Prompt-Index.txt, e a manutencao funcional pos-release passou a ter regra explicita em Production-Release-Phase.txt e Official-State-Machine.txt. Registros que alteram codigo, schema, migration, testes ou comportamento de produto devem ser classificados como manutencao funcional pos-release, nao como patch puramente documental. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.23:
+Corrigida a segunda rodada de auditoria de conflitos, redundancias e falhas de fluxo nos .txt. A proibicao absoluta de criar migration em STATE-08 foi refinada para permitir apenas manutencao funcional pos-release explicitamente solicitada e registrada. Phase-Handoff-Template.txt deixou de declarar STATE-05 como estado atual e passou a tratar a frase como historico, apontando Current-State.txt como fonte vigente. Prompt-Index.txt passou a catalogar tambem os artefatos de evidencia e relatorios para cobrir os 69 .txt sem transforma-los em prompts operacionais. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.24:
+Executada limpeza e sistematizacao final dos 69 .txt. Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt foram reestruturados em ASCII limpo, com regras de autoridade, escopo, entregaveis e restricoes claras. Official-State-Machine.txt teve setas Unicode substituidas por ASCII. Relatorios Human CI historicos foram ajustados para deixar claro que estados STATE-02, STATE-05 e STATE-06 eram vigentes na validacao historica, nao o estado atual. Todos os .txt foram normalizados sem trailing whitespace, sem bytes UTF-8 invalidos, sem caracteres nao ASCII, sem referencias .txt quebradas e com cobertura completa em Prompt-Index.txt. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
 ---
 
 REGRA DE REGISTRO
@@ -92,7 +101,4 @@ Toda mudanca deve atualizar:
 * Project-Snapshot.txt, quando impactar evidencias ou decisoes.
 
 Atualizar versao nao altera estado.
-
-
-
 

@@ -248,7 +248,7 @@ EVIDENCIAS:
 Automatic-Review-Audit-Backend-Implementation.txt; Human-CI-Validation-Backend-Implementation.txt; Project-Snapshot.txt; State-Transition-Log.txt; Current-State.txt; npm run build:api aprovado; npx eslint apps/api/src aprovado; npm test aprovado.
 
 DECISAO:
-STATE-05 FRONTEND_IMPLEMENTATION e o estado operacional atual. Frontend ainda nao foi implementado nesta transicao.
+Neste registro historico, STATE-05 FRONTEND_IMPLEMENTATION foi o estado operacional decidido naquele momento. O estado atual deve ser lido em Current-State.txt.
 
 TRANSICAO DE ESTADO:
 Decidida pela State Machine e registrada em Current-State.txt e State-Transition-Log.txt.

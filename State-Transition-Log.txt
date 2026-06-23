@@ -31,6 +31,42 @@ Observacoes:
 
 REGISTROS
 
+Data: 2026-06-23
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: STATE-08 PRODUCTION_RELEASE
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Limpeza e sistematizacao documental sem transicao
+Gates avaliados: Current-State.txt, Prompt-Index.txt, Official-State-Machine.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Project-Snapshot.txt, State-Transition-Log.txt.
+Resultado dos gates: Aprovado como patch documental de organizacao; sem alteracao de codigo funcional, schema, runtime, tooling ou estado.
+Evidencias: 69 arquivos .txt validados; zero UTF-8 invalido; zero caracteres nao ASCII; zero referencias .txt quebradas; zero arquivos fora de Prompt-Index.txt; git diff --check limpo para .txt; prompts globais reestruturados e relatorios historicos contextualizados.
+Responsavel: Sistema de prompts
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Esta correcao organiza e sistematiza documentos, reduz redundancia operacional e preserva historico essencial sem criar nova fase.
+
+Data: 2026-06-23
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: STATE-08 PRODUCTION_RELEASE
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Segunda correcao de conflito e fluxo sem transicao
+Gates avaliados: Current-State.txt, Official-State-Machine.txt, Production-Release-Phase.txt, Allowed-Commands-By-State.txt, Phase-Handoff-Template.txt, Project-Snapshot.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt.
+Resultado dos gates: Aprovado como patch documental de governanca; sem alteracao de codigo, schema, runtime, tooling ou estado.
+Evidencias: Production-Release-Phase.txt e Allowed-Commands-By-State.txt corrigidos para permitir migration apenas dentro de manutencao funcional pos-release explicitamente solicitada e registrada; Phase-Handoff-Template.txt corrigido para tratar STATE-05 como historico e apontar Current-State.txt como fonte vigente; Prompt-Index.txt atualizado com artefatos de evidencia e relatorios; Prompt-System-Version.txt atualizado para 1.4.23.
+Responsavel: Sistema de prompts
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Esta correcao remove contradicao operacional introduzida pela proibicao absoluta de migration em STATE-08 e evita leitura de handoff historico como estado atual.
+
+Data: 2026-06-23
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: STATE-08 PRODUCTION_RELEASE
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Correcao de governanca de prompts sem transicao
+Gates avaliados: Start-Here.txt, Current-State.txt, Official-State-Machine.txt, System-Guard-Rails.txt, Project-Snapshot.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Prompt-Index.txt, Production-Release-Phase.txt.
+Resultado dos gates: Aprovado como patch documental de governanca; sem alteracao de codigo, schema, runtime, tooling ou estado.
+Evidencias: Leitura dos 69 arquivos .txt; Project-Snapshot.txt alinhado a Prompt-System-Version.txt 1.4.22; Prompt-Security.txt, Prompt-Systematization.txt e Prompt-Audit-Human-CI.txt catalogados em Prompt-Index.txt; Production-Release-Phase.txt e Official-State-Machine.txt atualizados com regra de manutencao funcional pos-release.
+Responsavel: Sistema de prompts
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: A correcao resolve conflito entre registros funcionais pos-release e a proibicao generica de mudancas em Production Release. Manutencao pos-release solicitada explicitamente nao cria novo estado; quando altera codigo, schema, migration, testes, comportamento de produto ou configuracao operacional, deve ser registrada como manutencao funcional pos-release e nao como patch puramente documental.
+
 Data: 2026-06-22
 Estado anterior: STATE-08 PRODUCTION_RELEASE
 Estado solicitado: STATE-08 PRODUCTION_RELEASE

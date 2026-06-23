@@ -1,324 +1,135 @@
-CORREÇÃO E REESTRUTURAÇÃO GLOBAL DO SHIFTFLOW
+PROMPT DE REESTRUTURACAO DO SHIFTFLOW
 
-Status da reestruturacao:
-Documento consolidado em 2026-06-22 como entrada operacional pos-release.
-Este arquivo nao altera estado, nao substitui a State Machine e deve orientar uma nova rodada controlada de diagnostico, correcoes, evidencias e relatorio final.
+REGRA DE OURO
 
-CONTEXTO
-
-O objetivo deste sistema NÃO é ser apenas um gerenciador de tarefas.
-
-O objetivo principal é funcionar como uma plataforma corporativa de:
-
-Passagem de turno
-Registro operacional
-Gestão de atividades
-Gestão de equipes
-Gestão de clientes
-Gestão de ocorrências
-Acompanhamento gerencial
-Monitoramento em tempo real
-
-O sistema deve permitir que:
-
-Analistas visualizem atividades do turno atual
-Próximos turnos entendam exatamente o andamento de cada atividade
-Outras equipes acompanhem dependências
-Coordenadores acompanhem pendências
-Gerentes visualizem indicadores executivos
-Monitores e TVs exibam dashboards operacionais em tempo real
-
-O histórico operacional deve ser o elemento central do sistema.
-
-MODELO OPERACIONAL OBRIGATÓRIO
-
-Cada atividade deve funcionar como um dossiê operacional completo.
-
-Exemplo real:
-
-Uma atividade pode permanecer aberta por:
-
-horas
-dias
-semanas
-meses
-
-Durante esse período vários usuários podem registrar atualizações.
-
-Cada atualização deve ficar registrada cronologicamente.
-
-Exemplo:
-
-02/02/2021 12:14
-Usuário: Bruno
-Ação: Solicitação aberta.
-
-04/02/2021 11:05
-Usuário: Bruno
-Ação: E-mail enviado ao cliente solicitando contato.
-
-05/02/2021 09:24
-Usuário: Cliente
-Ação: Cliente respondeu.
-
-22/02/2021 11:02
-Usuário: Gerente
-Ação: Orientação para análise de disponibilidade.
-
-Todas as movimentações devem permanecer no histórico.
-
-Nenhuma informação pode ser perdida.
-
-ESTRUTURA OBRIGATÓRIA DE UMA ATIVIDADE
-
-Toda atividade deve possuir:
-
-Identificação
-ID
-Título
-Cliente
-Sistema
-Serviço
-Equipe
-Turno
-Responsável
-Status
-Pendente
-Em Andamento
-Aguardando Cliente
-Aguardando Terceiros
-Monitoramento
-Finalizada
-Cancelada
-Prioridade
-Baixa
-Média
-Alta
-Crítica
-Campos Operacionais
-Descrição Inicial
-O que foi identificado
-O que foi realizado
-O que está pendente
-Próximas ações
-Resultado Final
-Auditoria
-
-Preenchimento automático:
-
-Criado por
-Data criação
-Última alteração por
-Última alteração em
-Excluído por
-Data exclusão
-HISTÓRICO OPERACIONAL
-
-Toda atividade deve possuir timeline completa.
-
-Cada registro deve armazenar:
-
-Usuário
-Data
-Hora
-Tipo de ação
-Conteúdo registrado
-
-Exemplos:
-
-Comentário
-
-Atualização
-
-Mudança de status
-
-Mudança de responsável
-
-Anexo
-
-Exclusão
-
-Reabertura
-
-Encerramento
-
-O histórico deve ser imutável.
-
-MODAL DE DETALHES
-
-Ao clicar em qualquer registro:
-
-Abrir modal sobre a tela atual.
-
-O modal deve exibir:
-
-Resumo
-
-Dados principais
-
-Detalhes
-
-Descrição completa
-
-Histórico
-
-Timeline completa
-
-Anexos
-
-Arquivos vinculados
-
-Auditoria
-
-Informações de criação e alteração
-
-Ações
-
-Editar
-
-Salvar
-
-Atualizar
-
-Excluir
-
-Reabrir
-
-Encerrar
-
-CORREÇÕES FUNCIONAIS OBRIGATÓRIAS
-
-Corrigir todos os itens abaixo:
-
-Responsividade
-
-Corrigir completamente:
-
-Desktop
-Notebook
-Tablet
-Mobile
-
-Em:
-
-Light Mode
-Dark Mode
-PT-BR
-EN-GB
-Menu Lateral
-
-Padronizar:
-
-largura
-alinhamento
-espaçamento
-tamanho dos itens
-
-Todos os módulos devem possuir aparência consistente.
-
-Filtros
-
-Corrigir funcionamento em:
-
-Dashboard Principal
-Dashboard por Equipe
-Kanban
-Relatórios
-Listagens
-
-Filtros devem atualizar dados reais.
-
-Pesquisa
-
-Corrigir busca global.
-
-Permitir busca por:
-
-ID
-Cliente
-Sistema
-Equipe
-Responsável
-Status
-Texto livre
-Botão "+ Novo"
-
-Corrigir em todas as telas.
-
-Deve abrir formulário funcional.
-
-CRUD Completo
-
-Todos os módulos devem permitir:
-
-Criar
-Visualizar
-Editar
-Atualizar
-Excluir logicamente
-DASHBOARD OPERACIONAL
-
-Criar visão adequada para TV.
-
-Modo monitoramento:
-
-Auto atualização
-Tela limpa
-Cards grandes
-Kanban em tempo real
-Atividades críticas destacadas
-SLA em risco destacado
-DASHBOARD EXECUTIVO
-
-Apresentar:
-
-Total de atividades
-Pendentes
-Em andamento
-Finalizadas
-SLA em risco
-Críticas
-
-Gráficos:
-
-Por equipe
-Por cliente
-Por turno
-Por prioridade
-Evolução temporal
-IMPORTANTE
-
-Não realizar correções pontuais isoladas.
-
-Primeiro revisar toda a arquitetura funcional do sistema.
-
-Depois implementar as correções necessárias para que o sistema represente corretamente um ambiente corporativo de passagem de turno, acompanhamento operacional e gestão de atividades com histórico auditável completo.
-
-Entregar:
-
-Diagnóstico dos problemas encontrados.
-Lista de correções necessárias.
-Implementação das correções.
-Relatório final do que foi ajustado.
-Funcionalidades que ainda precisam ser evoluídas.
+Este prompt nao altera estado, nao substitui a State Machine e nao autoriza mudanca fora da fase permitida.
+Em STATE-08, mudancas funcionais devem ser registradas como manutencao funcional pos-release.
 
 ---
 
-REGISTRO DE EXECUCAO - 2026-06-22
+OBJETIVO
 
-Status:
-Executado e documentado como ajuste operacional pos-release, sem transicao de STATE-08 PRODUCTION_RELEASE.
+Reposicionar o ShiftFlow como plataforma corporativa de:
 
-Diagnostico registrado:
+* Passagem de turno.
+* Registro operacional.
+* Gestao de atividades.
+* Gestao de equipes.
+* Gestao de clientes.
+* Gestao de ocorrencias.
+* Acompanhamento gerencial.
+* Monitoramento em tempo real.
 
-* Faltava status Aguardando Cliente no dominio.
-* Atividade nao possuia campo de Servico.
-* Dashboard Executivo nao agregava atividades por cliente.
-* Movimentacao e atribuicao de atividade geravam historico duplicado.
-* Modal de atividade nao possuia acoes explicitas de Encerrar e Reabrir.
-* Anexos eram exibidos apenas como contador.
-* Layout mobile mantinha risco de scroll horizontal por sidebar lateral.
-* Testes E2E ainda validavam Kanban antigo com cinco colunas.
+---
+
+MODELO OPERACIONAL
+
+Cada atividade deve funcionar como dossie operacional completo.
+
+Uma atividade pode permanecer aberta por horas, dias, semanas ou meses.
+Durante esse periodo, varios usuarios podem registrar atualizacoes.
+Todas as movimentacoes devem permanecer no historico.
+Nenhuma informacao operacional relevante pode ser perdida.
+
+---
+
+ESTRUTURA DE ATIVIDADE
+
+Cada atividade deve possuir:
+
+* ID.
+* Titulo.
+* Cliente.
+* Sistema ou servico.
+* Equipe.
+* Turno.
+* Responsavel.
+* Status.
+* Prioridade.
+* Descricao inicial.
+* O que foi identificado.
+* O que foi realizado.
+* O que esta pendente.
+* Proximas acoes.
+* Resultado final.
+* Auditoria.
+
+---
+
+STATUS OPERACIONAIS
+
+Status esperados:
+
+* Pendente.
+* Em andamento.
+* Aguardando cliente.
+* Aguardando terceiros.
+* Monitoramento.
+* Finalizada.
+* Cancelada.
+
+---
+
+HISTORICO OPERACIONAL
+
+Cada registro de historico deve armazenar:
+
+* Usuario.
+* Data.
+* Hora.
+* Tipo de acao.
+* Conteudo registrado.
+
+Exemplos:
+
+* Comentario.
+* Atualizacao.
+* Mudanca de status.
+* Mudanca de responsavel.
+* Anexo.
+* Exclusao.
+* Reabertura.
+* Encerramento.
+
+O historico deve ser imutavel.
+
+---
+
+MODAL DE DETALHES
+
+Ao abrir uma atividade, exibir:
+
+* Resumo.
+* Dados principais.
+* Descricao completa.
+* Historico.
+* Timeline.
+* Anexos.
+* Auditoria.
+* Informacoes de criacao e alteracao.
+* Acoes de editar, salvar, atualizar, excluir, reabrir e encerrar.
+
+---
+
+CORRECOES FUNCIONAIS
+
+Quando autorizadas, revisar:
+
+* Responsividade.
+* Menu lateral.
+* Filtros.
+* Pesquisa.
+* Botao "+ Novo".
+* CRUD completo.
+* Dashboard operacional.
+* Dashboard executivo.
+* Modo TV.
+
+---
+
+REGISTRO DE EXECUCAO
+
+Execucao documentada em 2026-06-22 como manutencao funcional pos-release, sem transicao de STATE-08 PRODUCTION_RELEASE.
 
 Correcoes registradas:
 
@@ -327,28 +138,29 @@ Correcoes registradas:
 * Criada e aplicada migration 20260622103000_operational_dossier_status_service.
 * Busca e dashboard passaram a considerar serviceName.
 * Dashboard charts passou a retornar byClient.
-* Kanban passou a exibir sete status: Pendente, Em Andamento, Aguardando Cliente, Aguardando Terceiros, Monitoramento, Finalizada e Cancelada.
+* Kanban passou a exibir sete status.
 * Modal de atividade passou a exibir servico, auditoria, timeline, anexos e acoes Encerrar/Reabrir.
-* Historico duplicado em movimentacao/atribuicao foi corrigido.
-* Responsividade mobile foi ajustada para evitar scroll horizontal do shell.
+* Historico duplicado em movimentacao e atribuicao foi corrigido.
+* Responsividade mobile foi ajustada.
 * Seeds e testes E2E foram atualizados.
 
 Evidencias registradas:
 
-* npm run prisma:validate
-* npm run prisma:generate
-* npm run typecheck
-* npm run lint
-* npm test
-* npm run build
-* npx prisma migrate deploy
-* node prisma/integration-seed.mjs
-* npm run homologation:seed
-* npm run test:e2e
-* npx prisma migrate status
+* npm run prisma:validate.
+* npm run prisma:generate.
+* npm run typecheck.
+* npm run lint.
+* npm test.
+* npm run build.
+* npx prisma migrate deploy.
+* node prisma/integration-seed.mjs.
+* npm run homologation:seed.
+* npm run test:e2e.
+* npx prisma migrate status.
 
 Pendencias:
 
-* Aplicar a migration em ambiente remoto quando houver alvo externo.
-* Validar visualmente em dispositivos fisicos/TV real quando houver ambiente publicado.
-* Evoluir upload/download real de anexos e regras avancadas de SLA/calendario operacional.
+* Aplicar migration em ambiente remoto quando houver alvo externo.
+* Validar visualmente em dispositivos fisicos ou TV real.
+* Evoluir upload/download real de anexos.
+* Evoluir regras avancadas de SLA e calendario operacional.

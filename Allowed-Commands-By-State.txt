@@ -179,10 +179,12 @@ Comandos permitidos:
 * Executar deploy de migrations aprovadas
 * Registrar release final
 * Auditar release
+* Registrar manutencao funcional pos-release solicitada explicitamente, com evidencias e sem transicao de estado
 
 Comandos proibidos:
 
 * Criar feature nova
-* Criar migration nova
+* Criar migration nova fora de manutencao funcional pos-release explicitamente solicitada e registrada
 * Ignorar bloqueio critico
 * Alterar estado fora da State Machine
+* Classificar alteracao funcional pos-release como patch puramente documental

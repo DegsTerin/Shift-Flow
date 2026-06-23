@@ -1,0 +1,138 @@
+PROMPT DE AUDITORIA DE SEGURANCA
+
+REGRA DE OURO
+
+Este prompt solicita auditoria. Ele nao altera arquivos, nao corrige automaticamente e nao altera estado.
+Qualquer correcao exige autorizacao explicita, classificacao por impacto e evidencias.
+
+---
+
+OBJETIVO
+
+Executar auditoria completa de seguranca, vulnerabilidades, arquitetura, resiliencia e supply chain em todo o projeto.
+
+---
+
+ESCOPO
+
+Auditar:
+
+* Codigo-fonte.
+* Dependencias.
+* Configuracoes.
+* Autenticacao.
+* Autorizacao.
+* APIs.
+* Banco de dados.
+* Infraestrutura.
+* Docker e containers.
+* CI/CD.
+* Logs e observabilidade.
+* Compliance.
+
+---
+
+CHECKLIST PRINCIPAL
+
+Verificar:
+
+* OWASP Top 10.
+* OWASP API Security Top 10.
+* CWE e SANS Top 25.
+* SQL Injection, NoSQL Injection, Command Injection e LDAP Injection.
+* XSS, CSRF, SSRF, XXE e Path Traversal.
+* Open Redirect e Clickjacking.
+* Insecure Deserialization e Prototype Pollution.
+* Race Conditions.
+* Broken Access Control.
+* Broken Authentication.
+* Privilege Escalation.
+* Session Hijacking e Session Fixation.
+* IDOR.
+* Business Logic Flaws.
+* Resource Exhaustion e DoS.
+
+---
+
+SEGREDOS E CREDENCIAIS
+
+Procurar:
+
+* Passwords hardcoded.
+* API keys.
+* Access tokens.
+* JWT secrets.
+* OAuth secrets.
+* Private keys.
+* SSH keys.
+* Certificados.
+* Connection strings.
+* Service accounts.
+* Secrets em configuracoes, logs ou comentarios.
+
+---
+
+SUPPLY CHAIN
+
+Avaliar:
+
+* Vulnerabilidades conhecidas.
+* Dependencias abandonadas.
+* Dependencias sem manutencao.
+* Dependencias transitivas.
+* Typosquatting.
+* Dependency confusion.
+* Risco de supply chain.
+
+---
+
+ARQUITETURA E RESILIENCIA
+
+Avaliar:
+
+* Acoplamento excessivo.
+* Single point of failure.
+* Escalabilidade.
+* Isolamento de componentes.
+* Segregacao de responsabilidades.
+* Least privilege.
+* Defense in depth.
+* Zero trust readiness.
+
+---
+
+FORMATO DE ACHADO
+
+Para cada vulnerabilidade, registrar:
+
+1. Titulo.
+2. Categoria.
+3. Severidade.
+4. Impacto.
+5. Evidencia.
+6. Arquivo e linha.
+7. Cenario de exploracao.
+8. Probabilidade.
+9. Recomendacao.
+10. Correcao sugerida.
+
+---
+
+ENTREGAVEIS
+
+Gerar:
+
+* Top 10 riscos criticos.
+* Quick wins.
+* Roadmap de correcoes em 30, 90 e 180 dias.
+* Security score.
+* Architecture score.
+* DevSecOps score.
+* Infrastructure score.
+* Compliance score.
+
+---
+
+REGRA FINAL
+
+Quando houver incerteza, declarar explicitamente que se trata de hipotese e nao evidencia.

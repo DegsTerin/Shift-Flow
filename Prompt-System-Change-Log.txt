@@ -28,6 +28,33 @@ Estado afetado:
 
 REGISTROS
 
+Data: 2026-06-23
+Versao: 1.4.24
+Tipo: patch
+Arquivos alterados: Todos os 69 arquivos .txt por normalizacao de whitespace; Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt, Restructuring-Prompt.txt, Official-State-Machine.txt, Human-CI-Validation-Architecture.txt, Human-CI-Validation-Frontend-Implementation.txt, Human-CI-Validation-Integration.txt, Project-Snapshot.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, State-Transition-Log.txt
+Resumo: Executada limpeza, organizacao, reestruturacao e sistematizacao final dos .txt apos auditoria de conflitos e fluxo.
+Impacto: Remove encoding invalido, caracteres nao ASCII, trailing whitespace, prompts externos redundantes/desorganizados e frases historicas que podiam ser lidas como estado atual.
+Conflitos resolvidos: Prompts globais estavam extensos, redundantes e com encoding inconsistente; Official-State-Machine.txt usava setas Unicode; relatorios Human CI historicos declaravam estados antigos sem contextualizacao historica; varios .txt tinham whitespace final.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-06-23
+Versao: 1.4.23
+Tipo: patch
+Arquivos alterados: Production-Release-Phase.txt, Allowed-Commands-By-State.txt, Phase-Handoff-Template.txt, Prompt-Index.txt, Prompt-System-Version.txt, Project-Snapshot.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, State-Transition-Log.txt
+Resumo: Corrigida segunda rodada de auditoria de conflito, redundancia e falha de fluxo nos .txt.
+Impacto: Remove contradicao entre proibicao absoluta de migration em STATE-08 e a regra de manutencao funcional pos-release; evita que handoff historico seja lido como estado atual; melhora rastreabilidade dos 69 .txt.
+Conflitos resolvidos: Comandos de STATE-08 proibiam migration nova sem excecao, apesar da regra 1.4.22 permitir manutencao pos-release registrada; Phase-Handoff-Template.txt ainda dizia que STATE-05 era o estado operacional atual em um bloco historico; Prompt-Index.txt nao listava os artefatos de evidencia e relatorios.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-06-23
+Versao: 1.4.22
+Tipo: patch
+Arquivos alterados: Project-Snapshot.txt, Prompt-Index.txt, Production-Release-Phase.txt, Official-State-Machine.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, State-Transition-Log.txt, Prompt-System-Readme.txt, Allowed-Commands-By-State.txt
+Resumo: Corrigidos conflitos documentais e de fluxo apos revisao dos 69 arquivos .txt. Snapshot alinhado a versao 1.4.22, prompts de auditoria/seguranca/sistematizacao catalogados no indice canonico e manutencao funcional pos-release formalizada.
+Impacto: Reduz ambiguidade entre patch documental e manutencao funcional pos-release; evita que migrations, codigo, testes ou comportamento de produto sejam registrados como simples documentacao; melhora rastreabilidade dos prompts existentes.
+Conflitos resolvidos: Project-Snapshot.txt declarava versao antiga; Prompt-Index.txt nao listava Prompt-Audit-Human-CI.txt, Prompt-Security.txt e Prompt-Systematization.txt; alteracoes funcionais pos-release ficavam descritas como sem transicao sem regra explicita de manutencao.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
 Data: 2026-06-22
 Versao: 1.4.16
 Tipo: patch

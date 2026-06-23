@@ -43,7 +43,7 @@ CHECKLIST GERAL
 * APROVADO. Start-Here.txt foi consultado na execucao da fase.
 * APROVADO. Prompt-System-Readme.txt foi consultado.
 * APROVADO. Prompt-Index.txt foi consultado.
-* APROVADO. Current-State.txt declara STATE-05 FRONTEND_IMPLEMENTATION.
+* APROVADO. Current-State.txt declarava STATE-05 FRONTEND_IMPLEMENTATION como estado vigente nesta validacao historica.
 * APROVADO. Project-Snapshot.txt foi consultado e atualizado.
 * APROVADO. Project-Memory-System.txt foi consultado.
 * APROVADO. Execution-Protocol.txt foi consultado.
@@ -148,7 +148,7 @@ Checklist geral reexecutado:
 * APROVADO. Start-Here.txt consultado nesta revalidacao.
 * APROVADO. Prompt-System-Readme.txt consultado.
 * APROVADO. Prompt-Index.txt consultado.
-* APROVADO. Current-State.txt consultado; estado atual e STATE-06 INTEGRATION.
+* APROVADO. Current-State.txt consultado; STATE-06 INTEGRATION era o estado vigente nesta revalidacao historica.
 * APROVADO. Project-Snapshot.txt consultado.
 * APROVADO. Project-Memory-System.txt consultado.
 * APROVADO. Execution-Protocol.txt consultado.

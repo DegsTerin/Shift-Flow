@@ -57,6 +57,12 @@ Use esta distribuicao:
 * Prompt-System-Audit.txt: registrar conclusao da auditoria do sistema de prompts antes de declarar ausencia de conflitos.
 * Relatorios de fase ou modulo: registrar evidencias tecnicas quando a melhoria alterar comportamento de produto, API, banco, frontend, testes ou release.
 
+Regra de classificacao pos-release:
+
+* Se a solicitacao apos STATE-08 alterar codigo, schema, migration, testes, comportamento de produto ou configuracao operacional, classificar como manutencao funcional pos-release.
+* Se a solicitacao apenas alinhar texto, indice, snapshot, changelog, auditoria ou log, classificar como patch documental.
+* Manutencao funcional pos-release exige pedido explicito, evidencias, gates proporcionais, riscos, pendencias e registro de que STATE-08 PRODUCTION_RELEASE permanece atual.
+
 Escopo documentado em 2026-06-22:
 
 * alinhamento entre snapshot, versao, changelog, auditoria e README;
@@ -94,6 +100,7 @@ Regra pratica:
 * Para repeticoes do mesmo pedido de documentacao, nao reabrir debate sobre nomes antigos: registrar o incremento no versionamento, changelog, auditoria, snapshot e log, mantendo o estado atual.
 * A partir do patch 1.4.12, este padrao de registro incremental e a resolucao oficial para pedidos repetidos de "documentar os ajustes e melhorias deste chat nos .txt".
 * A partir do patch 1.4.16, problemas de duplicidade apos exclusao logica devem ser verificados primeiro por indices unicos parciais no banco; Equipes e Clientes ja foram ajustados, enquanto e-mail de Usuario permanece unico por requisito de login.
+* A partir do patch 1.4.22, alteracao funcional pos-release nao deve ser descrita como patch puramente documental; usar a classificacao manutencao funcional pos-release.
 
 ---
 

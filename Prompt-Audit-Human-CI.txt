@@ -1,106 +1,98 @@
-Objetivo: Realizar uma auditoria técnica completa, profunda e extremamente rigorosa em todo o projeto.
+PROMPT DE AUDITORIA HUMAN CI
 
-Escopo obrigatório:
+REGRA DE OURO
 
-1. Analisar 100% do código-fonte de todos os arquivos do projeto.
-2. Analisar todos os arquivos de configuração.
-3. Analisar todos os arquivos .txt, .md, .json, .yaml, .yml, .env.example, documentação e demais artefatos existentes.
-4. Mapear integralmente a arquitetura do sistema.
-5. Validar fluxos de negócio, regras de negócio, integrações e dependências.
-6. Identificar falhas funcionais, técnicas, arquiteturais e operacionais.
+Este prompt nao altera estado, nao corrige arquivos por si mesmo e nao substitui a State Machine.
+Correcoes exigem solicitacao explicita, classificacao operacional, evidencias e gates proporcionais.
 
-Executar uma Human CI (Human Code Inspection) completa e detalhada em todo o projeto.
+---
 
-A auditoria deve verificar:
+OBJETIVO
 
-• Bugs conhecidos e potenciais.
-• Erros de lógica.
-• Fluxos quebrados.
-• Fluxos incompletos.
-• Casos de borda não tratados.
-• Tratamento inadequado de exceções.
-• Condições de corrida (Race Conditions).
-• Problemas de concorrência.
-• Loops infinitos.
-• Vazamentos de memória.
-• Código morto.
-• Código duplicado.
-• Código desnecessário.
-• Dependências não utilizadas.
-• Dependências obsoletas.
-• Problemas de performance.
-• Gargalos.
-• Vulnerabilidades de segurança.
-• Exposição de dados sensíveis.
-• Falhas de autenticação.
-• Falhas de autorização.
-• Falhas de validação de entrada.
-• Injeções.
-• Problemas de escalabilidade.
-• Problemas de manutenibilidade.
-• Problemas de observabilidade.
-• Problemas de monitoramento.
-• Problemas de logs.
-• Problemas de UX.
-• Problemas de acessibilidade.
-• Problemas de compatibilidade.
-• Problemas de consistência de dados.
-• Possíveis cenários de falha em produção.
+Executar uma Human CI completa, profunda e rigorosa em todo o projeto.
 
-Para cada problema encontrado:
+---
 
-1. Informar o arquivo exato.
+ESCOPO OBRIGATORIO
 
-2. Informar a linha exata ou bloco exato.
+Auditar:
 
-3. Explicar detalhadamente o problema.
+* Codigo-fonte.
+* Configuracoes.
+* Documentacao.
+* Arquivos .txt, .md, .json, .yaml, .yml e .env.example.
+* Arquitetura.
+* Fluxos de negocio.
+* Regras de negocio.
+* Integracoes.
+* Dependencias.
+* Testes.
+* Seguranca.
+* Observabilidade.
+* Performance.
+* UX e acessibilidade.
 
-4. Explicar o impacto real.
+---
 
-5. Classificar a severidade:
+CHECKLIST DE INSPECAO
 
-   * Crítica
-   * Alta
-   * Média
-   * Baixa
+Verificar:
 
-6. Explicar o risco técnico.
+* Bugs conhecidos e potenciais.
+* Erros de logica.
+* Fluxos quebrados ou incompletos.
+* Casos de borda nao tratados.
+* Tratamento inadequado de excecoes.
+* Condicoes de corrida.
+* Problemas de concorrencia.
+* Loops infinitos.
+* Vazamentos de memoria.
+* Codigo morto, duplicado ou desnecessario.
+* Dependencias inutilizadas, obsoletas ou vulneraveis.
+* Gargalos de performance.
+* Vulnerabilidades de seguranca.
+* Exposicao de dados sensiveis.
+* Falhas de autenticacao, autorizacao e validacao de entrada.
+* Problemas de escalabilidade, manutenibilidade e observabilidade.
+* Riscos de producao.
 
-7. Explicar o risco de negócio.
+---
 
-8. Apresentar a correção recomendada.
+FORMATO DE ACHADO
 
-9. Apresentar a correção ideal.
+Para cada problema encontrado, registrar:
 
-10. Exibir exemplos de código quando aplicável.
+1. Arquivo.
+2. Linha ou bloco.
+3. Descricao do problema.
+4. Impacto real.
+5. Severidade: critica, alta, media ou baixa.
+6. Risco tecnico.
+7. Risco de negocio.
+8. Correcao recomendada.
+9. Correcao ideal.
+10. Evidencia verificavel.
 
-Realizar inspeção linha por linha, função por função, classe por classe, componente por componente, serviço por serviço, API por API, fluxo por fluxo e arquivo por arquivo.
+---
 
-Não assumir que algo está correto apenas porque compila ou possui testes.
+ENTREGAVEIS
 
-Questionar todas as premissas do sistema.
+Ao final, gerar:
 
-Validar se a implementação corresponde ao comportamento esperado.
+* Relatorio executivo.
+* Relatorio tecnico completo.
+* Ranking dos problemas mais criticos.
+* Matriz de risco.
+* Lista priorizada de correcoes.
+* Plano de refatoracao.
+* Plano de hardening de seguranca.
+* Plano de otimizacao de performance.
+* Estimativa de esforco.
+* Checklist final de producao.
 
-Buscar ativamente falhas ocultas, inconsistências, riscos futuros, dívidas técnicas e comportamentos inesperados.
+---
 
-Ao final gerar:
+REGRA FINAL
 
-1. Relatório Executivo.
-2. Relatório Técnico Completo.
-3. Ranking dos problemas mais críticos.
-4. Matriz de Risco.
-5. Lista de Correções Prioritárias.
-6. Plano de Refatoração.
-7. Plano de Hardening de Segurança.
-8. Plano de Otimização de Performance.
-9. Estimativa de esforço para correção.
-10. Checklist final de produção.
-
-Nível de criticidade da auditoria: EXTREMO.
-
-Profundidade de análise: MÁXIMA.
-
-Nenhum arquivo deve ser ignorado.
-Nenhuma linha deve ser presumida correta sem validação.
-Nenhuma conclusão deve ser feita sem evidência técnica.
+Nao presumir que algo esta correto apenas porque compila ou possui testes.
+Toda conclusao deve ter evidencia tecnica.

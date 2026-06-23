@@ -74,6 +74,27 @@ Restructuring-Prompt.txt
 * Funcao: Reposicionar o ShiftFlow como plataforma corporativa de passagem de turno, registro operacional, dossie de atividades, historico imutavel, acompanhamento gerencial e monitoramento em tempo real.
 * Regra: Nao altera estado. Deve orientar diagnostico, lista de correcoes, implementacao controlada, relatorio final e pendencias futuras.
 
+Prompt-Audit-Human-CI.txt
+
+* Tipo: GLOBAL AUDIT REQUEST
+* Autoridade: Entrada operacional de auditoria extrema
+* Funcao: Solicitar Human CI completa, linha por linha, sobre codigo, configuracoes, documentacao, fluxos, riscos e planos de correcao.
+* Regra: Nao altera estado. Deve ser executado como auditoria permitida pelo estado atual; correcoes exigem solicitacao explicita, classificacao por fase de origem, evidencias e gates.
+
+Prompt-Security.txt
+
+* Tipo: SECURITY AUDIT REQUEST
+* Autoridade: Entrada operacional de seguranca
+* Funcao: Solicitar auditoria de seguranca, vulnerabilidades, arquitetura, resiliencia, supply chain, compliance e score tecnico.
+* Regra: Nao altera arquivos por si mesmo. O proprio prompt restringe a execucao a analisar e documentar salvo autorizacao explicita.
+
+Prompt-Systematization.txt
+
+* Tipo: GLOBAL SYSTEMATIZATION REQUEST
+* Autoridade: Entrada operacional de sistematizacao
+* Funcao: Solicitar reorganizacao profissional, modularizacao, padronizacao, governanca, automacao, observabilidade e documentacao do projeto.
+* Regra: Nao altera estado. Qualquer refatoracao ou reorganizacao deve respeitar a fase permitida, a State Machine, os Guard Rails e evidencias verificaveis.
+
 Project-Snapshot.txt
 
 * Tipo: SNAPSHOT
@@ -224,6 +245,36 @@ Engineering-Multi-Agent-System.txt
 
 ---
 
+ARTEFATOS DE EVIDENCIA E RELATORIOS
+
+Estes arquivos fazem parte da rastreabilidade dos 69 .txt, mas nao sao prompts operacionais por si mesmos.
+Eles nao alteram estado e devem ser usados como evidencia historica, relatorio tecnico ou documento de fase.
+
+Automatic-Review-Audit-Architecture.txt
+Automatic-Review-Audit-Backend-Implementation.txt
+Automatic-Review-Audit-Database-Modelling.txt
+Automatic-Review-Audit-Frontend-Implementation.txt
+Automatic-Review-Audit-Integration.txt
+Automatic-Review-Audit-Production-Release.txt
+Automatic-Review-Audit-Project-Setup.txt
+Automatic-Review-Audit-Testing-Homologation.txt
+Database-Modelling-Document.txt
+Human-CI-Validation-Architecture-Retrospective.txt
+Human-CI-Validation-Architecture.txt
+Human-CI-Validation-Backend-Implementation.txt
+Human-CI-Validation-Database-Modelling.txt
+Human-CI-Validation-Frontend-Implementation.txt
+Human-CI-Validation-Integration.txt
+Human-CI-Validation-Production-Release.txt
+Human-CI-Validation-Project-Setup.txt
+Human-CI-Validation-Testing-Homologation.txt
+Integration-Execution-Report.txt
+Production-Release-Report.txt
+Solution-Architecture-Document.txt
+Testing-Homologation-Report.txt
+
+---
+
 PROMPTS DE FASE
 
 Project-Setup-Phase.txt
@@ -307,7 +358,6 @@ RBAC-Module.txt
 * Tipo: CROSS-LAYER MODULE
 * Modulo: MOD-11 RBAC
 * Funcao: Perfis, permissoes, middleware, UI administrativa e validacao ponta a ponta.
-
 
 
 

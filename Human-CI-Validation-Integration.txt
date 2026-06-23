@@ -45,7 +45,7 @@ CHECKLIST GERAL
 
 * APROVADO. Start-Here.txt foi consultado no ciclo de execucao.
 * APROVADO. Prompt-System-Readme.txt foi consultado.
-* APROVADO. Current-State.txt declara STATE-06 INTEGRATION.
+* APROVADO. Current-State.txt declarava STATE-06 INTEGRATION como estado vigente nesta validacao historica.
 * APROVADO. Execution-Protocol.txt foi respeitado.
 * APROVADO. Acceptance-Criteria-By-State.txt foi atendido para STATE-06.
 * APROVADO. Evidence-Standard.txt foi atendido.
