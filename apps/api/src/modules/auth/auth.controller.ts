@@ -12,7 +12,7 @@ export const AuthController = {
   }),
 
   refresh: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(await service.refresh(req.body.refreshToken)));
+    res.json(ok(await service.refresh(req, req.body.refreshToken)));
   }),
 
   logout: asyncHandler(async (req: ApiRequest, res: Response) => {

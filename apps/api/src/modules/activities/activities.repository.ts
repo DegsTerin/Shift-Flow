@@ -5,6 +5,14 @@ type HistoryDelegate = {
   create(args: unknown): Promise<unknown>;
 };
 
+const publicUserSelect = {
+  id: true,
+  email: true,
+  displayName: true,
+  jobTitle: true,
+  status: true,
+};
+
 export class ActivitiesRepository extends BaseRepository {
   constructor() {
     super("activity");
@@ -20,7 +28,13 @@ export class ActivitiesRepository extends BaseRepository {
         where,
         take: 100,
         orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
-        include: { client: true, team: true, shift: true, assignee: true, reporter: true },
+        include: {
+          client: true,
+          team: true,
+          shift: true,
+          assignee: { select: publicUserSelect },
+          reporter: { select: publicUserSelect },
+        },
       }),
       delegate.count({ where }),
     ]);

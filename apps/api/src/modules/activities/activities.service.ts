@@ -1,22 +1,38 @@
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import { badRequest } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
+import {
+  activeCompanyId,
+  assertClientInCompany,
+  assertShiftInCompany,
+  assertTeamInCompany,
+  assertUserInCompany,
+} from "../../shared/services/scope.service.js";
 import { ActivitiesRepository } from "./activities.repository.js";
+
+const publicUserSelect = {
+  id: true,
+  email: true,
+  displayName: true,
+  jobTitle: true,
+  status: true,
+};
 
 const activityInclude = {
   client: true,
   team: true,
   shift: true,
-  assignee: true,
-  reporter: true,
+  assignee: { select: publicUserSelect },
+  reporter: { select: publicUserSelect },
   comments: {
     where: { deletedAt: null },
     orderBy: { createdAt: "desc" },
-    include: { author: true, attachments: true },
+    include: { author: { select: publicUserSelect }, attachments: true },
   },
   attachments: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
   history: {
     orderBy: { createdAt: "desc" },
-    include: { actor: true },
+    include: { actor: { select: publicUserSelect } },
   },
 };
 
@@ -47,6 +63,7 @@ export class ActivitiesService extends BaseService {
   }
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {
+    await this.assertScopedReferences(req, data);
     const created = await super.create(req, {
       ...data,
       reporterId: data.reporterId ?? req.auth?.id,
@@ -56,7 +73,11 @@ export class ActivitiesService extends BaseService {
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
-    const previous = await this.get(req, id);
+    const previous = (await this.get(req, id)) as { status?: string };
+    await this.assertScopedReferences(req, data);
+    if (data.status) {
+      this.assertStatusTransition(previous.status, String(data.status));
+    }
     const updated = await super.update(req, id, data);
     await this.history(req, id, "UPDATED", {
       metadata: { before: previous, after: updated },
@@ -76,6 +97,7 @@ export class ActivitiesService extends BaseService {
 
   async move(req: ApiRequest, id: string, status: string, note?: string) {
     const previous = (await this.get(req, id)) as { status?: string; priority?: string };
+    this.assertStatusTransition(previous.status, status);
     const updated = await super.update(req, id, {
       status,
       ...(status === "DONE" ? { completedAt: new Date() } : {}),
@@ -91,6 +113,7 @@ export class ActivitiesService extends BaseService {
   }
 
   async assign(req: ApiRequest, id: string, assigneeId: string | null, note?: string) {
+    await assertUserInCompany(assigneeId, activeCompanyId(req));
     const updated = await super.update(req, id, { assigneeId });
     await this.history(req, id, assigneeId ? "ASSIGNED" : "UNASSIGNED", { note });
     return updated;
@@ -102,6 +125,9 @@ export class ActivitiesService extends BaseService {
 
   async reopen(req: ApiRequest, id: string, note?: string) {
     const previous = (await this.get(req, id)) as { status?: string };
+    if (previous.status !== "DONE" && previous.status !== "CANCELLED") {
+      throw badRequest("Only completed or cancelled activities can be reopened");
+    }
     const updated = await super.update(req, id, {
       status: "PENDING",
       completedAt: null,
@@ -132,6 +158,32 @@ export class ActivitiesService extends BaseService {
       companyId: this.companyId(req),
       actorUserId: req.auth?.id,
     });
+  }
+
+  private async assertScopedReferences(req: ApiRequest, data: Record<string, unknown>) {
+    const companyId = activeCompanyId(req);
+    await Promise.all([
+      assertClientInCompany(data.clientId ? String(data.clientId) : undefined, companyId),
+      assertTeamInCompany(data.teamId ? String(data.teamId) : undefined, companyId),
+      assertShiftInCompany(data.shiftId ? String(data.shiftId) : undefined, companyId),
+      assertUserInCompany(data.assigneeId ? String(data.assigneeId) : undefined, companyId),
+      assertUserInCompany(data.reporterId ? String(data.reporterId) : req.auth?.id, companyId),
+    ]);
+  }
+
+  private assertStatusTransition(from: string | undefined, to: string) {
+    const allowed: Record<string, string[]> = {
+      PENDING: ["IN_PROGRESS", "WAITING_CUSTOMER", "WAITING_THIRD_PARTY", "MONITORING", "DONE", "CANCELLED"],
+      IN_PROGRESS: ["PENDING", "WAITING_CUSTOMER", "WAITING_THIRD_PARTY", "MONITORING", "DONE", "CANCELLED"],
+      WAITING_CUSTOMER: ["PENDING", "IN_PROGRESS", "MONITORING", "DONE", "CANCELLED"],
+      WAITING_THIRD_PARTY: ["PENDING", "IN_PROGRESS", "MONITORING", "DONE", "CANCELLED"],
+      MONITORING: ["PENDING", "IN_PROGRESS", "DONE", "CANCELLED"],
+      DONE: [],
+      CANCELLED: [],
+    };
+    if (from && from !== to && !(allowed[from] ?? []).includes(to)) {
+      throw badRequest("Activity cannot move to the requested status from its current status");
+    }
   }
 
   private activityWhere(req: ApiRequest) {

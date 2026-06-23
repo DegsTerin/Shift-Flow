@@ -47,6 +47,8 @@ const menu: Array<{ id: View; icon: typeof LayoutDashboard; resource: string; ac
 ];
 
 const sessionStorageKey = "shiftflow.session";
+const demoCredentialsEnabled =
+  process.env.NEXT_PUBLIC_DEMO_CREDENTIALS === "true" || process.env.NODE_ENV !== "production";
 
 function parseStoredJson(value: string | null) {
   if (!value) return null;
@@ -285,8 +287,8 @@ export default function Page() {
           <div className="brand-mark"><Workflow size={28} /><span>{t.app}</span></div>
           <form className="login-card" onSubmit={submitLogin}>
             <div><p className="eyebrow">{t.liveApi}</p><h1>{t.loginTitle}</h1><p>{t.loginSubtitle}</p></div>
-            <label>{t.email}<input autoComplete="username" name="email" type="email" defaultValue="integration.admin@shiftflow.local" required /></label>
-            <label>{t.password}<input autoComplete="current-password" name="password" type="password" defaultValue="ShiftFlow#2026" required /></label>
+            <label>{t.email}<input autoComplete="username" name="email" type="email" defaultValue={demoCredentialsEnabled ? "integration.admin@shiftflow.local" : ""} required /></label>
+            <label>{t.password}<input autoComplete="current-password" name="password" type="password" defaultValue={demoCredentialsEnabled ? "ShiftFlow#2026" : ""} required /></label>
             {error ? <p className="guard-note">{error}</p> : null}
             <button className="primary-button" disabled={!hydrated || loading} type="submit"><LockKeyhole size={18} />{loading ? t.loading : t.signIn}</button>
           </form>

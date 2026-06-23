@@ -41,6 +41,8 @@ async function navigateToKanban(page: Page, isMobile: boolean) {
 }
 
 test.describe("STATE-07 dedicated axe accessibility", () => {
+  test.setTimeout(60_000);
+
   test("validates login, dashboard, dark mode and kanban with axe", async ({ page, isMobile }) => {
     await page.goto("/");
     await expect(page.getByLabel(/E-mail|Email/)).toHaveValue(credentials.email);

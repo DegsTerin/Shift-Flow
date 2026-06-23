@@ -1,0 +1,83 @@
+ESTADO: STATE-08 PRODUCTION_RELEASE
+
+REGRA DE OURO
+
+Nenhum prompt pode criar ou alterar estado. Apenas a State Machine pode.
+
+---
+
+ESCOPO
+
+Preparar e registrar a liberacao final do projeto.
+
+Esta fase so pode ocorrer apos STATE-07 TESTING_HOMOLOGATION aprovado.
+
+---
+
+ANTES DE EXECUTAR
+
+* Consultar Start-Here.txt.
+* Consultar Prompt-System-Readme.txt.
+* Consultar Prompt-Index.txt.
+* Consultar Current-State.txt.
+* Consultar Project-Snapshot.txt.
+* Consultar Project-Memory-System.txt.
+* Consultar Canonical-State-And-Module-IDs.txt.
+* Consultar Allowed-Commands-By-State.txt.
+* Consultar Acceptance-Criteria-By-State.txt.
+* Consultar Execution-Protocol.txt.
+* Consultar Evidence-Standard.txt.
+* Consultar Global-Definition-Of-Done.txt.
+* Consultar State-Transition-Log.txt.
+* Consultar Blocked-State-Protocol.txt se houver bloqueio.
+
+---
+
+PERMITIDO
+
+* Validar que homologacao foi aprovada.
+* Executar deploy de migrations aprovadas.
+* Registrar release final.
+* Consolidar riscos aceitos.
+* Consolidar pendencias nao bloqueantes.
+* Atualizar snapshot final.
+* Registrar decisao final no log.
+
+---
+
+PROIBIDO
+
+* Criar feature nova.
+* Ignorar bloqueio critico.
+* Criar migration nova.
+* Alterar estado fora da State Machine.
+* Executar tooling de setup.
+* Alterar schema, backend ou frontend para criar funcionalidade.
+
+---
+
+ENTREGAVEIS
+
+* Relatorio final de release.
+* Evidencia de deploy de migrations aprovadas ou justificativa de nao aplicabilidade.
+* Lista de riscos aceitos.
+* Lista de pendencias nao bloqueantes.
+* Snapshot final atualizado.
+* Registro de release no log de transicao.
+
+---
+
+FORMATO PADRAO DE ENCERRAMENTO
+
+STATUS:
+CONCLUIDO:
+NAO CONCLUIDO:
+EVIDENCIAS:
+DEPENDENCIAS:
+RISCOS:
+BLOQUEIOS:
+PROXIMA ACAO:
+TRANSICAO DE ESTADO:
+
+TRANSICAO DE ESTADO e apenas recomendacao.
+A State Machine decide a transicao real.

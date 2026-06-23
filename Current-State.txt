@@ -1,0 +1,61 @@
+CURRENT STATE
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, current state, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+Estado atual:
+STATE-08 PRODUCTION_RELEASE
+
+Fase permitida:
+STATE-08 PRODUCTION_RELEASE
+
+Ultima transicao:
+STATE-07 TESTING_HOMOLOGATION para STATE-08 PRODUCTION_RELEASE apos auditoria final, Human CI, gates de risco e decisao da State Machine.
+
+Proxima fase esperada:
+Encerramento de release
+
+Bloqueios:
+Nenhum bloqueio operacional registrado.
+
+Ultima atualizacao:
+2026-06-22
+
+Observacao documental:
+Ajustes e melhorias dos .txt foram registrados em 2026-06-22 como patch documental do sistema de prompts. Esta atualizacao nao altera o estado atual e nao recomenda transicao.
+Patch documental 1.4.3 registra que a baseline operacional anterior era a serie numerada de .txt. Os 17 prompts antigos mencionados na conversa sao historico substituido pela reorganizacao documental e nao devem ser recriados sem comando explicito.
+Patch documental 1.4.4 removeu os prefixos numericos dos arquivos .txt e consolidou nomes em Pascal-Kebab-Case en-GB. A ordem operacional deve ser consultada em Start-Here.txt, Prompt-Index.txt e Official-State-Machine.txt.
+Patch documental 1.4.5 registra o fechamento operacional da renomeacao: Start-Here.txt substitui o antigo "00 - Start Here.txt" como arquivo a abrir no IDE; nomes antigos sao legados; git status pode exibir rename massivo como delete/add ate staging ou commit.
+Patch documental 1.4.6 registra esta solicitacao do chat nos .txt canonicos atuais e corrige redacao residual do snapshot sobre STATE-06. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.7 consolida os ajustes e melhorias deste chat nos controles canonicos atuais. O estado atual permanece STATE-08 PRODUCTION_RELEASE; nomes numerados sao legado e Start-Here.txt e o entrypoint vigente.
+Patch documental 1.4.8 registra nova solicitacao para documentar ajustes e melhorias deste chat. A resposta operacional permanece usar os .txt canonicos atuais; nenhum novo controle, fase, tooling, codigo ou transicao foi executado.
+Patch documental 1.4.9 registra nova solicitacao com aba antiga do IDE "00 - Start Here.txt". O arquivo canonico vigente e Start-Here.txt; nomes numerados sao legado e nao devem ser recriados para satisfazer abas antigas. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.10 registra nova solicitacao para documentar ajustes e melhorias deste chat nos .txt canonicos atuais. O estado atual permanece STATE-08 PRODUCTION_RELEASE; Start-Here.txt e o entrypoint vigente; nenhuma fase, tooling, codigo funcional ou transicao foi executada por este registro.
+Patch documental 1.4.11 registra nova solicitacao equivalente recebida com aba legada "00 - Start Here.txt" ainda aberta no IDE. O arquivo canonico vigente permanece Start-Here.txt; nomes numerados continuam historicos; nenhum novo controle, fase, tooling, codigo funcional ou transicao foi executado.
+Patch documental 1.4.12 registra nova solicitacao para documentar ajustes e melhorias deste chat nos .txt. A acao foi somente documental nos controles canonicos atuais; STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+Patch documental 1.4.13 registra a consolidacao final deste chat apos commits locais bda71a4 e ab18718. Os nomes canonicos atuais permanecem Pascal-Kebab-Case sem numeracao; a aba legada "00 - Start Here.txt" deve ser tratada como referencia ao Start-Here.txt vigente; remote Git ainda depende de URL externa. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.14 registra os ajustes funcionais deste chat: execucao de Revision-Prompt.txt, decomposicao frontend, API de clientes, campos operacionais normalizados em Activity, historico SOFT_DELETED, migracao aplicada localmente e validacoes automatizadas. O estado atual permanece STATE-08 PRODUCTION_RELEASE; este registro nao recomenda transicao.
+Patch documental 1.4.16 registra os ajustes funcionais mais recentes deste chat: acesso local/rede, layout de menu/cabecalho, logout, RBAC hierarquico, Gestao de Clientes, remocao de Equipe em Turnos, limpeza de atividades, correcao de replicacao por usuarios/tenant e indices unicos parciais para Equipes e Clientes. O estado atual permanece STATE-08 PRODUCTION_RELEASE; este registro nao recomenda transicao.
+Patch documental 1.4.18 registra a auditoria global e Human CI completo executados neste chat. O resultado local final foi aprovado com observacao de flutuacao inicial do p95 no teste de carga Playwright; o estado atual permanece STATE-08 PRODUCTION_RELEASE e nenhuma transicao foi recomendada.
+Patch documental 1.4.19 registra as correcoes aplicadas apos a auditoria completa: Users passou a validar vinculo com a empresa ativa, RBAC passou a bloquear atribuicoes fora do escopo da empresa ativa, update/delete base passaram a respeitar companyId, JWT/CORS foram endurecidos para producao/configuracao, e os gates Playwright/stress foram estabilizados. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+
+---
+
+COMANDOS VALIDOS NO ESTADO ATUAL
+
+* Executar STATE-08 PRODUCTION_RELEASE
+* Executar deploy de migrations aprovadas
+* Registrar release final
+* Auditar release
+
+---
+
+OBSERVACAO
+
+Este arquivo declara o estado atual para consulta operacional.
+Ele nao altera estado por si mesmo.
+A State Machine e a unica autoridade de transicao.

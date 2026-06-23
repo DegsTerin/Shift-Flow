@@ -1,0 +1,75 @@
+DEFINITION OF DONE GLOBAL
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, checklist, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+OBJETIVO
+
+Definir a condicao minima para considerar qualquer fase pronta para recomendacao de transicao.
+
+Cumprir Definition of Done nao altera estado automaticamente.
+A State Machine decide a transicao real.
+
+---
+
+DEFINITION OF DONE
+
+Uma fase so pode ser recomendada como concluida quando:
+
+* O estado atual permite a fase executada.
+* O escopo da fase foi respeitado.
+* Acceptance-Criteria-By-State.txt foi atendido.
+* Evidence-Standard.txt foi atendido.
+* Project-Snapshot.txt foi atualizado.
+* State-Transition-Log.txt foi atualizado quando houve decisao, tentativa ou bloqueio.
+* Guard Rails nao encontrou violacao.
+* Auto Auditor aprovou ou nao encontrou problemas criticos.
+* Human CI aprovou explicitamente.
+* Module-Phase-Matrix.txt foi respeitado quando houve modulo envolvido.
+* Nenhum tooling de setup foi executado fora de SETUP_PROJECT.
+* Nenhum prompt, gate, agente, snapshot ou log alterou estado.
+* Pendencias foram classificadas como bloqueantes ou nao bloqueantes.
+* Riscos foram documentados.
+* Proxima acao foi definida.
+* Quando houver revisao global, o diagnostico foi registrado antes das correcoes.
+* Quando houver atividade operacional no escopo, historico/timeline, auditoria, soft delete e preservacao de informacao foram validados.
+* Quando houver interface no escopo, responsividade, temas, idiomas, filtros, busca, modais/drawers e botoes de criacao foram validados com evidencia.
+
+---
+
+NAO CONCLUIDO
+
+A fase deve ser bloqueada quando:
+
+* Ha conflito de estado.
+* Ha conflito de escopo.
+* Ha tooling de setup fora de SETUP_PROJECT.
+* Ha modulo executado fora da camada permitida.
+* Ha feature declarada sem evidencia.
+* Ha gate reprovado com problema critico.
+* Snapshot nao foi atualizado.
+* Log de transicao aplicavel nao foi atualizado.
+* Human CI nao aprovou.
+
+---
+
+FORMATO DE DOD
+
+STATUS:
+CRITERIOS ATENDIDOS:
+CRITERIOS NAO ATENDIDOS:
+EVIDENCIAS:
+PENDENCIAS BLOQUEANTES:
+PENDENCIAS NAO BLOQUEANTES:
+RISCO:
+RECOMENDACAO:
+
+RECOMENDACAO nao altera estado.
+
+
+
+

@@ -1,0 +1,128 @@
+HUMAN CI VALIDATION - STATE-06 INTEGRATION
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, validacao ou snapshot pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+VALIDACAO HUMAN CI
+
+Estado validado:
+STATE-06 INTEGRATION
+
+Comando validado:
+Auditar STATE-06 INTEGRATION e executar Human CI
+
+Data:
+2026-06-21
+
+Responsavel:
+Codex / Human CI
+
+---
+
+CHECKLIST GERAL
+
+1. Escopo
+
+* APROVADO. A execucao auditada esta dentro de STATE-06 INTEGRATION.
+* APROVADO. Frontend e backend existentes foram integrados sem criar novos modulos.
+* APROVADO. Migration aprovada em STATE-03 foi validada como aplicada/up to date.
+* APROVADO. Auth, RBAC, Dashboard, Kanban, Teams, Shifts e Activities foram validados ponta a ponta com dados reais.
+* APROVADO. Nenhuma fase futura foi iniciada por esta validacao.
+
+2. Proibicao de tooling de setup
+
+* APROVADO COM OBSERVACAO. @prisma/adapter-pg 7.8.0 foi instalado apenas apos autorizacao explicita para correcao do runtime Prisma/PostgreSQL, registrada em State-Transition-Log.txt.
+* APROVADO. Nenhuma dependencia adicional foi instalada nesta auditoria.
+* APROVADO. Nenhum schema Prisma foi alterado.
+* APROVADO. Nenhuma migration nova foi criada.
+* APROVADO. O seed de integracao nao altera estrutura de banco.
+
+3. Consistencia
+
+* APROVADO. Start-Here.txt foi consultado no ciclo de execucao.
+* APROVADO. Prompt-System-Readme.txt foi consultado.
+* APROVADO. Current-State.txt declara STATE-06 INTEGRATION.
+* APROVADO. Execution-Protocol.txt foi respeitado.
+* APROVADO. Acceptance-Criteria-By-State.txt foi atendido para STATE-06.
+* APROVADO. Evidence-Standard.txt foi atendido.
+* APROVADO. Global-Definition-Of-Done.txt foi atendido para recomendacao.
+* APROVADO. Module-Phase-Matrix.txt foi respeitado para os modulos envolvidos.
+* APROVADO. Human-Gate-Validation-Checklist.txt foi aplicado.
+* APROVADO. Project-Snapshot.txt, Phase-Handoff-Template.txt e State-Transition-Log.txt foram atualizados.
+
+4. Evidencia
+
+* APROVADO. docker compose up -d postgres aprovado e container shiftflow-postgres ficou healthy.
+* APROVADO. npm run prisma:validate aprovado.
+* APROVADO. npx prisma migrate status aprovado com database schema up to date.
+* APROVADO. node prisma/integration-seed.mjs aprovado.
+* APROVADO. npm run typecheck aprovado.
+* APROVADO. npm test aprovado, 2 arquivos e 6 testes passaram.
+* APROVADO. npx eslint apps/web/app apps/api/src prisma/integration-seed.mjs aprovado.
+* APROVADO. npm run build aprovado.
+* APROVADO. Supertest autenticado aprovou endpoints de Auth, Dashboard, Users, Teams, Shifts, Activities/Kanban, Notifications e RBAC.
+
+5. Isolamento
+
+* APROVADO. Nenhum modulo novo criado.
+* APROVADO. Nenhuma regra de negocio nova criada.
+* APROVADO. Nenhuma migration nova criada.
+* APROVADO. prisma/schema.prisma nao foi alterado.
+* APROVADO. Correcao de apps/api/src/shared/middlewares/validate.ts ficou limitada a compatibilidade runtime Express para query validation.
+* APROVADO. prisma/integration-seed.mjs e massa operacional minima, nao modulo de produto.
+
+6. Integridade de arquitetura
+
+* APROVADO. Frontend permanece em apps/web.
+* APROVADO. Backend permanece em apps/api.
+* APROVADO. Prisma Client usa adapter PostgreSQL compativel com Prisma 7.
+* APROVADO. Auth/RBAC continuam server-side no backend.
+* APROVADO. Kanban usa endpoint existente de movimentacao para persistencia.
+
+---
+
+RESULTADO HUMAN CI
+
+APROVADO.
+
+STATE-06 INTEGRATION possui evidencias suficientes para conclusao tecnica e recomendacao de transicao.
+
+---
+
+PENDENCIAS BLOQUEANTES
+
+* Nenhuma.
+
+---
+
+PENDENCIAS NAO BLOQUEANTES
+
+* Validar manualmente no navegador os fluxos autenticados em STATE-07 TESTING_HOMOLOGATION.
+* Executar verificacoes de responsividade, acessibilidade, performance, seguranca e regressao visual em STATE-07.
+* Avaliar ajuste dos valores default do login para a credencial de integracao se a homologacao manual exigir.
+* Reavaliar npm audit quando houver correcoes transitivas sem downgrade ou breaking changes.
+
+---
+
+RISCOS
+
+* Dependencia operacional de PostgreSQL local via docker compose para repetir a suite de integracao.
+* Seed minimo valida os fluxos principais, mas nao cobre todos os cenarios de excecao de homologacao.
+* Vulnerabilidades moderadas transitivas de npm audit permanecem risco conhecido nao bloqueante.
+
+---
+
+RECOMENDACAO
+
+Recomendar decisao da State Machine para transicao de STATE-06 INTEGRATION para STATE-07 TESTING_HOMOLOGATION.
+
+---
+
+TRANSICAO DE ESTADO
+
+Recomendacao apenas.
+A State Machine decide a transicao real.

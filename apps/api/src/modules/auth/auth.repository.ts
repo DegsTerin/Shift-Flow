@@ -83,4 +83,9 @@ export class AuthRepository {
       data: { revokedAt: new Date() },
     });
   }
+
+  async rotateRefreshToken(id: string, data: Record<string, unknown>) {
+    await this.revokeRefreshToken(id);
+    return this.createRefreshToken(data);
+  }
 }

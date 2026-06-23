@@ -1,0 +1,184 @@
+AUDITORIA DO SISTEMA DE PROMPTS
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, auditoria, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+OBJETIVO
+
+Definir uma auditoria periodica do proprio sistema de prompts.
+
+---
+
+QUANDO EXECUTAR
+
+Executar esta auditoria:
+
+* A cada mudanca de versao.
+* Antes de declarar ausencia de conflitos.
+* Depois de criar, renomear ou remover arquivo de controle.
+* Depois de alterar State Machine, Guard Rails, Acceptance Criteria ou Module Phase Matrix.
+
+---
+
+CHECKLIST DE AUDITORIA
+
+1. Estados
+
+* Existem estados duplicados?
+* Existem estados antigos como *_READY ou *_APPROVED usados como estado?
+* Todos os estados canonicos usam IDs STATE-00 a STATE-08?
+
+2. Autoridade
+
+* Algum gate declara poder de alterar estado?
+* Algum snapshot, log, indice, template ou politica declara poder de alterar estado?
+* A regra de ouro esta presente nos arquivos de controle?
+
+3. Modulos
+
+* Algum modulo mistura banco, backend e frontend fora da fase?
+* Todos os modulos cross-layer usam Module-Phase-Matrix.txt?
+* Todos os modulos possuem ID MOD quando aplicavel?
+
+4. Tooling
+
+* Algum arquivo permite tooling de setup fora de STATE-01 SETUP_PROJECT?
+* Algum prompt permite alterar package.json fora de SETUP_PROJECT?
+* Algum prompt permite executar Prisma CLI fora das permissoes explicitas de migration?
+
+5. Referencias
+
+* Todos os arquivos referenciados existem?
+* Prompt-Index.txt lista todos os arquivos operacionais?
+* Canonical-State-And-Module-IDs.txt lista todos os controles relevantes?
+
+6. Execucao
+
+* Start-Here.txt e o entrypoint oficial?
+* Allowed-Commands-By-State.txt cobre todos os estados?
+* Current-State.txt esta coerente com Project-Snapshot.txt?
+
+7. Versionamento
+
+* Prompt-System-Version.txt esta atualizado?
+* Prompt-System-Change-Log.txt registrou a mudanca?
+* Mudanca MAJOR, MINOR ou PATCH foi classificada corretamente?
+
+---
+
+FORMATO DE SAIDA
+
+AUDITORIA DO SISTEMA DE PROMPTS
+
+STATUS:
+VERSAO:
+ARQUIVOS AUDITADOS:
+CONFLITOS ENCONTRADOS:
+CORRECOES NECESSARIAS:
+RISCO:
+RECOMENDACAO:
+
+---
+
+ULTIMA AUDITORIA REGISTRADA
+
+Data: 2026-06-22
+Versao: 1.4.16
+Arquivos auditados: Current-State.txt, Prompt-Index.txt, Project-Snapshot.txt, Conflict-Resolution-Policy.txt, Prompt-System-Version.txt, Prompt-System-Versioning-Policy.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Prompt-System-Readme.txt, Revision-Prompt.txt, Restructuring-Prompt.txt.
+Status: APROVADO COM OBSERVACAO DOCUMENTAL
+Conflitos encontrados:
+* Project-Snapshot.txt declarava versao 1.3.8, enquanto Prompt-System-Version.txt declarava 1.4.0.
+* Ajustes e melhorias ja estavam descritos na conversa e em entradas pos-release, mas precisavam de registro documental canonico.
+* O patch 1.4.1 registrava os ajustes, mas o README e o log de transicao ainda nao centralizavam explicitamente o fluxo de documentacao.
+* A conversa recente ainda mencionava os 17 prompts antigos, mas o workspace atual ja esta reorganizado em baseline numerada com controles, fases, gates e relatorios adicionais.
+* A baseline numerada continuava funcional, mas o usuario solicitou nomes sem numeros, em Pascal-Kebab-Case e en-GB.
+* A aba aberta no IDE ainda podia apontar para "00 - Start Here.txt" apos o rename, criando risco de confusao operacional.
+* git status exibe o rename massivo como arquivos removidos e novos ate staging ou commit.
+* Project-Snapshot.txt declarava STATE-08 PRODUCTION_RELEASE no topo, mas mantinha redacao residual historica dizendo que STATE-06 INTEGRATION era o estado operacional atual.
+* Phase-Handoff-Template.txt mantinha redacao historica equivalente no handoff para STATE-06.
+* A execucao funcional posterior ao Revision-Prompt.txt precisava ser registrada nos .txt canonicos atuais.
+* A execucao funcional posterior ao Restructuring-Prompt.txt tambem precisava ficar explicitamente associada a esta solicitacao atual de documentacao.
+* Pendencias registradas anteriormente foram resolvidas por codigo: campos operacionais deixaram de ser apenas description, cliente deixou de ser derivado de atividades, soft delete ganhou tipo de historico e page.tsx foi decomposto.
+* Ajustes funcionais mais recentes deste chat ainda nao estavam consolidados nos .txt canonicos: acesso em rede, layout de menu/cabecalho, logout, RBAC hierarquico, Gestao de Clientes, remocao de Equipe em Turnos, limpeza de atividades, replicacao por usuarios da empresa e indices unicos parciais para soft delete.
+Correcoes aplicadas:
+* Versao do sistema de prompts atualizada para 1.4.1.
+* Snapshot alinhado para 1.4.1 e ultima atualizacao 2026-06-22.
+* Changelog recebeu entrada patch 1.4.1.
+* Current State recebeu observacao documental sem alterar STATE-08 PRODUCTION_RELEASE.
+* Versao do sistema de prompts atualizada para 1.4.2.
+* README recebeu secao de documentacao de ajustes e melhorias.
+* Snapshot, changelog, auditoria e log de transicao passaram a registrar a rodada documental 1.4.2.
+* Versao do sistema de prompts atualizada para 1.4.3.
+* Snapshot, changelog, README, Current State e log de transicao passaram a registrar a baseline documental vigente como fonte operacional intermediaria.
+* Versao do sistema de prompts atualizada para 1.4.4.
+* Todos os .txt da raiz foram renomeados para Pascal-Kebab-Case sem prefixos numericos.
+* Referencias internas aos nomes antigos foram substituidas pelos nomes canonicos atuais.
+* Versao do sistema de prompts atualizada para 1.4.5.
+* README, snapshot, changelog, current state, audit e transition log passaram a registrar o fechamento operacional da renomeacao.
+* Versao do sistema de prompts atualizada para 1.4.6.
+* Snapshot passou a tratar a secao de fases como historico e STATE-06 INTEGRATION como estado anterior, preservando STATE-08 PRODUCTION_RELEASE como estado atual declarado.
+* Phase-Handoff-Template.txt passou a tratar o handoff para STATE-06 como transicao historica, nao como estado atual.
+* Current State, changelog, audit, README e transition log receberam registro da solicitacao atual do chat.
+* Versao do sistema de prompts atualizada para 1.4.7.
+* Current State, snapshot, changelog, auditoria, README e log de transicao receberam consolidacao explicita dos ajustes e melhorias deste chat nos nomes canonicos atuais.
+* Foi reforcado que nomes numerados sao legado, Start-Here.txt e o entrypoint vigente, e o estado atual permanece STATE-08 PRODUCTION_RELEASE.
+* Versao do sistema de prompts atualizada para 1.4.8.
+* Nova solicitacao de documentar ajustes e melhorias deste chat foi registrada como incremento de rastreabilidade nos controles canonicos existentes, sem novo arquivo de controle e sem alteracao funcional.
+* Versao do sistema de prompts atualizada para 1.4.9.
+* Nova solicitacao de documentar ajustes e melhorias deste chat foi registrada com contexto de aba legada "00 - Start Here.txt"; Start-Here.txt foi reafirmado como entrypoint canonico atual.
+* Versao do sistema de prompts atualizada para 1.4.10.
+* Nova solicitacao de documentar ajustes e melhorias deste chat foi registrada como delta incremental nos controles canonicos atuais, sem novo arquivo de controle, sem restaurar nomes numerados legados e sem alterar STATE-08 PRODUCTION_RELEASE.
+* Versao do sistema de prompts atualizada para 1.4.11.
+* Nova solicitacao equivalente foi registrada como delta documental, preservando Start-Here.txt como entrypoint vigente e tratando a aba antiga "00 - Start Here.txt" como referencia legada do IDE.
+* Versao do sistema de prompts atualizada para 1.4.12.
+* Nova solicitacao para documentar os ajustes e melhorias deste chat foi registrada como incremento documental nos controles canonicos atuais.
+* A solicitacao foi resolvida sem criar arquivo novo, sem restaurar nomes numerados legados, sem executar fase, sem alterar codigo funcional e sem mudar STATE-08 PRODUCTION_RELEASE.
+* Versao do sistema de prompts atualizada para 1.4.13.
+* Consolidacao final deste chat registrada apos commits locais bda71a4 e ab18718.
+* Confirmado que os nomes canonicos atuais sao Pascal-Kebab-Case sem numeracao e que "00 - Start Here.txt" e referencia legada ao Start-Here.txt vigente.
+* Remote Git registrado como pendencia externa dependente de URL.
+* Versao do sistema de prompts atualizada para 1.4.14.
+* Current State, snapshot, changelog, auditoria e log de transicao receberam registro dos ajustes funcionais: decomposicao frontend, API de clientes, migration de campos operacionais de Activity, historico SOFT_DELETED, seeds e evidencias.
+* Confirmado que os ajustes funcionais foram validados por typecheck, lint, unit tests, build, e2e e load test.
+* Versao do sistema de prompts atualizada para 1.4.15.
+* Snapshot, changelog, auditoria, versionamento, log de transicao e Restructuring-Prompt.txt receberam delta documental desta solicitacao atual.
+* Confirmado que a execucao de Restructuring-Prompt.txt inclui WAITING_CUSTOMER, serviceName, dashboard por cliente, Kanban com sete status, encerrar/reabrir, responsividade mobile, migration 20260622103000_operational_dossier_status_service e evidencias aprovadas.
+* Versao do sistema de prompts atualizada para 1.4.16.
+* Current State, snapshot, changelog, auditoria, README e log de transicao receberam registro dos ajustes funcionais mais recentes deste chat.
+* Confirmado que Equipes e Clientes usam indices unicos parciais para registros ativos, que Turnos nao dependem mais de Equipe e que usuarios/perfis seguem RBAC hierarquico por empresa.
+* Versao do sistema de prompts atualizada para 1.4.18.
+* Current State, snapshot, changelog, auditoria, log de transicao e relatorios/gates de production release receberam registro da auditoria global e Human CI completo executados neste chat.
+* Confirmado que os gates finais locais passaram: Prisma, migrations, audit, overrides, lint, typecheck, unit tests, build, seeds, Playwright completo e stress de carga.
+* Registrada como risco nao bloqueante a flutuacao inicial do p95 no teste de carga Playwright, pois as reexecucoes oficiais passaram sem alteracao funcional.
+* Versao do sistema de prompts atualizada para 1.4.19.
+* Current State, snapshot, changelog, auditoria, log de transicao e relatorios/gates de production release receberam registro das correcoes de defeitos pos-auditoria.
+* Confirmado que os bloqueios foram corrigidos: Users respeita empresa ativa em get/update/remove; RBAC valida empresa, papel, permissao e vinculo; BaseRepository.update respeita companyId; JWT nao aceita fallback em producao; CORS_ORIGIN foi documentado; stress e axe foram estabilizados.
+* Confirmado por supertest que tentativa cross-tenant em Users retorna 404 e tentativa RBAC para outra empresa retorna 403.
+Risco:
+* Alteracoes funcionais futuras continuam dependendo de fase/estado permitido, gates e evidencias.
+* Referencias manuais aos 17 prompts antigos podem causar confusao se forem usadas como fonte operacional sem consultar Start-Here.txt e Prompt-Index.txt.
+* A ordem alfabetica deixou de refletir a ordem operacional; usar Prompt-Index.txt e Official-State-Machine.txt para sequencia e autoridade.
+* Abas antigas do IDE podem apontar para arquivos que foram renomeados; usar os nomes canonicos atuais.
+* Qualquer mencao historica a STATE-06, STATE-07 ou nomes antigos de arquivos deve ser interpretada pelo contexto do historico, nao como estado atual.
+* Pedidos repetidos de documentacao podem gerar redundancia se nao forem tratados como incrementos de rastreabilidade nos controles canonicos existentes.
+* IDEs podem preservar abas antigas apos renomeacoes; essas abas devem ser tratadas como referencias legadas, nao como demanda para recriar arquivos antigos.
+* Alteracoes funcionais pos-release ainda dependem de commit/push conforme politica de entrega e remote Git disponivel.
+Recomendacao:
+* Continuar usando Start-Here.txt como entrypoint e aplicar Conflict-Resolution-Policy.txt para qualquer conflito novo.
+* Nao criar novos arquivos de controle para solicitacoes repetidas de documentacao quando changelog, snapshot, auditoria, versionamento, README e log de transicao bastarem.
+* Versionar a rodada funcional 1.4.14 em commit dedicado antes de entrega remota.
+
+---
+
+REGRA FINAL
+
+Auditoria recomenda correcoes.
+Auditoria nao altera estado.
+
+
+
+

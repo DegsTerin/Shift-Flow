@@ -1,0 +1,239 @@
+AUDITORIA DA FASE
+
+Estado auditado:
+STATE-03 DATABASE_MODELING
+
+Projeto:
+ShiftFlow
+
+Data:
+2026-06-21
+
+STATUS:
+APROVADO
+
+Regra de escopo:
+Este documento audita a execucao de STATE-03 DATABASE_MODELING. Ele nao altera estado.
+
+---
+
+1. ESCOPO AUDITADO
+
+Artefatos auditados:
+
+* prisma/schema.prisma.
+* prisma/migrations/20260621120000_state_03_database_modeling/migration.sql.
+* prisma/migrations/migration_lock.toml.
+* Database-Modelling-Document.txt.
+* Human-CI-Validation-Database-Modelling.txt.
+* Project-Snapshot.txt.
+* State-Transition-Log.txt.
+* Phase-Handoff-Template.txt.
+
+Validacoes executadas:
+
+* npm run prisma:validate.
+* Verificacao de entidades obrigatorias no schema.
+* Verificacao de indices, constraints e soft delete no schema.
+* Verificacao de tabelas, indices e foreign keys na migration.
+* Verificacao de ausencia de alteracoes indevidas em package.json, apps/api, apps/web, prisma.config.ts, docker-compose.yml e configuracoes base.
+
+Resultado:
+
+* Aprovado.
+
+---
+
+2. ARQUITETURA
+
+Resultado:
+APROVADO
+
+Evidencias:
+
+* Schema segue a arquitetura definida em Solution-Architecture-Document.txt.
+* PostgreSQL e Prisma foram mantidos.
+* Company foi preservada como tenant raiz.
+* Client, Team e Shift refinam o escopo operacional.
+* RBAC e auditoria foram modelados sem criar backend, frontend ou runtime.
+
+Problemas criticos:
+
+* Nenhum.
+
+---
+
+3. BANCO DE DADOS
+
+Resultado:
+APROVADO
+
+Integridade relacional:
+
+* Chaves estrangeiras foram criadas para Company, Client, Team, Shift, User, Activity, Comment, Attachment, Notification, ShiftReport e AuditLog.
+* Relacionamentos compostos com companyId foram usados onde o isolamento por tenant e necessario.
+
+Normalizacao:
+
+* Relacionamentos muitos-para-muitos foram normalizados em UserCompany, UserClient, TeamClient, TeamMember, RolePermission, UserRoleAssignment e ShiftReportActivity.
+* Historico operacional foi separado em ActivityHistory.
+* Auditoria transversal foi separada em AuditLog.
+
+Indices criticos:
+
+* Activity possui indices para dashboard, kanban, SLA, cliente, equipe, turno e responsavel.
+* Shift possui indices para equipe, status e janela temporal.
+* Notification possui indices por destinatario, leitura, tipo e data.
+* AuditLog possui indices por entidade, ator, acao e data.
+
+Soft delete:
+
+* deletedAt foi modelado em entidades operacionais e administrativas que preservam historico.
+* AuditLog e ActivityHistory permanecem sem soft delete por natureza historica.
+
+Migration:
+
+* Migration de dominio criada em DATABASE_MODELING.
+* Migration nao foi aplicada em integracao ou producao.
+
+Problemas criticos:
+
+* Nenhum.
+
+---
+
+4. RBAC E SEGURANCA
+
+Resultado:
+APROVADO
+
+Evidencias:
+
+* Role, Permission, RolePermission e UserRoleAssignment foram modelados.
+* UserRoleAssignment suporta escopo por company, client e team.
+* RoleScope diferencia GLOBAL, COMPANY, CLIENT e TEAM.
+* RefreshToken guarda tokenHash, expiracao e revogacao.
+
+Observacao:
+
+* Validacoes semanticas de permissao devem ser implementadas no backend em STATE-04.
+
+Problemas criticos:
+
+* Nenhum.
+
+---
+
+5. PERFORMANCE
+
+Resultado:
+APROVADO
+
+Evidencias:
+
+* Indices compostos foram definidos para consultas frequentes de dashboard, kanban, relatorios, notificacoes e auditoria.
+* A modelagem suporta filtros por companyId, clientId, teamId, shiftId, status, priority, slaDueAt, assigneeId e updatedAt.
+
+Riscos tecnicos:
+
+* Consultas agregadas de dashboard e relatorios devem ser medidas com volume representativo em TESTING_HOMOLOGATION.
+* Se volume crescer, pode ser necessario evoluir para materializacoes ou jobs, conforme arquitetura.
+
+Problemas criticos:
+
+* Nenhum.
+
+---
+
+6. CONSISTENCIA DE FASE
+
+Resultado:
+APROVADO
+
+Evidencias:
+
+* Estado atual consultado: STATE-03 DATABASE_MODELING.
+* Comando permitido: Auditar STATE-03 DATABASE_MODELING e executar Human CI.
+* Backend nao foi criado ou alterado.
+* Frontend nao foi criado ou alterado.
+* package.json nao foi alterado.
+* Configuracoes de runtime nao foram alteradas.
+* Prisma CLI foi usado apenas para validacao e geracao de migration de dominio sem aplicacao em ambiente.
+* Snapshot, log e handoff foram atualizados como evidencia.
+
+Problemas criticos:
+
+* Nenhum.
+
+---
+
+7. HUMAN CI
+
+Resultado:
+APROVADO
+
+Evidencia:
+
+* Human-CI-Validation-Database-Modelling.txt.
+
+Observacao:
+
+* Human CI ja havia sido aprovado e foi revalidado nesta auditoria.
+
+---
+
+8. PROBLEMAS CRITICOS
+
+* Nenhum.
+
+---
+
+9. PROBLEMAS NAO CRITICOS
+
+* Seeds de roles, permissions e usuario inicial ainda nao existem; manter para fase apropriada sem alterar schema.
+* Regras semanticas de RBAC, SLA, janela temporal, permissao e auditoria devem ser implementadas no backend.
+* Aplicacao da migration ainda nao foi executada por regra de fase.
+
+---
+
+10. RISCOS TECNICOS
+
+* Prisma nao expressa todas as regras semanticas complexas por constraints nativas.
+* Storage fisico de anexos ainda precisa ser definido por ambiente.
+* Consultas agregadas de dashboard e relatorios precisam de validacao de performance em homologacao.
+* npm audit permanece com vulnerabilidades moderadas transitivas registradas desde SETUP_PROJECT.
+
+---
+
+11. DIVIDA TECNICA
+
+* Definir seed/bootstrap operacional de roles, permissions e usuario inicial em fase apropriada.
+* Validar plano de indices com dados representativos em TESTING_HOMOLOGATION.
+* Confirmar estrategia de storage de anexos antes de integracao/release.
+
+---
+
+12. DECISAO FINAL
+
+* APROVAR FASE.
+
+Justificativa:
+
+* Nao ha problemas criticos.
+* Criterios de aceite de STATE-03 foram atendidos.
+* Evidencias existem e foram registradas.
+* Human CI esta aprovado.
+* Escopo de fase foi respeitado.
+
+---
+
+13. TRANSICAO DE ESTADO
+
+Recomendacao:
+
+* Recomendar decisao da State Machine para transicionar de STATE-03 DATABASE_MODELING para STATE-04 BACKEND_IMPLEMENTATION.
+
+Observacao:
+
+* Esta recomendacao nao altera estado.
+* A State Machine decide a transicao real.

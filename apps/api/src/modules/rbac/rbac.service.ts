@@ -1,4 +1,5 @@
 import type { AuthenticatedUser, TenantContext } from "../../shared/http/request-types.js";
+import { badRequest, forbidden } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { RbacRepository } from "./rbac.repository.js";
 
@@ -52,11 +53,60 @@ export class RbacService {
     });
   }
 
-  static async assignRole(data: Record<string, unknown>) {
+  private static effectiveCompany(user: AuthenticatedUser | undefined, tenant?: TenantContext) {
+    const companyId = tenant?.companyId ?? user?.companyId;
+    if (!companyId) {
+      throw badRequest("Company context is required");
+    }
+    return companyId;
+  }
+
+  static async assignRole(
+    actor: AuthenticatedUser | undefined,
+    tenant: TenantContext | undefined,
+    data: Record<string, unknown>,
+  ) {
+    const companyId = RbacService.effectiveCompany(actor, tenant);
+    if (String(data.companyId) !== companyId) {
+      throw forbidden("Cannot assign roles outside the active company");
+    }
+
+    const role = await RbacService.repository.findRole(String(data.roleId), companyId);
+    if (!role) {
+      throw badRequest("Role does not belong to the active company");
+    }
+
+    const userCompany = await RbacService.repository.findUserCompany(String(data.userId), companyId);
+    if (!userCompany) {
+      throw badRequest("User is not linked to the active company");
+    }
+
     return RbacService.repository.assignRole(data);
   }
 
-  static async assignPermission(roleId: string, permissionId: string, companyId?: string) {
+  static async assignPermission(
+    actor: AuthenticatedUser | undefined,
+    tenant: TenantContext | undefined,
+    roleId: string,
+    permissionId: string,
+    requestedCompanyId?: string,
+  ) {
+    const companyId = RbacService.effectiveCompany(actor, tenant);
+    if (requestedCompanyId && requestedCompanyId !== companyId) {
+      throw forbidden("Cannot assign permissions outside the active company");
+    }
+
+    const [role, permission] = await Promise.all([
+      RbacService.repository.findRole(roleId, companyId),
+      RbacService.repository.findPermission(permissionId, companyId),
+    ]);
+    if (!role) {
+      throw badRequest("Role does not belong to the active company");
+    }
+    if (!permission) {
+      throw badRequest("Permission is not available in the active company");
+    }
+
     return RbacService.repository.assignPermission(roleId, permissionId, companyId);
   }
 }

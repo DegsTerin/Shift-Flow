@@ -110,7 +110,7 @@ export class AuthService {
     };
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(req: ApiRequest, refreshToken: string) {
     const stored = (await this.repository.findRefreshToken(
       hashToken(refreshToken),
     )) as DbRefreshToken | null;
@@ -126,8 +126,22 @@ export class AuthService {
       permissions: permissionsFrom(user),
       companyId: resolveCompany(user),
     };
+    const nextRefreshToken = crypto.randomBytes(48).toString("base64url");
+    const expiresAt = new Date(Date.now() + refreshTokenDays * 24 * 60 * 60 * 1000);
 
-    return { accessToken: signAccessToken(authUser) };
+    await this.repository.rotateRefreshToken(stored.id, {
+      userId: user.id,
+      tokenHash: hashToken(nextRefreshToken),
+      userAgent: req.context?.userAgent,
+      ipAddress: req.context?.ipAddress,
+      expiresAt,
+    });
+
+    return {
+      accessToken: signAccessToken(authUser),
+      refreshToken: nextRefreshToken,
+      expiresAt,
+    };
   }
 
   async logout(refreshToken?: string) {

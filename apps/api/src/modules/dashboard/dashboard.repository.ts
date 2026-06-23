@@ -6,6 +6,14 @@ type ActivityDelegate = {
   findMany(args: unknown): Promise<unknown[]>;
 };
 
+const publicUserSelect = {
+  id: true,
+  email: true,
+  displayName: true,
+  jobTitle: true,
+  status: true,
+};
+
 export class DashboardRepository {
   private async activities() {
     return getDelegate<ActivityDelegate>("activity");
@@ -28,7 +36,7 @@ export class DashboardRepository {
       where,
       take: 50,
       orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
-      include: { client: true, team: true, assignee: true, shift: true },
+      include: { client: true, team: true, assignee: { select: publicUserSelect }, shift: true },
     });
   }
 }

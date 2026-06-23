@@ -13,7 +13,7 @@ export const RbacController = {
   roles,
   permissions,
   assignRole: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.status(201).json(created(await RbacService.assignRole(req.body)));
+    res.status(201).json(created(await RbacService.assignRole(req.auth, req.tenant, req.body)));
   }),
   assignPermission: asyncHandler(async (req: ApiRequest, res: Response) => {
     res
@@ -21,6 +21,8 @@ export const RbacController = {
       .json(
         created(
           await RbacService.assignPermission(
+            req.auth,
+            req.tenant,
             param(req.params.roleId, "roleId"),
             req.body.permissionId,
             req.body.companyId ?? req.tenant?.companyId,

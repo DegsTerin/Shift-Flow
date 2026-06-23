@@ -4,8 +4,13 @@ import type { NextFunction, Response } from "express";
 import type { ApiRequest, AuthenticatedUser } from "../http/request-types.js";
 import { unauthorized } from "../errors/app-error.js";
 
-const accessTokenSecret =
-  process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET ?? "shiftflow-dev-access-secret";
+const accessTokenSecret = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET;
+
+if (process.env.NODE_ENV === "production" && !accessTokenSecret) {
+  throw new Error("JWT_ACCESS_SECRET or JWT_SECRET is required in production");
+}
+
+const signingSecret = accessTokenSecret ?? "shiftflow-dev-access-secret";
 
 export function signAccessToken(user: AuthenticatedUser) {
   const options: SignOptions = {
@@ -13,7 +18,7 @@ export function signAccessToken(user: AuthenticatedUser) {
     subject: user.id,
   };
 
-  return jwt.sign(user, accessTokenSecret, {
+  return jwt.sign(user, signingSecret, {
     ...options,
   });
 }
@@ -32,7 +37,7 @@ export function authenticate(
   }
 
   try {
-    req.auth = jwt.verify(token, accessTokenSecret) as AuthenticatedUser;
+    req.auth = jwt.verify(token, signingSecret) as AuthenticatedUser;
     next();
   } catch {
     next(unauthorized("Invalid or expired token"));

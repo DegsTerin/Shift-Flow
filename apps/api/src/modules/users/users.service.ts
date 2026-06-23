@@ -2,12 +2,16 @@ import bcrypt from "bcryptjs";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { getDelegate } from "../../shared/lib/prisma.js";
 import { toPagination, toSkipTake } from "../../shared/http/pagination.js";
-import { forbidden } from "../../shared/errors/app-error.js";
+import { forbidden, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { UsersRepository } from "./users.repository.js";
 
 type UserCompanyDelegate = {
   upsert(args: unknown): Promise<unknown>;
+};
+
+type UserDelegate = {
+  findFirst(args: unknown): Promise<unknown | null>;
 };
 
 type RoleDelegate = {
@@ -85,7 +89,16 @@ export class UsersService extends BaseService {
     return created;
   }
 
+  override async get(req: ApiRequest, id: string) {
+    const item = await this.findInCurrentCompany(req, id);
+    if (!item) {
+      throw notFound("User not found");
+    }
+    return item;
+  }
+
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
+    await this.get(req, id);
     const roleId = data.roleId ? String(data.roleId) : undefined;
     delete data.roleId;
     let updated: unknown;
@@ -104,6 +117,35 @@ export class UsersService extends BaseService {
       await this.attachToCurrentCompany(req, id, roleId);
     }
     return updated;
+  }
+
+  override async remove(req: ApiRequest, id: string) {
+    await this.get(req, id);
+    return super.remove(req, id);
+  }
+
+  private async findInCurrentCompany(req: ApiRequest, id: string) {
+    const companyId = this.companyId(req);
+    const users = await getDelegate<UserDelegate>("user");
+    return users.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...(companyId
+          ? { companies: { some: { companyId, deletedAt: null } } }
+          : {}),
+      },
+      include: {
+        roleAssignments: {
+          where: {
+            ...(companyId ? { companyId } : {}),
+            deletedAt: null,
+            OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+          },
+          include: { role: true },
+        },
+      },
+    });
   }
 
   private async attachToCurrentCompany(req: ApiRequest, userId: string, requestedRoleId?: string) {

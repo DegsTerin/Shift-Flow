@@ -1,6 +1,7 @@
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { badRequest } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
+import { activeCompanyId, assertShiftInCompany, assertUserInCompany } from "../../shared/services/scope.service.js";
 import { ShiftsRepository } from "./shifts.repository.js";
 
 export class ShiftsService extends BaseService {
@@ -26,19 +27,33 @@ export class ShiftsService extends BaseService {
   }
 
   async close(req: ApiRequest, id: string) {
+    const current = (await this.get(req, id)) as { status?: string };
+    if (current.status === "CLOSED" || current.status === "CANCELLED") {
+      throw badRequest("Shift cannot be closed from its current status");
+    }
     return this.update(req, id, { status: "CLOSED", closedAt: new Date() });
   }
 
   async reopen(req: ApiRequest, id: string) {
+    const current = (await this.get(req, id)) as { status?: string };
+    if (current.status !== "CLOSED") {
+      throw badRequest("Only closed shifts can be reopened");
+    }
     return this.update(req, id, { status: "REOPENED", reopenedAt: new Date(), closedAt: null });
   }
 
   async addCoverage(req: ApiRequest, shiftId: string, data: Record<string, unknown>) {
+    const companyId = activeCompanyId(req);
     this.assertPeriod(data.startsAt, data.endsAt);
+    await Promise.all([
+      assertShiftInCompany(shiftId, companyId),
+      assertUserInCompany(String(data.userId), companyId),
+      assertUserInCompany(data.replacementForUserId ? String(data.replacementForUserId) : undefined, companyId),
+    ]);
     return this.shiftsRepository.addCoverage({
       ...data,
       shiftId,
-      companyId: this.companyId(req),
+      companyId,
     });
   }
 

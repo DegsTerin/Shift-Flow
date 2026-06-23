@@ -1,4 +1,5 @@
 import { getDelegate } from "../lib/prisma.js";
+import { notFound } from "../errors/app-error.js";
 
 type Delegate = {
   findMany(args?: unknown): Promise<unknown[]>;
@@ -55,7 +56,14 @@ export class BaseRepository {
   }
 
   async update(id: string, data: Record<string, unknown>, companyId?: string) {
-    void companyId;
+    if (companyId) {
+      const scoped = await (await this.delegate()).findFirst({
+        where: { id, companyId, deletedAt: null },
+      });
+      if (!scoped) {
+        throw notFound("Resource not found");
+      }
+    }
     const where = { id };
     return (await this.delegate()).update({ where, data });
   }

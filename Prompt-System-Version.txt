@@ -1,0 +1,92 @@
+PROMPT SYSTEM VERSION
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, versao, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+VERSAO ATUAL
+
+PROMPT_SYSTEM_VERSION: 1.4.19
+
+Data:
+2026-06-22
+
+Status:
+Revisao operacional global incorporada aos prompts canonicos. O ShiftFlow passa a ser tratado explicitamente como plataforma corporativa de passagem de turno, registro operacional, gestao de atividades, gestao de equipes, gestao de clientes, gestao de ocorrencias, acompanhamento gerencial e monitoramento em tempo real. Atividade passa a ser definida como dossie operacional auditavel com timeline imutavel, filtros reais, busca global, CRUD completo, modal de detalhes, dashboards executivo/operacional e modo TV como criterios de evolucao pos-release.
+
+Patch 1.4.1:
+Documentados ajustes e melhorias de rastreabilidade nos .txt canonicos, incluindo alinhamento de versao no snapshot, registro dos conflitos operacionais ja identificados e recomendacao de uso dos controles existentes sem criar novo estado.
+
+Patch 1.4.2:
+README, snapshot, changelog, auditoria e log de transicao alinhados para documentar de forma explicita onde os ajustes e melhorias ficam registrados. A documentacao reforca que ajustes documentais nao criam estado, nao alteram STATE-08 PRODUCTION_RELEASE e devem permanecer rastreaveis nos controles canonicos.
+
+Patch 1.4.3:
+Documentada a reconciliacao da conversa atual com o workspace reorganizado. A baseline intermediaria passou a ser a serie numerada de .txt antes da renomeacao Pascal-Kebab-Case, e os 17 prompts antigos ficam tratados como historico substituido pela reorganizacao documental. A decisao nao altera estado, nao executa fase e nao autoriza tooling.
+
+Patch 1.4.4:
+Arquivos .txt renomeados para Pascal-Kebab-Case em en-GB, sem prefixos numericos no nome do arquivo. Referencias internas aos nomes antigos foram atualizadas para os nomes canonicos atuais. A mudanca e apenas documental/organizacional, nao altera estado, nao executa fase e nao autoriza tooling.
+
+Patch 1.4.5:
+Documentado o fechamento operacional da renomeacao dos .txt. O entrypoint vigente e Start-Here.txt; abas antigas do IDE, como "00 - Start Here.txt", devem ser reabertas pelo novo nome. O Git pode exibir a mudanca como pares delete/add ate staging ou commit, mas a intencao operacional e rename documental. Nenhuma fase, tooling, codigo ou transicao de estado foi executada.
+
+Patch 1.4.6:
+Documentada a solicitacao atual do chat para registrar ajustes e melhorias nos .txt apos a renomeacao Pascal-Kebab-Case. O snapshot e o handoff historico foram alinhados para remover redacoes residuais que ainda tratavam STATE-06 INTEGRATION como estado operacional atual; STATE-08 PRODUCTION_RELEASE permanece como estado declarado. A mudanca e documental, nao executa fase, nao altera codigo funcional e nao cria transicao de estado.
+
+Patch 1.4.7:
+Consolidado o registro dos ajustes e melhorias deste chat nos .txt canonicos atuais. A documentacao passa a destacar que a solicitacao foi atendida nos controles existentes, sem criar novo arquivo de controle, sem restaurar nomes numerados legados e sem alterar STATE-08 PRODUCTION_RELEASE. O registro cobre setup/Git/Human CI historicos, renomeacao para Pascal-Kebab-Case, revisoes pos-release, correcoes funcionais ja evidenciadas, riscos operacionais remanescentes e regra de usar Start-Here.txt, Prompt-Index.txt e Official-State-Machine.txt como fontes vigentes.
+
+Patch 1.4.8:
+Registrada nova solicitacao para documentar os ajustes e melhorias deste chat nos .txt. A documentacao confirma que o conteudo ja estava consolidado nos controles canonicos e adiciona uma entrada incremental de rastreabilidade sem criar novo controle, sem alterar codigo, sem executar fase, sem restaurar nomes numerados legados e sem alterar STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.9:
+Registrada nova solicitacao feita com aba antiga do IDE ainda apontando para "00 - Start Here.txt". A documentacao reforca que Start-Here.txt e o entrypoint canonico atual, que nomes numerados sao legado da baseline anterior, e que solicitacoes repetidas de documentar ajustes e melhorias deste chat devem gerar apenas delta de rastreabilidade nos controles existentes. Nenhum novo controle, codigo, schema, tooling, fase ou transicao de estado foi executado.
+
+Patch 1.4.10:
+Registrada nova solicitacao para documentar os ajustes e melhorias deste chat nos .txt. O registro consolida que os controles canonicos vigentes sao os arquivos Pascal-Kebab-Case sem numeracao, que Start-Here.txt substitui o antigo "00 - Start Here.txt", e que a documentacao incremental nao cria fase, nao altera codigo, nao executa tooling e nao muda STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.11:
+Registrada nova solicitacao para documentar os ajustes e melhorias deste chat nos .txt, recebida com contexto de IDE ainda exibindo aba legada "00 - Start Here.txt". O registro reafirma que Start-Here.txt e o entrypoint vigente, que os nomes numerados sao historico, e que repeticoes desse pedido devem acrescentar somente delta documental nos controles canonicos atuais, sem criar arquivo novo, sem restaurar nomes antigos, sem executar fase, sem alterar codigo e sem mudar STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.12:
+Registrada nova solicitacao para documentar os ajustes e melhorias deste chat nos .txt. O registro confirma que a documentacao deve continuar nos controles canonicos atuais em Pascal-Kebab-Case, que a aba legada "00 - Start Here.txt" deve ser interpretada como referencia ao Start-Here.txt atual, e que esta acao e apenas documental: nao executa fase, nao altera codigo, nao cria tooling, nao restaura nomes antigos e nao muda STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.13:
+Registrada a consolidacao final deste chat apos os commits locais. O registro documenta que os commits bda71a4 e ab18718 foram criados, que os .txt canonicos atuais permanecem em Pascal-Kebab-Case sem numeracao, que "00 - Start Here.txt" e referencia legada ao Start-Here.txt vigente, e que o remote Git ainda nao foi configurado. Esta atualizacao e apenas documental e nao altera STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.14:
+Registrados os ajustes funcionais executados neste chat apos Revision-Prompt.txt: auditoria de frontend/backend/integracao; filtros reais e busca global; fluxos "+ Novo"; modal de detalhe/edicao/comentarios; modo TV; decomposicao do frontend em components/lib; API real de clientes em /api/clients; normalizacao dos campos operacionais de Activity no Prisma; historico SOFT_DELETED; seeds atualizados; migracao 20260622010000_prompt_revision_activity_fields; validacoes npm run typecheck, npm run lint, npm test, npm run build, npm run test:e2e e npm run test:load. O registro e documental e nao altera STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.15:
+Registrada nova solicitacao para documentar os ajustes e melhorias deste chat nos .txt. O registro confirma que a execucao de Restructuring-Prompt.txt tambem esta documentada nos controles canonicos atuais, incluindo status WAITING_CUSTOMER, campo serviceName, dashboard por cliente, acoes de encerrar/reabrir, responsividade mobile, seeds, migration 20260622103000_operational_dossier_status_service, testes aprovados e servicos locais. Esta atualizacao e apenas documental e nao altera codigo, schema, tooling ou STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.16:
+Registrados os ajustes funcionais mais recentes deste chat: acesso local/rede documentado operacionalmente, menu lateral e cabecalho compactados, logout, RBAC por hierarquia, replicacao por usuarios via tenant/empresa corrigida, Gestao de Clientes incluida, Equipe removida de Gestao de Turnos e do banco, atividades limpas conforme solicitacao, tratamento amigavel de erro de duplicidade, indices unicos parciais para reutilizar nomes de Equipes e Clientes excluidos logicamente, e validacoes npm/prisma/build executadas. Esta atualizacao documenta alteracoes ja realizadas e nao altera STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.17:
+Registrados os ajustes deste chat sobre experiencia de navegacao e sessao: drawer/offcanvas em mobile/tablet, sidebar desktop recolhivel com persistencia de estado, Modo TV desacoplado de nav-collapsed, cabecalho sem a frase "Dados carregados de endpoints reais" em modo normal e Modo TV, titulo do Modo TV no tamanho padrao, persistencia de sessao em shiftflow.session para sobreviver ao F5, e testes Playwright focados em reload, Modo TV e mobile drawer. Esta atualizacao documenta alteracoes ja realizadas e nao altera STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.18:
+Registrada a auditoria global e Human CI completo executados neste chat sobre o workspace atual. O registro cobre banco healthy, Prisma validate/status/deploy, npm audit sem vulnerabilidades moderadas, overrides, lint, typecheck, testes unitarios, build API/Web, seeds, Playwright completo e stress de carga. Tambem registra a falha inicial de p95 no teste de carga Playwright como risco nao bloqueante apos reexecucoes aprovadas. Esta atualizacao e documental e nao altera STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.19:
+Registradas as correcoes dos bloqueios encontrados na auditoria completa: isolamento multiempresa em Users, validacao de escopo em RBAC assignments/permissions, hardening de update/delete por companyId, segredo JWT obrigatorio em producao, CORS configuravel por CORS_ORIGIN, timeout dedicado para axe e ajuste do stress representativo. Gates finais aprovados: lint, typecheck, unit, build, Prisma, audit, overrides, seeds, Playwright completo, stress e validacao direta de cross-tenant. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+---
+
+REGRA DE REGISTRO
+
+Toda mudanca deve atualizar:
+
+* Prompt-System-Version.txt, quando alterar versao.
+* Prompt-System-Versioning-Policy.txt, quando alterar regra de versionamento.
+* Prompt-System-Change-Log.txt.
+* Project-Snapshot.txt, quando impactar evidencias ou decisoes.
+
+Atualizar versao nao altera estado.
+
+
+
+

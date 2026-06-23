@@ -1,7 +1,28 @@
+const redactedResponseKeys = new Set([
+  "password",
+  "passwordHash",
+  "tokenHash",
+]);
+
+function sanitizeResponse(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeResponse);
+  }
+  if (!value || typeof value !== "object" || value instanceof Date) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      redactedResponseKeys.has(key) ? undefined : sanitizeResponse(entry),
+    ]),
+  );
+}
+
 export function ok<T>(data: T, meta?: unknown) {
-  return { data, meta };
+  return { data: sanitizeResponse(data) as T, meta };
 }
 
 export function created<T>(data: T) {
-  return { data };
+  return { data: sanitizeResponse(data) as T };
 }

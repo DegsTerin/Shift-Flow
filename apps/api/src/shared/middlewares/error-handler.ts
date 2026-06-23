@@ -48,7 +48,12 @@ export function errorHandler(
   res.status(500).json({
     error: {
       code: "INTERNAL_ERROR",
-      message: error instanceof Error ? error.message : "Unexpected error",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Unexpected error"
+          : error instanceof Error
+            ? error.message
+            : "Unexpected error",
     },
   });
 }

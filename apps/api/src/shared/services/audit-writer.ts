@@ -19,11 +19,40 @@ type AuditInput = {
   shiftReportId?: string;
 };
 
+const sensitiveKeys = new Set([
+  "password",
+  "passwordHash",
+  "refreshToken",
+  "token",
+  "tokenHash",
+  "accessToken",
+  "authorization",
+]);
+
+function redact(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(redact);
+  }
+  if (!value || typeof value !== "object" || value instanceof Date) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      sensitiveKeys.has(key) ? "[REDACTED]" : redact(entry),
+    ]),
+  );
+}
+
 export async function writeAudit(req: ApiRequest, input: AuditInput) {
   const auditLog = await getDelegate<AuditDelegate>("auditLog");
+  const { before, after, ...rest } = input;
   await auditLog.create({
     data: {
-      ...input,
+      ...rest,
+      ...(before !== undefined ? { before: redact(before) } : {}),
+      ...(after !== undefined ? { after: redact(after) } : {}),
       actorUserId: req.auth?.id,
       requestId: req.context?.requestId,
       ipAddress: req.context?.ipAddress,
