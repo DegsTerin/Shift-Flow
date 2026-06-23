@@ -52,8 +52,8 @@ export class ReportsService extends BaseService {
       ...(query.from || query.to
         ? {
             createdAt: {
-              ...(query.from ? { gte: query.from } : {}),
-              ...(query.to ? { lte: query.to } : {})
+              ...(query.from ? { gte: new Date(String(query.from)) } : {}),
+              ...(query.to ? { lte: new Date(String(query.to)) } : {})
             }
           }
         : {})

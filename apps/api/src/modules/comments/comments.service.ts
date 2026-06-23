@@ -1,4 +1,5 @@
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import { forbidden } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import {
   activeCompanyId,
@@ -25,6 +26,22 @@ export class CommentsService extends BaseService {
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
+    await this.assertCanMutate(req, id);
     return super.update(req, id, { ...data, editedAt: new Date() });
+  }
+
+  override async remove(req: ApiRequest, id: string) {
+    await this.assertCanMutate(req, id);
+    return super.remove(req, id);
+  }
+
+  private async assertCanMutate(req: ApiRequest, id: string) {
+    const comment = (await this.get(req, id)) as { authorId?: string | null };
+    const permissions = req.auth?.permissions ?? [];
+    const canModerate = permissions.includes("*:*") || permissions.includes("comments:moderate");
+
+    if (!canModerate && comment.authorId !== req.auth?.id) {
+      throw forbidden("Only the comment author or a moderator can change this comment");
+    }
   }
 }

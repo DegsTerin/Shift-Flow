@@ -18,6 +18,6 @@ export const dashboardFilterSchema = z.object({
     .optional(),
   shiftId: z.string().uuid().optional(),
   search: z.string().max(200).optional(),
-  from: z.string().optional(),
-  to: z.string().optional()
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional()
 });

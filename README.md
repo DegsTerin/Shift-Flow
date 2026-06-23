@@ -138,6 +138,7 @@ npm run clean:artifacts
 - [Security](SECURITY.md)
 - [Architecture](docs/architecture.md)
 - [Development Standards](docs/development-standards.md)
+- [Governance Index](docs/governance-index.md)
 - [Production Runbook](docs/production-runbook.md)
 - [Systematization Report](docs/systematization-report.md)
 - [Technical Roadmap](docs/technical-roadmap.md)

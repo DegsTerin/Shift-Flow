@@ -20,6 +20,7 @@ import { requestLogger } from "../middlewares/request-logger.js";
 import { tenantContext } from "../middlewares/tenant-context.js";
 import { verifyOrigin } from "../middlewares/verify-origin.js";
 import { errorHandler, notFoundHandler } from "../middlewares/error-handler.js";
+import { checkReadiness } from "../services/readiness.service.js";
 
 const corsOrigin = process.env.CORS_ORIGIN;
 const defaultDevelopmentOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
@@ -43,6 +44,7 @@ export function createServer() {
   const corsOptions = { origin: configuredCorsOrigins, credentials: true };
 
   app.use(helmet());
+  app.set("trust proxy", process.env.TRUST_PROXY ?? false);
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "1mb" }));
   app.use(verifyOrigin);
@@ -55,12 +57,17 @@ export function createServer() {
     res.status(200).json({ status: "ok", service: "shiftflow-api" });
   });
 
-  app.get("/ready", (_req, res) => {
-    res.status(200).json({
-      status: "ready",
-      service: "shiftflow-api",
-      environment: process.env.NODE_ENV ?? "development"
-    });
+  app.get("/ready", async (_req, res, next) => {
+    try {
+      await checkReadiness();
+      res.status(200).json({
+        status: "ready",
+        service: "shiftflow-api",
+        environment: process.env.NODE_ENV ?? "development"
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.use("/api/auth", authRoutes);
