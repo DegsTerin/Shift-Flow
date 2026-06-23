@@ -1,4 +1,10 @@
 const redactedResponseKeys = new Set(["password", "passwordHash", "tokenHash"]);
+const redactedResponseKeyPattern =
+  /(api[-_]?key|authorization|cookie|credential|jwt|password|refresh[-_]?token|secret|token[-_]?hash)/i;
+
+function isRedactedResponseKey(key: string) {
+  return redactedResponseKeys.has(key) || redactedResponseKeyPattern.test(key);
+}
 
 function sanitizeResponse(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -10,7 +16,7 @@ function sanitizeResponse(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [
       key,
-      redactedResponseKeys.has(key) ? undefined : sanitizeResponse(entry)
+      isRedactedResponseKey(key) ? undefined : sanitizeResponse(entry)
     ])
   );
 }

@@ -29,3 +29,8 @@ export const assignRoleSchema = z.object({
   startsAt: z.coerce.date().optional(),
   endsAt: z.coerce.date().optional()
 });
+
+export const permissionCheckSchema = z.object({
+  resource: z.string().min(2).max(80),
+  action: z.string().min(2).max(80)
+});

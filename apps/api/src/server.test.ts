@@ -52,4 +52,33 @@ describe("ShiftFlow API", () => {
     expect(response.headers["x-rate-limit-remaining"]).toBeDefined();
     expect(response.headers["x-rate-limit-reset"]).toBeDefined();
   });
+
+  it("rejects unsafe requests from untrusted origins", async () => {
+    const response = await request(app)
+      .post("/api/auth/logout")
+      .set("Origin", "https://evil.example")
+      .send({});
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("rate limits repeated login attempts", async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await request(app).post("/api/auth/login").send({
+        email: "missing@example.com",
+        password: "password123"
+      });
+
+      expect(response.status).not.toBe(429);
+    }
+
+    const response = await request(app).post("/api/auth/login").send({
+      email: "missing@example.com",
+      password: "password123"
+    });
+
+    expect(response.status).toBe(429);
+    expect(response.body.error.code).toBe("RATE_LIMITED");
+  });
 });

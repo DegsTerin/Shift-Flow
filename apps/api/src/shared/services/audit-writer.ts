@@ -26,8 +26,16 @@ const sensitiveKeys = new Set([
   "token",
   "tokenHash",
   "accessToken",
-  "authorization"
+  "authorization",
+  "cookie"
 ]);
+
+const sensitiveKeyPattern =
+  /(api[-_]?key|authorization|cookie|credential|jwt|password|secret|token)/i;
+
+function isSensitiveKey(key: string) {
+  return sensitiveKeys.has(key) || sensitiveKeyPattern.test(key);
+}
 
 function redact(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -40,7 +48,7 @@ function redact(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [
       key,
-      sensitiveKeys.has(key) ? "[REDACTED]" : redact(entry)
+      isSensitiveKey(key) ? "[REDACTED]" : redact(entry)
     ])
   );
 }

@@ -18,23 +18,34 @@ import { rateLimit } from "../middlewares/rate-limit.js";
 import { requestContext } from "../middlewares/request-context.js";
 import { requestLogger } from "../middlewares/request-logger.js";
 import { tenantContext } from "../middlewares/tenant-context.js";
+import { verifyOrigin } from "../middlewares/verify-origin.js";
 import { errorHandler, notFoundHandler } from "../middlewares/error-handler.js";
 
 const corsOrigin = process.env.CORS_ORIGIN;
+const defaultDevelopmentOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
+const configuredCorsOrigins = corsOrigin
+  ? corsOrigin
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  : defaultDevelopmentOrigins;
 
 if (process.env.NODE_ENV === "production" && !corsOrigin) {
   throw new Error("CORS_ORIGIN is required in production");
 }
 
+if (configuredCorsOrigins.includes("*")) {
+  throw new Error("CORS_ORIGIN cannot include * when credentialed requests are enabled");
+}
+
 export function createServer() {
   const app = express();
-  const corsOptions = corsOrigin
-    ? { origin: corsOrigin.split(",").map((origin) => origin.trim()), credentials: true }
-    : { origin: true, credentials: true };
+  const corsOptions = { origin: configuredCorsOrigins, credentials: true };
 
   app.use(helmet());
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "1mb" }));
+  app.use(verifyOrigin);
   app.use(requestContext);
   app.use(tenantContext);
   app.use(rateLimit);

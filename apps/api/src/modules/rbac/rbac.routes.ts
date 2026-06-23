@@ -5,6 +5,7 @@ import { validate } from "../../shared/middlewares/validate.js";
 import {
   assignPermissionSchema,
   assignRoleSchema,
+  permissionCheckSchema,
   permissionSchema,
   roleSchema
 } from "./rbac.validators.js";
@@ -13,7 +14,7 @@ import { RbacController } from "./rbac.controller.js";
 export const rbacRoutes = Router();
 
 rbacRoutes.use(authenticate);
-rbacRoutes.get("/check", RbacController.check);
+rbacRoutes.get("/check", validate("query", permissionCheckSchema), RbacController.check);
 rbacRoutes.get("/roles", requirePermission("rbac", "read"), RbacController.roles.list);
 rbacRoutes.post(
   "/roles",

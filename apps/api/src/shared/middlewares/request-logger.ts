@@ -13,7 +13,7 @@ export function requestLogger(req: ApiRequest, res: Response, next: NextFunction
     logger[level]("http_request_completed", {
       requestId: req.context?.requestId,
       method: req.method,
-      path: req.originalUrl,
+      path: req.originalUrl.split("?")[0],
       statusCode,
       durationMs: Number(durationMs.toFixed(2)),
       userId: req.auth?.id,
