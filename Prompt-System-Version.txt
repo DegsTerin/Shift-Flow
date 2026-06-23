@@ -9,10 +9,10 @@ Apenas a State Machine pode alterar estado.
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.19
+PROMPT_SYSTEM_VERSION: 1.4.21
 
 Data:
-2026-06-22
+2026-06-23
 
 Status:
 Revisao operacional global incorporada aos prompts canonicos. O ShiftFlow passa a ser tratado explicitamente como plataforma corporativa de passagem de turno, registro operacional, gestao de atividades, gestao de equipes, gestao de clientes, gestao de ocorrencias, acompanhamento gerencial e monitoramento em tempo real. Atividade passa a ser definida como dossie operacional auditavel com timeline imutavel, filtros reais, busca global, CRUD completo, modal de detalhes, dashboards executivo/operacional e modo TV como criterios de evolucao pos-release.
@@ -73,6 +73,12 @@ Registrada a auditoria global e Human CI completo executados neste chat sobre o 
 
 Patch 1.4.19:
 Registradas as correcoes dos bloqueios encontrados na auditoria completa: isolamento multiempresa em Users, validacao de escopo em RBAC assignments/permissions, hardening de update/delete por companyId, segredo JWT obrigatorio em producao, CORS configuravel por CORS_ORIGIN, timeout dedicado para axe e ajuste do stress representativo. Gates finais aprovados: lint, typecheck, unit, build, Prisma, audit, overrides, seeds, Playwright completo, stress e validacao direta de cross-tenant. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.20:
+Registrada nova solicitacao em 2026-06-23 para documentar os ajustes e melhorias deste chat nos .txt. O conteudo tecnico ja estava consolidado no patch 1.4.19; esta entrada adiciona rastreabilidade da solicitacao atual nos controles canonicos atuais, sem criar novo arquivo, sem restaurar nomes numerados legados, sem executar fase, sem alterar codigo funcional e sem mudar STATE-08 PRODUCTION_RELEASE.
+
+Patch 1.4.21:
+Registrados os ajustes finais deste chat apos novas execucoes de Prompt-Audit-Human-CI.txt e correcao dos achados residuais. O registro cobre refresh token escopado por empresa, migration 20260623010000_refresh_tokens_company_scope, testes de auth, remocao/redacao de credenciais fixas em seeds/testes/documentos, Playwright carregando .env e exigindo DATABASE_URL, limpeza de artefatos gerados com chaves Next, varreduras gitleaks sem leaks no historico e worktree, gates locais aprovados e commit local dedf74f Hardening audit residual fixes. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
 
 ---
 

@@ -1071,6 +1071,32 @@ Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
 Observacoes: Documentacao incremental apenas. Nao houve nova fase executada, tooling, alteracao funcional, alteracao de schema, restauracao de nomes numerados legados, criacao de novo arquivo de controle ou recomendacao de transicao.
 
 
+Data: 2026-06-23
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Documentar os ajustes e melhorias deste chat nos .txt
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Post-audit hardening documentation capture without state transition
+Gates avaliados: Start-Here.txt; Current-State.txt; Official-State-Machine.txt; System-Guard-Rails.txt; Prompt-Audit-Human-CI.txt; Project-Snapshot.txt; Prompt-System-Version.txt; Prompt-System-Change-Log.txt; Prompt-System-Audit.txt
+Resultado dos gates: APROVADO. Ajustes finais deste chat documentados como patch 1.4.21: refresh tokens com companyId, migration 20260623010000_refresh_tokens_company_scope, testes de auth, remocao/redacao de credenciais fixas, Playwright usando .env, limpeza de .next/dist, gitleaks sem leaks e commit dedf74f Hardening audit residual fixes.
+Evidencias: npm run format:check; npm run lint; npm run typecheck; npm run prisma:validate; npm test; npx vitest run apps/api/src/modules/auth/auth.controller.test.ts apps/api/src/modules/auth/auth.service.test.ts; npm run build; npx prisma migrate status; npm audit --audit-level=high; npm run audit:overrides; npm run test:e2e; gitleaks detect --source=/repo --redact --verbose; gitleaks detect --source=/repo --no-git --redact --verbose; git commit dedf74f.
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Registro documental pos-commit. Nao houve nova transicao de estado. Pendencia operacional externa permanece confirmar secrets reais no GitHub/CI remoto quando o ambiente remoto estiver disponivel.
+
+
+Data: 2026-06-23
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: Documentar os ajustes e melhorias deste chat nos .txt
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Prompt documentation incremental capture without state transition
+Gates avaliados: Start-Here.txt; Current-State.txt; Official-State-Machine.txt; System-Guard-Rails.txt; Project-Snapshot.txt; Prompt-System-Version.txt; Prompt-System-Change-Log.txt; Prompt-System-Audit.txt
+Resultado dos gates: APROVADO. Patch documental 1.4.20 aplicado como delta de rastreabilidade da solicitacao atual. As correcoes tecnicas e evidencias continuam consolidadas no patch 1.4.19.
+Evidencias: Current-State.txt; Project-Snapshot.txt; State-Transition-Log.txt; Prompt-System-Version.txt; Prompt-System-Change-Log.txt; Prompt-System-Audit.txt.
+Responsavel: Codex
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Documentacao incremental apenas. Nao houve nova fase executada, tooling, alteracao funcional, alteracao de schema, restauracao de nomes numerados legados, criacao de novo arquivo de controle ou recomendacao de transicao.
+
+
 Data: 2026-06-22
 Estado anterior: STATE-08 PRODUCTION_RELEASE
 Estado solicitado: Auditar o projeto inteiro e executar Human CI completo; depois documentar os ajustes nos .txt

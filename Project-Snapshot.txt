@@ -859,6 +859,23 @@ RISCOS
     * Validacao direta por supertest confirmou: PATCH /api/users/:id de usuario de outra empresa retorna 404; POST /api/rbac/assignments para outra empresa retorna 403.
     * Gates finais aprovados: npm run lint; npm run typecheck; npm test; npm run build; npm run prisma:validate; npx prisma migrate status; npx prisma migrate deploy; npm audit --audit-level=moderate; npm run audit:overrides; node prisma/integration-seed.mjs; npm run homologation:seed; npm run test:e2e; npm run test:load:stress.
   * O registro 1.4.19 documenta correcoes ja executadas neste chat e nao muda STATE-08 PRODUCTION_RELEASE.
+  * A partir do patch 1.4.20, fica registrada nova solicitacao em 2026-06-23 para documentar os ajustes e melhorias deste chat nos .txt:
+    * Os ajustes tecnicos permanecem os registrados no patch 1.4.19: isolamento multiempresa em Users, validacao de escopo RBAC, update/delete por companyId, JWT/CORS endurecidos, axe/stress estabilizados e Human CI local aprovado.
+    * Esta solicitacao atual nao executou nova fase, nao alterou codigo funcional, nao criou migration, nao alterou package.json, nao criou novo controle e nao recomendou transicao.
+    * A aba legada "00 - Start Here.txt" continua sendo tratada como referencia ao Start-Here.txt canonico atual.
+  * O registro 1.4.20 e apenas documental e nao muda STATE-08 PRODUCTION_RELEASE.
+  * A partir do patch 1.4.21, ficam registrados os ajustes finais deste chat:
+    * Prompt-Audit-Human-CI.txt foi reexecutado apos as correcoes residuais.
+    * RefreshToken passou a preservar companyId e recebeu relacao Company/RefreshToken no Prisma.
+    * Migration 20260623010000_refresh_tokens_company_scope foi criada e aplicada localmente.
+    * Testes apps/api/src/modules/auth/auth.controller.test.ts e apps/api/src/modules/auth/auth.service.test.ts foram adicionados.
+    * Credenciais fixas foram removidas/redigidas de seed, testes E2E e documentos historicos; E2E passou a usar E2E_PASSWORD com fallback placeholder.
+    * playwright.config.ts passou a carregar .env e exigir DATABASE_URL, evitando URL local com senha hardcoded no arquivo versionado.
+    * Artefatos gerados apps/web/.next e dist foram removidos apos build/E2E para evitar chaves Next locais no workspace.
+    * Gitleaks no historico Git e no worktree atual retornou no leaks found apos a limpeza de artefatos.
+    * Gates aprovados: format:check, lint, typecheck, prisma:validate, unit tests, auth tests, build, migrate status, npm audit, audit:overrides e test:e2e.
+    * Commit local criado: dedf74f Hardening audit residual fixes.
+  * O registro 1.4.21 documenta alteracoes ja executadas neste chat e nao muda STATE-08 PRODUCTION_RELEASE.
 
 ---
 

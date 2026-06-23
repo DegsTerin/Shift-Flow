@@ -23,7 +23,7 @@ Bloqueios:
 Nenhum bloqueio operacional registrado.
 
 Ultima atualizacao:
-2026-06-22
+2026-06-23
 
 Observacao documental:
 Ajustes e melhorias dos .txt foram registrados em 2026-06-22 como patch documental do sistema de prompts. Esta atualizacao nao altera o estado atual e nao recomenda transicao.
@@ -42,6 +42,8 @@ Patch documental 1.4.14 registra os ajustes funcionais deste chat: execucao de R
 Patch documental 1.4.16 registra os ajustes funcionais mais recentes deste chat: acesso local/rede, layout de menu/cabecalho, logout, RBAC hierarquico, Gestao de Clientes, remocao de Equipe em Turnos, limpeza de atividades, correcao de replicacao por usuarios/tenant e indices unicos parciais para Equipes e Clientes. O estado atual permanece STATE-08 PRODUCTION_RELEASE; este registro nao recomenda transicao.
 Patch documental 1.4.18 registra a auditoria global e Human CI completo executados neste chat. O resultado local final foi aprovado com observacao de flutuacao inicial do p95 no teste de carga Playwright; o estado atual permanece STATE-08 PRODUCTION_RELEASE e nenhuma transicao foi recomendada.
 Patch documental 1.4.19 registra as correcoes aplicadas apos a auditoria completa: Users passou a validar vinculo com a empresa ativa, RBAC passou a bloquear atribuicoes fora do escopo da empresa ativa, update/delete base passaram a respeitar companyId, JWT/CORS foram endurecidos para producao/configuracao, e os gates Playwright/stress foram estabilizados. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.20 registra nova solicitacao em 2026-06-23 para documentar os ajustes e melhorias deste chat. O registro e apenas incremental e confirma que os ajustes tecnicos permanecem documentados nos controles canonicos atuais; o estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.21 registra os ajustes finais deste chat: execucao repetida de Prompt-Audit-Human-CI.txt, correcao de achados residuais, refresh token com companyId, migration 20260623010000_refresh_tokens_company_scope, testes de auth, remocao/redacao de credenciais fixas, limpeza de artefatos gerados, gitleaks historico/worktree sem leaks, gates locais aprovados e commit dedf74f Hardening audit residual fixes. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 
 ---
 

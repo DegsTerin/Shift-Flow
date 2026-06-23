@@ -311,3 +311,21 @@ Resumo: Corrigidos bloqueios da auditoria completa: isolamento multiempresa em U
 Impacto: Remove bloqueios de Human CI completo local e reduz risco de cross-tenant/RBAC indevido sem criar nova fase ou transicao de estado.
 Conflitos resolvidos: Users sem escopo em get/update/remove, RBAC assignments aceitando companyId arbitrario, BaseRepository.update ignorando companyId, segredo JWT default em producao, CORS aberto sem configuracao e instabilidade do gate de stress.
 Estado afetado: STATE-08 PRODUCTION_RELEASE
+
+Data: 2026-06-23
+Versao: 1.4.20
+Tipo: patch
+Arquivos alterados: Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt
+Resumo: Registrada nova solicitacao para documentar os ajustes e melhorias deste chat nos .txt canonicos atuais. O registro referencia as correcoes e evidencias ja consolidadas no patch 1.4.19.
+Impacto: Mantem rastreabilidade da solicitacao atual sem alterar codigo, schema, tooling, fase ou estado.
+Conflitos resolvidos: pedido repetido de documentacao tratado como delta incremental nos controles existentes, evitando novo arquivo de controle e evitando restaurar nomes numerados legados.
+Estado afetado: STATE-08 PRODUCTION_RELEASE
+
+Data: 2026-06-23
+Versao: 1.4.21
+Tipo: patch
+Arquivos alterados: Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Automatic-Review-Audit-Testing-Homologation.txt, Integration-Execution-Report.txt, Phase-Handoff-Template.txt, Testing-Homologation-Report.txt
+Resumo: Documentados os ajustes finais deste chat apos novas execucoes de Prompt-Audit-Human-CI.txt, correcao dos achados residuais e commit local dedf74f Hardening audit residual fixes.
+Impacto: Mantem rastreabilidade do hardening residual: refresh tokens com companyId, migration de escopo, testes de auth, remocao/redacao de segredos fixos, Playwright usando .env, limpeza de artefatos gerados, gitleaks historico/worktree sem leaks e gates locais aprovados.
+Conflitos resolvidos: achados residuais de CI, Prisma relation incompleta, testes obsoletos que dependiam de credenciais demo pre-preenchidas, segredos fixos em seeds/testes/documentos e artefatos Next gerados com chaves locais.
+Estado afetado: STATE-08 PRODUCTION_RELEASE

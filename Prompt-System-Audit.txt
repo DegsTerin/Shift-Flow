@@ -158,6 +158,13 @@ Correcoes aplicadas:
 * Current State, snapshot, changelog, auditoria, log de transicao e relatorios/gates de production release receberam registro das correcoes de defeitos pos-auditoria.
 * Confirmado que os bloqueios foram corrigidos: Users respeita empresa ativa em get/update/remove; RBAC valida empresa, papel, permissao e vinculo; BaseRepository.update respeita companyId; JWT nao aceita fallback em producao; CORS_ORIGIN foi documentado; stress e axe foram estabilizados.
 * Confirmado por supertest que tentativa cross-tenant em Users retorna 404 e tentativa RBAC para outra empresa retorna 403.
+* Versao do sistema de prompts atualizada para 1.4.20.
+* Current State, snapshot, changelog, auditoria e log de transicao receberam registro da nova solicitacao de 2026-06-23 para documentar os ajustes e melhorias deste chat.
+* Confirmado que a solicitacao atual foi tratada como delta documental, sem nova fase, sem alteracao funcional, sem novo controle, sem restaurar nomes numerados legados e sem transicao de estado.
+* Versao do sistema de prompts atualizada para 1.4.21.
+* Current State, snapshot, changelog, auditoria e log de transicao receberam registro dos ajustes finais deste chat.
+* Confirmado que Prompt-Audit-Human-CI.txt foi reexecutado, os achados residuais foram corrigidos, a migration 20260623010000_refresh_tokens_company_scope foi criada, os testes de auth foram adicionados, credenciais fixas foram removidas/redigidas, Playwright passou a exigir DATABASE_URL via ambiente, artefatos gerados foram limpos e o commit dedf74f foi criado.
+* Confirmado por evidencias locais que format:check, lint, typecheck, prisma validate, unit tests, auth tests, build, migrate status, npm audit, overrides, E2E e gitleaks historico/worktree passaram.
 Risco:
 * Alteracoes funcionais futuras continuam dependendo de fase/estado permitido, gates e evidencias.
 * Referencias manuais aos 17 prompts antigos podem causar confusao se forem usadas como fonte operacional sem consultar Start-Here.txt e Prompt-Index.txt.
@@ -166,11 +173,12 @@ Risco:
 * Qualquer mencao historica a STATE-06, STATE-07 ou nomes antigos de arquivos deve ser interpretada pelo contexto do historico, nao como estado atual.
 * Pedidos repetidos de documentacao podem gerar redundancia se nao forem tratados como incrementos de rastreabilidade nos controles canonicos existentes.
 * IDEs podem preservar abas antigas apos renomeacoes; essas abas devem ser tratadas como referencias legadas, nao como demanda para recriar arquivos antigos.
-* Alteracoes funcionais pos-release ainda dependem de commit/push conforme politica de entrega e remote Git disponivel.
+* Alteracoes funcionais pos-release ainda dependem de push conforme politica de entrega e remote Git disponivel.
+* Secrets reais do GitHub/CI remoto nao podem ser validados localmente sem acesso ao ambiente remoto; a verificacao local confirma apenas ausencia de leaks no historico/worktree.
 Recomendacao:
 * Continuar usando Start-Here.txt como entrypoint e aplicar Conflict-Resolution-Policy.txt para qualquer conflito novo.
 * Nao criar novos arquivos de controle para solicitacoes repetidas de documentacao quando changelog, snapshot, auditoria, versionamento, README e log de transicao bastarem.
-* Versionar a rodada funcional 1.4.14 em commit dedicado antes de entrega remota.
+* Antes de entrega remota, confirmar que os secrets POSTGRES_PASSWORD, DATABASE_URL e JWT_SECRET existem no GitHub/CI remoto.
 
 ---
 
