@@ -7,8 +7,20 @@ describe("ShiftFlow API", () => {
     const response = await request(app).get("/health");
 
     expect(response.status).toBe(200);
+    expect(response.headers["x-request-id"]).toBeDefined();
     expect(response.body).toEqual({
       status: "ok",
+      service: "shiftflow-api"
+    });
+  });
+
+  it("serves readiness status", async () => {
+    const response = await request(app).get("/ready").set("x-request-id", "test-request-id");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["x-request-id"]).toBe("test-request-id");
+    expect(response.body).toMatchObject({
+      status: "ready",
       service: "shiftflow-api"
     });
   });

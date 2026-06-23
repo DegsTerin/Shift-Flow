@@ -58,19 +58,13 @@ jobs:
         run: npm run homologation:seed
 
       - name: Audit dependencies
-        run: npm audit --audit-level=moderate
+        run: npm run security:audit
 
-      - name: Verify overrides
-        run: npm run audit:overrides
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Quality gates
+        run: npm run quality
 
       - name: Unit tests
-        run: npm test
+        run: npm run test:unit
 
       - name: Build
         run: npm run build

@@ -1,7 +1,6 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import morgan from "morgan";
 
 import { authRoutes } from "../../modules/auth/auth.routes.js";
 import { clientRoutes } from "../../modules/clients/clients.routes.js";
@@ -16,6 +15,7 @@ import { dashboardRoutes } from "../../modules/dashboard/dashboard.routes.js";
 import { auditRoutes } from "../../modules/audit/audit.routes.js";
 import { rbacRoutes } from "../../modules/rbac/rbac.routes.js";
 import { requestContext } from "../middlewares/request-context.js";
+import { requestLogger } from "../middlewares/request-logger.js";
 import { tenantContext } from "../middlewares/tenant-context.js";
 import { errorHandler, notFoundHandler } from "../middlewares/error-handler.js";
 
@@ -34,12 +34,20 @@ export function createServer() {
   app.use(helmet());
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "1mb" }));
-  app.use(morgan("dev"));
   app.use(requestContext);
   app.use(tenantContext);
+  app.use(requestLogger);
 
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok", service: "shiftflow-api" });
+  });
+
+  app.get("/ready", (_req, res) => {
+    res.status(200).json({
+      status: "ready",
+      service: "shiftflow-api",
+      environment: process.env.NODE_ENV ?? "development"
+    });
   });
 
   app.use("/api/auth", authRoutes);

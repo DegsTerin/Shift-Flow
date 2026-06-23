@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { AppError, conflict } from "../errors/app-error.js";
+import type { ApiRequest } from "../http/request-types.js";
+import { logger } from "../observability/logger.js";
 
 export function notFoundHandler(req: Request, res: Response) {
   res.status(404).json({
@@ -10,9 +12,20 @@ export function notFoundHandler(req: Request, res: Response) {
   });
 }
 
-export function errorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(error: unknown, req: Request, res: Response, _next: NextFunction) {
   void _next;
+  const apiReq = req as ApiRequest;
+
   if (error instanceof AppError) {
+    if (error.statusCode >= 500) {
+      logger.error("application_error", {
+        requestId: apiReq.context?.requestId,
+        code: error.code,
+        statusCode: error.statusCode,
+        error
+      });
+    }
+
     res.status(error.statusCode).json({
       error: {
         code: error.code,
@@ -39,6 +52,11 @@ export function errorHandler(error: unknown, _req: Request, res: Response, _next
     });
     return;
   }
+
+  logger.error("unhandled_error", {
+    requestId: apiReq.context?.requestId,
+    error
+  });
 
   res.status(500).json({
     error: {
