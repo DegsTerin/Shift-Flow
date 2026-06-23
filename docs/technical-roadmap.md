@@ -5,7 +5,9 @@
 - Add service-level tests for every API module that mutates tenant-scoped data.
 - Introduce a typed Prisma access layer that reduces `unknown` usage while preserving generated-client loading.
 - Add OpenAPI documentation for public API contracts.
-- Add request body size and rate-limit policies per route group.
+- Split `record-modal.tsx` into entity-specific form/detail components.
+- Split `page.tsx` into session, data-loading, layout, and view-routing hooks/components.
+- Add request body size and route-specific rate-limit policies per route group.
 - Add production deployment manifests for the selected hosting target.
 
 ## Mid Term
@@ -15,6 +17,7 @@
 - Add contract tests between `apps/web` and `apps/api`.
 - Add migration rollback playbooks for high-risk schema changes.
 - Add a security review checklist for authentication, refresh tokens, cookies, CORS, and tenant headers.
+- Move rate limiting to a shared external store for horizontally scaled API deployments.
 
 ## Long Term
 
@@ -22,4 +25,4 @@
 - Add event-driven processing for notifications and long-running operational workflows.
 - Add feature flags for controlled rollout of high-impact behavior.
 - Add SLOs and alerting policies for core operational flows.
-- Add a formal architecture decision record process under `docs/adr/`.
+- Continue architecture decision records under `docs/adr/`.

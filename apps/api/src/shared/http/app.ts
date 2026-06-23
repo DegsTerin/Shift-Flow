@@ -14,6 +14,7 @@ import { reportRoutes } from "../../modules/reports/reports.routes.js";
 import { dashboardRoutes } from "../../modules/dashboard/dashboard.routes.js";
 import { auditRoutes } from "../../modules/audit/audit.routes.js";
 import { rbacRoutes } from "../../modules/rbac/rbac.routes.js";
+import { rateLimit } from "../middlewares/rate-limit.js";
 import { requestContext } from "../middlewares/request-context.js";
 import { requestLogger } from "../middlewares/request-logger.js";
 import { tenantContext } from "../middlewares/tenant-context.js";
@@ -36,6 +37,7 @@ export function createServer() {
   app.use(express.json({ limit: "1mb" }));
   app.use(requestContext);
   app.use(tenantContext);
+  app.use(rateLimit);
   app.use(requestLogger);
 
   app.get("/health", (_req, res) => {

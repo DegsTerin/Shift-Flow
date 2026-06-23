@@ -34,6 +34,8 @@ npm run test:a11y
 npm run test:load:stress
 ```
 
+Vitest unit tests are configured in `vitest.config.ts` and intentionally exclude Playwright specs under `tests/e2e`.
+
 ## Code Review
 
 Reviewers should check:
@@ -44,6 +46,7 @@ Reviewers should check:
 - Errors return stable codes and safe messages.
 - Logs include enough context without secrets or personal tokens.
 - New dependencies are necessary and documented.
+- Rate limit, CORS, and tenant header changes include security impact notes.
 
 ## Branching and Versioning
 
@@ -62,3 +65,10 @@ Update docs when changing:
 - Public API behavior.
 - Security, RBAC, or tenant behavior.
 - Operational diagnostics.
+
+## Governance Files
+
+- `.github/pull_request_template.md` defines required validation and risk review.
+- `.github/CODEOWNERS` is present as a commented template until real GitHub owners are known.
+- `SECURITY.md` defines the vulnerability handling policy.
+- `docs/adr/` stores architecture decision records.

@@ -16,6 +16,11 @@ This pass focused on professionalizing the existing structure without changing b
 - Consolidated GitHub Actions quality gates around reusable npm scripts.
 - Added README, architecture documentation, development standards, and technical roadmap.
 - Added `LOG_LEVEL` to `.env.example`.
+- Added configurable API rate limiting and response headers.
+- Added `vitest.config.ts` so unit tests do not collect Playwright specs.
+- Removed unused UI/form dependencies not imported by the application.
+- Added `.editorconfig`, pull request template, CODEOWNERS template, `CONTRIBUTING.md`, `SECURITY.md`, and the first ADR.
+- Added `API_RATE_LIMIT_WINDOW_MS` and `API_RATE_LIMIT_MAX` to `.env.example`.
 
 ## Problems Found
 
@@ -25,20 +30,27 @@ This pass focused on professionalizing the existing structure without changing b
 - CI duplicated individual quality commands instead of delegating to reusable local scripts.
 - Root-level documentation was missing a professional onboarding entry point.
 - Development conventions existed implicitly in code but were not documented for new contributors.
+- Several UI/form packages were present in `package.json` without matching imports.
+- Vitest had no dedicated config separating unit tests from Playwright tests.
+- The repository had no formal security policy, PR checklist, or ADR structure.
+- API abuse protection was not represented in application middleware.
 
 ## Preserved Behavior
 
 - Existing route paths were preserved.
 - The `/health` response body remains unchanged.
 - Authentication, RBAC, tenant scoping, Prisma schema, migrations, and business services were not behaviorally changed.
-- Existing user-modified state files were left intact.
+- Existing route contracts were preserved, with additional operational headers only.
 
 ## Current Architecture Assessment
 
 The API already follows a strong modular pattern with routes, controllers, validators, services, repositories, and DTOs per domain module. The next architectural gains should come from deeper typing of repository delegates, broader service tests, and clearer deployment packaging rather than large folder movement.
+
+The frontend is functional but has large files, especially `apps/web/app/components/record-modal.tsx` and `apps/web/app/page.tsx`. Those should be decomposed in a focused UI refactor with visual regression checks instead of being moved aggressively in this systems pass.
 
 ## Remaining Risks
 
 - Some repository abstractions still rely on `unknown` because the Prisma client is dynamically loaded from generated output.
 - E2E and load checks depend on a fully seeded database and running services.
 - Production deployment descriptors for the web and API runtime are not yet represented as infrastructure code.
+- The in-memory rate limiter is appropriate for a single API process; distributed deployments should use Redis or an equivalent shared store.

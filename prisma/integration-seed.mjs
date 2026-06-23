@@ -69,7 +69,21 @@ async function main() {
     integrationUser.password,
     Number(process.env.SEED_BCRYPT_ROUNDS ?? 4)
   );
-  const admin = await findOrCreate(
+
+  async function syncSeedPassword(user) {
+    const passwordMatches = await bcrypt.compare(integrationUser.password, user.passwordHash);
+    if (passwordMatches) return user;
+
+    return prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordChangedAt: now
+      }
+    });
+  }
+
+  let admin = await findOrCreate(
     prisma.user,
     { email: integrationUser.email },
     {
@@ -83,7 +97,6 @@ async function main() {
       passwordChangedAt: now
     },
     {
-      passwordHash,
       displayName: "Integration Admin",
       jobTitle: "Operations Lead",
       status: "ACTIVE",
@@ -92,8 +105,9 @@ async function main() {
       deletedAt: null
     }
   );
+  admin = await syncSeedPassword(admin);
 
-  const analyst = await findOrCreate(
+  let analyst = await findOrCreate(
     prisma.user,
     { email: "integration.analyst@shiftflow.local" },
     {
@@ -107,13 +121,13 @@ async function main() {
       passwordChangedAt: now
     },
     {
-      passwordHash,
       displayName: "Integration Analyst",
       jobTitle: "Support Analyst",
       status: "ACTIVE",
       deletedAt: null
     }
   );
+  analyst = await syncSeedPassword(analyst);
 
   await ensureLink(
     prisma.userCompany,

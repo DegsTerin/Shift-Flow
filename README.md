@@ -24,6 +24,18 @@ tests/e2e/    Playwright end-to-end, accessibility, and load checks.
 
 ## Local Setup
 
+Quick start on Windows PowerShell:
+
+```powershell
+npm start
+```
+
+Stop everything:
+
+```powershell
+npm stop
+```
+
 1. Install dependencies:
 
 ```bash
@@ -59,6 +71,37 @@ npm run dev:api
 npm run dev:web
 ```
 
+## Platform Control
+
+Use these scripts to manage the local platform:
+
+```bash
+npm run start
+npm run stop
+npm run restart
+npm run status
+```
+
+`npm run start`, `npm run stop`, `npm run restart`, and `npm run status` release the terminal when the action finishes. Start and restart do not wait for health checks unless you pass `-Wait`.
+
+Logs and PID state are written under `dist/runtime`.
+
+PowerShell options are available directly:
+
+```powershell
+.\scripts\start.ps1 -SkipInstall -SkipSeed
+.\scripts\stop.ps1 -KeepDatabase
+.\scripts\restart.ps1 -SkipInstall -SkipSeed -KeepDatabase
+```
+
+The scripts do not open a browser by default. Use `-OpenBrowser` with `start.ps1` or `restart.ps1` only when you want that behavior.
+
+Use `-Attach` with `start.ps1` or `restart.ps1` only when you want the script to stay attached and stream logs.
+
+Use `-Wait` with `start.ps1` or `restart.ps1` only when you want the script to wait until Web and API respond.
+
+The integration seed keeps seeded users aligned with `E2E_PASSWORD` and does not print passwords in logs.
+
 ## Quality Gates
 
 Run the standard local gate before opening a pull request:
@@ -83,10 +126,13 @@ npm run security:audit
 - Liveness: `GET /health`
 - Readiness: `GET /ready`
 - Request correlation: every response includes `x-request-id`.
+- Rate limiting: every API response includes `x-rate-limit-*` headers.
 - Logs: API logs are structured JSON and include `requestId`, HTTP method, path, status, latency, user, and company context when available.
 
 ## Documentation
 
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
 - [Architecture](docs/architecture.md)
 - [Development Standards](docs/development-standards.md)
 - [Production Runbook](docs/production-runbook.md)

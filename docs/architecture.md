@@ -27,7 +27,7 @@ Shared infrastructure is kept in `apps/api/src/shared`:
 - `errors`: application error contract.
 - `http`: server factory, response helpers, pagination, params, async handlers.
 - `lib`: Prisma access.
-- `middlewares`: authentication, authorization, validation, tenant, request context, error handling, request logging.
+- `middlewares`: authentication, authorization, validation, tenant, request context, rate limiting, error handling, request logging.
 - `observability`: structured logger.
 - `repositories` and `services`: reusable persistence and service primitives.
 
@@ -42,6 +42,14 @@ Shared infrastructure is kept in `apps/api/src/shared`:
 ## Observability
 
 The API emits structured JSON logs. Each request gets a `requestId`, returned as `x-request-id`, and request completion logs include status code and duration. Error logs include normalized error metadata and hide stack traces in production.
+
+## Security Controls
+
+- Authentication uses JWT access tokens and refresh-token rotation.
+- Authorization is enforced by RBAC middleware and module services.
+- Tenant context is explicit through request headers and service scope checks.
+- Rate limiting is configurable through `API_RATE_LIMIT_WINDOW_MS` and `API_RATE_LIMIT_MAX`.
+- Production startup requires explicit CORS origin and JWT secrets.
 
 ## Delivery Flow
 

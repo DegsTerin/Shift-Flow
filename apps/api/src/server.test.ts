@@ -1,8 +1,13 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { app } from "./server.js";
+import { resetRateLimitBuckets } from "./shared/middlewares/rate-limit.js";
 
 describe("ShiftFlow API", () => {
+  afterEach(() => {
+    resetRateLimitBuckets();
+  });
+
   it("serves health status", async () => {
     const response = await request(app).get("/health");
 
@@ -37,5 +42,14 @@ describe("ShiftFlow API", () => {
 
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("exposes rate limit headers", async () => {
+    const response = await request(app).get("/health");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["x-rate-limit-limit"]).toBeDefined();
+    expect(response.headers["x-rate-limit-remaining"]).toBeDefined();
+    expect(response.headers["x-rate-limit-reset"]).toBeDefined();
   });
 });

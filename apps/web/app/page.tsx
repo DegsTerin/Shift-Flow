@@ -88,6 +88,7 @@ export default function Page() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [session, setSession] = useState<LoginResponse | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [restoringSession, setRestoringSession] = useState(true);
   const [view, setView] = useState<View>("dashboard");
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [search, setSearch] = useState("");
@@ -216,7 +217,8 @@ export default function Page() {
       body: JSON.stringify({})
     })
       .then(setSession)
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setRestoringSession(false));
   }, []);
 
   useEffect(() => {
@@ -347,6 +349,20 @@ export default function Page() {
   function toggleMonitorMode() {
     setDrawerOpen(false);
     setMonitorMode((enabled) => !enabled);
+  }
+
+  if (restoringSession && !session) {
+    return (
+      <main className="app-shell auth-shell" data-theme={theme}>
+        <section className="auth-panel">
+          <div className="brand-mark">
+            <Workflow size={28} />
+            <span>{t.app}</span>
+          </div>
+          <p className="guard-note">{t.loading}</p>
+        </section>
+      </main>
+    );
   }
 
   if (!session) {

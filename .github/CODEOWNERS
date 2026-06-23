@@ -1,0 +1,8 @@
+# Add real GitHub users or teams before enabling ownership enforcement.
+# Examples:
+# * @your-org/maintainers
+# /apps/api/ @your-org/backend
+# /apps/web/ @your-org/frontend
+# /prisma/ @your-org/backend
+# /docs/ @your-org/maintainers
+# /.github/ @your-org/maintainers

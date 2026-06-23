@@ -1,0 +1,18 @@
+## Summary
+
+-
+
+## Validation
+
+- [ ] `npm run quality`
+- [ ] `npm run test:unit`
+- [ ] `npm run build`
+- [ ] E2E or load checks when the change touches user workflows
+
+## Risk Review
+
+- [ ] Business behavior is preserved or the behavior change is documented.
+- [ ] Tenant, RBAC, authentication, and authorization impact was reviewed.
+- [ ] Database migrations include operational notes when applicable.
+- [ ] Logs, errors, and metrics avoid secrets and sensitive tokens.
+- [ ] Documentation was updated when setup, deployment, or API behavior changed.
