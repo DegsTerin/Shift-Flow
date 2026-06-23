@@ -42,7 +42,7 @@ npm stop
 npm ci
 ```
 
-2. Copy `.env.example` to `.env` and set local secrets.
+2. Copy `.env.example` to `.env` and set local secrets. `POSTGRES_PASSWORD` must match the password embedded in `DATABASE_URL`.
 
 3. Start PostgreSQL:
 
@@ -119,7 +119,10 @@ npm run test:e2e
 npm run test:a11y
 npm run test:load
 npm run security:audit
+npm run clean:artifacts
 ```
+
+`npm run clean:artifacts` removes local Next/Playwright build outputs such as `.next` and `dist`. These directories are ignored by Git and excluded from gitleaks because they contain generated runtime material, including ephemeral Next keys.
 
 ## API Operations
 

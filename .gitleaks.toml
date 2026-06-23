@@ -1,0 +1,8 @@
+[allowlist]
+description = "Ignore generated local artifacts that are already excluded from Git."
+paths = [
+  '''(^|/)apps/web/\.next/''',
+  '''(^|/)dist/''',
+  '''(^|/)generated/''',
+  '''(^|/)node_modules/'''
+]

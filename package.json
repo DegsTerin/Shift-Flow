@@ -16,6 +16,7 @@
     "platform:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1",
     "platform:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restart.ps1",
     "platform:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/status.ps1",
+    "clean:artifacts": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/clean-artifacts.ps1",
     "build": "npm run build:api && npm run build:web",
     "build:api": "tsc -p apps/api/tsconfig.json",
     "build:web": "next build apps/web",
