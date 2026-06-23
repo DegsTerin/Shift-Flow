@@ -15,7 +15,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: shiftflow
-          POSTGRES_PASSWORD: shiftflow
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: shiftflow
         ports:
           - 5432:5432
@@ -26,8 +26,8 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://shiftflow:shiftflow@localhost:5432/shiftflow?schema=public
-      JWT_SECRET: ci-local-secret
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
       API_PORT: 3001
       NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
       PLAYWRIGHT_CHROME_EXECUTABLE_PATH: /usr/bin/google-chrome
