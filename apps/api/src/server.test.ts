@@ -67,7 +67,7 @@ describe("ShiftFlow API", () => {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const response = await request(app).post("/api/auth/login").send({
         email: "missing@example.com",
-        password: "password123"
+        password: "invalid-login-password"
       });
 
       expect(response.status).not.toBe(429);
@@ -75,7 +75,7 @@ describe("ShiftFlow API", () => {
 
     const response = await request(app).post("/api/auth/login").send({
       email: "missing@example.com",
-      password: "password123"
+      password: "invalid-login-password"
     });
 
     expect(response.status).toBe(429);

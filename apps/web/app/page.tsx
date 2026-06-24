@@ -68,10 +68,6 @@ const menu: Array<{ id: View; icon: typeof LayoutDashboard; resource: string; ac
   { id: "settings", icon: Settings, resource: "rbac", action: "read" }
 ];
 
-const demoCredentialsEnabled = process.env.NEXT_PUBLIC_DEMO_CREDENTIALS === "true";
-const demoEmail = process.env.NEXT_PUBLIC_DEMO_EMAIL ?? "";
-const demoPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD ?? "";
-
 function parseStoredJson(value: string | null) {
   if (!value) return null;
   try {
@@ -385,7 +381,6 @@ export default function Page() {
                 autoComplete="username"
                 name="email"
                 type="email"
-                defaultValue={demoCredentialsEnabled ? demoEmail : ""}
                 required
               />
             </label>
@@ -395,7 +390,6 @@ export default function Page() {
                 autoComplete="current-password"
                 name="password"
                 type="password"
-                defaultValue={demoCredentialsEnabled ? demoPassword : ""}
                 required
               />
             </label>

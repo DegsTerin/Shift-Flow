@@ -42,7 +42,7 @@ npm stop
 npm ci
 ```
 
-2. Copy `.env.example` to `.env` and set local secrets. `POSTGRES_PASSWORD` must match the password embedded in `DATABASE_URL`.
+2. Copy `.env.example` to `.env` and set local infrastructure secrets. `POSTGRES_PASSWORD` must match the password embedded in `DATABASE_URL`. Do not store end-user passwords in `.env`.
 
 3. Start PostgreSQL:
 
@@ -100,7 +100,7 @@ Use `-Attach` with `start.ps1` or `restart.ps1` only when you want the script to
 
 Use `-Wait` with `start.ps1` or `restart.ps1` only when you want the script to wait until Web and API respond.
 
-The integration seed keeps seeded users aligned with `E2E_PASSWORD` and does not print passwords in logs.
+The integration seed requires `E2E_EMAIL` and `E2E_PASSWORD` at runtime, hashes the password with bcrypt before storage, and does not print credentials in logs. Provide these values only through a local shell or CI secret for the seed command; do not commit them to `.env` or `.env.example`.
 
 ## Quality Gates
 

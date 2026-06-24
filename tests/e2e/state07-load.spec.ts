@@ -1,9 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 const apiBaseUrl = process.env.API_BASE_URL ?? "http://localhost:3001";
+
+function requiredE2eEnv(name: "E2E_EMAIL" | "E2E_PASSWORD") {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is required to run authenticated E2E tests.`);
+  }
+  return value;
+}
+
 const credentials = {
-  email: process.env.E2E_EMAIL ?? "integration.admin@shiftflow.local",
-  password: process.env.E2E_PASSWORD ?? "replace-with-a-local-e2e-password"
+  email: requiredE2eEnv("E2E_EMAIL"),
+  password: requiredE2eEnv("E2E_PASSWORD")
 };
 const concurrency = Number(process.env.LOAD_CONCURRENCY ?? 8);
 const minimumActivities = Number(process.env.LOAD_MIN_ACTIVITIES ?? 120);

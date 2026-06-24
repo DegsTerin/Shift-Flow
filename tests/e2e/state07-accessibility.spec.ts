@@ -2,9 +2,17 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
+function requiredE2eEnv(name: "E2E_EMAIL" | "E2E_PASSWORD") {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is required to run authenticated E2E tests.`);
+  }
+  return value;
+}
+
 const credentials = {
-  email: process.env.E2E_EMAIL ?? "integration.admin@shiftflow.local",
-  password: process.env.E2E_PASSWORD ?? "replace-with-a-local-e2e-password"
+  email: requiredE2eEnv("E2E_EMAIL"),
+  password: requiredE2eEnv("E2E_PASSWORD")
 };
 
 async function login(page: Page) {

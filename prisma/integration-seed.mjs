@@ -15,9 +15,24 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString })
 });
 
+function requiredSeedEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `${name} is required at seed runtime and must not be committed to .env files.`
+    );
+  }
+  return value;
+}
+
+function bcryptRounds() {
+  const rounds = Number(process.env.SEED_BCRYPT_ROUNDS ?? 12);
+  return Number.isFinite(rounds) && rounds >= 10 ? rounds : 12;
+}
+
 const integrationUser = {
-  email: "integration.admin@shiftflow.local",
-  password: process.env.E2E_PASSWORD ?? "replace-with-a-local-e2e-password"
+  email: requiredSeedEnv("E2E_EMAIL"),
+  password: requiredSeedEnv("E2E_PASSWORD")
 };
 
 async function findOrCreate(delegate, where, create, update = {}) {
@@ -65,10 +80,7 @@ async function main() {
     }
   );
 
-  const passwordHash = await bcrypt.hash(
-    integrationUser.password,
-    Number(process.env.SEED_BCRYPT_ROUNDS ?? 4)
-  );
+  const passwordHash = await bcrypt.hash(integrationUser.password, bcryptRounds());
 
   async function syncSeedPassword(user) {
     const passwordMatches = await bcrypt.compare(integrationUser.password, user.passwordHash);

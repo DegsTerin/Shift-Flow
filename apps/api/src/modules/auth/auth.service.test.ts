@@ -11,7 +11,7 @@ describe("AuthService", () => {
       findUserByEmail: vi.fn().mockResolvedValue({
         id: "user-1",
         email: "user@example.com",
-        passwordHash: "$2a$10$w4TDqLx2FJbuC/0x2GOVU.q9NqnN5C5NQkDZ8T3.YqizzBi8G7e2C", // bcrypt hash for "password123"
+        passwordHash: "stored-bcrypt-password-hash",
         displayName: "Jane Doe",
         status: "ACTIVE",
         companies: [{ companyId: "company-a", isDefault: true }, { companyId: "company-b" }],
@@ -33,7 +33,7 @@ describe("AuthService", () => {
     } as ApiRequest;
     const input: LoginDto = {
       email: "user@example.com",
-      password: "password123",
+      password: "test-login-password",
       companyId: "company-b"
     };
 
