@@ -2,7 +2,15 @@
 
 import { BarChart3 } from "lucide-react";
 
-export function ChartPanel({ title, values }: { title: string; values: number[] }) {
+export function ChartPanel({
+  title,
+  values,
+  colors = []
+}: {
+  title: string;
+  values: number[];
+  colors?: Array<string | undefined>;
+}) {
   const safeValues = values.length ? values : [0];
   const max = Math.max(...safeValues, 1);
   return (
@@ -15,7 +23,10 @@ export function ChartPanel({ title, values }: { title: string; values: number[] 
         {safeValues.map((value, index) => (
           <span
             key={`${title}-${index}`}
-            style={{ height: `${Math.max(18, (value / max) * 100)}%` }}
+            style={{
+              background: colors[index],
+              height: `${Math.max(18, (value / max) * 100)}%`
+            }}
           >
             <b>{value}</b>
           </span>

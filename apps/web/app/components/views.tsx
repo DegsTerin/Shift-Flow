@@ -22,6 +22,8 @@ import { ChartPanel } from "./charts";
 import { ActivityList } from "./lists";
 import { SegmentedControl } from "./controls";
 
+const defaultTeamColor = "#0ea5e9";
+
 export function MainDashboard({
   t,
   summary,
@@ -91,12 +93,24 @@ export function TeamDashboard({
   locale: Locale;
   onOpen: (item: ActivityItem) => void;
 }) {
+  const teamColorById = new Map(
+    teams
+      .filter((team) => team.id)
+      .map((team) => [team.id as string, team.color || defaultTeamColor])
+  );
+  const teamColors = charts.byTeam.map((group, index) =>
+    group.teamId
+      ? (teamColorById.get(group.teamId) ?? defaultTeamColor)
+      : (teams[index]?.color ?? defaultTeamColor)
+  );
+  const visibleTeamColors = teams.map((team) => team.color || defaultTeamColor);
+
   return (
     <>
       <section className="team-summary">
         {teams.map((team) => (
           <article className="team-strip" key={team.id ?? team.name}>
-            <span style={{ backgroundColor: team.color ?? "#0ea5e9" }} />
+            <span style={{ backgroundColor: team.color ?? defaultTeamColor }} />
             <div>
               <strong>{team.name ?? "-"}</strong>
               <small>{team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min SLA` : "-"}</small>
@@ -106,8 +120,16 @@ export function TeamDashboard({
         ))}
       </section>
       <section className="dashboard-panels">
-        <ChartPanel title={t.productivity} values={charts.byTeam.map(countOf)} />
-        <ChartPanel title={t.risk} values={charts.byPriority.map(countOf)} />
+        <ChartPanel
+          title={t.productivity}
+          values={charts.byTeam.map(countOf)}
+          colors={teamColors}
+        />
+        <ChartPanel
+          title={t.risk}
+          values={charts.byPriority.map(countOf)}
+          colors={visibleTeamColors}
+        />
       </section>
       <ActivityList
         t={t}
