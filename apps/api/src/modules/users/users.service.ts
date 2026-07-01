@@ -4,6 +4,7 @@ import { getDelegate } from "../../shared/lib/prisma.js";
 import { toPagination, toSkipTake } from "../../shared/http/pagination.js";
 import { forbidden, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
+import { validatePasswordPolicy } from "../../shared/security/password-policy.js";
 import { UsersRepository } from "./users.repository.js";
 
 type UserCompanyDelegate = {
@@ -75,6 +76,7 @@ export class UsersService extends BaseService {
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {
     const password = String(data.password);
+    validatePasswordPolicy(password);
     const rest = { ...data };
     const roleId = rest.roleId ? String(rest.roleId) : undefined;
     delete rest.password;
@@ -102,6 +104,7 @@ export class UsersService extends BaseService {
     let updated: unknown;
     if (data.password) {
       const { password, ...rest } = data;
+      validatePasswordPolicy(String(password));
       updated = await super.update(req, id, {
         ...rest,
         passwordHash: await bcrypt.hash(String(password), 12),

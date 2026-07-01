@@ -29,5 +29,88 @@ export const ActivitiesController = {
   }),
   kanban: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.kanban(req)));
+  }),
+  taskBoard: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.taskBoard(req, param(req.params.id, "id"))));
+  }),
+  createTaskColumn: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.createTaskColumn(req, param(req.params.id, "id"), req.body)));
+  }),
+  updateTaskColumn: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(
+      ok(
+        await service.updateTaskColumn(
+          req,
+          param(req.params.id, "id"),
+          param(req.params.columnId, "columnId"),
+          req.body
+        )
+      )
+    );
+  }),
+  deleteTaskColumn: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(
+      ok(
+        await service.deleteTaskColumn(
+          req,
+          param(req.params.id, "id"),
+          param(req.params.columnId, "columnId")
+        )
+      )
+    );
+  }),
+  reorderTaskColumns: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.reorderTaskColumns(req, param(req.params.id, "id"), req.body.columnIds)));
+  }),
+  createTask: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.createTask(req, param(req.params.id, "id"), req.body)));
+  }),
+  updateTask: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(
+      ok(
+        await service.updateTask(
+          req,
+          param(req.params.id, "id"),
+          param(req.params.taskId, "taskId"),
+          req.body
+        )
+      )
+    );
+  }),
+  deleteTask: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(
+      ok(
+        await service.deleteTask(
+          req,
+          param(req.params.id, "id"),
+          param(req.params.taskId, "taskId")
+        )
+      )
+    );
+  }),
+  archiveTask: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(
+      ok(
+        await service.archiveTask(
+          req,
+          param(req.params.id, "id"),
+          param(req.params.taskId, "taskId")
+        )
+      )
+    );
+  }),
+  moveTask: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(
+      ok(
+        await service.moveTask(
+          req,
+          param(req.params.id, "id"),
+          param(req.params.taskId, "taskId"),
+          req.body.columnId,
+          req.body.position,
+          req.body.note
+        )
+      )
+    );
   })
 };

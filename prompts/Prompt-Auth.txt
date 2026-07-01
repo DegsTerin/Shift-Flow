@@ -1,0 +1,138 @@
+Quero que você faça uma auditoria completa da estrutura de autenticação e login deste sistema.
+
+Analise todo o projeto, incluindo frontend, backend, banco de dados e arquivos de configuração, e produza um relatório técnico detalhado.
+
+Verifique os seguintes pontos:
+
+1. Fluxo de autenticação
+
+   * Como o login é realizado.
+   * Como as credenciais são enviadas.
+   * Como ocorre a validação do usuário.
+   * Como é mantida a sessão autenticada.
+
+2. Armazenamento de credenciais
+
+   * Onde os usuários são armazenados.
+   * Como as senhas são armazenadas.
+   * Identifique se são utilizadas em texto puro, criptografia ou hash.
+   * Caso utilize hash, informe qual algoritmo (Argon2id, bcrypt, scrypt, PBKDF2, SHA-256, MD5 etc.).
+   * Verifique se existe uso de salt e parâmetros adequados.
+
+3. Segurança do backend
+
+   * Procure hardcoded passwords.
+   * Procure chaves secretas expostas.
+   * Verifique arquivos `.env`.
+   * Verifique JWT Secret, API Keys e credenciais do banco.
+   * Informe se alguma informação sensível está versionada no repositório.
+
+4. Segurança do frontend
+
+   * Verifique se existe exposição de tokens.
+   * Verifique se alguma API Key privada chega ao navegador.
+   * Verifique se algum hash ou senha é enviado ao cliente.
+   * Procure armazenamento inseguro em LocalStorage ou SessionStorage.
+
+5. Sessão e autenticação
+
+   * Informe se utiliza:
+
+     * Cookies
+     * JWT
+     * Session
+     * OAuth
+     * OpenID Connect
+   * Analise o tempo de expiração.
+   * Verifique existência de Refresh Token.
+   * Verifique revogação de sessões.
+
+6. Banco de dados
+
+   * Localize as tabelas de usuários.
+   * Identifique os campos utilizados.
+   * Verifique constraints, índices e unicidade do login ou e-mail.
+   * Verifique se existem usuários administrativos padrão.
+
+7. Controle de acesso
+
+   * Identifique o modelo de autorização.
+   * Verifique Roles, Permissions ou RBAC.
+   * Procure endpoints sem autenticação.
+   * Verifique possíveis falhas de autorização.
+
+8. Segurança geral
+   Procure vulnerabilidades como:
+
+   * SQL Injection
+   * XSS
+   * CSRF
+   * IDOR
+   * Brute Force
+   * Session Fixation
+   * Session Hijacking
+   * Insecure Direct Object Reference
+   * Broken Authentication
+   * Broken Access Control
+
+9. Logs
+
+   * Verifique se senhas aparecem em logs.
+   * Verifique se tokens aparecem em logs.
+   * Verifique se dados sensíveis são registrados.
+
+10. Comunicação
+
+    * Verifique se todas as requisições utilizam HTTPS.
+    * Analise CORS.
+    * Analise cabeçalhos de segurança.
+    * Verifique HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy e Permissions-Policy.
+
+11. Dependências
+
+    * Identifique bibliotecas responsáveis pela autenticação.
+    * Verifique versões.
+    * Procure dependências vulneráveis ou desatualizadas.
+
+12. Fluxos especiais
+    Analise:
+
+    * Cadastro de usuário.
+    * Recuperação de senha.
+    * Alteração de senha.
+    * Confirmação de e-mail.
+    * MFA/2FA.
+    * Bloqueio após múltiplas tentativas.
+    * Rate limiting.
+    * Auditoria de login.
+
+13. Arquitetura
+    Explique detalhadamente:
+
+    * Como o login funciona do início ao fim.
+    * Quais arquivos participam do processo.
+    * Como frontend e backend se comunicam.
+    * Como o usuário permanece autenticado.
+    * Como ocorre o logout.
+
+14. Código
+    Liste os principais arquivos relacionados ao login e autenticação, explicando a função de cada um.
+
+15. Melhorias
+    Para cada problema encontrado:
+
+    * Explique o risco.
+    * Informe o nível de criticidade (Baixo, Médio, Alto ou Crítico).
+    * Mostre exatamente onde ocorre.
+    * Sugira a melhor prática.
+    * Sempre que possível, proponha o código corrigido.
+
+Ao final, apresente um relatório em formato de checklist contendo:
+
+* O que está correto.
+* O que precisa ser corrigido.
+* O que representa risco imediato.
+* O nível geral de segurança do sistema.
+* Um plano de ação priorizado por impacto e facilidade de implementação.
+
+Não faça suposições. Baseie todas as conclusões na análise real do código-fonte. Quando alguma informação não puder ser determinada, informe explicitamente que ela não foi encontrada e indique quais arquivos ou componentes precisariam ser analisados para confirmá-la.

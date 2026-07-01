@@ -79,4 +79,22 @@ describe("AuthController", () => {
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("FORBIDDEN");
   });
+
+  it("does not accept refresh tokens from the request body", async () => {
+    const refresh = vi
+      .spyOn(AuthService.prototype, "refresh")
+      .mockRejectedValue(new AppError("Invalid refresh token", 401, "UNAUTHORIZED"));
+
+    const app = express();
+    app.use(express.json());
+    app.post("/api/auth/refresh", AuthController.refresh);
+    app.use(errorHandler);
+
+    const response = await request(app)
+      .post("/api/auth/refresh")
+      .send({ refreshToken: "body-refresh-token-should-not-be-used" });
+
+    expect(response.status).toBe(401);
+    expect(refresh).toHaveBeenCalledWith(expect.anything(), undefined);
+  });
 });

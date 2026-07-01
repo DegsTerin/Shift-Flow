@@ -30,6 +30,23 @@ export const RbacController = {
         )
       );
   }),
+  removePermission: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(
+      ok(
+        await RbacService.removePermission(
+          req.auth,
+          req.tenant,
+          param(req.params.roleId, "roleId"),
+          param(req.params.permissionId, "permissionId")
+        )
+      )
+    );
+  }),
+  duplicateRole: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res
+      .status(201)
+      .json(created(await RbacService.roles.duplicate(req, param(req.params.id, "id"))));
+  }),
   check: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(
       ok({

@@ -34,6 +34,15 @@ export const statusGroups = [
 export const priorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 export const activityStatuses = statusGroups;
 export const shiftStatuses = ["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"];
+export const statusColors: Record<string, string> = {
+  PENDING: "#64748b",
+  IN_PROGRESS: "#0ea5e9",
+  WAITING_CUSTOMER: "#8b5cf6",
+  WAITING_THIRD_PARTY: "#f59e0b",
+  MONITORING: "#14b8a6",
+  DONE: "#16a34a",
+  CANCELLED: "#dc2626"
+};
 
 export function countOf(item: { _count?: { _all?: number } }) {
   return item._count?._all ?? 0;
@@ -72,6 +81,14 @@ export function statusLabel(status: string | undefined, t: Texts) {
     CANCELLED: t.statusCancelled
   };
   return labels[status ?? ""] ?? status ?? "-";
+}
+
+export function statusLegend(t: Texts) {
+  return statusGroups.map((status) => ({
+    status,
+    label: statusLabel(status, t),
+    color: statusColors[status]
+  }));
 }
 
 export function matchesSearch(row: unknown, search: string) {

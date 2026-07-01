@@ -23,8 +23,11 @@ describe("AuthService", () => {
           }
         ]
       }),
+      findLoginAttempt: vi.fn().mockResolvedValue(null),
       createRefreshToken: vi.fn().mockResolvedValue(undefined),
-      updateLastLogin: vi.fn().mockResolvedValue(undefined)
+      updateLastLogin: vi.fn().mockResolvedValue(undefined),
+      recordSuccessfulLogin: vi.fn().mockResolvedValue(undefined),
+      writeAuthAudit: vi.fn().mockResolvedValue(undefined)
     };
 
     const service = new AuthService(mockRepository as unknown as AuthRepository);
@@ -47,6 +50,60 @@ describe("AuthService", () => {
         companyId: "company-b",
         userId: "user-1"
       })
+    );
+    expect(mockRepository.recordSuccessfulLogin).toHaveBeenCalled();
+    expect(mockRepository.writeAuthAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "LOGIN_SUCCESS", userId: "user-1" })
+    );
+  });
+
+  it("records failed login attempts without exposing whether the user exists", async () => {
+    const mockRepository = {
+      findLoginAttempt: vi.fn().mockResolvedValue({ failedCount: 4, lockedUntil: null }),
+      findUserByEmail: vi.fn().mockResolvedValue(null),
+      recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+      writeAuthAudit: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const service = new AuthService(mockRepository as unknown as AuthRepository);
+    const req = {
+      context: { requestId: "request-1", userAgent: "test-agent", ipAddress: "127.0.0.1" }
+    } as ApiRequest;
+
+    await expect(
+      service.login(req, { email: "missing@example.com", password: "wrong-password" })
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+
+    expect(mockRepository.recordFailedLogin).toHaveBeenCalledWith(
+      expect.objectContaining({ failedCount: 5, lockedUntil: expect.any(Date) })
+    );
+    expect(mockRepository.writeAuthAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "LOGIN_LOCKED" })
+    );
+  });
+
+  it("rejects locked login attempts before password verification", async () => {
+    const mockRepository = {
+      findLoginAttempt: vi.fn().mockResolvedValue({
+        failedCount: 5,
+        lockedUntil: new Date(Date.now() + 1000 * 60)
+      }),
+      findUserByEmail: vi.fn(),
+      writeAuthAudit: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const service = new AuthService(mockRepository as unknown as AuthRepository);
+    const req = {
+      context: { requestId: "request-1", userAgent: "test-agent", ipAddress: "127.0.0.1" }
+    } as ApiRequest;
+
+    await expect(
+      service.login(req, { email: "user@example.com", password: "test-login-password" })
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(mockRepository.writeAuthAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "LOGIN_LOCKED" })
     );
   });
 
@@ -119,5 +176,39 @@ describe("AuthService", () => {
     expect(result).toEqual({ loggedOut: true });
     expect(mockRepository.findRefreshToken).not.toHaveBeenCalled();
     expect(mockRepository.revokeRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it("revokes active refresh tokens when a revoked refresh token is reused", async () => {
+    const mockRepository = {
+      findRefreshToken: vi.fn().mockResolvedValue({
+        id: "refresh-1",
+        userId: "user-1",
+        companyId: "company-a",
+        expiresAt: new Date(Date.now() + 1000 * 60),
+        revokedAt: new Date(),
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+          displayName: "Jane Doe",
+          status: "ACTIVE",
+          companies: [{ companyId: "company-a", isDefault: true }],
+          roleAssignments: []
+        }
+      }),
+      revokeActiveRefreshTokensForUser: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const service = new AuthService(mockRepository as unknown as AuthRepository);
+    const req = {
+      context: { userAgent: "test-agent", ipAddress: "127.0.0.1" }
+    } as ApiRequest;
+
+    await expect(service.refresh(req, "reused-refresh-token")).rejects.toMatchObject({
+      code: "UNAUTHORIZED"
+    });
+    expect(mockRepository.revokeActiveRefreshTokensForUser).toHaveBeenCalledWith(
+      "user-1",
+      "company-a"
+    );
   });
 });

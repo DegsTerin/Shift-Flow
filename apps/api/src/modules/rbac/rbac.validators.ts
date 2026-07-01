@@ -11,9 +11,11 @@ export const permissionSchema = z.object({
 export const roleSchema = z.object({
   name: z.string().min(2).max(120),
   description: z.string().max(2000).optional(),
+  color: z.string().max(16).optional(),
   scope: z.enum(["GLOBAL", "COMPANY", "CLIENT", "TEAM"]).default("COMPANY"),
   companyId: z.string().uuid().optional(),
-  isSystem: z.boolean().optional()
+  isSystem: z.boolean().optional(),
+  isActive: z.boolean().optional()
 });
 
 export const assignPermissionSchema = z.object({

@@ -19,8 +19,12 @@ Do not open public issues for suspected vulnerabilities. Report privately to the
 - Production requires JWT secrets.
 - Production browser-origin mutating requests must pass origin or referer validation.
 - Cookie-backed refresh/logout requests require CSRF double-submit validation.
+- Cookie-backed refresh/logout requests do not accept refresh tokens from request bodies.
+- Access-token logout revocation is persisted until token expiry.
+- Reused refresh tokens revoke active refresh tokens for the affected user/company scope.
+- Repeated failed logins are tracked by hashed identifier and locked with configurable thresholds.
 - API responses include `x-request-id` for incident correlation.
-- API requests are protected by configurable rate limiting.
+- API requests are protected by configurable rate limiting and login lockout.
 - Dependency audit runs in release gates.
 - Secret scanning runs in release gates.
 - Secrets must not be committed; use `.env.example` for variable names only.

@@ -95,6 +95,27 @@ Prompt-Systematization.txt
 * Funcao: Solicitar reorganizacao profissional, modularizacao, padronizacao, governanca, automacao, observabilidade e documentacao do projeto.
 * Regra: Nao altera estado. Qualquer refatoracao ou reorganizacao deve respeitar a fase permitida, a State Machine, os Guard Rails e evidencias verificaveis.
 
+Prompt-Auth.txt
+
+* Tipo: AUTH SECURITY AUDIT REQUEST
+* Autoridade: Entrada operacional de auditoria de autenticacao
+* Funcao: Solicitar auditoria completa de login, credenciais, sessao, JWT, refresh token, rate limiting, RBAC, logs, CORS, headers e dependencias.
+* Regra: Nao altera estado. Correcoes exigem solicitacao explicita, classificacao como manutencao funcional pos-release quando houver codigo/schema/migration, evidencias e gates proporcionais.
+
+Prompt-Dashboard.txt
+
+* Tipo: DASHBOARD PERSONALIZATION REQUEST
+* Autoridade: Entrada operacional de melhoria de produto
+* Funcao: Solicitar Dashboard de KPIs personalizavel por usuario, com widgets, grid responsivo, persistencia de layout e modo de personalizacao.
+* Regra: Nao altera estado. Implementacao deve registrar migrations, APIs, frontend, persistencia, validacoes e pendencias quando executada em pos-release.
+
+Prompt-Adjustments.txt
+
+* Tipo: GLOBAL ADJUSTMENTS REQUEST
+* Autoridade: Entrada operacional de melhorias funcionais
+* Funcao: Solicitar Kanban interno por atividade, ajustes de legenda/filtros, reestruturacao de Gestao de Perfis, cores por equipe no Kanban e expansao de Configuracoes.
+* Regra: Nao altera estado. Implementacao deve ser registrada como manutencao funcional pos-release quando alterar banco, backend, frontend, permissoes ou comportamento de produto.
+
 Project-Snapshot.txt
 
 * Tipo: SNAPSHOT
@@ -358,7 +379,6 @@ RBAC-Module.txt
 * Tipo: CROSS-LAYER MODULE
 * Modulo: MOD-11 RBAC
 * Funcao: Perfis, permissoes, middleware, UI administrativa e validacao ponta a ponta.
-
 
 
 

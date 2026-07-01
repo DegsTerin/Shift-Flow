@@ -18,6 +18,7 @@ import {
   RefreshCcw,
   Search,
   Settings,
+  ShieldCheck,
   Sun,
   Users,
   Workflow
@@ -31,6 +32,7 @@ import {
   KanbanBoard,
   MainDashboard,
   ReportsView,
+  RoleManagementView,
   SettingsView,
   TeamDashboard
 } from "./components/views";
@@ -46,6 +48,7 @@ import type {
   Locale,
   LoginResponse,
   ModalState,
+  PermissionRef,
   RoleRef,
   ShiftRef,
   TeamRef,
@@ -61,6 +64,7 @@ const menu: Array<{ id: View; icon: typeof LayoutDashboard; resource: string; ac
   { id: "users", icon: Users, resource: "users", action: "read" },
   { id: "clients", icon: Building2, resource: "clients", action: "read" },
   { id: "teams", icon: Workflow, resource: "teams", action: "read" },
+  { id: "roles", icon: ShieldCheck, resource: "rbac", action: "read" },
   { id: "shifts", icon: CalendarClock, resource: "shifts", action: "read" },
   { id: "activities", icon: ListChecks, resource: "activities", action: "read" },
   { id: "kanban", icon: Columns3, resource: "activities", action: "read" },
@@ -112,6 +116,7 @@ export default function Page() {
   const [teams, setTeams] = useState<TeamRef[]>([]);
   const [shifts, setShifts] = useState<ShiftRef[]>([]);
   const [roles, setRoles] = useState<RoleRef[]>([]);
+  const [rbacPermissions, setRbacPermissions] = useState<PermissionRef[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,8 +184,14 @@ export default function Page() {
         setTeams((await apiRequest<ListResponse<TeamRef>>("/api/teams", token)).items);
       if (can("shifts", "read"))
         setShifts((await apiRequest<ListResponse<ShiftRef>>("/api/shifts", token)).items);
-      if (can("rbac", "read"))
-        setRoles((await apiRequest<ListResponse<RoleRef>>("/api/rbac/roles", token)).items);
+      if (can("rbac", "read")) {
+        const [roleList, permissionList] = await Promise.all([
+          apiRequest<ListResponse<RoleRef>>("/api/rbac/roles", token),
+          apiRequest<ListResponse<PermissionRef>>("/api/rbac/permissions", token)
+        ]);
+        setRoles(roleList.items);
+        setRbacPermissions(permissionList.items);
+      }
       if (can("notifications", "read")) {
         const unreadData = await apiRequest<{ unread: number; count?: number }>(
           "/api/notifications/unread-count",
@@ -292,7 +303,7 @@ export default function Page() {
     setError(null);
     setLoading(true);
     try {
-      await apiRequest("/api/auth/logout", undefined, { method: "POST", body: JSON.stringify({}) });
+      await apiRequest("/api/auth/logout", token, { method: "POST", body: JSON.stringify({}) });
       setSession(null);
       setModal(null);
       setActivities([]);
@@ -300,6 +311,7 @@ export default function Page() {
       setTeams([]);
       setShifts([]);
       setRoles([]);
+      setRbacPermissions([]);
       setUnread(0);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t.apiOffline);
@@ -347,6 +359,120 @@ export default function Page() {
     setMonitorMode((enabled) => !enabled);
   }
 
+  async function createRole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) return;
+    const form = new FormData(event.currentTarget);
+    setLoading(true);
+    setError(null);
+    try {
+      await apiRequest("/api/rbac/roles", token, {
+        method: "POST",
+        body: JSON.stringify({
+          name: String(form.get("name") ?? ""),
+          scope: String(form.get("scope") || "COMPANY"),
+          color: String(form.get("color") || "#0f766e"),
+          description: String(form.get("description") || "") || undefined
+        })
+      });
+      await loadData();
+      event.currentTarget.reset();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t.apiOffline);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function updateRole(roleId: string, event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !roleId) return;
+    const form = new FormData(event.currentTarget);
+    setLoading(true);
+    setError(null);
+    try {
+      await apiRequest(`/api/rbac/roles/${roleId}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: String(form.get("name") ?? ""),
+          scope: String(form.get("scope") || "COMPANY"),
+          color: String(form.get("color") || "#0f766e"),
+          isActive: form.get("isActive") === "on",
+          description: String(form.get("description") || "") || undefined
+        })
+      });
+      await loadData();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t.apiOffline);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function duplicateRole(roleId: string) {
+    if (!token || !roleId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await apiRequest(`/api/rbac/roles/${roleId}/duplicate`, token, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      await loadData();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t.apiOffline);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteRole(roleId: string) {
+    if (!token || !roleId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await apiRequest(`/api/rbac/roles/${roleId}`, token, { method: "DELETE" });
+      await loadData();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t.apiOffline);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function assignRolePermission(roleId: string, permissionId: string) {
+    if (!token || !roleId || !permissionId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await apiRequest(`/api/rbac/roles/${roleId}/permissions`, token, {
+        method: "POST",
+        body: JSON.stringify({ permissionId })
+      });
+      await loadData();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t.apiOffline);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeRolePermission(roleId: string, permissionId: string) {
+    if (!token || !roleId || !permissionId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await apiRequest(`/api/rbac/roles/${roleId}/permissions/${permissionId}`, token, {
+        method: "DELETE"
+      });
+      await loadData();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t.apiOffline);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (restoringSession && !session) {
     return (
       <main className="app-shell auth-shell" data-theme={theme}>
@@ -377,21 +503,11 @@ export default function Page() {
             </div>
             <label>
               {t.email}
-              <input
-                autoComplete="username"
-                name="email"
-                type="email"
-                required
-              />
+              <input autoComplete="username" name="email" type="email" required />
             </label>
             <label>
               {t.password}
-              <input
-                autoComplete="current-password"
-                name="password"
-                type="password"
-                required
-              />
+              <input autoComplete="current-password" name="password" type="password" required />
             </label>
             {error ? <p className="guard-note">{error}</p> : null}
             <button className="primary-button" disabled={!hydrated || loading} type="submit">
@@ -501,7 +617,7 @@ export default function Page() {
         {error ? <p className="guard-note">{error}</p> : null}
         {loading ? <p className="guard-note">{t.loading}</p> : null}
         <section className="content-grid">
-          {view !== "settings" ? (
+          {["dashboard", "team-dashboard", "activities", "kanban", "reports"].includes(view) ? (
             <FilterBar
               t={t}
               filters={filters}
@@ -517,6 +633,7 @@ export default function Page() {
               t={t}
               summary={summary}
               charts={charts}
+              teams={teams}
               activities={visibleActivities}
               locale={locale}
               onNew={() => setModal({ mode: "create", entity: "activities" })}
@@ -568,6 +685,24 @@ export default function Page() {
               onOpen={(team) => void openDetail("teams", team)}
             />
           )}
+          {view === "roles" && (
+            <RoleManagementView
+              t={t}
+              roles={roles}
+              permissions={rbacPermissions}
+              busy={loading}
+              onCreateRole={createRole}
+              onUpdateRole={updateRole}
+              onAssignPermission={(roleId, permissionId) =>
+                void assignRolePermission(roleId, permissionId)
+              }
+              onRemovePermission={(roleId, permissionId) =>
+                void removeRolePermission(roleId, permissionId)
+              }
+              onDuplicateRole={(roleId) => void duplicateRole(roleId)}
+              onDeleteRole={(roleId) => void deleteRole(roleId)}
+            />
+          )}
           {view === "shifts" && (
             <ManagementTable
               title={t.shifts}
@@ -602,6 +737,7 @@ export default function Page() {
             <ReportsView
               t={t}
               charts={charts}
+              teams={teams}
               activities={visibleActivities}
               locale={locale}
               onOpen={(item) => void openDetail("activities", item)}

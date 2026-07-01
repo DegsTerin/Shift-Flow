@@ -5,6 +5,28 @@ type HistoryDelegate = {
   create(args: unknown): Promise<unknown>;
 };
 
+type BoardColumnDelegate = {
+  findMany(args: unknown): Promise<Array<{ id: string; name?: string; position: number }>>;
+  findFirst(args: unknown): Promise<{ id: string; name?: string; position: number } | null>;
+  create(args: unknown): Promise<unknown>;
+  createMany(args: unknown): Promise<unknown>;
+  update(args: unknown): Promise<unknown>;
+  updateMany(args: unknown): Promise<unknown>;
+};
+
+type TaskDelegate = {
+  findMany(args: unknown): Promise<Array<{ id: string; columnId: string; position: number }>>;
+  findFirst(args: unknown): Promise<{
+    id: string;
+    columnId: string;
+    position: number;
+    archivedAt?: Date | null;
+  } | null>;
+  create(args: unknown): Promise<unknown>;
+  update(args: unknown): Promise<unknown>;
+  updateMany(args: unknown): Promise<unknown>;
+};
+
 const publicUserSelect = {
   id: true,
   email: true,
@@ -43,5 +65,17 @@ export class ActivitiesRepository extends BaseRepository {
 
   async addHistory(data: Record<string, unknown>) {
     return (await getDelegate<HistoryDelegate>("activityHistory")).create({ data });
+  }
+
+  async taskColumns() {
+    return getDelegate<BoardColumnDelegate>("activityTaskColumn");
+  }
+
+  async tasks() {
+    return getDelegate<TaskDelegate>("activityTask");
+  }
+
+  async taskHistory() {
+    return getDelegate<HistoryDelegate>("activityTaskHistory");
   }
 }

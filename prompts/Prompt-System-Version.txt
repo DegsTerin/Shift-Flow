@@ -9,7 +9,7 @@ Apenas a State Machine pode alterar estado.
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.25
+PROMPT_SYSTEM_VERSION: 1.4.26
 
 Data:
 2026-07-01
@@ -91,6 +91,9 @@ Executada limpeza e sistematizacao final dos 69 .txt. Prompt-Audit-Human-CI.txt,
 
 Patch 1.4.25:
 Registrada manutencao funcional pos-release dos scripts operacionais npm run start, npm run stop e npm run restart. O start inicia o Docker Desktop minimizado e aguarda o daemon antes de subir o PostgreSQL; o stop para os servicos da aplicacao, para o PostgreSQL e encerra o Docker Desktop; o restart executa stop completo e depois start, cumprindo a ordem parar banco, encerrar Docker, iniciar Docker e iniciar banco. Foi criado scripts/docker-desktop.ps1 como helper compartilhado e a sintaxe PowerShell dos scripts alterados foi validada estaticamente. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.26:
+Registrada manutencao funcional pos-release dos prompts Prompt-Auth.txt, Prompt-Dashboard.txt e Prompt-Adjustments.txt. O registro cobre hardening de autenticacao e sessao, politica de senha, bloqueio de tentativas, revogacao de access token, refresh/logout reforcados, dashboard personalizavel por usuario, Kanban interno por atividade, historico de tarefas, cores por equipe, gestao ampliada de perfis/RBAC e ajustes de frontend. Migrations registradas: 20260701120000_auth_session_hardening, 20260701182603_add_dashboard_personalization e 20260701193000_activity_internal_kanban_and_role_management. Prompt-Index.txt passou a catalogar os tres prompts novos. Validacoes locais aprovadas: git diff --check, npm run prisma:validate, npm run typecheck, npm test, npm run lint e npm run build. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
 
 ---
 

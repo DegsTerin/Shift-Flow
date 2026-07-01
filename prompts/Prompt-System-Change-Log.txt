@@ -29,6 +29,15 @@ Estado afetado:
 REGISTROS
 
 Data: 2026-07-01
+Versao: 1.4.26
+Tipo: patch
+Arquivos alterados: Prompt-Auth.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt, README.md, SECURITY.md, prisma/schema.prisma, prisma/migrations/20260701120000_auth_session_hardening/migration.sql, prisma/migrations/20260701182603_add_dashboard_personalization/migration.sql, prisma/migrations/20260701193000_activity_internal_kanban_and_role_management/migration.sql, apps/api/src/modules/auth, apps/api/src/modules/activities, apps/api/src/modules/rbac, apps/api/src/modules/teams, apps/api/src/modules/users, apps/api/src/shared/middlewares/authenticate.ts, apps/api/src/shared/security, apps/web/app
+Resumo: Registrada manutencao funcional pos-release dos prompts de autenticacao, dashboard e ajustes operacionais.
+Impacto: Endurece autenticacao/sessao, adiciona politica de senha e controle de tentativas, registra revogacao de access token, amplia persistencia de dashboard, cria Kanban interno por atividade, melhora roles/perfis, cores por equipe e experiencias de frontend relacionadas. Validacoes locais aprovadas: git diff --check, prisma validate, typecheck, unit tests, lint e build.
+Conflitos resolvidos: Prompt-Auth.txt, Prompt-Dashboard.txt e Prompt-Adjustments.txt existiam como entradas operacionais novas mas ainda nao estavam catalogados no indice nem registrados nos controles canonicos; as migrations e mudancas funcionais precisavam ser classificadas como manutencao funcional pos-release, nao como patch puramente documental.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-01
 Versao: 1.4.25
 Tipo: patch
 Arquivos alterados: scripts/docker-desktop.ps1, scripts/start.ps1, scripts/stop.ps1, scripts/restart.ps1, Project-Snapshot.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Prompt-System-Readme.txt, Current-State.txt, State-Transition-Log.txt

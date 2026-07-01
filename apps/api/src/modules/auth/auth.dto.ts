@@ -3,7 +3,3 @@ export type LoginDto = {
   password: string;
   companyId?: string;
 };
-
-export type RefreshTokenDto = {
-  refreshToken?: string;
-};

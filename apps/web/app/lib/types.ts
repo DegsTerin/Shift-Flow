@@ -10,6 +10,7 @@ export type View =
   | "users"
   | "clients"
   | "teams"
+  | "roles"
   | "shifts"
   | "activities"
   | "kanban"
@@ -49,14 +50,43 @@ export type DashboardCharts = {
   byShift: GroupCount[];
 };
 export type ClientRef = { id?: string; name?: string; code?: string; status?: string };
+export type TeamMemberRole = "LEADER" | "MEMBER";
+export type TeamMemberRef = {
+  id?: string;
+  userId?: string;
+  role?: TeamMemberRole;
+  user?: UserRef;
+};
 export type TeamRef = {
   id?: string;
   name?: string;
   color?: string;
   defaultSlaMinutes?: number;
-  members?: unknown[];
+  members?: TeamMemberRef[];
 };
-export type RoleRef = { id?: string; name?: string; description?: string; scope?: string };
+export type PermissionRef = {
+  id?: string;
+  resource?: string;
+  action?: string;
+  description?: string;
+  isSystem?: boolean;
+};
+export type RolePermissionRef = {
+  id?: string;
+  permissionId?: string;
+  permission?: PermissionRef;
+};
+export type RoleRef = {
+  id?: string;
+  name?: string;
+  description?: string;
+  color?: string | null;
+  scope?: string;
+  isSystem?: boolean;
+  isActive?: boolean;
+  permissions?: RolePermissionRef[];
+  _count?: { assignments?: number };
+};
 export type UserRoleAssignmentRef = { roleId?: string; role?: RoleRef };
 export type UserRef = {
   id?: string;
@@ -124,6 +154,30 @@ export type ActivityItem = {
   comments?: CommentItem[];
   attachments?: AttachmentItem[];
 };
+export type ActivityTaskColumn = {
+  id: string;
+  name: string;
+  color?: string | null;
+  position: number;
+  tasks?: ActivityTaskItem[];
+};
+export type ActivityTaskItem = {
+  id: string;
+  columnId: string;
+  title: string;
+  description?: string | null;
+  priority?: string;
+  labels?: string[];
+  attachmentIds?: string[];
+  position: number;
+  completedAt?: string | null;
+  archivedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  assigneeId?: string | null;
+  assignee?: UserRef | null;
+};
+export type ActivityTaskBoard = { columns: ActivityTaskColumn[] };
 export type Filters = {
   clientId: string;
   teamId: string;

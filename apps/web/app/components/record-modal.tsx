@@ -1,16 +1,29 @@
 "use client";
 
-import { RotateCcw, Save, Trash2, Plus, X, CheckCircle2 } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import {
+  Archive,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+  X
+} from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { apiRequest } from "../lib/api";
 import type {
   ActivityItem,
+  ActivityTaskBoard,
+  ActivityTaskItem,
   ClientRef,
   CommentItem,
   Locale,
   ModalState,
   RoleRef,
   ShiftRef,
+  TeamMemberRole,
   TeamRef,
   Texts,
   UserRef,
@@ -152,6 +165,39 @@ export function RecordModal({
     }
   }
 
+  async function addTeamMember(teamId: string, userId: string, role: TeamMemberRole) {
+    if (!token || !teamId || !userId) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await apiRequest(`/api/teams/${teamId}/members`, token, {
+        method: "POST",
+        body: JSON.stringify({ userId, role })
+      });
+      await onReload();
+      onClose();
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Request failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeTeamMember(teamId: string, userId: string) {
+    if (!token || !teamId || !userId) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await apiRequest(`/api/teams/${teamId}/members/${userId}`, token, { method: "DELETE" });
+      await onReload();
+      onClose();
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Request failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <section className="record-modal">
@@ -186,6 +232,7 @@ export function RecordModal({
           <ActivityDetail
             activity={activity}
             t={t}
+            token={token}
             locale={locale}
             clients={clients}
             users={users}
@@ -206,12 +253,15 @@ export function RecordModal({
             entity={state.entity}
             record={state.record}
             t={t}
+            users={users}
             roles={roles}
             editing={editing}
             busy={busy}
             setEditing={setEditing}
             onSubmit={submit}
             onRemove={removeActivity}
+            onAddTeamMember={addTeamMember}
+            onRemoveTeamMember={removeTeamMember}
           />
         ) : null}
       </section>
@@ -223,22 +273,28 @@ function GenericDetail({
   entity,
   record,
   t,
+  users,
   roles,
   editing,
   busy,
   setEditing,
   onSubmit,
-  onRemove
+  onRemove,
+  onAddTeamMember,
+  onRemoveTeamMember
 }: {
   entity: View;
   record: unknown;
   t: Texts;
+  users: UserRef[];
   roles: RoleRef[];
   editing: boolean;
   busy: boolean;
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
+  onAddTeamMember: (teamId: string, userId: string, role: TeamMemberRole) => Promise<void>;
+  onRemoveTeamMember: (teamId: string, userId: string) => Promise<void>;
 }) {
   if (entity === "users")
     return (
@@ -270,11 +326,14 @@ function GenericDetail({
       <TeamDetail
         team={record as TeamRef & { description?: string }}
         t={t}
+        users={users}
         editing={editing}
         busy={busy}
         setEditing={setEditing}
         onSubmit={onSubmit}
         onRemove={onRemove}
+        onAddMember={onAddTeamMember}
+        onRemoveMember={onRemoveTeamMember}
       />
     );
   if (entity === "shifts")
@@ -490,51 +549,134 @@ function ClientDetail({
 function TeamDetail({
   team,
   t,
+  users,
   editing,
   busy,
   setEditing,
   onSubmit,
-  onRemove
+  onRemove,
+  onAddMember,
+  onRemoveMember
 }: {
   team: TeamRef & { description?: string };
   t: Texts;
+  users: UserRef[];
   editing: boolean;
   busy: boolean;
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
+  onAddMember: (teamId: string, userId: string, role: TeamMemberRole) => Promise<void>;
+  onRemoveMember: (teamId: string, userId: string) => Promise<void>;
 }) {
+  const members = team.members ?? [];
+  const memberUserIds = new Set(members.map((member) => member.userId).filter(Boolean));
+  const availableUsers = users.filter((user) => user.id && !memberUserIds.has(user.id));
+  const [selectedUserId, setSelectedUserId] = useState(availableUsers[0]?.id ?? "");
+  const [selectedRole, setSelectedRole] = useState<TeamMemberRole>("MEMBER");
+  const effectiveSelectedUserId = availableUsers.some((user) => user.id === selectedUserId)
+    ? selectedUserId
+    : (availableUsers[0]?.id ?? "");
+
   return (
-    <form className="modal-grid" onSubmit={onSubmit}>
-      <label>
-        Nome
-        <input name="name" defaultValue={team.name ?? ""} disabled={!editing} required />
-      </label>
-      <label>
-        Cor
-        <input name="color" defaultValue={team.color ?? "#0f766e"} disabled={!editing} />
-      </label>
-      <label>
-        SLA
-        <input
-          name="defaultSlaMinutes"
-          type="number"
-          defaultValue={team.defaultSlaMinutes ?? 240}
-          disabled={!editing}
+    <div className="modal-stack">
+      <form className="modal-grid" onSubmit={onSubmit}>
+        <label>
+          Nome
+          <input name="name" defaultValue={team.name ?? ""} disabled={!editing} required />
+        </label>
+        <label>
+          Cor
+          <input name="color" defaultValue={team.color ?? "#0f766e"} disabled={!editing} />
+        </label>
+        <label>
+          SLA
+          <input
+            name="defaultSlaMinutes"
+            type="number"
+            defaultValue={team.defaultSlaMinutes ?? 240}
+            disabled={!editing}
+          />
+        </label>
+        <label className="span-2">
+          Descricao
+          <textarea name="description" defaultValue={team.description ?? ""} disabled={!editing} />
+        </label>
+        <FormActions
+          t={t}
+          editing={editing}
+          busy={busy}
+          setEditing={setEditing}
+          onRemove={onRemove}
         />
-      </label>
-      <label className="span-2">
-        Descricao
-        <textarea name="description" defaultValue={team.description ?? ""} disabled={!editing} />
-      </label>
-      <FormActions
-        t={t}
-        editing={editing}
-        busy={busy}
-        setEditing={setEditing}
-        onRemove={onRemove}
-      />
-    </form>
+      </form>
+      <section className="team-members-panel">
+        <div className="panel-header">
+          <h3>Membros</h3>
+          <span>{members.length}</span>
+        </div>
+        <div className="team-member-controls">
+          <label>
+            Usuario
+            <select
+              value={effectiveSelectedUserId}
+              disabled={busy || !team.id || !availableUsers.length}
+              onChange={(event) => setSelectedUserId(event.target.value)}
+            >
+              {availableUsers.length ? null : <option value="">Sem usuarios disponiveis</option>}
+              {availableUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {userOptionLabel(user)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Perfil na equipe
+            <select
+              value={selectedRole}
+              disabled={busy || !team.id || !availableUsers.length}
+              onChange={(event) => setSelectedRole(event.target.value as TeamMemberRole)}
+            >
+              <option value="MEMBER">Membro</option>
+              <option value="LEADER">Lider</option>
+            </select>
+          </label>
+          <button
+            className="primary-button"
+            disabled={busy || !team.id || !effectiveSelectedUserId}
+            type="button"
+            onClick={() => void onAddMember(team.id ?? "", effectiveSelectedUserId, selectedRole)}
+          >
+            <Plus size={16} />
+            Adicionar
+          </button>
+        </div>
+        <div className="team-member-list">
+          {members.length ? (
+            members.map((member) => (
+              <div key={member.id ?? member.userId}>
+                <span>
+                  <strong>{member.user?.displayName ?? member.user?.email ?? member.userId}</strong>
+                  <small>{member.role === "LEADER" ? "Lider" : "Membro"}</small>
+                </span>
+                <button
+                  className="danger-button"
+                  disabled={busy || !team.id || !member.userId}
+                  type="button"
+                  onClick={() => void onRemoveMember(team.id ?? "", member.userId ?? "")}
+                >
+                  <Trash2 size={16} />
+                  Remover
+                </button>
+              </div>
+            ))
+          ) : (
+            <p className="empty-state">Nenhum membro atribuido.</p>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -612,6 +754,7 @@ function ShiftDetail({
 function ActivityDetail({
   activity,
   t,
+  token,
   locale,
   clients,
   users,
@@ -628,6 +771,7 @@ function ActivityDetail({
 }: {
   activity: ActivityItem;
   t: Texts;
+  token?: string;
   locale: Locale;
   clients: ClientRef[];
   users: UserRef[];
@@ -765,6 +909,7 @@ function ActivityDetail({
         </div>
       </form>
       <section className="detail-grid">
+        <InternalTaskBoard activityId={activity.id} token={token} users={users} busy={busy} />
         <InfoPanel
           title={t.responsible}
           rows={[
@@ -853,6 +998,262 @@ function ActivityDetail({
         </article>
       </section>
     </>
+  );
+}
+
+function InternalTaskBoard({
+  activityId,
+  token,
+  users,
+  busy
+}: {
+  activityId: string;
+  token?: string;
+  users: UserRef[];
+  busy: boolean;
+}) {
+  const [board, setBoard] = useState<ActivityTaskBoard>({ columns: [] });
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function loadBoard() {
+    if (!token) return;
+    try {
+      setBoard(await apiRequest<ActivityTaskBoard>(`/api/activities/${activityId}/task-board`, token));
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Falha ao carregar tarefas");
+    }
+  }
+
+  useEffect(() => {
+    void loadBoard();
+  }, [activityId, token]);
+
+  async function createColumn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) return;
+    const form = new FormData(event.currentTarget);
+    await apiRequest(`/api/activities/${activityId}/task-board/columns`, token, {
+      method: "POST",
+      body: JSON.stringify({
+        name: String(form.get("name") ?? ""),
+        color: String(form.get("color") || "#64748b")
+      })
+    });
+    event.currentTarget.reset();
+    await loadBoard();
+  }
+
+  async function createTask(event: FormEvent<HTMLFormElement>, columnId: string) {
+    event.preventDefault();
+    if (!token) return;
+    const form = new FormData(event.currentTarget);
+    await apiRequest(`/api/activities/${activityId}/task-board/tasks`, token, {
+      method: "POST",
+      body: JSON.stringify({
+        columnId,
+        title: String(form.get("title") ?? ""),
+        assigneeId: String(form.get("assigneeId") || "") || undefined,
+        priority: String(form.get("priority") || "MEDIUM"),
+        labels: String(form.get("labels") || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      })
+    });
+    event.currentTarget.reset();
+    await loadBoard();
+  }
+
+  async function moveTask(taskId: string, columnId: string, position: number) {
+    if (!token) return;
+    await apiRequest(`/api/activities/${activityId}/task-board/tasks/${taskId}/move`, token, {
+      method: "POST",
+      body: JSON.stringify({ columnId, position, note: "Movido no Kanban interno" })
+    });
+    setDraggedTaskId(null);
+    await loadBoard();
+  }
+
+  async function archiveTask(taskId: string) {
+    if (!token) return;
+    await apiRequest(`/api/activities/${activityId}/task-board/tasks/${taskId}/archive`, token, {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+    await loadBoard();
+  }
+
+  async function renameColumn(columnId: string, currentName: string, currentColor?: string | null) {
+    if (!token) return;
+    const name = window.prompt("Nome da coluna", currentName);
+    if (!name?.trim()) return;
+    await apiRequest(`/api/activities/${activityId}/task-board/columns/${columnId}`, token, {
+      method: "PATCH",
+      body: JSON.stringify({ name: name.trim(), color: currentColor ?? "#64748b" })
+    });
+    await loadBoard();
+  }
+
+  async function deleteColumn(columnId: string) {
+    if (!token) return;
+    await apiRequest(`/api/activities/${activityId}/task-board/columns/${columnId}`, token, {
+      method: "DELETE"
+    });
+    await loadBoard();
+  }
+
+  async function reorderColumn(columnId: string, direction: -1 | 1) {
+    if (!token) return;
+    const ids = board.columns.map((column) => column.id);
+    const index = ids.indexOf(columnId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= ids.length) return;
+    const nextIds = [...ids];
+    const [moved] = nextIds.splice(index, 1);
+    nextIds.splice(nextIndex, 0, moved);
+    await apiRequest(`/api/activities/${activityId}/task-board/columns/reorder`, token, {
+      method: "POST",
+      body: JSON.stringify({ columnIds: nextIds })
+    });
+    await loadBoard();
+  }
+
+  return (
+    <article className="panel span-2 internal-kanban">
+      <div className="panel-header">
+        <h2>Kanban da atividade</h2>
+        <form className="inline-create-form" onSubmit={(event) => void createColumn(event)}>
+          <input name="name" placeholder="Nova coluna" required />
+          <input name="color" type="color" defaultValue="#64748b" />
+          <button className="compact-button" disabled={busy || !token} type="submit">
+            <Plus size={16} />
+          </button>
+        </form>
+      </div>
+      {message ? <p className="form-error">{message}</p> : null}
+      <div className="internal-kanban-board">
+        {board.columns.map((column) => (
+          <section
+            className="internal-kanban-column"
+            key={column.id}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() =>
+              draggedTaskId
+                ? void moveTask(draggedTaskId, column.id, column.tasks?.length ?? 0)
+                : undefined
+            }
+          >
+            <div className="internal-column-header">
+              <h3>
+                <i style={{ backgroundColor: column.color ?? "#64748b" }} />
+                {column.name}
+              </h3>
+              <div>
+                <button
+                  className="icon-button"
+                  type="button"
+                  title="Mover para esquerda"
+                  onClick={() => void reorderColumn(column.id, -1)}
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <button
+                  className="icon-button"
+                  type="button"
+                  title="Mover para direita"
+                  onClick={() => void reorderColumn(column.id, 1)}
+                >
+                  <ChevronRight size={15} />
+                </button>
+                <button
+                  className="compact-button"
+                  type="button"
+                  onClick={() => void renameColumn(column.id, column.name, column.color)}
+                >
+                  Editar
+                </button>
+                <button
+                  className="icon-button"
+                  type="button"
+                  title="Excluir coluna"
+                  onClick={() => void deleteColumn(column.id)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+            {(column.tasks ?? []).map((task, index) => (
+              <InternalTaskCard
+                key={task.id}
+                task={task}
+                onArchive={() => void archiveTask(task.id)}
+                onDragStart={() => setDraggedTaskId(task.id)}
+                onDropBefore={() => draggedTaskId && void moveTask(draggedTaskId, column.id, index)}
+              />
+            ))}
+            <form className="task-create-form" onSubmit={(event) => void createTask(event, column.id)}>
+              <input name="title" placeholder="Nova tarefa" required />
+              <select name="assigneeId" defaultValue="">
+                <option value="">Responsavel</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {userOptionLabel(user)}
+                  </option>
+                ))}
+              </select>
+              <select name="priority" defaultValue="MEDIUM">
+                {priorities.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority}
+                  </option>
+                ))}
+              </select>
+              <input name="labels" placeholder="Etiquetas separadas por virgula" />
+              <button className="compact-button" disabled={busy || !token} type="submit">
+                <Plus size={16} />
+              </button>
+            </form>
+          </section>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function InternalTaskCard({
+  task,
+  onDragStart,
+  onDropBefore,
+  onArchive
+}: {
+  task: ActivityTaskItem;
+  onDragStart: () => void;
+  onDropBefore: () => void;
+  onArchive: () => void;
+}) {
+  return (
+    <div
+      className="internal-task-card"
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={onDropBefore}
+    >
+      <strong>{task.title}</strong>
+      <small>{task.assignee?.displayName ?? task.assignee?.email ?? "-"}</small>
+      <div>
+        <span className={`priority ${(task.priority ?? "MEDIUM").toLowerCase()}`}>
+          {task.priority ?? "MEDIUM"}
+        </span>
+        {(task.labels ?? []).map((label) => (
+          <span key={label}>{label}</span>
+        ))}
+      </div>
+      <button className="icon-button" type="button" title="Arquivar" onClick={onArchive}>
+        <Archive size={15} />
+      </button>
+    </div>
   );
 }
 

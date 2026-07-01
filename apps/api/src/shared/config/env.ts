@@ -24,6 +24,8 @@ const envSchema = z
     API_PORT: positiveInteger(3001),
     API_RATE_LIMIT_MAX: positiveInteger(600),
     API_RATE_LIMIT_WINDOW_MS: positiveInteger(60_000),
+    AUTH_LOCKOUT_MAX_ATTEMPTS: positiveInteger(5),
+    AUTH_LOCKOUT_WINDOW_MS: positiveInteger(15 * 60_000),
     AUTH_RATE_LIMIT_MAX: positiveInteger(10),
     AUTH_RATE_LIMIT_WINDOW_MS: positiveInteger(15 * 60_000),
     CORS_ORIGIN: z.string().optional(),

@@ -32,8 +32,20 @@ type DbRefreshToken = {
   user?: DbUser;
 };
 
+type DbLoginAttempt = {
+  failedCount: number;
+  lockedUntil?: Date | null;
+};
+
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function hashIdentifier(value: string | undefined) {
+  return crypto
+    .createHash("sha256")
+    .update(value?.trim().toLowerCase() ?? "unknown")
+    .digest("hex");
 }
 
 function permissionsFrom(user: DbUser) {
@@ -67,13 +79,30 @@ export class AuthService {
   constructor(private readonly repository = new AuthRepository()) {}
 
   async login(req: ApiRequest, input: LoginDto) {
+    const emailHash = hashIdentifier(input.email);
+    const ipHash = hashIdentifier(req.context?.ipAddress);
+    const attempt = (await this.repository.findLoginAttempt(emailHash)) as DbLoginAttempt | null;
+    if (attempt?.lockedUntil && attempt.lockedUntil.getTime() > Date.now()) {
+      await this.repository.writeAuthAudit({
+        action: "LOGIN_LOCKED",
+        emailHash,
+        requestId: req.context?.requestId,
+        ipAddress: req.context?.ipAddress,
+        userAgent: req.context?.userAgent,
+        detail: { lockedUntil: attempt.lockedUntil.toISOString() }
+      });
+      throw unauthorized("Invalid credentials");
+    }
+
     const user = (await this.repository.findUserByEmail(input.email)) as DbUser | null;
     if (!user || user.status !== "ACTIVE") {
+      await this.recordFailedLogin(req, emailHash, ipHash, attempt, "UNKNOWN_OR_INACTIVE_USER");
       throw unauthorized("Invalid credentials");
     }
 
     const validPassword = await bcrypt.compare(input.password, user.passwordHash);
     if (!validPassword) {
+      await this.recordFailedLogin(req, emailHash, ipHash, attempt, "INVALID_PASSWORD", user.id);
       throw unauthorized("Invalid credentials");
     }
 
@@ -96,6 +125,16 @@ export class AuthService {
       expiresAt
     });
     await this.repository.updateLastLogin(user.id);
+    await this.repository.recordSuccessfulLogin(emailHash);
+    await this.repository.writeAuthAudit({
+      action: "LOGIN_SUCCESS",
+      emailHash,
+      userId: user.id,
+      companyId: authUser.companyId,
+      requestId: req.context?.requestId,
+      ipAddress: req.context?.ipAddress,
+      userAgent: req.context?.userAgent
+    });
 
     return {
       accessToken,
@@ -119,7 +158,12 @@ export class AuthService {
       hashToken(refreshToken)
     )) as DbRefreshToken | null;
 
-    if (!stored || stored.revokedAt || stored.expiresAt.getTime() <= Date.now() || !stored.user) {
+    if (!stored || stored.expiresAt.getTime() <= Date.now() || !stored.user) {
+      throw unauthorized("Invalid refresh token");
+    }
+
+    if (stored.revokedAt) {
+      await this.repository.revokeActiveRefreshTokensForUser(stored.userId, stored.companyId);
       throw unauthorized("Invalid refresh token");
     }
 
@@ -170,5 +214,37 @@ export class AuthService {
     }
 
     return { loggedOut: true };
+  }
+
+  private async recordFailedLogin(
+    req: ApiRequest,
+    emailHash: string,
+    ipHash: string,
+    attempt: DbLoginAttempt | null,
+    reason: string,
+    userId?: string
+  ) {
+    const failedCount = (attempt?.failedCount ?? 0) + 1;
+    const lockedUntil =
+      failedCount >= env.AUTH_LOCKOUT_MAX_ATTEMPTS
+        ? new Date(Date.now() + env.AUTH_LOCKOUT_WINDOW_MS)
+        : undefined;
+
+    await this.repository.recordFailedLogin({
+      emailHash,
+      failedCount,
+      lockedUntil,
+      ipHash,
+      userAgent: req.context?.userAgent
+    });
+    await this.repository.writeAuthAudit({
+      action: lockedUntil ? "LOGIN_LOCKED" : "LOGIN_FAILED",
+      emailHash,
+      userId,
+      requestId: req.context?.requestId,
+      ipAddress: req.context?.ipAddress,
+      userAgent: req.context?.userAgent,
+      detail: { reason, failedCount, lockedUntil: lockedUntil?.toISOString() }
+    });
   }
 }

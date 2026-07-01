@@ -100,7 +100,7 @@ Use `-Attach` with `start.ps1` or `restart.ps1` only when you want the script to
 
 Use `-Wait` with `start.ps1` or `restart.ps1` only when you want the script to wait until Web and API respond.
 
-The integration seed requires `E2E_EMAIL` and `E2E_PASSWORD` at runtime, hashes the password with bcrypt before storage, and does not print credentials in logs. Provide these values only through a local shell or CI secret for the seed command; do not commit them to `.env` or `.env.example`.
+The integration seed requires `E2E_EMAIL` and `E2E_PASSWORD` at runtime, hashes the password with bcrypt before storage, and does not print credentials in logs. Provide these values only through a local shell or CI secret for the seed command; do not commit them to `.env` or `.env.example`. New or changed user passwords must be at least 12 characters and include lowercase, uppercase, numeric, and symbol characters.
 
 ## Quality Gates
 
@@ -130,6 +130,7 @@ npm run clean:artifacts
 - Readiness: `GET /ready`
 - Request correlation: every response includes `x-request-id`.
 - Rate limiting: every API response includes `x-rate-limit-*` headers.
+- Authentication lockout: failed logins are tracked by hashed e-mail/IP metadata and lock after `AUTH_LOCKOUT_MAX_ATTEMPTS` within the configured lockout window.
 - Logs: API logs are structured JSON and include `requestId`, HTTP method, path, status, latency, user, and company context when available.
 
 ## Documentation

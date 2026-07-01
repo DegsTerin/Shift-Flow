@@ -1,4 +1,6 @@
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import { toPagination, toSkipTake } from "../../shared/http/pagination.js";
+import { notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import {
   activeCompanyId,
@@ -7,6 +9,24 @@ import {
 } from "../../shared/services/scope.service.js";
 import { TeamsRepository } from "./teams.repository.js";
 
+const teamInclude = {
+  members: {
+    where: { deletedAt: null },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          jobTitle: true,
+          status: true
+        }
+      }
+    },
+    orderBy: { createdAt: "asc" }
+  }
+};
+
 export class TeamsService extends BaseService {
   private readonly teamsRepository: TeamsRepository;
 
@@ -14,6 +34,31 @@ export class TeamsService extends BaseService {
     const repository = new TeamsRepository();
     super(repository, "Team", { userStamps: true });
     this.teamsRepository = repository;
+  }
+
+  override async list(req: ApiRequest, filters: Record<string, unknown> = {}) {
+    const pagination = toPagination(req.query);
+    const companyId = this.requireCompanyId(req);
+    const where = { ...filters, companyId, deletedAt: null };
+    const [items, total] = await Promise.all([
+      this.repository.list({
+        where,
+        ...toSkipTake(pagination),
+        orderBy: { updatedAt: "desc" },
+        include: teamInclude
+      }),
+      this.repository.count(where)
+    ]);
+
+    return { items, total, ...pagination };
+  }
+
+  override async get(req: ApiRequest, id: string) {
+    const item = await this.repository.findById(id, this.requireCompanyId(req), teamInclude);
+    if (!item) {
+      throw notFound("Team not found");
+    }
+    return item;
   }
 
   async addMember(req: ApiRequest, teamId: string, data: Record<string, unknown>) {

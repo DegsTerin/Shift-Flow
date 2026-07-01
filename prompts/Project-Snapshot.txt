@@ -19,7 +19,7 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.25
+1.4.26
 
 Ultima atualizacao:
 2026-07-01
@@ -902,6 +902,18 @@ RISCOS
     * Validacao executada: parse estatico de scripts/docker-desktop.ps1, scripts/start.ps1, scripts/stop.ps1 e scripts/restart.ps1 via powershell.exe retornou PowerShell syntax OK.
     * Execucao real de npm run start, npm run stop e npm run restart nao foi realizada para evitar abrir/fechar Docker Desktop, alterar containers e subir/derrubar servicos locais sem confirmacao adicional.
   * O registro 1.4.25 documenta alteracoes ja executadas neste chat e nao muda STATE-08 PRODUCTION_RELEASE.
+  * A partir do patch 1.4.26, fica registrada a manutencao funcional pos-release solicitada em 2026-07-01 para documentar e commitar os prompts abertos em prompts/:
+    * Prompt-Auth.txt registra auditoria e hardening de autenticacao/login.
+    * Prompt-Dashboard.txt registra Dashboard de KPIs personalizavel por usuario.
+    * Prompt-Adjustments.txt registra Kanban interno por atividade, legenda/filtros, Gestao de Perfis, cores por equipe e Configuracoes expandidas.
+    * prisma/schema.prisma recebeu AccessTokenRevocation, AuthLoginAttempt, ActivityTaskColumn, ActivityTask, ActivityTaskHistory, ActivityTaskHistoryType e campos de Role color/isActive.
+    * Migrations criadas: 20260701120000_auth_session_hardening, 20260701182603_add_dashboard_personalization e 20260701193000_activity_internal_kanban_and_role_management.
+    * Backend alterado em auth, activities, rbac, teams, users, authenticate middleware e shared/security.
+    * Frontend alterado em apps/web/app para modal de atividade, views, charts, i18n, types, utils, styles e page.
+    * README.md e SECURITY.md atualizados para refletir a manutencao.
+    * Prompt-Index.txt passou a catalogar Prompt-Auth.txt, Prompt-Dashboard.txt e Prompt-Adjustments.txt.
+    * Validacoes locais aprovadas: git diff --check, npm run prisma:validate, npm run typecheck, npm test, npm run lint e npm run build.
+  * O registro 1.4.26 documenta alteracoes ja executadas neste workspace e nao muda STATE-08 PRODUCTION_RELEASE.
 
 ---
 

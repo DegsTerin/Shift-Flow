@@ -6,7 +6,11 @@ import { ActivitiesController } from "./activities.controller.js";
 import {
   activitySchema,
   assignActivitySchema,
-  moveActivitySchema
+  activityTaskColumnSchema,
+  activityTaskSchema,
+  moveActivitySchema,
+  moveActivityTaskSchema,
+  reorderTaskColumnsSchema
 } from "./activities.validators.js";
 
 export const activityRoutes = Router();
@@ -19,6 +23,62 @@ activityRoutes.post(
   requirePermission("activities", "write"),
   validate("body", activitySchema),
   ActivitiesController.create
+);
+activityRoutes.get(
+  "/:id/task-board",
+  requirePermission("activities", "read"),
+  ActivitiesController.taskBoard
+);
+activityRoutes.post(
+  "/:id/task-board/columns",
+  requirePermission("activities", "write"),
+  validate("body", activityTaskColumnSchema),
+  ActivitiesController.createTaskColumn
+);
+activityRoutes.patch(
+  "/:id/task-board/columns/:columnId",
+  requirePermission("activities", "write"),
+  validate("body", activityTaskColumnSchema.partial()),
+  ActivitiesController.updateTaskColumn
+);
+activityRoutes.delete(
+  "/:id/task-board/columns/:columnId",
+  requirePermission("activities", "delete"),
+  ActivitiesController.deleteTaskColumn
+);
+activityRoutes.post(
+  "/:id/task-board/columns/reorder",
+  requirePermission("activities", "write"),
+  validate("body", reorderTaskColumnsSchema),
+  ActivitiesController.reorderTaskColumns
+);
+activityRoutes.post(
+  "/:id/task-board/tasks",
+  requirePermission("activities", "write"),
+  validate("body", activityTaskSchema),
+  ActivitiesController.createTask
+);
+activityRoutes.patch(
+  "/:id/task-board/tasks/:taskId",
+  requirePermission("activities", "write"),
+  validate("body", activityTaskSchema.partial()),
+  ActivitiesController.updateTask
+);
+activityRoutes.delete(
+  "/:id/task-board/tasks/:taskId",
+  requirePermission("activities", "delete"),
+  ActivitiesController.deleteTask
+);
+activityRoutes.post(
+  "/:id/task-board/tasks/:taskId/archive",
+  requirePermission("activities", "write"),
+  ActivitiesController.archiveTask
+);
+activityRoutes.post(
+  "/:id/task-board/tasks/:taskId/move",
+  requirePermission("activities", "write"),
+  validate("body", moveActivityTaskSchema),
+  ActivitiesController.moveTask
 );
 activityRoutes.get("/:id", requirePermission("activities", "read"), ActivitiesController.get);
 activityRoutes.patch(

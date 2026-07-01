@@ -28,11 +28,26 @@ rbacRoutes.patch(
   validate("body", roleSchema.partial()),
   RbacController.roles.update
 );
+rbacRoutes.delete(
+  "/roles/:id",
+  requirePermission("rbac", "delete"),
+  RbacController.roles.remove
+);
+rbacRoutes.post(
+  "/roles/:id/duplicate",
+  requirePermission("rbac", "write"),
+  RbacController.duplicateRole
+);
 rbacRoutes.post(
   "/roles/:roleId/permissions",
   requirePermission("rbac", "write"),
   validate("body", assignPermissionSchema),
   RbacController.assignPermission
+);
+rbacRoutes.delete(
+  "/roles/:roleId/permissions/:permissionId",
+  requirePermission("rbac", "write"),
+  RbacController.removePermission
 );
 rbacRoutes.get("/permissions", requirePermission("rbac", "read"), RbacController.permissions.list);
 rbacRoutes.post(

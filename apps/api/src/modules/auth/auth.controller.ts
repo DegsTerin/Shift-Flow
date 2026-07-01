@@ -5,6 +5,7 @@ import { env } from "../../shared/config/env.js";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { ok } from "../../shared/http/response.js";
 import { forbidden } from "../../shared/errors/app-error.js";
+import { revokeAccessToken } from "../../shared/middlewares/authenticate.js";
 import { AuthService } from "./auth.service.js";
 
 const service = new AuthService();
@@ -47,6 +48,11 @@ function cookieRefreshToken(req: ApiRequest) {
 
 function cookieCsrfToken(req: ApiRequest) {
   return cookieValue(req, csrfCookieName);
+}
+
+function bearerAccessToken(req: ApiRequest) {
+  const header = req.header("authorization");
+  return header?.startsWith("Bearer ") ? header.slice(7) : undefined;
 }
 
 function generateCsrfToken() {
@@ -119,7 +125,7 @@ export const AuthController = {
   refresh: asyncHandler(async (req: ApiRequest, res: Response) => {
     try {
       assertCookieCsrf(req);
-      const result = await service.refresh(req, req.body.refreshToken ?? cookieRefreshToken(req));
+      const result = await service.refresh(req, cookieRefreshToken(req));
       const csrfToken = generateCsrfToken();
       setRefreshCookie(res, result.refreshToken, result.expiresAt);
       setCsrfCookie(res, csrfToken, result.expiresAt);
@@ -134,7 +140,8 @@ export const AuthController = {
   logout: asyncHandler(async (req: ApiRequest, res: Response) => {
     try {
       assertCookieCsrf(req);
-      const result = await service.logout(req.body.refreshToken ?? cookieRefreshToken(req));
+      await revokeAccessToken(bearerAccessToken(req), req);
+      const result = await service.logout(cookieRefreshToken(req));
       res.json(ok(result));
     } finally {
       clearRefreshCookie(res);

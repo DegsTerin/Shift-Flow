@@ -1,0 +1,202 @@
+## Dashboard de KPIs Personalizável
+
+Implementar um Dashboard de KPIs totalmente personalizável para os módulos que possuem dashboards.
+
+### Objetivos
+
+* Permitir que cada usuário organize seu próprio dashboard.
+* Melhorar a visualização das informações mais importantes.
+* Criar uma estrutura preparada para futuras expansões.
+
+## Layout
+
+Cada dashboard deverá ser composto por widgets (cards) independentes.
+
+Cada widget poderá representar, por exemplo:
+
+* KPI numérico
+* Gráfico de barras
+* Gráfico de linhas
+* Gráfico de pizza
+* Tabela
+* Lista
+* Indicadores
+* Calendário
+* Atividades recentes
+
+## Funcionalidades
+
+Permitir que o usuário:
+
+* Mover widgets por Drag & Drop.
+* Reorganizar livremente o layout.
+* Redimensionar widgets.
+* Expandir ou reduzir altura e largura.
+* Fixar widgets importantes.
+* Ocultar widgets.
+* Mostrar widgets ocultos.
+* Adicionar novos widgets.
+* Remover widgets do dashboard.
+* Duplicar widgets.
+* Restaurar o layout padrão.
+* Salvar automaticamente todas as alterações.
+
+## Persistência
+
+Salvar por usuário:
+
+* Ordem dos widgets.
+* Tamanho.
+* Posição.
+* Widgets ocultos.
+* Configurações individuais.
+* Dashboard padrão.
+
+As configurações devem permanecer após logout, troca de navegador e atualização da página.
+
+## Responsividade
+
+Garantir funcionamento em:
+
+* Desktop.
+* Tablet.
+* Smartphone.
+
+O layout deve se reorganizar automaticamente conforme o tamanho da tela.
+
+## Widgets
+
+Criar uma arquitetura baseada em componentes reutilizáveis para facilitar a criação de novos widgets.
+
+Cada widget deverá possuir:
+
+* Título.
+* Ícone.
+* Atualização automática.
+* Menu de opções.
+* Estado de carregamento.
+* Estado vazio.
+* Tratamento de erros.
+
+## KPIs sugeridos
+
+* Projetos ativos.
+* Projetos concluídos.
+* Atividades abertas.
+* Atividades concluídas.
+* Atividades atrasadas.
+* Atividades em andamento.
+* Tempo médio de conclusão.
+* Tempo médio por equipe.
+* Produtividade por equipe.
+* Produtividade por usuário.
+* Cumprimento de prazos.
+* Distribuição por prioridade.
+* Distribuição por status.
+* Distribuição por equipe.
+* Distribuição por perfil.
+* Atividades criadas por período.
+* Atividades concluídas por período.
+* Evolução semanal.
+* Evolução mensal.
+* Percentual de conclusão dos projetos.
+* Usuários mais ativos.
+* Equipes mais produtivas.
+* Últimas atividades realizadas.
+
+## Configuração
+
+Criar uma opção chamada **Personalizar Dashboard**, permitindo:
+
+* Entrar no modo de edição.
+* Mover widgets.
+* Redimensionar widgets.
+* Adicionar widgets.
+* Remover widgets.
+* Restaurar layout padrão.
+* Salvar alterações.
+* Cancelar alterações.
+
+## Requisitos Técnicos
+
+* Utilizar Grid Layout com suporte a Drag & Drop.
+* Reutilizar componentes existentes.
+* Evitar código duplicado.
+* Manter a arquitetura atual.
+* Não causar regressões.
+* Garantir boa performance mesmo com muitos widgets.
+* Atualizar APIs e banco de dados apenas quando necessário.
+
+## Entrega
+
+Ao finalizar, apresentar:
+
+* Widgets implementados.
+* Componentes criados.
+* APIs alteradas.
+* Alterações no banco de dados.
+* Estratégia utilizada para persistência do layout.
+* Sugestões de novos KPIs para futuras versões.
+
+## Dashboard
+
+Adicionar um modo de personalização para todos os módulos que possuam Dashboard.
+
+### Funcionalidades
+
+Permitir que o usuário personalize a disposição dos componentes do Dashboard, incluindo:
+
+* Mover widgets por Drag & Drop.
+* Reposicionar os widgets livremente.
+* Redimensionar os widgets (altura e largura).
+* Expandir ou reduzir o tamanho dos widgets.
+* Reorganizar o layout conforme a necessidade.
+* Ocultar ou exibir widgets.
+* Adicionar ou remover widgets disponíveis para o Dashboard.
+* Fixar widgets em posições específicas, quando aplicável.
+* Restaurar o layout padrão.
+* Salvar automaticamente a disposição personalizada de cada usuário.
+* Manter o layout após logout, troca de navegador ou troca de dispositivo, quando aplicável.
+
+### Requisitos
+
+* Utilizar um sistema de grid responsivo.
+* Garantir compatibilidade com desktop, tablet e dispositivos móveis.
+* Evitar sobreposição entre os widgets.
+* Manter alinhamento e espaçamento consistentes.
+* Preservar o padrão visual do sistema.
+* Não impactar o desempenho da aplicação.
+* Reutilizar componentes existentes sempre que possível.
+* Permitir fácil expansão para novos widgets no futuro.
+* Atualizar o layout em tempo real durante a edição, sem necessidade de recarregar a página.
+
+### Persistência
+
+A configuração do Dashboard deverá ser armazenada individualmente para cada usuário, preservando:
+
+* Posição dos widgets.
+* Dimensões dos widgets.
+* Ordem de exibição.
+* Widgets ocultos ou visíveis.
+* Preferências de layout.
+
+### Modo de Personalização
+
+Adicionar uma opção **Personalizar Dashboard**, que permita:
+
+* Entrar e sair do modo de edição.
+* Exibir controles de movimentação e redimensionamento apenas durante a edição.
+* Salvar ou cancelar alterações.
+* Restaurar o layout padrão a qualquer momento.
+
+Enquanto o modo de personalização estiver desativado, o Dashboard deverá permanecer bloqueado contra alterações acidentais.
+
+### Critérios de Aceitação
+
+* O usuário consegue reorganizar o Dashboard de forma intuitiva.
+* Todas as alterações são persistidas corretamente.
+* O layout permanece consistente em diferentes resoluções.
+* Não há regressões nos Dashboards existentes.
+* A personalização é aplicada individualmente para cada usuário, sem afetar os demais.
+* O Dashboard continua totalmente funcional durante e após a personalização.
+* O desempenho da aplicação permanece estável mesmo com múltiplos widgets.

@@ -87,10 +87,13 @@ RECOMENDACAO:
 ULTIMA AUDITORIA REGISTRADA
 
 Data: 2026-07-01
-Versao: 1.4.25
-Arquivos auditados: Controles canonicos de manutencao pos-release e scripts operacionais alterados.
+Versao: 1.4.26
+Arquivos auditados: Controles canonicos de manutencao pos-release, prompts novos em prompts/, migrations, schema, backend, frontend e documentacao alterada.
 Status: APROVADO COM OBSERVACAO DOCUMENTAL
 Conflitos encontrados:
+* Prompt-Auth.txt, Prompt-Dashboard.txt e Prompt-Adjustments.txt existiam como entradas operacionais novas, mas ainda precisavam ser catalogados em Prompt-Index.txt.
+* As alteracoes associadas envolvem schema, migrations, backend, frontend, testes e documentacao, portanto precisavam ser registradas como manutencao funcional pos-release.
+* As migrations 20260701120000_auth_session_hardening, 20260701182603_add_dashboard_personalization e 20260701193000_activity_internal_kanban_and_role_management precisavam ficar rastreadas nos controles canonicos.
 * Scripts npm run start, npm run stop e npm run restart precisavam explicitar o ciclo operacional do Docker Desktop e PostgreSQL.
 * O fluxo anterior nao encerrava Docker Desktop no stop e o restart ainda podia preservar banco via KeepDatabase, contrariando a ordem solicitada.
 * Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt tinham redundancia, organizacao irregular e encoding inconsistente.
@@ -200,6 +203,12 @@ Correcoes aplicadas:
 * scripts/restart.ps1 passou a executar stop completo antes do start, sem preservar banco.
 * Current State, snapshot, changelog, auditoria, README e log de transicao receberam registro da manutencao funcional pos-release.
 * Validacao executada: parse estatico PowerShell dos scripts alterados retornou PowerShell syntax OK.
+* Versao do sistema de prompts atualizada para 1.4.26.
+* Prompt-Auth.txt, Prompt-Dashboard.txt e Prompt-Adjustments.txt foram catalogados em Prompt-Index.txt.
+* Current State, snapshot, changelog, auditoria e log de transicao receberam registro da manutencao funcional pos-release.
+* Registradas as migrations 20260701120000_auth_session_hardening, 20260701182603_add_dashboard_personalization e 20260701193000_activity_internal_kanban_and_role_management.
+* Registrado o impacto em auth/sessao, dashboard personalizavel, Kanban interno por atividade, historico de tarefas, cores por equipe, roles/perfis e frontend.
+* Validacoes locais aprovadas para 1.4.26: git diff --check, npm run prisma:validate, npm run typecheck, npm test, npm run lint e npm run build.
 Risco:
 * Alteracoes funcionais futuras continuam dependendo de fase/estado permitido, gates e evidencias.
 * Referencias manuais aos 17 prompts antigos podem causar confusao se forem usadas como fonte operacional sem consultar Start-Here.txt e Prompt-Index.txt.
@@ -215,6 +224,8 @@ Risco:
 * Reducoes de prompts externos preservam o escopo operacional, mas deixam de manter a redacao longa original; usar os registros historicos de snapshot/log para contexto de execucoes anteriores.
 * Encerrar Docker Desktop no stop pode afetar outros projetos locais que dependam do Docker em execucao.
 * A validacao atual foi estatica; execucao real de start/stop/restart ainda deve ser feita manualmente quando for aceitavel abrir/fechar Docker Desktop e alterar containers locais.
+* As migrations 1.4.26 alteram schema e exigem deploy controlado em qualquer ambiente remoto.
+* Mudancas de autenticacao, bloqueio de login e revogacao de tokens exigem validacao de fluxos de login, refresh, logout e expiracao antes de promover para ambiente compartilhado.
 Recomendacao:
 * Continuar usando Start-Here.txt como entrypoint e aplicar Conflict-Resolution-Policy.txt para qualquer conflito novo.
 * Nao criar novos arquivos de controle para solicitacoes repetidas de documentacao quando changelog, snapshot, auditoria, versionamento, README e log de transicao bastarem.
@@ -223,6 +234,7 @@ Recomendacao:
 * Ao auditar estado atual, desconsiderar frases historicas de handoff como autoridade vigente e consultar Current-State.txt.
 * Manter os prompts globais curtos, classificados e com regra de autoridade explicita para evitar redundancia e execucao fora de fluxo.
 * Antes de usar em rotina diaria, executar npm run start, npm run stop e npm run restart em uma janela controlada para confirmar o comportamento visual do Docker Desktop no ambiente Windows local.
+* Antes de entrega remota da manutencao 1.4.26, executar prisma validate, migrate status/deploy em ambiente alvo, unit tests, typecheck, lint e build.
 
 ---
 

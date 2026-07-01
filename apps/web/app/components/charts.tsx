@@ -5,11 +5,13 @@ import { BarChart3 } from "lucide-react";
 export function ChartPanel({
   title,
   values,
-  colors = []
+  colors = [],
+  labels = []
 }: {
   title: string;
   values: number[];
   colors?: Array<string | undefined>;
+  labels?: string[];
 }) {
   const safeValues = values.length ? values : [0];
   const max = Math.max(...safeValues, 1);
@@ -32,6 +34,16 @@ export function ChartPanel({
           </span>
         ))}
       </div>
+      {labels.length ? (
+        <div className="chart-legend">
+          {labels.map((label, index) => (
+            <span key={`${title}-legend-${label}`}>
+              <i style={{ backgroundColor: colors[index] }} />
+              {label}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </article>
   );
 }
