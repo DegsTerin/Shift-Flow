@@ -1,16 +1,17 @@
 import type { NextFunction, Response } from "express";
+import { configuredCorsOrigins, requireOriginOnUnsafeRequests } from "../config/env.js";
 import type { ApiRequest } from "../http/request-types.js";
 import { forbidden } from "../errors/app-error.js";
 
 const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-const defaultDevelopmentOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
 
-function configuredOrigins() {
-  const configured = (process.env.CORS_ORIGIN ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  return configured.length ? configured : defaultDevelopmentOrigins;
+function originFromReferer(referer: string | undefined) {
+  if (!referer) return undefined;
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 export function verifyOrigin(req: ApiRequest, _res: Response, next: NextFunction) {
@@ -19,15 +20,18 @@ export function verifyOrigin(req: ApiRequest, _res: Response, next: NextFunction
     return;
   }
 
-  const allowedOrigins = configuredOrigins();
-  const origin = req.header("origin");
+  const origin = req.header("origin") ?? originFromReferer(req.header("referer"));
 
   if (!origin) {
+    if (requireOriginOnUnsafeRequests) {
+      next(forbidden("Request origin is required"));
+      return;
+    }
     next();
     return;
   }
 
-  if (!allowedOrigins.includes(origin)) {
+  if (!configuredCorsOrigins.includes(origin)) {
     next(forbidden("Invalid request origin"));
     return;
   }

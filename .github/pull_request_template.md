@@ -5,6 +5,8 @@
 ## Validation
 
 - [ ] `npm run quality`
+- [ ] `npm run security:secrets`
+- [ ] `npm run security:production-config`
 - [ ] `npm run test:unit`
 - [ ] `npm run build`
 - [ ] E2E or load checks when the change touches user workflows

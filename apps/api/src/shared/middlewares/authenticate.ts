@@ -1,25 +1,18 @@
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import type { NextFunction, Response } from "express";
+import { accessTokenSecret, env } from "../config/env.js";
 import type { ApiRequest, AuthenticatedUser } from "../http/request-types.js";
 import { unauthorized } from "../errors/app-error.js";
 
-const accessTokenSecret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
-
-if (process.env.NODE_ENV === "production" && !accessTokenSecret) {
-  throw new Error("JWT_ACCESS_SECRET or JWT_SECRET is required in production");
-}
-
-const signingSecret = accessTokenSecret || "shiftflow-dev-access-secret";
-
 export function signAccessToken(user: AuthenticatedUser) {
   const options: SignOptions = {
-    expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ?? "15m") as SignOptions["expiresIn"],
+    expiresIn: env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"],
     subject: user.id,
-    issuer: process.env.JWT_ISSUER ?? "shiftflow"
+    issuer: env.JWT_ISSUER
   };
 
-  return jwt.sign(user, signingSecret, {
+  return jwt.sign(user, accessTokenSecret, {
     ...options
   });
 }
@@ -34,9 +27,9 @@ export function authenticate(req: ApiRequest, _res: Response, next: NextFunction
   }
 
   try {
-    req.auth = jwt.verify(token, signingSecret, {
+    req.auth = jwt.verify(token, accessTokenSecret, {
       algorithms: ["HS256"],
-      issuer: process.env.JWT_ISSUER ?? "shiftflow"
+      issuer: env.JWT_ISSUER
     }) as AuthenticatedUser;
     next();
   } catch {

@@ -63,6 +63,12 @@ jobs:
       - name: Audit dependencies
         run: npm run security:audit
 
+      - name: Scan secrets
+        run: npm run security:secrets
+
+      - name: Validate production config
+        run: npm run security:production-config
+
       - name: Quality gates
         run: npm run quality
 

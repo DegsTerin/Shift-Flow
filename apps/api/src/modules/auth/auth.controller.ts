@@ -1,30 +1,64 @@
 import type { Response } from "express";
+import crypto from "node:crypto";
 import { asyncHandler } from "../../shared/http/async-handler.js";
+import { env } from "../../shared/config/env.js";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { ok } from "../../shared/http/response.js";
+import { forbidden } from "../../shared/errors/app-error.js";
 import { AuthService } from "./auth.service.js";
 
 const service = new AuthService();
 const refreshCookieName = "shiftflow_refresh";
+const csrfCookieName = "shiftflow_csrf";
 
 function refreshCookieOptions(maxAgeMs?: number) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
+    secure: env.NODE_ENV === "production",
+    sameSite: env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
     path: "/api/auth",
     ...(maxAgeMs ? { maxAge: maxAgeMs } : {})
   };
 }
 
-function cookieRefreshToken(req: ApiRequest) {
+function csrfCookieOptions(maxAgeMs?: number) {
+  return {
+    httpOnly: false,
+    secure: env.NODE_ENV === "production",
+    sameSite: env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
+    path: "/",
+    ...(maxAgeMs ? { maxAge: maxAgeMs } : {})
+  };
+}
+
+function cookieValue(req: ApiRequest, name: string) {
   const cookie = req.header("cookie");
   if (!cookie) return undefined;
   return cookie
     .split(";")
     .map((item) => item.trim())
-    .find((item) => item.startsWith(`${refreshCookieName}=`))
-    ?.slice(refreshCookieName.length + 1);
+    .find((item) => item.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
+}
+
+function cookieRefreshToken(req: ApiRequest) {
+  return cookieValue(req, refreshCookieName);
+}
+
+function cookieCsrfToken(req: ApiRequest) {
+  return cookieValue(req, csrfCookieName);
+}
+
+function generateCsrfToken() {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+function constantTimeEquals(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return (
+    leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer)
+  );
 }
 
 function setRefreshCookie(res: Response, refreshToken: string, expiresAt: Date) {
@@ -35,12 +69,37 @@ function setRefreshCookie(res: Response, refreshToken: string, expiresAt: Date) 
   );
 }
 
+function setCsrfCookie(res: Response, csrfToken: string, expiresAt: Date) {
+  res.cookie(csrfCookieName, csrfToken, csrfCookieOptions(expiresAt.getTime() - Date.now()));
+}
+
 function clearRefreshCookie(res: Response) {
   res.clearCookie(refreshCookieName, {
     ...refreshCookieOptions(),
     maxAge: 0,
     expires: new Date(0)
   });
+}
+
+function clearCsrfCookie(res: Response) {
+  res.clearCookie(csrfCookieName, {
+    ...csrfCookieOptions(),
+    maxAge: 0,
+    expires: new Date(0)
+  });
+}
+
+function assertCookieCsrf(req: ApiRequest) {
+  if (!cookieRefreshToken(req)) {
+    return;
+  }
+
+  const csrfCookie = cookieCsrfToken(req);
+  const csrfHeader = req.header("x-csrf-token");
+
+  if (!csrfCookie || !csrfHeader || !constantTimeEquals(csrfCookie, csrfHeader)) {
+    throw forbidden("Invalid CSRF token");
+  }
 }
 
 function withoutRefreshToken<T extends { refreshToken: string }>({ refreshToken, ...payload }: T) {
@@ -51,27 +110,35 @@ function withoutRefreshToken<T extends { refreshToken: string }>({ refreshToken,
 export const AuthController = {
   login: asyncHandler(async (req: ApiRequest, res: Response) => {
     const result = await service.login(req, req.body);
+    const csrfToken = generateCsrfToken();
     setRefreshCookie(res, result.refreshToken, result.expiresAt);
+    setCsrfCookie(res, csrfToken, result.expiresAt);
     res.json(ok(withoutRefreshToken(result)));
   }),
 
   refresh: asyncHandler(async (req: ApiRequest, res: Response) => {
     try {
+      assertCookieCsrf(req);
       const result = await service.refresh(req, req.body.refreshToken ?? cookieRefreshToken(req));
+      const csrfToken = generateCsrfToken();
       setRefreshCookie(res, result.refreshToken, result.expiresAt);
+      setCsrfCookie(res, csrfToken, result.expiresAt);
       res.json(ok(withoutRefreshToken(result)));
     } catch (error) {
       clearRefreshCookie(res);
+      clearCsrfCookie(res);
       throw error;
     }
   }),
 
   logout: asyncHandler(async (req: ApiRequest, res: Response) => {
     try {
+      assertCookieCsrf(req);
       const result = await service.logout(req.body.refreshToken ?? cookieRefreshToken(req));
       res.json(ok(result));
     } finally {
       clearRefreshCookie(res);
+      clearCsrfCookie(res);
     }
   }),
 

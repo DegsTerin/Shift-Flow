@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
+import { env } from "../../shared/config/env.js";
 import type { ApiRequest, AuthenticatedUser } from "../../shared/http/request-types.js";
 import { forbidden, unauthorized } from "../../shared/errors/app-error.js";
 import { signAccessToken } from "../../shared/middlewares/authenticate.js";
@@ -30,11 +31,6 @@ type DbRefreshToken = {
   revokedAt?: Date | null;
   user?: DbUser;
 };
-
-const refreshTokenDays = Number.parseInt(process.env.JWT_REFRESH_EXPIRES_DAYS ?? "30", 10);
-
-const effectiveRefreshTokenDays =
-  Number.isFinite(refreshTokenDays) && refreshTokenDays > 0 ? refreshTokenDays : 30;
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -89,7 +85,7 @@ export class AuthService {
     };
     const accessToken = signAccessToken(authUser);
     const refreshToken = crypto.randomBytes(48).toString("base64url");
-    const expiresAt = new Date(Date.now() + effectiveRefreshTokenDays * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
 
     await this.repository.createRefreshToken({
       userId: user.id,
@@ -135,7 +131,7 @@ export class AuthService {
       companyId: resolveCompany(user, stored.companyId ?? undefined)
     };
     const nextRefreshToken = crypto.randomBytes(48).toString("base64url");
-    const expiresAt = new Date(Date.now() + effectiveRefreshTokenDays * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
 
     await this.repository.rotateRefreshToken(stored.id, {
       userId: user.id,

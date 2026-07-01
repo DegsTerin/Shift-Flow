@@ -1,13 +1,13 @@
 import { getDelegate, getPrisma } from "../../shared/lib/prisma.js";
 
 type UserDelegate = {
-  findUnique(args: unknown): Promise<unknown | null>;
+  findFirst(args: unknown): Promise<unknown | null>;
   update(args: unknown): Promise<unknown>;
 };
 
 type RefreshTokenDelegate = {
   create(args: unknown): Promise<unknown>;
-  findUnique(args: unknown): Promise<unknown | null>;
+  findFirst(args: unknown): Promise<unknown | null>;
   update(args: unknown): Promise<unknown>;
 };
 
@@ -25,8 +25,8 @@ export class AuthRepository {
   }
 
   async findUserByEmail(email: string) {
-    return (await this.users()).findUnique({
-      where: { email },
+    return (await this.users()).findFirst({
+      where: { email, deletedAt: null },
       include: {
         companies: { where: { deletedAt: null } },
         roleAssignments: {
@@ -57,8 +57,13 @@ export class AuthRepository {
   }
 
   async findRefreshToken(tokenHash: string) {
-    return (await this.refreshTokens()).findUnique({
-      where: { tokenHash },
+    return (await this.refreshTokens()).findFirst({
+      where: {
+        tokenHash,
+        user: {
+          deletedAt: null
+        }
+      },
       include: {
         user: {
           include: {

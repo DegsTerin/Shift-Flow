@@ -1,3 +1,5 @@
+import { env } from "../config/env.js";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 type LogFields = Record<string, unknown>;
@@ -9,7 +11,7 @@ const levelWeight: Record<LogLevel, number> = {
   error: 40
 };
 
-const configuredLevel = (process.env.LOG_LEVEL as LogLevel | undefined) ?? "info";
+const configuredLevel = env.LOG_LEVEL as LogLevel;
 const minimumLevel = levelWeight[configuredLevel] ? configuredLevel : "info";
 
 function normalizeError(error: unknown) {
@@ -20,7 +22,7 @@ function normalizeError(error: unknown) {
   return {
     name: error.name,
     message: error.message,
-    stack: process.env.NODE_ENV === "production" ? undefined : error.stack
+    stack: env.NODE_ENV === "production" ? undefined : error.stack
   };
 }
 

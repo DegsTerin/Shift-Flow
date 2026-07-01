@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { AppError, conflict } from "../errors/app-error.js";
+import { env } from "../config/env.js";
 import type { ApiRequest } from "../http/request-types.js";
 import { logger } from "../observability/logger.js";
 
@@ -62,7 +63,7 @@ export function errorHandler(error: unknown, req: Request, res: Response, _next:
     error: {
       code: "INTERNAL_ERROR",
       message:
-        process.env.NODE_ENV === "production"
+        env.NODE_ENV === "production"
           ? "Unexpected error"
           : error instanceof Error
             ? error.message

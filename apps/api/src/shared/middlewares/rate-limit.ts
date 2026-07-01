@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { NextFunction, Response } from "express";
+import { env } from "../config/env.js";
 import type { ApiRequest } from "../http/request-types.js";
 import { logger } from "../observability/logger.js";
 
@@ -17,11 +18,6 @@ type RateLimitOptions = {
 
 const buckets = new Map<string, RateLimitBucket>();
 const lastCleanupByLimiter = new Map<string, number>();
-
-function parsePositiveInteger(value: string | undefined, fallback: number) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 function hashKey(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 32);
@@ -75,6 +71,7 @@ function createRateLimit({ name, windowMs, maxRequests, key }: RateLimitOptions)
     res.setHeader("x-rate-limit-reset", new Date(bucket.resetAt).toISOString());
 
     if (bucket.count > maxRequests) {
+      res.setHeader("retry-after", String(Math.ceil((bucket.resetAt - now) / 1000)));
       logger.warn("rate_limit_exceeded", {
         requestId: req.context?.requestId,
         limiter: name,
@@ -98,15 +95,15 @@ function createRateLimit({ name, windowMs, maxRequests, key }: RateLimitOptions)
 
 export const rateLimit = createRateLimit({
   name: "global",
-  windowMs: parsePositiveInteger(process.env.API_RATE_LIMIT_WINDOW_MS, 60_000),
-  maxRequests: parsePositiveInteger(process.env.API_RATE_LIMIT_MAX, 600),
+  windowMs: env.API_RATE_LIMIT_WINDOW_MS,
+  maxRequests: env.API_RATE_LIMIT_MAX,
   key: defaultRateLimitKey
 });
 
 export const loginRateLimit = createRateLimit({
   name: "auth-login",
-  windowMs: parsePositiveInteger(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 15 * 60_000),
-  maxRequests: parsePositiveInteger(process.env.AUTH_RATE_LIMIT_MAX, 10),
+  windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
+  maxRequests: env.AUTH_RATE_LIMIT_MAX,
   key: loginRateLimitKey
 });
 
