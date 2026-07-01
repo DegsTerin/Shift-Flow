@@ -19,10 +19,10 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.24
+1.4.25
 
 Ultima atualizacao:
-2026-06-23
+2026-07-01
 
 ---
 
@@ -893,6 +893,15 @@ RISCOS
     * Relatorios Human CI historicos passaram a declarar que STATE-02, STATE-05 e STATE-06 eram estados vigentes na validacao historica, nao o estado atual.
     * Todos os .txt foram normalizados sem trailing whitespace, sem UTF-8 invalido, sem caracteres nao ASCII, sem referencias .txt quebradas e com cobertura completa no Prompt-Index.txt.
   * O registro 1.4.24 corrige organizacao documental e nao muda STATE-08 PRODUCTION_RELEASE.
+  * A partir do patch 1.4.25, fica registrada a manutencao funcional pos-release solicitada em 2026-07-01 para scripts operacionais npm start/stop/restart:
+    * scripts/docker-desktop.ps1 foi criado para centralizar Start-DockerDesktopMinimized, Test-DockerDaemon, localizacao do Docker Desktop, minimizacao da janela e Stop-DockerDesktop.
+    * scripts/start.ps1 passou a iniciar o Docker Desktop minimizado, aguardar o daemon Docker responder e somente depois executar docker compose up -d postgres.
+    * scripts/stop.ps1 passou a parar os processos da aplicacao, parar o PostgreSQL por docker compose stop --timeout 5 postgres e depois encerrar o Docker Desktop.
+    * scripts/restart.ps1 passou a executar stop completo e depois start, removendo a opcao KeepDatabase do fluxo de restart para cumprir a ordem: parar banco, encerrar Docker, iniciar Docker e iniciar banco.
+    * package.json manteve os scripts npm run start, npm run stop e npm run restart apontando para os scripts PowerShell existentes.
+    * Validacao executada: parse estatico de scripts/docker-desktop.ps1, scripts/start.ps1, scripts/stop.ps1 e scripts/restart.ps1 via powershell.exe retornou PowerShell syntax OK.
+    * Execucao real de npm run start, npm run stop e npm run restart nao foi realizada para evitar abrir/fechar Docker Desktop, alterar containers e subir/derrubar servicos locais sem confirmacao adicional.
+  * O registro 1.4.25 documenta alteracoes ja executadas neste chat e nao muda STATE-08 PRODUCTION_RELEASE.
 
 ---
 

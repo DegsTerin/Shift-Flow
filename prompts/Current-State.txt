@@ -23,7 +23,7 @@ Bloqueios:
 Nenhum bloqueio operacional registrado.
 
 Ultima atualizacao:
-2026-06-23
+2026-07-01
 
 Observacao documental:
 Ajustes e melhorias dos .txt foram registrados em 2026-06-22 como patch documental do sistema de prompts. Esta atualizacao nao altera o estado atual e nao recomenda transicao.
@@ -47,6 +47,7 @@ Registro de manutencao funcional pos-release 1.4.21 registra os ajustes finais d
 Patch documental 1.4.22 corrige conflitos de governanca identificados apos leitura dos 69 .txt: snapshot alinhado ao versionamento atual, Prompt-Security.txt, Prompt-Systematization.txt e Prompt-Audit-Human-CI.txt catalogados no indice, e manutencoes que alterem codigo, schema, migration, testes, comportamento de produto ou configuracao operacional apos release passam a ser classificadas como manutencao funcional pos-release, nao como patch puramente documental. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.23 registra segunda rodada de auditoria e correcao de conflitos: a proibicao de criar migration em STATE-08 foi refinada para permitir apenas manutencao funcional pos-release explicitamente solicitada e registrada, Phase-Handoff-Template.txt passou a tratar mencao a STATE-05 como historica, e Prompt-Index.txt passou a catalogar artefatos de evidencia e relatorios. Current-State.txt permanece a fonte vigente. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.24 registra limpeza, organizacao, reestruturacao e sistematizacao final dos 69 .txt: prompts globais reestruturados, encoding normalizado, setas Unicode removidas, relatorios historicos contextualizados, trailing whitespace removido, referencias .txt validadas e Prompt-Index.txt cobrindo todos os arquivos. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Registro de manutencao funcional pos-release 1.4.25 registra os ajustes em scripts operacionais npm run start, npm run stop e npm run restart: start inicia Docker Desktop minimizado e depois PostgreSQL; stop para PostgreSQL e encerra Docker Desktop; restart executa stop completo e depois start. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 
 ---
 

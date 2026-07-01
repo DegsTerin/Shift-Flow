@@ -8,6 +8,8 @@ $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $runtimeDir = Join-Path $root "dist/runtime"
 $pidFile = Join-Path $runtimeDir "shiftflow-pids.json"
 
+. (Join-Path $PSScriptRoot "docker-desktop.ps1")
+
 Set-Location $root
 
 function Stop-ProcessTree {
@@ -62,8 +64,11 @@ if (Test-Path $pidFile) {
 Stop-ShiftFlowPorts
 
 if (-not $KeepDatabase) {
+  Write-Host "Starting Docker Desktop if needed"
+  Start-DockerDesktopMinimized
   Write-Host "Stopping PostgreSQL container"
   docker compose stop --timeout 5 postgres
+  Stop-DockerDesktop
 }
 
 Write-Host "ShiftFlow stopped."

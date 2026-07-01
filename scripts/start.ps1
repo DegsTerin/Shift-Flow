@@ -12,6 +12,8 @@ $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $runtimeDir = Join-Path $root "dist/runtime"
 $pidFile = Join-Path $runtimeDir "shiftflow-pids.json"
 
+. (Join-Path $PSScriptRoot "docker-desktop.ps1")
+
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 
 function Invoke-Step {
@@ -122,6 +124,7 @@ if (-not $SkipInstall -and -not (Test-Path (Join-Path $root "node_modules"))) {
   Invoke-Step "Installing dependencies" { npm ci }
 }
 
+Invoke-Step "Starting Docker Desktop" { Start-DockerDesktopMinimized }
 Invoke-Step "Starting PostgreSQL" { docker compose up -d postgres }
 Invoke-Step "Generating Prisma client" { npm run prisma:generate }
 Invoke-Step "Applying database migrations" { npx prisma migrate deploy }

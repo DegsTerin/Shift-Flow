@@ -2,7 +2,6 @@ param(
   [switch]$SkipInstall,
   [switch]$SkipSeed,
   [switch]$OpenBrowser,
-  [switch]$KeepDatabase,
   [switch]$Attach,
   [switch]$Wait
 )
@@ -14,12 +13,7 @@ $startScript = Join-Path $PSScriptRoot "start.ps1"
 
 Write-Host "Restarting ShiftFlow..."
 
-$stopArgs = @()
-if ($KeepDatabase) {
-  $stopArgs += "-KeepDatabase"
-}
-
-& $stopScript @stopArgs
+& $stopScript
 
 $startArgs = @()
 if ($SkipInstall) {

@@ -86,11 +86,13 @@ RECOMENDACAO:
 
 ULTIMA AUDITORIA REGISTRADA
 
-Data: 2026-06-23
-Versao: 1.4.24
-Arquivos auditados: Todos os 69 arquivos .txt.
+Data: 2026-07-01
+Versao: 1.4.25
+Arquivos auditados: Controles canonicos de manutencao pos-release e scripts operacionais alterados.
 Status: APROVADO COM OBSERVACAO DOCUMENTAL
 Conflitos encontrados:
+* Scripts npm run start, npm run stop e npm run restart precisavam explicitar o ciclo operacional do Docker Desktop e PostgreSQL.
+* O fluxo anterior nao encerrava Docker Desktop no stop e o restart ainda podia preservar banco via KeepDatabase, contrariando a ordem solicitada.
 * Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt tinham redundancia, organizacao irregular e encoding inconsistente.
 * Official-State-Machine.txt continha setas Unicode em um sistema documental padronizado em ASCII.
 * Relatorios Human CI historicos mencionavam Current-State.txt declarando STATE-02, STATE-05 ou STATE-06 sem deixar claro que eram registros historicos.
@@ -191,6 +193,13 @@ Correcoes aplicadas:
 * Human-CI-Validation-Architecture.txt, Human-CI-Validation-Frontend-Implementation.txt e Human-CI-Validation-Integration.txt passaram a declarar estados antigos como historicos.
 * Todos os 69 .txt foram normalizados sem trailing whitespace.
 * Validacoes finais: 69 .txt, UTF-8 valido, zero caracteres nao ASCII, zero referencias .txt quebradas, zero arquivos fora de Prompt-Index.txt e git diff --check limpo para .txt.
+* Versao do sistema de prompts atualizada para 1.4.25.
+* scripts/docker-desktop.ps1 criado para centralizar inicializacao minimizada, espera do daemon e encerramento do Docker Desktop.
+* scripts/start.ps1 passou a iniciar Docker Desktop minimizado antes de docker compose up -d postgres.
+* scripts/stop.ps1 passou a parar PostgreSQL e encerrar Docker Desktop no fluxo sem KeepDatabase.
+* scripts/restart.ps1 passou a executar stop completo antes do start, sem preservar banco.
+* Current State, snapshot, changelog, auditoria, README e log de transicao receberam registro da manutencao funcional pos-release.
+* Validacao executada: parse estatico PowerShell dos scripts alterados retornou PowerShell syntax OK.
 Risco:
 * Alteracoes funcionais futuras continuam dependendo de fase/estado permitido, gates e evidencias.
 * Referencias manuais aos 17 prompts antigos podem causar confusao se forem usadas como fonte operacional sem consultar Start-Here.txt e Prompt-Index.txt.
@@ -204,6 +213,8 @@ Risco:
 * A classificacao incorreta de manutencao funcional pos-release como patch documental pode ocultar risco operacional; usar a regra 1.4.22 como criterio de desempate.
 * Blocos historicos de handoff podem ser confundidos com estado atual se forem lidos isoladamente; Current-State.txt deve prevalecer.
 * Reducoes de prompts externos preservam o escopo operacional, mas deixam de manter a redacao longa original; usar os registros historicos de snapshot/log para contexto de execucoes anteriores.
+* Encerrar Docker Desktop no stop pode afetar outros projetos locais que dependam do Docker em execucao.
+* A validacao atual foi estatica; execucao real de start/stop/restart ainda deve ser feita manualmente quando for aceitavel abrir/fechar Docker Desktop e alterar containers locais.
 Recomendacao:
 * Continuar usando Start-Here.txt como entrypoint e aplicar Conflict-Resolution-Policy.txt para qualquer conflito novo.
 * Nao criar novos arquivos de controle para solicitacoes repetidas de documentacao quando changelog, snapshot, auditoria, versionamento, README e log de transicao bastarem.
@@ -211,6 +222,7 @@ Recomendacao:
 * Para manutencoes pos-release, registrar pedido explicito, diagnostico, arquivos alterados, evidencias, gates proporcionais, riscos e pendencias, preservando STATE-08 PRODUCTION_RELEASE.
 * Ao auditar estado atual, desconsiderar frases historicas de handoff como autoridade vigente e consultar Current-State.txt.
 * Manter os prompts globais curtos, classificados e com regra de autoridade explicita para evitar redundancia e execucao fora de fluxo.
+* Antes de usar em rotina diaria, executar npm run start, npm run stop e npm run restart em uma janela controlada para confirmar o comportamento visual do Docker Desktop no ambiente Windows local.
 
 ---
 
@@ -218,4 +230,3 @@ REGRA FINAL
 
 Auditoria recomenda correcoes.
 Auditoria nao altera estado.
-

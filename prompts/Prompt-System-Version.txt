@@ -9,10 +9,10 @@ Apenas a State Machine pode alterar estado.
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.24
+PROMPT_SYSTEM_VERSION: 1.4.25
 
 Data:
-2026-06-23
+2026-07-01
 
 Status:
 Revisao operacional global incorporada aos prompts canonicos. O ShiftFlow passa a ser tratado explicitamente como plataforma corporativa de passagem de turno, registro operacional, gestao de atividades, gestao de equipes, gestao de clientes, gestao de ocorrencias, acompanhamento gerencial e monitoramento em tempo real. Atividade passa a ser definida como dossie operacional auditavel com timeline imutavel, filtros reais, busca global, CRUD completo, modal de detalhes, dashboards executivo/operacional e modo TV como criterios de evolucao pos-release.
@@ -89,6 +89,9 @@ Corrigida a segunda rodada de auditoria de conflitos, redundancias e falhas de f
 Patch 1.4.24:
 Executada limpeza e sistematizacao final dos 69 .txt. Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt foram reestruturados em ASCII limpo, com regras de autoridade, escopo, entregaveis e restricoes claras. Official-State-Machine.txt teve setas Unicode substituidas por ASCII. Relatorios Human CI historicos foram ajustados para deixar claro que estados STATE-02, STATE-05 e STATE-06 eram vigentes na validacao historica, nao o estado atual. Todos os .txt foram normalizados sem trailing whitespace, sem bytes UTF-8 invalidos, sem caracteres nao ASCII, sem referencias .txt quebradas e com cobertura completa em Prompt-Index.txt. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
 
+Patch 1.4.25:
+Registrada manutencao funcional pos-release dos scripts operacionais npm run start, npm run stop e npm run restart. O start inicia o Docker Desktop minimizado e aguarda o daemon antes de subir o PostgreSQL; o stop para os servicos da aplicacao, para o PostgreSQL e encerra o Docker Desktop; o restart executa stop completo e depois start, cumprindo a ordem parar banco, encerrar Docker, iniciar Docker e iniciar banco. Foi criado scripts/docker-desktop.ps1 como helper compartilhado e a sintaxe PowerShell dos scripts alterados foi validada estaticamente. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
 ---
 
 REGRA DE REGISTRO
@@ -101,4 +104,3 @@ Toda mudanca deve atualizar:
 * Project-Snapshot.txt, quando impactar evidencias ou decisoes.
 
 Atualizar versao nao altera estado.
-

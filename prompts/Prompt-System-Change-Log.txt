@@ -28,6 +28,15 @@ Estado afetado:
 
 REGISTROS
 
+Data: 2026-07-01
+Versao: 1.4.25
+Tipo: patch
+Arquivos alterados: scripts/docker-desktop.ps1, scripts/start.ps1, scripts/stop.ps1, scripts/restart.ps1, Project-Snapshot.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Prompt-System-Readme.txt, Current-State.txt, State-Transition-Log.txt
+Resumo: Registrada manutencao funcional pos-release para os scripts npm run start, npm run stop e npm run restart controlarem Docker Desktop e PostgreSQL na ordem solicitada.
+Impacto: O start inicia Docker Desktop minimizado e depois o banco; o stop para o banco e encerra Docker Desktop; o restart para banco, encerra Docker Desktop, inicia Docker Desktop e inicia banco. O helper compartilhado reduz duplicacao entre scripts PowerShell.
+Conflitos resolvidos: O fluxo anterior assumia Docker ja disponivel e nao encerrava Docker Desktop no stop; restart ainda podia preservar banco via KeepDatabase, contrariando a ordem operacional solicitada.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
 Data: 2026-06-23
 Versao: 1.4.24
 Tipo: patch

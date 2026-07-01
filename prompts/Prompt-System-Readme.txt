@@ -84,6 +84,7 @@ Escopo documentado em 2026-06-22:
 * confirmacao 1.4.12 de que novas solicitacoes para documentar ajustes e melhorias deste chat devem continuar como incremento documental nos controles canonicos atuais, preservando STATE-08 PRODUCTION_RELEASE e sem restaurar nomes numerados legados.
 * confirmacao 1.4.13 de que esta conversa tambem registra os commits locais bda71a4 e ab18718, preserva os nomes Pascal-Kebab-Case atuais e mantem remote Git como pendencia externa dependente de URL.
 * confirmacao 1.4.16 de que os ajustes funcionais mais recentes deste chat ficam documentados nos controles canonicos: acesso local/rede, menu/cabecalho, logout, RBAC hierarquico, Gestao de Clientes, Turnos sem Equipe, limpeza de atividades, replicacao por usuarios da empresa e indices unicos parciais para Equipes/Clientes com soft delete.
+* registro 1.4.25 de manutencao funcional pos-release dos scripts operacionais: npm run start inicia Docker Desktop minimizado e depois PostgreSQL; npm run stop para PostgreSQL e encerra Docker Desktop; npm run restart executa stop completo e depois start.
 
 Regra pratica:
 
@@ -101,6 +102,7 @@ Regra pratica:
 * A partir do patch 1.4.12, este padrao de registro incremental e a resolucao oficial para pedidos repetidos de "documentar os ajustes e melhorias deste chat nos .txt".
 * A partir do patch 1.4.16, problemas de duplicidade apos exclusao logica devem ser verificados primeiro por indices unicos parciais no banco; Equipes e Clientes ja foram ajustados, enquanto e-mail de Usuario permanece unico por requisito de login.
 * A partir do patch 1.4.22, alteracao funcional pos-release nao deve ser descrita como patch puramente documental; usar a classificacao manutencao funcional pos-release.
+* A partir do patch 1.4.25, scripts operacionais que dependem de Docker devem preservar a ordem Docker Desktop -> PostgreSQL no start e PostgreSQL -> Docker Desktop no stop; restart deve executar ambos os fluxos completos.
 
 ---
 
@@ -161,7 +163,6 @@ REGRA FINAL
 Se houver duvida, aplique Conflict-Resolution-Policy.txt.
 Se houver bloqueio, aplique Blocked-State-Protocol.txt.
 Se houver reversao, aplique Controlled-Rollback-Policy.txt.
-
 
 
 
