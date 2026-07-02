@@ -2,6 +2,7 @@ import { BaseRepository } from "../../shared/repositories/base.repository.js";
 import { getDelegate } from "../../shared/lib/prisma.js";
 
 type HistoryDelegate = {
+  findMany(args: unknown): Promise<unknown[]>;
   create(args: unknown): Promise<unknown>;
 };
 

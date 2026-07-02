@@ -135,6 +135,25 @@ enum ShiftReportStatus {
   REJECTED
 }
 
+enum DashboardType {
+  MAIN
+  TEAM
+  EXECUTIVE
+}
+
+enum WidgetType {
+  SUMMARY_CARD
+  BAR_CHART
+  LINE_CHART
+  PIE_CHART
+  TABLE
+  LIST
+  INDICATOR
+  CALENDAR
+  RECENT_ACTIVITIES
+  CUSTOM
+}
+
 model Company {
   id          String        @id @default(uuid()) @db.Uuid
   name        String        @db.VarChar(160)
@@ -165,6 +184,8 @@ model Company {
   shiftReports        ShiftReport[]
   auditLogs           AuditLog[]
   refreshTokens       RefreshToken[]
+  dashboardConfigurations DashboardConfiguration[]
+  dashboardWidgets    DashboardWidget[]
 
   @@unique([name])
   @@unique([id, status])
@@ -231,6 +252,7 @@ model User {
   approvedReports     ShiftReport[]     @relation("ShiftReportApprover")
   auditLogs           AuditLog[]        @relation("AuditActor")
   refreshTokens       RefreshToken[]
+  dashboardConfigurations DashboardConfiguration[]
 
   @@index([status, deletedAt])
   @@map("users")
@@ -290,6 +312,7 @@ model Team {
   activities      Activity[]
   notifications   Notification[]
   auditLogs       AuditLog[]
+  dashboardConfigurations DashboardConfiguration[]
 
   @@unique([id, companyId])
   @@index([companyId, deletedAt])
@@ -698,6 +721,62 @@ model Notification {
   @@index([companyId, type, createdAt])
   @@index([companyId, activityId, createdAt])
   @@map("notifications")
+}
+
+model DashboardConfiguration {
+  id            String        @id @default(uuid()) @db.Uuid
+  companyId     String        @db.Uuid
+  userId        String        @db.Uuid
+  dashboardType DashboardType @default(MAIN)
+  teamId        String?       @db.Uuid
+  gridColumns   Int           @default(12)
+  gridGap       Int           @default(16)
+  isEditing     Boolean       @default(false)
+  isDefault     Boolean       @default(false)
+  metadata      Json?
+  createdAt     DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt     DateTime?     @db.Timestamptz(6)
+
+  company Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team    Team?             @relation(fields: [teamId, companyId], references: [id, companyId], onDelete: Restrict)
+  widgets DashboardWidget[]
+
+  @@unique([id, companyId])
+  @@index([companyId, userId, dashboardType])
+  @@index([companyId, dashboardType, deletedAt])
+  @@map("dashboard_configurations")
+}
+
+model DashboardWidget {
+  id                String     @id @default(uuid()) @db.Uuid
+  companyId         String     @db.Uuid
+  dashboardConfigId String     @db.Uuid
+  widgetType        WidgetType
+  title             String     @db.VarChar(160)
+  description       String?    @db.VarChar(255)
+  gridColumn        Int        @default(1)
+  gridRow           Int        @default(1)
+  gridWidth         Int        @default(3)
+  gridHeight        Int        @default(2)
+  isVisible         Boolean    @default(true)
+  isPinned          Boolean    @default(false)
+  order             Int        @default(0)
+  refreshIntervalMs Int?       @default(60000)
+  settings          Json?
+  metadata          Json?
+  createdAt         DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt         DateTime?  @db.Timestamptz(6)
+
+  company       Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  configuration DashboardConfiguration @relation(fields: [dashboardConfigId, companyId], references: [id, companyId], onDelete: Cascade)
+
+  @@unique([id, companyId])
+  @@index([companyId, dashboardConfigId, widgetType])
+  @@index([companyId, dashboardConfigId, isVisible, order])
+  @@map("dashboard_widgets")
 }
 
 model ShiftReport {

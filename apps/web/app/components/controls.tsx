@@ -55,11 +55,13 @@ export function IconToggle({
 
 export function Select({
   label,
+  emptyLabel,
   value,
   options,
   onChange
 }: {
   label: string;
+  emptyLabel?: string;
   value: string;
   options: string[][];
   onChange: (value: string) => void;
@@ -68,7 +70,7 @@ export function Select({
     <label className="select-label">
       <span>{label}</span>
       <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">{label}</option>
+        <option value="">{emptyLabel ?? label}</option>
         {options
           .filter(([id]) => id)
           .map(([id, text]) => (
@@ -131,42 +133,48 @@ export function FilterBar({
         value={filters.clientId}
         onChange={(value) => update("clientId", value)}
         options={clients.map((item) => [item.id ?? "", item.name ?? "-"])}
-        label="Cliente"
+        label={t.filterClient}
+        emptyLabel={t.all}
       />
       <Select
         value={filters.teamId}
         onChange={(value) => update("teamId", value)}
         options={teams.map((item) => [item.id ?? "", item.name ?? "-"])}
-        label="Equipe"
+        label={t.filterTeam}
+        emptyLabel={t.all}
       />
       <Select
         value={filters.shiftId}
         onChange={(value) => update("shiftId", value)}
         options={shifts.map((item) => [item.id ?? "", item.name ?? "-"])}
-        label="Turno"
+        label={t.filterShift}
+        emptyLabel={t.all}
       />
       <Select
         value={filters.assigneeId}
         onChange={(value) => update("assigneeId", value)}
         options={users.map((item) => [item.id ?? "", userOptionLabel(item)])}
-        label="Analista"
+        label={t.filterAnalyst}
+        emptyLabel={t.all}
       />
       <Select
         value={filters.priority}
         onChange={(value) => update("priority", value)}
         options={priorities.map((item) => [item, item])}
-        label="Prioridade"
+        label={t.filterPriority}
+        emptyLabel={t.all}
       />
       <Select
         value={filters.status}
         onChange={(value) => update("status", value)}
         options={activityStatuses.map((item) => [item, item])}
-        label="Status"
+        label={t.filterStatus}
+        emptyLabel={t.all}
       />
       <label className="date-label">
-        <span>Data inicial</span>
+        <span>{t.filterStartDate}</span>
         <input
-          aria-label="Data inicial"
+          aria-label={t.filterStartDate}
           className="date-filter"
           type="date"
           value={filters.from}
@@ -174,9 +182,9 @@ export function FilterBar({
         />
       </label>
       <label className="date-label">
-        <span>Data final</span>
+        <span>{t.filterEndDate}</span>
         <input
-          aria-label="Data final"
+          aria-label={t.filterEndDate}
           className="date-filter"
           type="date"
           value={filters.to}

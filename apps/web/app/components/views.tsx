@@ -1,33 +1,28 @@
 "use client";
 
 import {
-  Activity,
-  CalendarClock,
   CheckCircle2,
   Copy,
   Download,
-  Layers3,
-  Palette,
-  Power,
-  Settings,
   ShieldCheck
 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import type {
   ActivityItem,
   DashboardCharts,
+  DashboardConfiguration,
   DashboardSummary,
+  DashboardWidget,
   Locale,
   PermissionRef,
   RoleRef,
   TeamRef,
-  Texts,
-  Theme
+  Texts
 } from "../lib/types";
 import { countOf, statusColors, statusGroups, statusLabel, statusLegend, slaLabel } from "../lib/utils";
 import { ChartPanel } from "./charts";
+import { CustomizableDashboard, type DashboardWidgetDefinition } from "./custom-dashboard";
 import { ActivityList } from "./lists";
-import { SegmentedControl } from "./controls";
 
 const defaultTeamColor = "#0ea5e9";
 
@@ -54,6 +49,54 @@ function colorsForTeamGroups(groups: DashboardCharts["byTeam"], teams: TeamRef[]
   );
 }
 
+function TeamSummaryStrip({ teams }: { teams: TeamRef[] }) {
+  return (
+    <section className="team-summary">
+      {teams.map((team) => (
+        <article className="team-strip" key={team.id ?? team.name}>
+          <span style={{ backgroundColor: team.color ?? defaultTeamColor }} />
+          <div className="team-strip-body">
+            <strong className="team-strip-name">{team.name ?? "-"}</strong>
+            <small className="team-strip-sla">
+              {team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min SLA` : "-"}
+            </small>
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function withMainTeamSummary(layout: DashboardConfiguration): DashboardConfiguration {
+  if (layout.widgets.some((widget) => widget.key === "team-summary")) return layout;
+  const teamSummary: DashboardWidget = {
+    key: "team-summary",
+    widgetType: "LIST",
+    title: "Equipes",
+    gridColumn: 1,
+    gridRow: 2,
+    gridWidth: 12,
+    gridHeight: 1,
+    isVisible: true,
+    isPinned: false,
+    order: 6,
+    refreshIntervalMs: 60000,
+    settings: { sourceKey: "team-summary" }
+  };
+  return {
+    ...layout,
+    widgets: [
+      ...layout.widgets
+        .filter((widget) => widget.order < teamSummary.order)
+        .map((widget) => ({ ...widget })),
+      teamSummary,
+      ...layout.widgets
+        .filter((widget) => widget.order >= teamSummary.order)
+        .map((widget) => ({ ...widget, order: widget.order + 1 }))
+    ]
+  };
+}
+
 export function MainDashboard({
   t,
   summary,
@@ -61,6 +104,9 @@ export function MainDashboard({
   teams,
   activities,
   locale,
+  layout,
+  onSaveLayout,
+  onResetLayout,
   onNew,
   onOpen
 }: {
@@ -70,72 +116,188 @@ export function MainDashboard({
   teams: TeamRef[];
   activities: ActivityItem[];
   locale: Locale;
+  layout: DashboardConfiguration;
+  onSaveLayout: (config: DashboardConfiguration) => Promise<DashboardConfiguration | void>;
+  onResetLayout: () => Promise<DashboardConfiguration | void>;
   onNew: () => void;
   onOpen: (item: ActivityItem) => void;
 }) {
   const palette = teamPalette(teams);
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
   const dashboardLegend = statusLegend(t);
-
-  return (
-    <>
-      <section className="kpi-grid">
-        {[
-          [t.total, summary.total],
-          [t.pending, summary.pending],
-          [t.running, summary.inProgress],
-          [t.done, summary.done],
-          [t.critical, summary.critical],
-          [t.risk, summary.slaAtRisk]
-        ].map(([label, value]) => (
-          <article className="metric-card" key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-            <small>{label === t.risk && Number(value) > 0 ? "SLA" : "OK"}</small>
-          </article>
-        ))}
-      </section>
-      <section className="dashboard-panels">
-        <ChartPanel title={t.byTeam} values={charts.byTeam.map(countOf)} colors={teamColors} />
+  const metric = (key: string, label: string, value: number) => (
+    <article className="metric-card" key={key}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{label === t.risk && value > 0 ? "SLA" : "OK"}</small>
+    </article>
+  );
+  const definitions: DashboardWidgetDefinition[] = [
+    {
+      key: "summary-total",
+      title: t.total,
+      widgetType: "SUMMARY_CARD",
+      defaultWidth: 2,
+      defaultHeight: 2,
+      render: () => metric("summary-total", t.total, summary.total)
+    },
+    {
+      key: "summary-pending",
+      title: t.pending,
+      widgetType: "SUMMARY_CARD",
+      defaultWidth: 2,
+      defaultHeight: 2,
+      render: () => metric("summary-pending", t.pending, summary.pending)
+    },
+    {
+      key: "summary-running",
+      title: t.running,
+      widgetType: "SUMMARY_CARD",
+      defaultWidth: 2,
+      defaultHeight: 2,
+      render: () => metric("summary-running", t.running, summary.inProgress)
+    },
+    {
+      key: "summary-done",
+      title: t.done,
+      widgetType: "SUMMARY_CARD",
+      defaultWidth: 2,
+      defaultHeight: 2,
+      render: () => metric("summary-done", t.done, summary.done)
+    },
+    {
+      key: "summary-critical",
+      title: t.critical,
+      widgetType: "SUMMARY_CARD",
+      defaultWidth: 2,
+      defaultHeight: 2,
+      render: () => metric("summary-critical", t.critical, summary.critical)
+    },
+    {
+      key: "summary-risk",
+      title: t.risk,
+      widgetType: "INDICATOR",
+      defaultWidth: 2,
+      defaultHeight: 2,
+      render: () => metric("summary-risk", t.risk, summary.slaAtRisk)
+    },
+    {
+      key: "team-summary",
+      title: t.teams,
+      widgetType: "LIST",
+      defaultWidth: 12,
+      defaultHeight: 1,
+      render: () => <TeamSummaryStrip teams={teams} />
+    },
+    {
+      key: "chart-team",
+      title: t.byTeam,
+      widgetType: "BAR_CHART",
+      defaultWidth: 6,
+      defaultHeight: 3,
+      render: () => <ChartPanel title={t.byTeam} values={charts.byTeam.map(countOf)} colors={teamColors} />
+    },
+    {
+      key: "chart-client",
+      title: t.byClient,
+      widgetType: "BAR_CHART",
+      defaultWidth: 6,
+      defaultHeight: 3,
+      render: () => (
         <ChartPanel
           title={t.byClient}
           values={charts.byClient.map(countOf)}
           colors={colorsForValues(charts.byClient, palette)}
         />
+      )
+    },
+    {
+      key: "chart-priority",
+      title: t.byPriority,
+      widgetType: "BAR_CHART",
+      defaultWidth: 6,
+      defaultHeight: 3,
+      render: () => (
         <ChartPanel
           title={t.byPriority}
           values={charts.byPriority.map(countOf)}
           colors={colorsForValues(charts.byPriority, palette)}
         />
+      )
+    },
+    {
+      key: "chart-shift",
+      title: t.incidentsByShift,
+      widgetType: "BAR_CHART",
+      defaultWidth: 6,
+      defaultHeight: 3,
+      render: () => (
         <ChartPanel
           title={t.incidentsByShift}
           values={charts.byShift.map(countOf)}
           colors={colorsForValues(charts.byShift, palette)}
         />
+      )
+    },
+    {
+      key: "chart-status",
+      title: t.monthly,
+      widgetType: "BAR_CHART",
+      defaultWidth: 6,
+      defaultHeight: 3,
+      render: () => (
         <ChartPanel
           title={t.monthly}
           values={charts.byStatus.map(countOf)}
           colors={charts.byStatus.map((group) => statusColors[group.status ?? ""] ?? palette[0])}
           labels={charts.byStatus.map((group) => statusLabel(group.status ?? "", t))}
         />
-      </section>
-      <section className="status-legend" aria-label="Legenda de status">
-        {dashboardLegend.map((item) => (
-          <span key={item.status}>
-            <i style={{ backgroundColor: item.color }} />
-            {item.label}
-          </span>
-        ))}
-      </section>
-      <ActivityList
-        t={t}
-        activities={activities}
-        locale={locale}
-        onNew={onNew}
-        onOpen={onOpen}
-        compact
-      />
-    </>
+      )
+    },
+    {
+      key: "status-legend",
+      title: "Legenda de status",
+      widgetType: "INDICATOR",
+      defaultWidth: 6,
+      defaultHeight: 1,
+      render: () => (
+        <section className="status-legend" aria-label="Legenda de status">
+          {dashboardLegend.map((item) => (
+            <span key={item.status}>
+              <i style={{ backgroundColor: item.color }} />
+              {item.label}
+            </span>
+          ))}
+        </section>
+      )
+    },
+    {
+      key: "activity-list",
+      title: t.operationalList,
+      widgetType: "RECENT_ACTIVITIES",
+      defaultWidth: 12,
+      defaultHeight: 4,
+      render: () => (
+        <ActivityList
+          t={t}
+          activities={activities}
+          locale={locale}
+          onNew={onNew}
+          onOpen={onOpen}
+          compact
+        />
+      )
+    }
+  ];
+
+  return (
+    <CustomizableDashboard
+      t={t}
+      config={withMainTeamSummary(layout)}
+      definitions={definitions}
+      onSave={onSaveLayout}
+      onReset={onResetLayout}
+    />
   );
 }
 
@@ -145,6 +307,9 @@ export function TeamDashboard({
   charts,
   activities,
   locale,
+  layout,
+  onSaveLayout,
+  onResetLayout,
   onOpen
 }: {
   t: Texts;
@@ -152,48 +317,73 @@ export function TeamDashboard({
   charts: DashboardCharts;
   activities: ActivityItem[];
   locale: Locale;
+  layout: DashboardConfiguration;
+  onSaveLayout: (config: DashboardConfiguration) => Promise<DashboardConfiguration | void>;
+  onResetLayout: () => Promise<DashboardConfiguration | void>;
   onOpen: (item: ActivityItem) => void;
 }) {
   const palette = teamPalette(teams);
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
-
-  return (
-    <>
-      <section className="team-summary">
-        {teams.map((team) => (
-          <article className="team-strip" key={team.id ?? team.name}>
-            <span style={{ backgroundColor: team.color ?? defaultTeamColor }} />
-            <div className="team-strip-body">
-              <strong className="team-strip-name">{team.name ?? "-"}</strong>
-              <small className="team-strip-sla">
-                {team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min SLA` : "-"}
-              </small>
-            </div>
-            <b>{team.members?.length ?? 0}</b>
-          </article>
-        ))}
-      </section>
-      <section className="dashboard-panels">
-        <ChartPanel
-          title={t.productivity}
-          values={charts.byTeam.map(countOf)}
-          colors={teamColors}
-        />
+  const definitions: DashboardWidgetDefinition[] = [
+    {
+      key: "team-summary",
+      title: t.teams,
+      widgetType: "LIST",
+      defaultWidth: 12,
+      defaultHeight: 2,
+      render: () => <TeamSummaryStrip teams={teams} />
+    },
+    {
+      key: "team-productivity",
+      title: t.productivity,
+      widgetType: "BAR_CHART",
+      defaultWidth: 6,
+      defaultHeight: 3,
+      render: () => (
+        <ChartPanel title={t.productivity} values={charts.byTeam.map(countOf)} colors={teamColors} />
+      )
+    },
+    {
+      key: "team-risk",
+      title: t.risk,
+      widgetType: "BAR_CHART",
+      defaultWidth: 6,
+      defaultHeight: 3,
+      render: () => (
         <ChartPanel
           title={t.risk}
           values={charts.byPriority.map(countOf)}
           colors={colorsForValues(charts.byPriority, palette)}
         />
-      </section>
-      <ActivityList
-        t={t}
-        activities={activities}
-        locale={locale}
-        onNew={() => undefined}
-        onOpen={onOpen}
-        compact
-      />
-    </>
+      )
+    },
+    {
+      key: "team-activity-list",
+      title: t.operationalList,
+      widgetType: "RECENT_ACTIVITIES",
+      defaultWidth: 12,
+      defaultHeight: 4,
+      render: () => (
+        <ActivityList
+          t={t}
+          activities={activities}
+          locale={locale}
+          onNew={() => undefined}
+          onOpen={onOpen}
+          compact
+        />
+      )
+    }
+  ];
+
+  return (
+    <CustomizableDashboard
+      t={t}
+      config={layout}
+      definitions={definitions}
+      onSave={onSaveLayout}
+      onReset={onResetLayout}
+    />
   );
 }
 
@@ -555,95 +745,5 @@ export function RoleManagementView({
         </section>
       </div>
     </section>
-  );
-}
-
-export function SettingsView({
-  t,
-  roles,
-  locale,
-  setLocale,
-  theme,
-  setTheme
-}: {
-  t: Texts;
-  roles: string[];
-  locale: Locale;
-  setLocale: (value: Locale) => void;
-  theme: Theme;
-  setTheme: (value: Theme) => void;
-}) {
-  return (
-    <>
-      <section className="settings-board panel full-width">
-        {[
-          ["Administracao", Settings, ["Configuracoes Gerais", "Usuarios", "Equipes", "Perfis", "Permissoes"]],
-          ["Gestao", Layers3, ["Status", "Prioridades", "Etiquetas", "Tipos de Atividade", "Cores"]],
-          ["Sistema", Activity, ["Notificacoes", "Integracoes", "Personalizacao", "Preferencias do Usuario", "Logs", "Auditoria"]]
-        ].map(([title, Icon, items]) => (
-          <article className="settings-group" key={String(title)}>
-            <div className="panel-header">
-              <h2>{String(title)}</h2>
-              {typeof Icon === "function" ? <Icon size={18} /> : null}
-            </div>
-            <div className="settings-links">
-              {(items as string[]).map((item) => (
-                <button className="compact-button" key={item} type="button">
-                  {item}
-                </button>
-              ))}
-            </div>
-          </article>
-        ))}
-      </section>
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{t.theme}</h2>
-          <Palette size={18} />
-        </div>
-        <SegmentedControl
-          label={t.theme}
-          options={[t.light, t.dark]}
-          value={theme === "light" ? t.light : t.dark}
-          onChange={(value) => setTheme(value === t.light ? "light" : "dark")}
-        />
-        <SegmentedControl
-          label={t.language}
-          options={["pt-BR", "en-GB"]}
-          value={locale}
-          onChange={(value) => setLocale(value as Locale)}
-        />
-      </section>
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{t.permissions}</h2>
-          <ShieldCheck size={18} />
-        </div>
-        <div className="role-list">
-          {roles.map((role) => (
-            <span key={role}>{role}</span>
-          ))}
-        </div>
-        <p className="guard-note">{t.visualGuard}. RBAC permanece obrigatorio no backend.</p>
-      </section>
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Monitoramento</h2>
-          <Power size={18} />
-        </div>
-        <p className="guard-note">
-          {t.tvMode}: auto refresh, indicadores de SLA e Kanban operacional em tela cheia.
-        </p>
-      </section>
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Turnos</h2>
-          <CalendarClock size={18} />
-        </div>
-        <p className="guard-note">
-          Criacao, edicao e visualizacao usam os endpoints reais de turnos.
-        </p>
-      </section>
-    </>
   );
 }

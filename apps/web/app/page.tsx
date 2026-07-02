@@ -9,6 +9,7 @@ import {
   Columns3,
   Globe2,
   LayoutDashboard,
+  LayoutGrid,
   ListChecks,
   LogOut,
   Menu,
@@ -17,7 +18,6 @@ import {
   Moon,
   RefreshCcw,
   Search,
-  Settings,
   ShieldCheck,
   Sun,
   Users,
@@ -33,7 +33,6 @@ import {
   MainDashboard,
   ReportsView,
   RoleManagementView,
-  SettingsView,
   TeamDashboard
 } from "./components/views";
 import { apiRequest, queryString } from "./lib/api";
@@ -42,6 +41,7 @@ import type {
   ActivityItem,
   ClientRef,
   DashboardCharts,
+  DashboardConfiguration,
   DashboardSummary,
   Filters,
   ListResponse,
@@ -68,9 +68,75 @@ const menu: Array<{ id: View; icon: typeof LayoutDashboard; resource: string; ac
   { id: "shifts", icon: CalendarClock, resource: "shifts", action: "read" },
   { id: "activities", icon: ListChecks, resource: "activities", action: "read" },
   { id: "kanban", icon: Columns3, resource: "activities", action: "read" },
-  { id: "reports", icon: Activity, resource: "reports", action: "read" },
-  { id: "settings", icon: Settings, resource: "rbac", action: "read" }
+  { id: "reports", icon: Activity, resource: "reports", action: "read" }
 ];
+
+type DashboardLayoutKey = "MAIN" | "TEAM";
+
+const defaultDashboardLayouts: Record<DashboardLayoutKey, DashboardConfiguration> = {
+  MAIN: {
+    dashboardType: "MAIN",
+    gridColumns: 12,
+    gridGap: 16,
+    isDefault: true,
+    metadata: {},
+    widgets: [
+      ["summary-total", "SUMMARY_CARD", "Atividades totais", 2, 2],
+      ["summary-pending", "SUMMARY_CARD", "Pendentes", 2, 2],
+      ["summary-running", "SUMMARY_CARD", "Em andamento", 2, 2],
+      ["summary-done", "SUMMARY_CARD", "Finalizadas", 2, 2],
+      ["summary-critical", "SUMMARY_CARD", "Criticas", 2, 2],
+      ["summary-risk", "INDICATOR", "SLA em risco", 2, 2],
+      ["team-summary", "LIST", "Equipes", 12, 1],
+      ["chart-team", "BAR_CHART", "Atividades por equipe", 6, 3],
+      ["chart-client", "BAR_CHART", "Atividades por cliente", 6, 3],
+      ["chart-priority", "BAR_CHART", "Atividades por prioridade", 6, 3],
+      ["chart-shift", "BAR_CHART", "Incidentes por turno", 6, 3],
+      ["chart-status", "BAR_CHART", "Evolucao mensal", 6, 3],
+      ["status-legend", "INDICATOR", "Legenda de status", 6, 1],
+      ["activity-list", "RECENT_ACTIVITIES", "Ultimas atividades", 12, 4]
+    ].map(([key, widgetType, title, gridWidth, gridHeight], order) => ({
+      key: String(key),
+      widgetType: widgetType as DashboardConfiguration["widgets"][number]["widgetType"],
+      title: String(title),
+      gridColumn: order % 2 === 0 ? 1 : 7,
+      gridRow: Math.floor(order / 2) + 1,
+      gridWidth: Number(gridWidth),
+      gridHeight: Number(gridHeight),
+      isVisible: true,
+      isPinned: false,
+      order,
+      refreshIntervalMs: 60000,
+      settings: { sourceKey: String(key) }
+    }))
+  },
+  TEAM: {
+    dashboardType: "TEAM",
+    gridColumns: 12,
+    gridGap: 16,
+    isDefault: true,
+    metadata: {},
+    widgets: [
+      ["team-summary", "LIST", "Equipes", 12, 2],
+      ["team-productivity", "BAR_CHART", "Produtividade por analista", 6, 3],
+      ["team-risk", "BAR_CHART", "SLA em risco", 6, 3],
+      ["team-activity-list", "RECENT_ACTIVITIES", "Ultimas atividades", 12, 4]
+    ].map(([key, widgetType, title, gridWidth, gridHeight], order) => ({
+      key: String(key),
+      widgetType: widgetType as DashboardConfiguration["widgets"][number]["widgetType"],
+      title: String(title),
+      gridColumn: order % 2 === 0 ? 1 : 7,
+      gridRow: Math.floor(order / 2) + 1,
+      gridWidth: Number(gridWidth),
+      gridHeight: Number(gridHeight),
+      isVisible: true,
+      isPinned: false,
+      order,
+      refreshIntervalMs: 60000,
+      settings: { sourceKey: String(key) }
+    }))
+  }
+};
 
 function parseStoredJson(value: string | null) {
   if (!value) return null;
@@ -111,6 +177,8 @@ export default function Page() {
     byShift: []
   });
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [dashboardLayouts, setDashboardLayouts] =
+    useState<Record<DashboardLayoutKey, DashboardConfiguration>>(defaultDashboardLayouts);
   const [clients, setClients] = useState<ClientRef[]>([]);
   const [users, setUsers] = useState<UserRef[]>([]);
   const [teams, setTeams] = useState<TeamRef[]>([]);
@@ -160,14 +228,17 @@ export default function Page() {
     const qs = queryString(filters, search);
     try {
       if (can("dashboard", "read")) {
-        const [summaryData, chartData, operational] = await Promise.all([
+        const [summaryData, chartData, operational, mainLayout, teamLayout] = await Promise.all([
           apiRequest<DashboardSummary>(`/api/dashboard/summary${qs}`, token),
           apiRequest<DashboardCharts>(`/api/dashboard/charts${qs}`, token),
-          apiRequest<ActivityItem[]>(`/api/dashboard/operational-list${qs}`, token)
+          apiRequest<ActivityItem[]>(`/api/dashboard/operational-list${qs}`, token),
+          apiRequest<DashboardConfiguration>("/api/dashboard/configuration/MAIN", token),
+          apiRequest<DashboardConfiguration>("/api/dashboard/configuration/TEAM", token)
         ]);
         setSummary(summaryData);
         setCharts(chartData);
         setActivities(operational);
+        setDashboardLayouts({ MAIN: mainLayout, TEAM: teamLayout });
       }
       if (can("activities", "read")) {
         const activityList = await apiRequest<ListResponse<ActivityItem>>(
@@ -299,6 +370,36 @@ export default function Page() {
     }
   }
 
+  const saveDashboardLayout = useCallback(
+    async (config: DashboardConfiguration) => {
+      if (!token) return config;
+      const saved = await apiRequest<DashboardConfiguration>(
+        `/api/dashboard/configuration/${config.dashboardType}`,
+        token,
+        { method: "PUT", body: JSON.stringify(config) }
+      );
+      if (saved.dashboardType === "MAIN" || saved.dashboardType === "TEAM") {
+        setDashboardLayouts((current) => ({ ...current, [saved.dashboardType]: saved }));
+      }
+      return saved;
+    },
+    [token]
+  );
+
+  const resetDashboardLayout = useCallback(
+    async (dashboardType: DashboardLayoutKey) => {
+      if (!token) return defaultDashboardLayouts[dashboardType];
+      const saved = await apiRequest<DashboardConfiguration>(
+        `/api/dashboard/configuration/${dashboardType}/reset`,
+        token,
+        { method: "POST", body: JSON.stringify({}) }
+      );
+      setDashboardLayouts((current) => ({ ...current, [dashboardType]: saved }));
+      return saved;
+    },
+    [token]
+  );
+
   async function logout() {
     setError(null);
     setLoading(true);
@@ -357,6 +458,10 @@ export default function Page() {
   function toggleMonitorMode() {
     setDrawerOpen(false);
     setMonitorMode((enabled) => !enabled);
+  }
+
+  function customizeDashboard() {
+    window.dispatchEvent(new Event("shiftflow:customize-dashboard"));
   }
 
   async function createRole(event: FormEvent<HTMLFormElement>) {
@@ -556,6 +661,11 @@ export default function Page() {
               <Workflow size={26} />
               <span>{t.app}</span>
             </div>
+            <IconToggle
+              label={navCollapsed ? t.expandNavigation : t.collapseNavigation}
+              icon={Menu}
+              onClick={toggleNavigation}
+            />
           </div>
           <nav tabIndex={0}>
             {availableMenu.map((item) => {
@@ -567,6 +677,7 @@ export default function Page() {
                   key={item.id}
                   onClick={() => selectView(item.id)}
                   title={t[key]}
+                  type="button"
                 >
                   <Icon size={18} />
                   <span>{t[key]}</span>
@@ -579,11 +690,13 @@ export default function Page() {
       <section className="workspace">
         <header className="topbar">
           {!monitorMode ? (
-            <IconToggle
-              label={navCollapsed ? t.expandNavigation : t.collapseNavigation}
-              icon={Menu}
-              onClick={toggleNavigation}
-            />
+            <div className="mobile-nav-trigger">
+              <IconToggle
+                label={navCollapsed ? t.expandNavigation : t.collapseNavigation}
+                icon={Menu}
+                onClick={toggleNavigation}
+              />
+            </div>
           ) : null}
           <div className="topbar-title">
             <p className="eyebrow">{topbarContext}</p>
@@ -593,6 +706,7 @@ export default function Page() {
             <div className="search-box">
               <Search size={16} />
               <input
+                aria-label={t.search}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={t.search}
@@ -610,12 +724,23 @@ export default function Page() {
               icon={Globe2}
               onClick={() => setLocale(locale === "pt-BR" ? "en-GB" : "pt-BR")}
             />
+            {!monitorMode && (view === "dashboard" || view === "team-dashboard") ? (
+              <IconToggle
+                label={t.customizeDashboard}
+                icon={LayoutGrid}
+                onClick={customizeDashboard}
+              />
+            ) : null}
             <IconToggle label={t.tvMode} icon={Maximize2} onClick={toggleMonitorMode} />
             <IconToggle label="Sair" icon={LogOut} onClick={() => void logout()} />
           </div>
         </header>
-        {error ? <p className="guard-note">{error}</p> : null}
-        {loading ? <p className="guard-note">{t.loading}</p> : null}
+        {error ? (
+          <p className="form-error app-message" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {loading ? <p className="guard-note app-message">{t.loading}</p> : null}
         <section className="content-grid">
           {["dashboard", "team-dashboard", "activities", "kanban", "reports"].includes(view) ? (
             <FilterBar
@@ -636,6 +761,9 @@ export default function Page() {
               teams={teams}
               activities={visibleActivities}
               locale={locale}
+              layout={dashboardLayouts.MAIN}
+              onSaveLayout={saveDashboardLayout}
+              onResetLayout={() => resetDashboardLayout("MAIN")}
               onNew={() => setModal({ mode: "create", entity: "activities" })}
               onOpen={(item) => void openDetail("activities", item)}
             />
@@ -647,6 +775,9 @@ export default function Page() {
               charts={charts}
               activities={visibleActivities}
               locale={locale}
+              layout={dashboardLayouts.TEAM}
+              onSaveLayout={saveDashboardLayout}
+              onResetLayout={() => resetDashboardLayout("TEAM")}
               onOpen={(item) => void openDetail("activities", item)}
             />
           )}
@@ -741,16 +872,6 @@ export default function Page() {
               activities={visibleActivities}
               locale={locale}
               onOpen={(item) => void openDetail("activities", item)}
-            />
-          )}
-          {view === "settings" && (
-            <SettingsView
-              t={t}
-              roles={roles.map((role) => role.name ?? "-")}
-              locale={locale}
-              setLocale={setLocale}
-              theme={theme}
-              setTheme={setTheme}
             />
           )}
         </section>

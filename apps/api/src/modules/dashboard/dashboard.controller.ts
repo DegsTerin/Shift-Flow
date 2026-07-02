@@ -15,5 +15,18 @@ export const DashboardController = {
   }),
   operationalList: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.operationalList(req)));
+  }),
+  configuration: asyncHandler(async (req: ApiRequest, res: Response) => {
+    const params = req.params as { dashboardType: "MAIN" | "TEAM" | "EXECUTIVE" };
+    const query = req.query as { teamId?: string };
+    res.json(ok(await service.configuration(req, params.dashboardType, query.teamId)));
+  }),
+  saveConfiguration: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.saveConfiguration(req, req.body)));
+  }),
+  resetConfiguration: asyncHandler(async (req: ApiRequest, res: Response) => {
+    const params = req.params as { dashboardType: "MAIN" | "TEAM" | "EXECUTIVE" };
+    const query = req.query as { teamId?: string };
+    res.json(ok(await service.resetConfiguration(req, params.dashboardType, query.teamId)));
   })
 };

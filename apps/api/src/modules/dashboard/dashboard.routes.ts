@@ -3,7 +3,12 @@ import { authenticate } from "../../shared/middlewares/authenticate.js";
 import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
 import { DashboardController } from "./dashboard.controller.js";
-import { dashboardFilterSchema } from "./dashboard.validators.js";
+import {
+  dashboardConfigurationQuerySchema,
+  dashboardConfigurationSchema,
+  dashboardFilterSchema,
+  dashboardTypeParamSchema
+} from "./dashboard.validators.js";
 
 export const dashboardRoutes = Router();
 
@@ -25,4 +30,25 @@ dashboardRoutes.get(
   requirePermission("dashboard", "read"),
   validate("query", dashboardFilterSchema.partial()),
   DashboardController.operationalList
+);
+dashboardRoutes.get(
+  "/configuration/:dashboardType",
+  requirePermission("dashboard", "read"),
+  validate("params", dashboardTypeParamSchema),
+  validate("query", dashboardConfigurationQuerySchema.partial()),
+  DashboardController.configuration
+);
+dashboardRoutes.put(
+  "/configuration/:dashboardType",
+  requirePermission("dashboard", "read"),
+  validate("params", dashboardTypeParamSchema),
+  validate("body", dashboardConfigurationSchema),
+  DashboardController.saveConfiguration
+);
+dashboardRoutes.post(
+  "/configuration/:dashboardType/reset",
+  requirePermission("dashboard", "read"),
+  validate("params", dashboardTypeParamSchema),
+  validate("query", dashboardConfigurationQuerySchema.partial()),
+  DashboardController.resetConfiguration
 );

@@ -171,7 +171,13 @@ export class ActivitiesService extends BaseService {
         }
       }
     });
-    return { columns };
+    const history = await (await this.activitiesRepository.taskHistory()).findMany({
+      where: { companyId, activityId },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      include: { actor: { select: publicUserSelect } }
+    });
+    return { columns, history };
   }
 
   async createTaskColumn(req: ApiRequest, activityId: string, data: Record<string, unknown>) {
@@ -242,7 +248,10 @@ export class ActivitiesService extends BaseService {
 
   async createTask(req: ApiRequest, activityId: string, data: Record<string, unknown>) {
     await this.assertTaskColumn(req, activityId, String(data.columnId));
-    await assertUserInCompany(data.assigneeId ? String(data.assigneeId) : undefined, activeCompanyId(req));
+    await assertUserInCompany(
+      data.assigneeId ? String(data.assigneeId) : undefined,
+      activeCompanyId(req)
+    );
     const companyId = this.companyId(req);
     const position =
       typeof data.position === "number"
@@ -278,7 +287,10 @@ export class ActivitiesService extends BaseService {
     if (data.columnId) {
       await this.assertTaskColumn(req, activityId, String(data.columnId));
     }
-    await assertUserInCompany(data.assigneeId ? String(data.assigneeId) : undefined, activeCompanyId(req));
+    await assertUserInCompany(
+      data.assigneeId ? String(data.assigneeId) : undefined,
+      activeCompanyId(req)
+    );
     const updated = await (await this.activitiesRepository.tasks()).update({
       where: { id: taskId },
       data
@@ -326,7 +338,14 @@ export class ActivitiesService extends BaseService {
     const targetColumn = await this.assertTaskColumn(req, activityId, columnId);
     const companyId = this.companyId(req);
     const siblings = await (await this.activitiesRepository.tasks()).findMany({
-      where: { companyId, activityId, columnId, deletedAt: null, archivedAt: null, NOT: { id: taskId } },
+      where: {
+        companyId,
+        activityId,
+        columnId,
+        deletedAt: null,
+        archivedAt: null,
+        NOT: { id: taskId }
+      },
       orderBy: { position: "asc" }
     });
     const boundedPosition = Math.max(0, Math.min(position, siblings.length));

@@ -14,8 +14,7 @@ export type View =
   | "shifts"
   | "activities"
   | "kanban"
-  | "reports"
-  | "settings";
+  | "reports";
 export type ApiEnvelope<T> = { data: T };
 export type SessionUser = {
   id: string;
@@ -48,6 +47,44 @@ export type DashboardCharts = {
   byStatus: GroupCount[];
   byPriority: GroupCount[];
   byShift: GroupCount[];
+};
+export type DashboardType = "MAIN" | "TEAM" | "EXECUTIVE";
+export type DashboardWidget = {
+  id?: string;
+  key: string;
+  widgetType:
+    | "SUMMARY_CARD"
+    | "BAR_CHART"
+    | "LINE_CHART"
+    | "PIE_CHART"
+    | "TABLE"
+    | "LIST"
+    | "INDICATOR"
+    | "CALENDAR"
+    | "RECENT_ACTIVITIES"
+    | "CUSTOM";
+  title: string;
+  description?: string | null;
+  gridColumn: number;
+  gridRow: number;
+  gridWidth: number;
+  gridHeight: number;
+  isVisible: boolean;
+  isPinned: boolean;
+  order: number;
+  refreshIntervalMs?: number | null;
+  settings?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+export type DashboardConfiguration = {
+  id?: string;
+  dashboardType: DashboardType;
+  teamId?: string | null;
+  gridColumns: number;
+  gridGap: number;
+  isDefault?: boolean;
+  metadata?: Record<string, unknown>;
+  widgets: DashboardWidget[];
 };
 export type ClientRef = { id?: string; name?: string; code?: string; status?: string };
 export type TeamMemberRole = "LEADER" | "MEMBER";
@@ -177,7 +214,22 @@ export type ActivityTaskItem = {
   assigneeId?: string | null;
   assignee?: UserRef | null;
 };
-export type ActivityTaskBoard = { columns: ActivityTaskColumn[] };
+export type ActivityTaskHistoryItem = {
+  id: string;
+  taskId?: string | null;
+  type: string;
+  fromColumnId?: string | null;
+  toColumnId?: string | null;
+  fromPosition?: number | null;
+  toPosition?: number | null;
+  note?: string | null;
+  createdAt?: string;
+  actor?: UserRef | null;
+};
+export type ActivityTaskBoard = {
+  columns: ActivityTaskColumn[];
+  history?: ActivityTaskHistoryItem[];
+};
 export type Filters = {
   clientId: string;
   teamId: string;

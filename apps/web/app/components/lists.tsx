@@ -1,8 +1,56 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { ActivityItem, Locale, TeamRef, Texts } from "../lib/types";
 import { formatDateTime, formatTime, idOf, slaLabel, statusLabel } from "../lib/utils";
+
+const tablePageSize = 12;
+
+function compareCells(a: string, b: string, direction: "asc" | "desc") {
+  const result = a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+  return direction === "asc" ? result : -result;
+}
+
+function TableFooter({
+  page,
+  totalPages,
+  totalRows,
+  onPage
+}: {
+  page: number;
+  totalPages: number;
+  totalRows: number;
+  onPage: (page: number) => void;
+}) {
+  if (totalRows <= tablePageSize) return null;
+
+  return (
+    <div className="table-footer">
+      <span>
+        Pagina {page + 1} de {totalPages} - {totalRows} registros
+      </span>
+      <div>
+        <button
+          className="compact-button"
+          disabled={page === 0}
+          onClick={() => onPage(Math.max(0, page - 1))}
+          type="button"
+        >
+          Anterior
+        </button>
+        <button
+          className="compact-button"
+          disabled={page >= totalPages - 1}
+          onClick={() => onPage(Math.min(totalPages - 1, page + 1))}
+          type="button"
+        >
+          Proxima
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function ActivityList({
   t,
@@ -19,11 +67,68 @@ export function ActivityList({
   onNew: () => void;
   onOpen: (item: ActivityItem) => void;
 }) {
+  const [sortIndex, setSortIndex] = useState(9);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(0);
+  const columns = [
+    "ID",
+    "Cliente",
+    "Sistema",
+    "Servico",
+    "Equipe",
+    "Analista",
+    "Prioridade",
+    "SLA",
+    "Status",
+    "Atualizado"
+  ];
+  const rows = useMemo(
+    () =>
+      activities.map((item) => ({
+        item,
+        cells: [
+          item.id.slice(0, 8),
+          item.client?.name ?? item.clientId ?? "-",
+          item.systemName ?? "-",
+          item.serviceName ?? "-",
+          item.team?.name ?? item.teamId ?? "-",
+          item.assignee?.displayName ?? "-",
+          item.priority ?? "-",
+          slaLabel(item.slaDueAt),
+          statusLabel(item.status, t),
+          formatDateTime(item.updatedAt, locale)
+        ]
+      })),
+    [activities, locale, t]
+  );
+  const sortedRows = useMemo(
+    () =>
+      [...rows].sort((a, b) =>
+        compareCells(a.cells[sortIndex] ?? "", b.cells[sortIndex] ?? "", sortDirection)
+      ),
+    [rows, sortDirection, sortIndex]
+  );
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / tablePageSize));
+  const currentPage = Math.min(page, totalPages - 1);
+  const visibleRows = sortedRows.slice(
+    currentPage * tablePageSize,
+    currentPage * tablePageSize + tablePageSize
+  );
+  const sortBy = (index: number) => {
+    setPage(0);
+    if (sortIndex === index) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortIndex(index);
+    setSortDirection("asc");
+  };
+
   return (
     <section className={compact ? "panel full-width compact-table" : "panel full-width"}>
       <div className="panel-header">
         <h2>{compact ? t.operationalList : t.activities}</h2>
-        <button className="compact-button" onClick={onNew}>
+        <button className="compact-button" onClick={onNew} type="button">
           <Plus size={16} />
           {t.newRecord}
         </button>
@@ -32,39 +137,35 @@ export function ActivityList({
         <table>
           <thead>
             <tr>
-              {[
-                "ID",
-                "Cliente",
-                "Sistema",
-                "Servico",
-                "Equipe",
-                "Analista",
-                "Prioridade",
-                "SLA",
-                "Status",
-                "Atualizado"
-              ].map((column) => (
-                <th key={column}>{column}</th>
+              {columns.map((column, index) => (
+                <th key={column}>
+                  <button className="table-sort" onClick={() => sortBy(index)} type="button">
+                    {column}
+                    {sortIndex === index ? (
+                      <span>{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
+                    ) : null}
+                  </button>
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {activities.map((item) => (
+            {visibleRows.map(({ item, cells }) => (
               <tr key={item.id} onClick={() => onOpen(item)}>
-                <td>{item.id.slice(0, 8)}</td>
-                <td>{item.client?.name ?? item.clientId ?? "-"}</td>
-                <td>{item.systemName ?? "-"}</td>
-                <td>{item.serviceName ?? "-"}</td>
-                <td>{item.team?.name ?? item.teamId ?? "-"}</td>
-                <td>{item.assignee?.displayName ?? "-"}</td>
+                <td>{cells[0]}</td>
+                <td>{cells[1]}</td>
+                <td>{cells[2]}</td>
+                <td>{cells[3]}</td>
+                <td>{cells[4]}</td>
+                <td>{cells[5]}</td>
                 <td>
                   <span className={`priority ${(item.priority ?? "LOW").toLowerCase()}`}>
-                    {item.priority ?? "-"}
+                    {cells[6]}
                   </span>
                 </td>
-                <td>{slaLabel(item.slaDueAt)}</td>
-                <td>{statusLabel(item.status, t)}</td>
-                <td>{formatDateTime(item.updatedAt, locale)}</td>
+                <td>{cells[7]}</td>
+                <td>{cells[8]}</td>
+                <td>{cells[9]}</td>
               </tr>
             ))}
             {!activities.length ? (
@@ -75,6 +176,12 @@ export function ActivityList({
           </tbody>
         </table>
       </div>
+      <TableFooter
+        page={currentPage}
+        totalPages={totalPages}
+        totalRows={sortedRows.length}
+        onPage={setPage}
+      />
     </section>
   );
 }
@@ -96,11 +203,41 @@ export function ManagementTable<T>({
   onNew: () => void;
   onOpen: (row: T) => void;
 }) {
+  const [sortIndex, setSortIndex] = useState(0);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState(0);
+  const rowsWithCells = useMemo(
+    () => rows.map((row) => ({ row, cells: cells(row) })),
+    [cells, rows]
+  );
+  const sortedRows = useMemo(
+    () =>
+      [...rowsWithCells].sort((a, b) =>
+        compareCells(a.cells[sortIndex] ?? "", b.cells[sortIndex] ?? "", sortDirection)
+      ),
+    [rowsWithCells, sortDirection, sortIndex]
+  );
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / tablePageSize));
+  const currentPage = Math.min(page, totalPages - 1);
+  const visibleRows = sortedRows.slice(
+    currentPage * tablePageSize,
+    currentPage * tablePageSize + tablePageSize
+  );
+  const sortBy = (index: number) => {
+    setPage(0);
+    if (sortIndex === index) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortIndex(index);
+    setSortDirection("asc");
+  };
+
   return (
     <section className="panel full-width">
       <div className="panel-header">
         <h2>{title}</h2>
-        <button className="compact-button" onClick={onNew}>
+        <button className="compact-button" onClick={onNew} type="button">
           <Plus size={16} />
           {t.newRecord}
         </button>
@@ -109,15 +246,22 @@ export function ManagementTable<T>({
         <table>
           <thead>
             <tr>
-              {columns.map((column) => (
-                <th key={column}>{column}</th>
+              {columns.map((column, index) => (
+                <th key={column}>
+                  <button className="table-sort" onClick={() => sortBy(index)} type="button">
+                    {column}
+                    {sortIndex === index ? (
+                      <span>{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
+                    ) : null}
+                  </button>
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
+            {visibleRows.map(({ row, cells: rowCells }, index) => (
               <tr key={`${idOf(row) || index}`} onClick={() => onOpen(row)}>
-                {cells(row).map((cell, cellIndex) => (
+                {rowCells.map((cell, cellIndex) => (
                   <td key={`${cell}-${cellIndex}`}>{cell}</td>
                 ))}
               </tr>
@@ -130,6 +274,12 @@ export function ManagementTable<T>({
           </tbody>
         </table>
       </div>
+      <TableFooter
+        page={currentPage}
+        totalPages={totalPages}
+        totalRows={sortedRows.length}
+        onPage={setPage}
+      />
     </section>
   );
 }
@@ -149,7 +299,7 @@ export function TeamsView({
     <section className="panel full-width">
       <div className="panel-header">
         <h2>{t.teams}</h2>
-        <button className="compact-button" onClick={onNew}>
+        <button className="compact-button" onClick={onNew} type="button">
           <Plus size={16} />
           {t.newRecord}
         </button>
@@ -172,6 +322,7 @@ export function TeamsView({
             </dl>
           </article>
         ))}
+        {!teams.length ? <p className="empty-state">Nenhuma equipe encontrada.</p> : null}
       </div>
     </section>
   );
