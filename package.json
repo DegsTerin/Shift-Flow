@@ -36,10 +36,12 @@
     "test:load:stress": "playwright test tests/e2e/state07-load.spec.ts --repeat-each=3",
     "test": "npm run test:unit",
     "test:unit": "vitest run",
+    "db:reset:realistic": "prisma migrate reset --force && npm run seed:realistic",
     "homologation:seed": "node prisma/homologation-seed.mjs",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
-    "seed:integration": "node prisma/integration-seed.mjs"
+    "seed:integration": "node prisma/integration-seed.mjs",
+    "seed:realistic": "node prisma/realistic-seed.mjs"
   },
   "keywords": [],
   "author": "",
