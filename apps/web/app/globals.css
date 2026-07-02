@@ -559,6 +559,16 @@ th {
   padding: 10px 12px;
 }
 
+.dashboard-save-error {
+  color: var(--danger);
+  flex: 1 1 180px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .dashboard-toolbar-title,
 .dashboard-toolbar-actions,
 .widget-palette-row,

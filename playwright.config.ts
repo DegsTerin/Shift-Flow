@@ -2,8 +2,10 @@ import "dotenv/config";
 import { defineConfig, devices } from "@playwright/test";
 
 const chromeExecutablePath =
-  process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH ??
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+  process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH === "bundled"
+    ? undefined
+    : (process.env.PLAYWRIGHT_CHROME_EXECUTABLE_PATH ??
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe");
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
@@ -22,9 +24,7 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    launchOptions: {
-      executablePath: chromeExecutablePath
-    }
+    launchOptions: chromeExecutablePath ? { executablePath: chromeExecutablePath } : undefined
   },
   webServer: [
     {

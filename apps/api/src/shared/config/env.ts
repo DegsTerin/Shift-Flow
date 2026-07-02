@@ -18,6 +18,21 @@ const positiveInteger = (fallback: number) =>
       return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
     });
 
+const placeholderValuePattern = /(replace|example|test|valid|invalid|missing|shiftflow)/i;
+
+function isPlaceholderValue(value: string | undefined) {
+  return Boolean(value && placeholderValuePattern.test(value));
+}
+
+function getDatabasePassword(databaseUrl: string | undefined) {
+  if (!databaseUrl) return undefined;
+  try {
+    return new URL(databaseUrl).password;
+  } catch {
+    return undefined;
+  }
+}
+
 const envSchema = z
   .object({
     API_INSTANCE_COUNT: positiveInteger(1),
@@ -53,6 +68,14 @@ const envSchema = z
       });
     }
 
+    if (isProduction && isPlaceholderValue(getDatabasePassword(env.DATABASE_URL))) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["DATABASE_URL"],
+        message: "DATABASE_URL password cannot use a placeholder value in production"
+      });
+    }
+
     if (isProduction && !env.CORS_ORIGIN) {
       ctx.addIssue({
         code: "custom",
@@ -78,6 +101,17 @@ const envSchema = z
         code: "custom",
         path: ["JWT_ACCESS_SECRET"],
         message: "JWT_ACCESS_SECRET or JWT_SECRET must be at least 32 characters in production"
+      });
+    }
+
+    if (
+      isProduction &&
+      (isPlaceholderValue(env.JWT_ACCESS_SECRET) || isPlaceholderValue(env.JWT_SECRET))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["JWT_ACCESS_SECRET"],
+        message: "JWT_ACCESS_SECRET or JWT_SECRET cannot use a placeholder value in production"
       });
     }
 

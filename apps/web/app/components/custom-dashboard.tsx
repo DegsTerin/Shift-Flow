@@ -16,7 +16,7 @@ import {
   Trash2,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { DashboardConfiguration, DashboardWidget, Texts } from "../lib/types";
 
 export type DashboardWidgetDefinition = {
@@ -80,6 +80,8 @@ export function CustomizableDashboard({
   const [editing, setEditing] = useState(false);
   const [draggedKey, setDraggedKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saveRequestId = useRef(0);
   const definitionMap = useMemo(
     () => new Map(definitions.map((definition) => [definition.key, definition])),
     [definitions]
@@ -100,14 +102,27 @@ export function CustomizableDashboard({
     return () => window.removeEventListener("shiftflow:customize-dashboard", openCustomization);
   }, [draft]);
 
-  async function persist(next: DashboardConfiguration) {
+  async function persist(next: DashboardConfiguration, rollback = draft) {
+    const requestId = saveRequestId.current + 1;
+    saveRequestId.current = requestId;
     setDraft(next);
     setSaving(true);
+    setSaveError(null);
     try {
       const saved = await onSave(next);
-      if (saved) setDraft(saved);
+      if (requestId !== saveRequestId.current) return;
+      if (saved) {
+        setDraft(saved);
+        setSnapshot(saved);
+      }
+    } catch (cause) {
+      if (requestId !== saveRequestId.current) return;
+      setDraft(rollback);
+      setSaveError(cause instanceof Error ? cause.message : t.dashboardSaveFailed);
     } finally {
-      setSaving(false);
+      if (requestId === saveRequestId.current) {
+        setSaving(false);
+      }
     }
   }
 
@@ -180,21 +195,30 @@ export function CustomizableDashboard({
   }
 
   async function reset() {
+    const requestId = saveRequestId.current + 1;
+    saveRequestId.current = requestId;
     setSaving(true);
     try {
       const resetConfig = await onReset();
+      if (requestId !== saveRequestId.current) return;
       if (resetConfig) {
         setDraft(resetConfig);
         setSnapshot(resetConfig);
       }
+      setSaveError(null);
+    } catch (cause) {
+      if (requestId !== saveRequestId.current) return;
+      setSaveError(cause instanceof Error ? cause.message : t.dashboardSaveFailed);
     } finally {
-      setSaving(false);
+      if (requestId === saveRequestId.current) {
+        setSaving(false);
+      }
     }
   }
 
   function cancel() {
     setEditing(false);
-    void persist(snapshot);
+    void persist(snapshot, snapshot);
   }
 
   return (
@@ -205,6 +229,11 @@ export function CustomizableDashboard({
             <LayoutGrid size={18} />
             <span>{saving ? t.dashboardSaved : t.customizeDashboard}</span>
           </div>
+          {saveError ? (
+            <p className="dashboard-save-error" role="alert">
+              {saveError}
+            </p>
+          ) : null}
           <div className="dashboard-toolbar-actions">
             <button className="compact-button" onClick={reset} type="button">
               <RotateCcw size={16} />

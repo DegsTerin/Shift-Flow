@@ -40,14 +40,14 @@ dashboardRoutes.get(
 );
 dashboardRoutes.put(
   "/configuration/:dashboardType",
-  requirePermission("dashboard", "read"),
+  requirePermission("dashboard", "write"),
   validate("params", dashboardTypeParamSchema),
   validate("body", dashboardConfigurationSchema),
   DashboardController.saveConfiguration
 );
 dashboardRoutes.post(
   "/configuration/:dashboardType/reset",
-  requirePermission("dashboard", "read"),
+  requirePermission("dashboard", "write"),
   validate("params", dashboardTypeParamSchema),
   validate("query", dashboardConfigurationQuerySchema.partial()),
   DashboardController.resetConfiguration

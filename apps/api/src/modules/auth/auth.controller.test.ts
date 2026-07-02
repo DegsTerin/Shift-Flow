@@ -5,6 +5,7 @@ import { AuthController } from "./auth.controller.js";
 import { AuthService } from "./auth.service.js";
 import { errorHandler } from "../../shared/middlewares/error-handler.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import { logger } from "../../shared/observability/logger.js";
 
 function cookieHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value.join("; ") : (value ?? "");
@@ -41,6 +42,7 @@ describe("AuthController", () => {
   });
 
   it("always clears the refresh cookie on logout, even when revocation fails", async () => {
+    vi.spyOn(logger, "error").mockImplementation(() => undefined);
     vi.spyOn(AuthService.prototype, "logout").mockRejectedValue(
       new AppError("Unable to revoke token", 500, "INTERNAL_ERROR")
     );

@@ -18,7 +18,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: shiftflow
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'ci-postgres-password' }}
           POSTGRES_DB: shiftflow
         ports:
           - 5432:5432
@@ -29,11 +29,13 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL || format('postgresql://shiftflow:{0}@localhost:5432/shiftflow?schema=public', secrets.POSTGRES_PASSWORD || 'ci-postgres-password') }}
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL || 'integration.admin@shiftflow.local' }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD || 'Integration#Password123' }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-release-gates-jwt-secret-minimum-32-chars' }}
       API_PORT: 3001
       NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
-      PLAYWRIGHT_CHROME_EXECUTABLE_PATH: /usr/bin/google-chrome
+      PLAYWRIGHT_CHROME_EXECUTABLE_PATH: bundled
 
     steps:
       - name: Checkout
@@ -47,6 +49,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
 
       - name: Validate Prisma schema
         run: npm run prisma:validate
@@ -79,7 +84,7 @@ jobs:
         run: npm run build
 
       - name: Playwright E2E
-        run: npm run test:e2e
+        run: npx playwright test
 
       - name: Load stress
         run: npm run test:load:stress

@@ -31,7 +31,7 @@ export function errorHandler(error: unknown, req: Request, res: Response, _next:
       error: {
         code: error.code,
         message: error.message,
-        details: error.details
+        details: env.NODE_ENV === "production" ? undefined : error.details
       }
     });
     return;
@@ -48,7 +48,7 @@ export function errorHandler(error: unknown, req: Request, res: Response, _next:
       error: {
         code: appError.code,
         message: appError.message,
-        details: appError.details
+        details: env.NODE_ENV === "production" ? undefined : appError.details
       }
     });
     return;

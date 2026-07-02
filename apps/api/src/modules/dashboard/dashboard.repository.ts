@@ -1,4 +1,4 @@
-import { getDelegate } from "../../shared/lib/prisma.js";
+import { getDelegate, getPrisma } from "../../shared/lib/prisma.js";
 
 type ActivityDelegate = {
   count(args?: unknown): Promise<number>;
@@ -15,6 +15,10 @@ type DashboardConfigurationDelegate = {
 type DashboardWidgetDelegate = {
   deleteMany(args: unknown): Promise<unknown>;
   createMany(args: unknown): Promise<unknown>;
+};
+
+type TransactionClient = {
+  dashboardWidget: DashboardWidgetDelegate;
 };
 
 const publicUserSelect = {
@@ -101,10 +105,15 @@ export class DashboardRepository {
     companyId: string,
     widgets: Record<string, unknown>[]
   ) {
-    const widgetDelegate = await this.widgets();
-    await widgetDelegate.deleteMany({ where: { dashboardConfigId, companyId } });
-    if (widgets.length) {
-      await widgetDelegate.createMany({ data: widgets });
-    }
+    const prisma = (await getPrisma()) as {
+      $transaction<T>(callback: (tx: TransactionClient) => Promise<T>): Promise<T>;
+    };
+
+    return prisma.$transaction(async (tx) => {
+      await tx.dashboardWidget.deleteMany({ where: { dashboardConfigId, companyId } });
+      if (widgets.length) {
+        await tx.dashboardWidget.createMany({ data: widgets });
+      }
+    });
   }
 }
