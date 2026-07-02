@@ -35,6 +35,30 @@ Data: 2026-07-02
 Estado anterior: STATE-08 PRODUCTION_RELEASE
 Estado solicitado: STATE-08 PRODUCTION_RELEASE
 Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Setima correcao documental de prompts sem transicao
+Gates avaliados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Official-State-Machine.txt.
+Resultado dos gates: Patch documental aprovado; sem alteracao de codigo, schema, migration, runtime, tooling ou estado.
+Evidencias: Setima auditoria dos 74 .txt em prompts/; System-Reorganisation-Codex-Prompt.txt reorganizado para colocar REGRA DE OURO antes de PAPEL OPERACIONAL; Prompt-System-Version.txt atualizado para 1.4.33; validacao documental de indice, referencias, caracteres nao ASCII e git diff --check executada.
+Responsavel: Sistema de prompts
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: A correcao alinha ordem estrutural sem alterar conteudo funcional.
+
+Data: 2026-07-02
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: STATE-08 PRODUCTION_RELEASE
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Sexta correcao documental de prompts sem transicao
+Gates avaliados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Official-State-Machine.txt.
+Resultado dos gates: Patch documental aprovado; sem alteracao de codigo, schema, migration, runtime, tooling ou estado.
+Evidencias: Sexta auditoria dos 74 .txt em prompts/; titulos genericos padronizados para declarar funcao, estado ou proposito; Prompt-System-Version.txt atualizado para 1.4.32; validacao documental de indice, referencias, caracteres nao ASCII e git diff --check executada.
+Responsavel: Sistema de prompts
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: A correcao melhora leitura isolada, manutencao e governanca documental.
+
+Data: 2026-07-02
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: STATE-08 PRODUCTION_RELEASE
+Estado novo: STATE-08 PRODUCTION_RELEASE
 Tipo: Quinta correcao documental de prompts sem transicao
 Gates avaliados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Official-State-Machine.txt.
 Resultado dos gates: Patch documental aprovado; sem alteracao de codigo, schema, migration, runtime, tooling ou estado.

@@ -1,4 +1,4 @@
-START HERE
+START HERE - PROMPT SYSTEM ENTRYPOINT
 
 REGRA DE OURO
 
@@ -121,7 +121,6 @@ REGRA FINAL
 
 Se houver duvida, nao criar novo controle.
 Aplicar a hierarquia existente e registrar o conflito.
-
 
 
 

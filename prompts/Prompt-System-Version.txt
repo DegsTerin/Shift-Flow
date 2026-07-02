@@ -1,4 +1,4 @@
-PROMPT SYSTEM VERSION
+PROMPT SYSTEM VERSION CONTROL
 
 REGRA DE OURO
 
@@ -9,13 +9,13 @@ Apenas a State Machine pode alterar estado.
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.31
+PROMPT_SYSTEM_VERSION: 1.4.33
 
 Data:
 2026-07-02
 
 Status:
-Auditoria documental completa dos .txt executada em 2026-07-02 com foco em padrao corporativo internacional. A quinta passada adicionou REGRA DE OURO a documentos historicos que ainda nao tinham esse bloco, padronizou aberturas conversacionais de prompts de fase para cabecalhos institucionais e formalizou o checklist de padrao corporativo internacional no README e na auditoria do sistema de prompts. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+Auditoria documental completa dos .txt executada em 2026-07-02 com foco em padrao corporativo internacional e ordem estrutural dos blocos. A setima passada alinhou System-Reorganisation-Codex-Prompt.txt ao padrao titulo, REGRA DE OURO, PAPEL OPERACIONAL e hierarquia, evitando que a regra de autoridade fique depois de contexto operacional. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
 
 Patch 1.4.1:
 Documentados ajustes e melhorias de rastreabilidade nos .txt canonicos, incluindo alinhamento de versao no snapshot, registro dos conflitos operacionais ja identificados e recomendacao de uso dos controles existentes sem criar novo estado.
@@ -109,6 +109,12 @@ Executada quarta passada de auditoria dos .txt com foco em relatorios retrospect
 
 Patch 1.4.31:
 Executada quinta passada de auditoria dos .txt para elevar o sistema ao padrao corporativo internacional. Automatic-Review-Audit-Database-Modelling.txt, Database-Modelling-Document.txt, Human-CI-Validation-Architecture.txt, Human-CI-Validation-Database-Modelling.txt e Solution-Architecture-Document.txt receberam REGRA DE OURO. Backend-Phase.txt, Database-Modelling-Phase.txt, Frontend-Phase.txt, Solution-Architecture-Phase.txt e System-Reorganisation-Codex-Prompt.txt receberam cabecalho institucional e PAPEL OPERACIONAL. Prompt-System-Readme.txt e Prompt-System-Audit.txt passaram a declarar checklist explicito de padrao corporativo internacional.
+
+Patch 1.4.32:
+Executada sexta passada de auditoria integrada dos .txt. Titulos genericos foram padronizados para leitura corporativa isolada: Automatic-Review-Audit-Database-Modelling.txt, Database-Modelling-Document.txt, Human-CI-Validation-Architecture.txt, Human-CI-Validation-Database-Modelling.txt, Current-State.txt, Prompt-System-Change-Log.txt, Prompt-System-Version.txt e Start-Here.txt agora declaram funcao, estado ou proposito no primeiro cabecalho.
+
+Patch 1.4.33:
+Executada setima passada minuciosa dos .txt. System-Reorganisation-Codex-Prompt.txt foi reorganizado para manter REGRA DE OURO imediatamente apos o titulo e antes do PAPEL OPERACIONAL, alinhando a ordem estrutural ao padrao corporativo internacional.
 
 ---
 

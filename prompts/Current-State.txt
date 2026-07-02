@@ -1,4 +1,4 @@
-CURRENT STATE
+CURRENT STATE - STATE-08 PRODUCTION_RELEASE
 
 REGRA DE OURO
 
@@ -54,6 +54,8 @@ Patch documental 1.4.28 registra a segunda passada de auditoria completa dos .tx
 Patch documental 1.4.29 registra a terceira passada de auditoria dos .txt: Prompt-Dashboard.txt foi corrigido para deixar claro que a personalizacao persistida usa userId e companyId, enquanto perfil ou tipo de dashboard pode fornecer apenas template/default. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.30 registra a quarta passada de auditoria dos .txt: relatorios retrospectivos e logs historicos que citavam STATE-04 como estado atual foram reescritos para indicar estado vigente naquele registro historico. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.31 registra a quinta passada de auditoria dos .txt: documentos sem REGRA DE OURO foram normalizados, prompts de fase receberam cabecalho institucional e o README/auditoria passaram a declarar padrao corporativo internacional. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.32 registra a sexta passada de auditoria integrada dos .txt: titulos genericos foram padronizados para declarar funcao, estado ou proposito no primeiro cabecalho. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.33 registra a setima passada minuciosa dos .txt: System-Reorganisation-Codex-Prompt.txt foi alinhado para manter REGRA DE OURO imediatamente apos o titulo e antes do papel operacional. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 
 ---
 
