@@ -20,7 +20,13 @@ import { FilterBar, IconToggle, SegmentedControl } from "./components/controls";
 import { ActivityList, ManagementTable, shiftCells, TeamsView } from "./components/lists";
 import { RecordModal } from "./components/record-modal";
 import { RoleManagementView } from "./components/role-management-view";
-import { KanbanBoard, MainDashboard, ReportsView, TeamDashboard } from "./components/views";
+import {
+  KanbanBoard,
+  MainDashboard,
+  ReportsView,
+  SettingsView,
+  TeamDashboard
+} from "./components/views";
 import { apiRequest, queryString } from "./lib/api";
 import { messages } from "./lib/i18n";
 import { defaultDashboardLayouts, menu, type DashboardLayoutKey } from "./lib/page-config";
@@ -74,7 +80,9 @@ export default function Page() {
     inProgress: 0,
     done: 0,
     critical: 0,
-    slaAtRisk: 0
+    slaAtRisk: 0,
+    overdue: 0,
+    averageResolutionHours: 0
   });
   const [charts, setCharts] = useState<DashboardCharts>({
     byTeam: [],
@@ -105,6 +113,10 @@ export default function Page() {
   const availableMenu = useMemo(
     () => menu.filter((item) => can(item.resource, item.action)),
     [can]
+  );
+  const availableViews = useMemo(
+    () => new Set(availableMenu.map((item) => item.id)),
+    [availableMenu]
   );
 
   const visibleActivities = useMemo(
@@ -779,6 +791,13 @@ export default function Page() {
               activities={visibleActivities}
               locale={locale}
               onOpen={(item) => void openDetail("activities", item)}
+            />
+          )}
+          {view === "settings" && (
+            <SettingsView
+              t={t}
+              canOpen={(candidate) => availableViews.has(candidate)}
+              onNavigate={selectView}
             />
           )}
         </section>

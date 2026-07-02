@@ -35,6 +35,30 @@ Data: 2026-07-02
 Estado anterior: STATE-08 PRODUCTION_RELEASE
 Estado solicitado: STATE-08 PRODUCTION_RELEASE
 Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Manutencao funcional pos-release sem transicao
+Gates avaliados: Current-State.txt, Prompt-Audit-Full.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Layout.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt.
+Resultado dos gates: Manutencao funcional explicitamente solicitada; sem transicao de estado; alteracoes classificadas como pos-release por envolverem schema, migration, backend, frontend, testes e documentacao.
+Evidencias: ActivityTask.dueAt, migration 20260702193000_audit_full_residual_fixes, filtro attention para atraso/criticidade, widgets adicionais de dashboard, whitelist de widgets, Configuracoes agrupadas, permissoes agrupadas por modulo, bloqueio de edicao de perfis do sistema e contagem atual de 75 .txt.
+Responsavel: Sistema de prompts
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Este registro documenta manutencao funcional pos-release e nao recomenda transicao.
+
+Data: 2026-07-02
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: STATE-08 PRODUCTION_RELEASE
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Integracao documental de prompt sem transicao
+Gates avaliados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Official-State-Machine.txt.
+Resultado dos gates: Patch documental aprovado; sem alteracao de codigo, schema, migration, runtime, tooling ou estado.
+Evidencias: Prompt-Audit-Full.txt normalizado em ASCII; contagem fixa contraditoria removida; Prompt-Index.txt atualizado; Prompt-System-Version.txt atualizado para 1.4.34; validacao documental de indice, referencias, caracteres nao ASCII e git diff --check executada.
+Responsavel: Sistema de prompts
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: A inclusao de prompt de auditoria nao executa auditoria funcional por si mesma.
+
+Data: 2026-07-02
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: STATE-08 PRODUCTION_RELEASE
+Estado novo: STATE-08 PRODUCTION_RELEASE
 Tipo: Setima correcao documental de prompts sem transicao
 Gates avaliados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Official-State-Machine.txt.
 Resultado dos gates: Patch documental aprovado; sem alteracao de codigo, schema, migration, runtime, tooling ou estado.

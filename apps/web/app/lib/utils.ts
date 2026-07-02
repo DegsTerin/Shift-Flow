@@ -19,6 +19,7 @@ export const emptyFilters: Filters = {
   assigneeId: "",
   priority: "",
   status: "",
+  attention: "",
   from: "",
   to: ""
 };

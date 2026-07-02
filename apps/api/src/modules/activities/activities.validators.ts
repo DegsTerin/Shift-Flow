@@ -68,6 +68,7 @@ export const activityTaskSchema = z.object({
   labels: z.array(z.string().min(1).max(60)).max(12).optional(),
   attachmentIds: z.array(z.string().uuid()).max(20).optional(),
   position: z.number().int().min(0).optional(),
+  dueAt: z.coerce.date().nullable().optional(),
   completedAt: z.coerce.date().nullable().optional()
 });
 

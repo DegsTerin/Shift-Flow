@@ -18,6 +18,7 @@ export const dashboardFilterSchema = z.object({
     .optional(),
   shiftId: z.string().uuid().optional(),
   search: z.string().max(200).optional(),
+  attention: z.enum(["OVERDUE", "CRITICAL", "SLA_RISK"]).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional()
 });

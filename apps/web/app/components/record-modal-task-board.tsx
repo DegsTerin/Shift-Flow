@@ -70,6 +70,7 @@ export function InternalTaskBoard({
         title: String(form.get("title") ?? ""),
         assigneeId: String(form.get("assigneeId") || "") || undefined,
         priority: String(form.get("priority") || "MEDIUM"),
+        dueAt: String(form.get("dueAt") || "") || undefined,
         labels: String(form.get("labels") || "")
           .split(",")
           .map((item) => item.trim())
@@ -112,6 +113,7 @@ export function InternalTaskBoard({
         description: String(form.get("description") || "") || undefined,
         assigneeId: String(form.get("assigneeId") || "") || null,
         priority: String(form.get("priority") || "MEDIUM"),
+        dueAt: String(form.get("dueAt") || "") || null,
         labels: String(form.get("labels") || "")
           .split(",")
           .map((item) => item.trim())
@@ -265,6 +267,7 @@ export function InternalTaskBoard({
                   </option>
                 ))}
               </select>
+              <input name="dueAt" type="datetime-local" aria-label="Prazo" />
               <input name="labels" placeholder="Etiquetas separadas por virgula" />
               {attachments.length ? (
                 <div className="task-attachment-options">
@@ -370,6 +373,12 @@ function InternalTaskCard({
               </option>
             ))}
           </select>
+          <input
+            name="dueAt"
+            type="datetime-local"
+            aria-label="Prazo"
+            defaultValue={toDateTimeLocalValue(task.dueAt)}
+          />
           <textarea name="description" defaultValue={task.description ?? ""} />
           <input name="labels" defaultValue={labels} placeholder="Etiquetas" />
           {attachments.length ? (
@@ -401,6 +410,9 @@ function InternalTaskCard({
         <>
           <strong>{task.title}</strong>
           <small>{task.assignee?.displayName ?? task.assignee?.email ?? "-"}</small>
+          <small className={isTaskOverdue(task.dueAt) ? "task-overdue" : undefined}>
+            Prazo: {formatDateTime(task.dueAt, "pt-BR")}
+          </small>
           {task.description ? <p>{task.description}</p> : null}
           <div>
             <span className={`priority ${(task.priority ?? "MEDIUM").toLowerCase()}`}>
@@ -434,6 +446,18 @@ function InternalTaskCard({
       )}
     </div>
   );
+}
+
+function toDateTimeLocalValue(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+}
+
+function isTaskOverdue(value?: string | null) {
+  return Boolean(value && new Date(value).getTime() < Date.now());
 }
 
 function taskHistoryText(item: {

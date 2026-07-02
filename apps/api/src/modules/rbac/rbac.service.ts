@@ -92,6 +92,21 @@ class RolesService extends BaseService {
     return super.remove(req, id);
   }
 
+  override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
+    const companyId = this.requireCompanyId(req);
+    if (!companyId) {
+      throw badRequest("Company context is required");
+    }
+    const role = await this.rbacRepository.findRole(id, companyId);
+    if (!role) {
+      throw notFound("Role not found");
+    }
+    if (role.isSystem) {
+      throw badRequest("System profiles cannot be edited");
+    }
+    return super.update(req, id, data);
+  }
+
   async duplicate(req: ApiRequest, id: string) {
     const companyId = this.requireCompanyId(req);
     if (!companyId) {

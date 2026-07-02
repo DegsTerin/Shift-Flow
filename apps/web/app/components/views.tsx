@@ -9,7 +9,8 @@ import type {
   DashboardWidget,
   Locale,
   TeamRef,
-  Texts
+  Texts,
+  View
 } from "../lib/types";
 import {
   countOf,
@@ -114,6 +115,35 @@ function withMainTeamSummary(layout: DashboardConfiguration): DashboardConfigura
   };
 }
 
+function withRequiredWidgets(
+  layout: DashboardConfiguration,
+  definitions: DashboardWidgetDefinition[]
+): DashboardConfiguration {
+  const existingKeys = new Set(layout.widgets.map((widget) => widget.key));
+  const missingWidgets = definitions
+    .filter((definition) => !existingKeys.has(definition.key))
+    .map((definition, index) => {
+      const order = layout.widgets.length + index;
+      return {
+        key: definition.key,
+        widgetType: definition.widgetType,
+        title: definition.title,
+        gridColumn: order % 2 === 0 ? 1 : 7,
+        gridRow: Math.floor(order / 2) + 1,
+        gridWidth: definition.defaultWidth,
+        gridHeight: definition.defaultHeight,
+        isVisible: true,
+        isPinned: false,
+        order,
+        refreshIntervalMs: 60000,
+        settings: { sourceKey: definition.key }
+      };
+    });
+  return missingWidgets.length
+    ? { ...layout, widgets: [...layout.widgets, ...missingWidgets] }
+    : layout;
+}
+
 export function MainDashboard({
   t,
   summary,
@@ -143,11 +173,11 @@ export function MainDashboard({
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
   const teamActivityCounts = activityCountsByTeam(charts.byTeam, teams);
   const dashboardLegend = statusLegend(t);
-  const metric = (key: string, label: string, value: number) => (
+  const metric = (key: string, label: string, value: number | string) => (
     <article className="metric-card" key={key}>
       <span>{label}</span>
       <strong>{value}</strong>
-      <small>{label === t.risk && value > 0 ? "SLA" : "OK"}</small>
+      <small>{label === t.risk && Number(value) > 0 ? "SLA" : "OK"}</small>
     </article>
   );
   const definitions: DashboardWidgetDefinition[] = [
@@ -198,6 +228,62 @@ export function MainDashboard({
       defaultWidth: 2,
       defaultHeight: 2,
       render: () => metric("summary-risk", t.risk, summary.slaAtRisk)
+    },
+    {
+      key: "summary-overdue",
+      title: t.overdue,
+      widgetType: "SUMMARY_CARD",
+      defaultWidth: 3,
+      defaultHeight: 2,
+      render: () => metric("summary-overdue", t.overdue, summary.overdue)
+    },
+    {
+      key: "summary-average-resolution",
+      title: t.averageResolution,
+      widgetType: "INDICATOR",
+      defaultWidth: 3,
+      defaultHeight: 2,
+      render: () =>
+        metric(
+          "summary-average-resolution",
+          t.averageResolution,
+          `${summary.averageResolutionHours} h`
+        )
+    },
+    {
+      key: "kanban-summary",
+      title: t.kanbanSummary,
+      widgetType: "BAR_CHART",
+      defaultWidth: 6,
+      defaultHeight: 3,
+      render: () => (
+        <ChartPanel
+          title={t.kanbanSummary}
+          values={charts.byStatus.map(countOf)}
+          colors={charts.byStatus.map((group) => statusColors[group.status ?? ""] ?? palette[0])}
+          labels={charts.byStatus.map((group) => statusLabel(group.status ?? "", t))}
+        />
+      )
+    },
+    {
+      key: "operational-alerts",
+      title: t.operationalAlerts,
+      widgetType: "LIST",
+      defaultWidth: 12,
+      defaultHeight: 2,
+      render: () => (
+        <section className="alert-list">
+          <span>
+            {summary.overdue} {t.filterOverdue}
+          </span>
+          <span>
+            {summary.critical} {t.filterCritical}
+          </span>
+          <span>
+            {summary.slaAtRisk} {t.filterSlaRisk}
+          </span>
+        </section>
+      )
     },
     {
       key: "team-summary",
@@ -313,7 +399,7 @@ export function MainDashboard({
   return (
     <CustomizableDashboard
       t={t}
-      config={withMainTeamSummary(layout)}
+      config={withRequiredWidgets(withMainTeamSummary(layout), definitions)}
       definitions={definitions}
       onSave={onSaveLayout}
       onReset={onResetLayout}
@@ -529,5 +615,56 @@ export function ReportsView({
         compact
       />
     </>
+  );
+}
+
+export function SettingsView({
+  t,
+  canOpen,
+  onNavigate
+}: {
+  t: Texts;
+  canOpen: (view: View) => boolean;
+  onNavigate: (view: View) => void;
+}) {
+  const groups: Array<{ title: string; description: string; view: View }> = [
+    { title: "Empresa", description: "Preferencias corporativas e contexto ativo.", view: "users" },
+    { title: t.users, description: "Usuarios, acesso e idioma preferencial.", view: "users" },
+    { title: t.teams, description: "Equipes, cores e SLA padrao.", view: "teams" },
+    { title: t.clients, description: "Clientes e codigos operacionais.", view: "clients" },
+    { title: t.shifts, description: "Turnos, janelas e cobertura operacional.", view: "shifts" },
+    { title: t.roles, description: "Perfis, permissoes e bloqueios de sistema.", view: "roles" },
+    {
+      title: "Interface",
+      description: "Tema, idioma, navegacao e dashboard personalizavel.",
+      view: "dashboard"
+    },
+    {
+      title: "Seguranca",
+      description: "Autenticacao, sessoes, RBAC e politicas de acesso.",
+      view: "roles"
+    }
+  ];
+
+  return (
+    <section className="panel full-width settings-shell">
+      <div className="panel-header">
+        <h2>{t.settings}</h2>
+      </div>
+      <div className="settings-grid">
+        {groups.map((group) => (
+          <button
+            className="settings-group"
+            disabled={!canOpen(group.view)}
+            key={group.title}
+            onClick={() => onNavigate(group.view)}
+            type="button"
+          >
+            <strong>{group.title}</strong>
+            <span>{group.description}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

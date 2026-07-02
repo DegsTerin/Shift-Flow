@@ -53,15 +53,21 @@ test.describe("STATE-07 homologation", () => {
       )
       .toBeGreaterThanOrEqual(4);
     const metrics = (await page.locator(".metric-card strong").allTextContents()).map((value) =>
-      Number(value)
+      Number.parseFloat(value)
     );
-    expect(metrics).toHaveLength(6);
+    expect(metrics.length).toBeGreaterThanOrEqual(8);
     expect(metrics[0]).toBeGreaterThanOrEqual(4);
     expect(metrics[1]).toBeGreaterThanOrEqual(1);
     expect(metrics[2]).toBeGreaterThanOrEqual(1);
     expect(metrics[3]).toBeGreaterThanOrEqual(1);
     expect(metrics[4]).toBeGreaterThanOrEqual(1);
     expect(metrics[5]).toBeGreaterThanOrEqual(1);
+    expect(metrics[6]).toBeGreaterThanOrEqual(1);
+    expect(metrics[7]).toBeGreaterThanOrEqual(0);
+    await expect(
+      page.locator(".metric-card").filter({ hasText: /Atrasadas|Overdue/ })
+    ).toBeVisible();
+    await expect(page.locator(".alert-list")).toBeVisible();
   });
 
   test("keeps the authenticated session after page reload", async ({ page }) => {

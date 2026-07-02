@@ -529,6 +529,7 @@ export class ActivitiesService extends BaseService {
   private activityWhere(req: ApiRequest) {
     const query = req.query as Record<string, unknown>;
     const search = query.search ? String(query.search).trim() : "";
+    const now = new Date();
     const uuidSearch =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(search);
     return {
@@ -540,6 +541,16 @@ export class ActivitiesService extends BaseService {
       ...(query.assigneeId ? { assigneeId: String(query.assigneeId) } : {}),
       ...(query.priority ? { priority: String(query.priority) } : {}),
       ...(query.status ? { status: String(query.status) } : {}),
+      ...(query.attention === "CRITICAL" ? { priority: "CRITICAL" } : {}),
+      ...(query.attention === "OVERDUE"
+        ? { status: { notIn: ["DONE", "CANCELLED"] }, slaDueAt: { lt: now } }
+        : {}),
+      ...(query.attention === "SLA_RISK"
+        ? {
+            status: { notIn: ["DONE", "CANCELLED"] },
+            slaDueAt: { gte: now, lte: new Date(now.getTime() + 60 * 60 * 1000) }
+          }
+        : {}),
       ...(query.from || query.to
         ? {
             createdAt: {

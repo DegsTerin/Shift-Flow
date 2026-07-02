@@ -1,4 +1,5 @@
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import { badRequest } from "../../shared/errors/app-error.js";
 import { activeCompanyId, assertTeamInCompany } from "../../shared/services/scope.service.js";
 import type {
   DashboardConfigurationDto,
@@ -81,35 +82,35 @@ const mainDashboardWidgets: DashboardWidgetDto[] = [
     order: 5
   },
   {
-    key: "team-summary",
-    widgetType: "LIST",
-    title: "Equipes",
+    key: "summary-overdue",
+    widgetType: "SUMMARY_CARD",
+    title: "Atividades atrasadas",
     gridColumn: 1,
     gridRow: 3,
-    gridWidth: 12,
-    gridHeight: 1,
+    gridWidth: 3,
+    gridHeight: 2,
     isVisible: true,
     isPinned: false,
     order: 6
   },
   {
-    key: "chart-team",
-    widgetType: "BAR_CHART",
-    title: "Atividades por equipe",
-    gridColumn: 1,
-    gridRow: 4,
-    gridWidth: 6,
-    gridHeight: 3,
+    key: "summary-average-resolution",
+    widgetType: "INDICATOR",
+    title: "Tempo medio",
+    gridColumn: 4,
+    gridRow: 3,
+    gridWidth: 3,
+    gridHeight: 2,
     isVisible: true,
     isPinned: false,
     order: 7
   },
   {
-    key: "chart-client",
+    key: "kanban-summary",
     widgetType: "BAR_CHART",
-    title: "Atividades por cliente",
+    title: "Kanban resumido",
     gridColumn: 7,
-    gridRow: 4,
+    gridRow: 3,
     gridWidth: 6,
     gridHeight: 3,
     isVisible: true,
@@ -117,35 +118,35 @@ const mainDashboardWidgets: DashboardWidgetDto[] = [
     order: 8
   },
   {
-    key: "chart-priority",
-    widgetType: "BAR_CHART",
-    title: "Atividades por prioridade",
+    key: "operational-alerts",
+    widgetType: "LIST",
+    title: "Alertas operacionais",
     gridColumn: 1,
-    gridRow: 7,
-    gridWidth: 6,
-    gridHeight: 3,
+    gridRow: 6,
+    gridWidth: 12,
+    gridHeight: 2,
     isVisible: true,
     isPinned: false,
     order: 9
   },
   {
-    key: "chart-shift",
-    widgetType: "BAR_CHART",
-    title: "Incidentes por turno",
-    gridColumn: 7,
-    gridRow: 7,
-    gridWidth: 6,
-    gridHeight: 3,
+    key: "team-summary",
+    widgetType: "LIST",
+    title: "Equipes",
+    gridColumn: 1,
+    gridRow: 8,
+    gridWidth: 12,
+    gridHeight: 1,
     isVisible: true,
     isPinned: false,
     order: 10
   },
   {
-    key: "chart-status",
+    key: "chart-team",
     widgetType: "BAR_CHART",
-    title: "Evolucao mensal",
+    title: "Atividades por equipe",
     gridColumn: 1,
-    gridRow: 10,
+    gridRow: 9,
     gridWidth: 6,
     gridHeight: 3,
     isVisible: true,
@@ -153,28 +154,76 @@ const mainDashboardWidgets: DashboardWidgetDto[] = [
     order: 11
   },
   {
+    key: "chart-client",
+    widgetType: "BAR_CHART",
+    title: "Atividades por cliente",
+    gridColumn: 7,
+    gridRow: 9,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 12
+  },
+  {
+    key: "chart-priority",
+    widgetType: "BAR_CHART",
+    title: "Atividades por prioridade",
+    gridColumn: 1,
+    gridRow: 12,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 13
+  },
+  {
+    key: "chart-shift",
+    widgetType: "BAR_CHART",
+    title: "Incidentes por turno",
+    gridColumn: 7,
+    gridRow: 12,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 14
+  },
+  {
+    key: "chart-status",
+    widgetType: "BAR_CHART",
+    title: "Evolucao mensal",
+    gridColumn: 1,
+    gridRow: 15,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 15
+  },
+  {
     key: "status-legend",
     widgetType: "INDICATOR",
     title: "Legenda de status",
     gridColumn: 7,
-    gridRow: 10,
+    gridRow: 15,
     gridWidth: 6,
     gridHeight: 1,
     isVisible: true,
     isPinned: false,
-    order: 12
+    order: 16
   },
   {
     key: "activity-list",
     widgetType: "RECENT_ACTIVITIES",
     title: "Ultimas atividades",
     gridColumn: 1,
-    gridRow: 13,
+    gridRow: 18,
     gridWidth: 12,
     gridHeight: 4,
     isVisible: true,
     isPinned: false,
-    order: 13
+    order: 17
   }
 ];
 
@@ -229,6 +278,12 @@ const teamDashboardWidgets: DashboardWidgetDto[] = [
   }
 ];
 
+const allowedWidgetKeysByDashboardType: Record<DashboardTypeDto, Set<string>> = {
+  MAIN: new Set(mainDashboardWidgets.map((widget) => widget.key)),
+  TEAM: new Set(teamDashboardWidgets.map((widget) => widget.key)),
+  EXECUTIVE: new Set(mainDashboardWidgets.map((widget) => widget.key))
+};
+
 export class DashboardService {
   constructor(private readonly repository = new DashboardRepository()) {}
 
@@ -243,6 +298,7 @@ export class DashboardService {
   private where(req: ApiRequest) {
     const query = req.query as Record<string, unknown>;
     const search = query.search ? String(query.search).trim() : "";
+    const now = new Date();
     const uuidSearch =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(search);
     return {
@@ -254,6 +310,16 @@ export class DashboardService {
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.shiftId ? { shiftId: query.shiftId } : {}),
+      ...(query.attention === "CRITICAL" ? { priority: "CRITICAL" } : {}),
+      ...(query.attention === "OVERDUE"
+        ? { status: { notIn: ["DONE", "CANCELLED"] }, slaDueAt: { lt: now } }
+        : {}),
+      ...(query.attention === "SLA_RISK"
+        ? {
+            status: { notIn: ["DONE", "CANCELLED"] },
+            slaDueAt: { gte: now, lte: new Date(now.getTime() + 60 * 60 * 1000) }
+          }
+        : {}),
       ...(query.from || query.to
         ? {
             createdAt: {
@@ -283,22 +349,40 @@ export class DashboardService {
   async summary(req: ApiRequest) {
     const where = this.where(req);
     const now = new Date();
-    const [total, byStatus, byPriority, slaAtRisk] = await Promise.all([
-      this.repository.count(where),
-      this.repository.groupBy("status", where),
-      this.repository.groupBy("priority", where),
-      this.repository.count({
-        ...where,
-        status: { notIn: ["DONE", "CANCELLED"] },
-        slaDueAt: { lte: new Date(now.getTime() + 60 * 60 * 1000) }
-      })
-    ]);
+    const [total, byStatus, byPriority, slaAtRisk, overdue, completedActivities] =
+      await Promise.all([
+        this.repository.count(where),
+        this.repository.groupBy("status", where),
+        this.repository.groupBy("priority", where),
+        this.repository.count({
+          ...where,
+          status: { notIn: ["DONE", "CANCELLED"] },
+          slaDueAt: { lte: new Date(now.getTime() + 60 * 60 * 1000) }
+        }),
+        this.repository.count({
+          ...where,
+          status: { notIn: ["DONE", "CANCELLED"] },
+          slaDueAt: { lt: now }
+        }),
+        this.repository.completedForAverage(where)
+      ]);
     const pending = this.countFromGroup(byStatus, "status", "PENDING");
     const inProgress = this.countFromGroup(byStatus, "status", "IN_PROGRESS");
     const done = this.countFromGroup(byStatus, "status", "DONE");
     const critical = this.countFromGroup(byPriority, "priority", "CRITICAL");
 
-    return { total, pending, inProgress, done, critical, slaAtRisk };
+    const averageResolutionHours = this.averageResolutionHours(completedActivities);
+
+    return {
+      total,
+      pending,
+      inProgress,
+      done,
+      critical,
+      slaAtRisk,
+      overdue,
+      averageResolutionHours
+    };
   }
 
   async charts(req: ApiRequest) {
@@ -341,6 +425,7 @@ export class DashboardService {
       teamId: data.teamId ?? null,
       deletedAt: null
     };
+    this.assertKnownWidgets(data.dashboardType, data.widgets);
     const existing =
       (await this.repository.findConfiguration(where)) ??
       (await this.repository.createConfiguration({
@@ -421,6 +506,34 @@ export class DashboardService {
 
   private defaultWidgets(dashboardType: DashboardTypeDto) {
     return dashboardType === "TEAM" ? teamDashboardWidgets : mainDashboardWidgets;
+  }
+
+  private assertKnownWidgets(dashboardType: DashboardTypeDto, widgets: DashboardWidgetDto[]) {
+    const allowed = allowedWidgetKeysByDashboardType[dashboardType];
+    const unknownWidget = widgets.find((widget) => {
+      const sourceKey = String(widget.settings?.sourceKey ?? widget.key).replace(
+        /-\d{13}-\d+$/,
+        ""
+      );
+      return !allowed.has(sourceKey);
+    });
+    if (unknownWidget) {
+      throw badRequest(`Unknown dashboard widget: ${unknownWidget.key}`);
+    }
+  }
+
+  private averageResolutionHours(rows: unknown[]) {
+    const durations = rows
+      .map((item) => {
+        const record = item as { createdAt?: Date; completedAt?: Date | null };
+        if (!record.createdAt || !record.completedAt) return null;
+        return Math.max(0, record.completedAt.getTime() - record.createdAt.getTime()) / 3600000;
+      })
+      .filter((item): item is number => typeof item === "number");
+    if (!durations.length) return 0;
+    return (
+      Math.round((durations.reduce((sum, value) => sum + value, 0) / durations.length) * 10) / 10
+    );
   }
 
   private toWidgetRecord(

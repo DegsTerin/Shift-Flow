@@ -81,6 +81,13 @@ Prompt-Audit-Human-CI.txt
 * Funcao: Solicitar Human CI completa, linha por linha, sobre codigo, configuracoes, documentacao, fluxos, riscos e planos de correcao.
 * Regra: Nao altera estado. Deve ser executado como auditoria permitida pelo estado atual; correcoes exigem solicitacao explicita, classificacao por fase de origem, evidencias e gates.
 
+Prompt-Audit-Full.txt
+
+* Tipo: FULL PROJECT AUDIT REQUEST
+* Autoridade: Entrada operacional de auditoria funcional completa
+* Funcao: Solicitar auditoria evidencial de todos os requisitos descritos nos .txt canonicos contra codigo, frontend, backend, banco, APIs, testes, layout, fluxos, permissoes e comportamento real.
+* Regra: Nao altera estado. Correcoes funcionais exigem solicitacao explicita, classificacao conforme estado atual, evidencias objetivas e gates proporcionais.
+
 Prompt-Security.txt
 
 * Tipo: SECURITY AUDIT REQUEST
@@ -393,4 +400,3 @@ RBAC-Module.txt
 * Tipo: CROSS-LAYER MODULE
 * Modulo: MOD-11 RBAC
 * Funcao: Perfis, permissoes, middleware, UI administrativa e validacao ponta a ponta.
-

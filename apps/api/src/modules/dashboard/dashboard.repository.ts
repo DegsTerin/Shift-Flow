@@ -63,6 +63,18 @@ export class DashboardRepository {
     });
   }
 
+  async completedForAverage(where: Record<string, unknown>) {
+    return (await this.activities()).findMany({
+      where: {
+        ...where,
+        status: "DONE",
+        completedAt: { not: null }
+      },
+      select: { createdAt: true, completedAt: true },
+      take: 500
+    });
+  }
+
   async findConfiguration(where: Record<string, unknown>) {
     return (await this.configurations()).findFirst({
       where,

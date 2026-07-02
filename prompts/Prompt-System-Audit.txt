@@ -79,6 +79,23 @@ CHECKLIST DE AUDITORIA
 
 ---
 
+REGISTRO 2026-07-02 - 1.4.35
+
+Resultado:
+Manutencao funcional pos-release registrada sem transicao de estado.
+
+Evidencias:
+
+* Prompt-System-Version.txt atualizado para 1.4.35.
+* Prompt-System-Change-Log.txt registra a manutencao funcional.
+* Current-State.txt e State-Transition-Log.txt preservam STATE-08 PRODUCTION_RELEASE.
+* Contagem atual validada no momento da execucao: 75 .txt.
+
+Conflitos resolvidos:
+
+* Referencias que chamavam 74 .txt de contagem atual foram superadas pela contagem dinamica validada de 75 .txt.
+* Correcoes funcionais derivadas de Prompt-Audit-Full.txt foram classificadas como manutencao funcional pos-release.
+
 FORMATO DE SAIDA
 
 AUDITORIA DO SISTEMA DE PROMPTS
@@ -94,6 +111,24 @@ RECOMENDACAO:
 ---
 
 ULTIMA AUDITORIA REGISTRADA
+
+Data: 2026-07-02
+Versao: 1.4.34
+Arquivos auditados: Prompt-Audit-Full.txt, Prompt-Index.txt e controles canonicos de versionamento, estado, snapshot, auditoria e log.
+Status: APROVADO APOS INTEGRACAO DOCUMENTAL
+Conflitos encontrados:
+* Prompt-Audit-Full.txt era arquivo novo nao catalogado no Prompt-Index.txt.
+* O texto original fixava contagens divergentes de arquivos .txt.
+* O arquivo usava Markdown e caracteres nao ASCII fora do padrao documental atual.
+Correcoes aplicadas:
+* Prompt-Audit-Full.txt foi reestruturado em padrao corporativo ASCII.
+* A contagem fixa foi removida e substituida por contagem dinamica no momento da execucao.
+* Prompt-Audit-Full.txt foi catalogado no Prompt-Index.txt.
+* Controles canonicos foram atualizados para 1.4.34.
+Risco:
+* Auditorias funcionais completas sao amplas e devem separar diagnostico de correcao funcional.
+Recomendacao:
+* Executar Prompt-Audit-Full.txt como auditoria evidencial e so aplicar correcoes funcionais quando houver solicitacao explicita.
 
 Data: 2026-07-02
 Versao: 1.4.33
@@ -179,11 +214,11 @@ Arquivos auditados: Todos os .txt em prompts/ e controles canonicos impactados p
 Status: APROVADO APOS SEGUNDA CORRECAO DOCUMENTAL
 Conflitos encontrados:
 * Registros historicos ainda citavam contagens antigas de arquivos ou prompts de forma que poderia ser confundida com a contagem atual.
-* Prompt-Index.txt descrevia artefatos de evidencia usando contagem historica, apesar de o diretorio prompts/ conter 74 .txt.
+* Prompt-Index.txt descrevia artefatos de evidencia usando contagem historica, apesar de o diretorio prompts/ conter 74 .txt naquela rodada.
 Correcoes aplicadas:
 * Referencias numericas historicas foram reescritas para preservar o contexto historico sem competir com a contagem atual.
 * Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Current-State.txt, Project-Snapshot.txt, Prompt-System-Audit.txt e State-Transition-Log.txt foram alinhados ao patch 1.4.28.
-* Validacao final confirmou 74 .txt, zero arquivos fora de Prompt-Index.txt, zero referencias .txt quebradas, zero caracteres nao ASCII e git diff --check limpo.
+* Validacao final daquela rodada confirmou 74 .txt, zero arquivos fora de Prompt-Index.txt, zero referencias .txt quebradas, zero caracteres nao ASCII e git diff --check limpo.
 Risco:
 * Novos prompts precisam atualizar Prompt-Index.txt e os controles de versionamento para evitar nova divergencia de contagem.
 Recomendacao:

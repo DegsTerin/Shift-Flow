@@ -134,6 +134,11 @@ button {
   padding: 10px 12px;
 }
 
+.task-overdue {
+  color: var(--danger);
+  font-weight: 800;
+}
+
 .eyebrow {
   color: var(--accent);
   font-size: 0.76rem;
@@ -228,6 +233,47 @@ textarea {
   background: var(--accent);
   border-color: var(--accent);
   color: #ffffff;
+}
+
+.alert-list,
+.settings-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.alert-list {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.alert-list span,
+.settings-group {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 12px;
+}
+
+.settings-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.settings-group {
+  align-items: start;
+  display: grid;
+  gap: 6px;
+  min-height: 96px;
+  text-align: left;
+}
+
+.settings-group span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.settings-group:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .icon-button {
@@ -1071,6 +1117,22 @@ dt {
   overflow: hidden;
 }
 
+.permission-group {
+  border-top: 1px solid var(--border);
+}
+
+.permission-group:first-of-type {
+  border-top: 0;
+}
+
+.permission-group h4 {
+  background: var(--surface-strong);
+  font-size: 0.78rem;
+  margin: 0;
+  padding: 8px 10px;
+  text-transform: uppercase;
+}
+
 .permission-table-head,
 .permission-table-row {
   align-items: center;
@@ -1086,7 +1148,7 @@ dt {
   font-weight: 800;
 }
 
-.permission-table-row + .permission-table-row {
+.permission-group .permission-table-row + .permission-table-row {
   border-top: 1px solid var(--border);
 }
 

@@ -29,6 +29,24 @@ Estado afetado:
 REGISTROS
 
 Data: 2026-07-02
+Versao: 1.4.35
+Tipo: manutencao funcional pos-release
+Arquivos alterados: prisma/schema.prisma, prisma/migrations/20260702193000_audit_full_residual_fixes/migration.sql, apps/api/src/modules/activities/activities.service.ts, apps/api/src/modules/activities/activities.validators.ts, apps/api/src/modules/dashboard/dashboard.repository.ts, apps/api/src/modules/dashboard/dashboard.service.ts, apps/api/src/modules/dashboard/dashboard.validators.ts, apps/api/src/modules/rbac/rbac.service.ts, apps/web/app/page.tsx, apps/web/app/components/controls.tsx, apps/web/app/components/record-modal-task-board.tsx, apps/web/app/components/role-management-view.tsx, apps/web/app/components/views.tsx, apps/web/app/globals.css, apps/web/app/lib/i18n.ts, apps/web/app/lib/page-config.ts, apps/web/app/lib/types.ts, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt
+Resumo: Corrigidas lacunas residuais encontradas por Prompt-Audit-Full.txt em dashboard, Kanban interno, filtros, RBAC/perfis, Configuracoes e governanca documental.
+Impacto: Dashboard passa a bloquear widgets desconhecidos e incluir widgets operacionais adicionais; tarefas internas passam a ter prazo persistido; filtros passam a cobrir atraso/criticidade; perfis do sistema ficam bloqueados contra edicao; permissoes aparecem agrupadas por modulo; Configuracoes passam a agrupar telas administrativas existentes.
+Conflitos resolvidos: prazo ausente em ActivityTask, widgets esperados ausentes, ausencia de whitelist de widgets, filtro de atraso/criticidade ausente, Gestao de Perfis sem agrupamento por modulo, Configuracoes sem agrupamento operacional e contagem documental atual antiga de 74 .txt.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-02
+Versao: 1.4.34
+Tipo: patch documental
+Arquivos alterados: Prompt-Audit-Full.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt
+Resumo: Integrado Prompt-Audit-Full.txt ao sistema canonico de prompts.
+Impacto: O novo prompt de auditoria total passa a ter REGRA DE OURO, escopo evidencial, criterios de aprovacao e relatorio obrigatorio em padrao corporativo ASCII.
+Conflitos resolvidos: O arquivo novo mencionava contagens fixas divergentes de .txt e ainda nao estava catalogado no indice.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-02
 Versao: 1.4.33
 Tipo: patch documental
 Arquivos alterados: System-Reorganisation-Codex-Prompt.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt
@@ -78,7 +96,7 @@ Versao: 1.4.28
 Tipo: patch documental
 Arquivos alterados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Audit.txt, Prompt-System-Change-Log.txt, Prompt-System-Version.txt, Prompt-System-Readme.txt, State-Transition-Log.txt
 Resumo: Executada segunda passada de auditoria sobre todos os .txt e removida ambiguidade de contagens historicas.
-Impacto: Referencias antigas a quantidades de arquivos ou prompts legados deixaram de parecer contagem atual. A contagem atual validada permanece 74 .txt, com zero arquivos fora do indice e zero referencias .txt quebradas.
+Impacto: Referencias antigas a quantidades de arquivos ou prompts legados deixaram de parecer contagem atual. Naquela rodada, a contagem validada era 74 .txt, com zero arquivos fora do indice e zero referencias .txt quebradas; a contagem atual deve ser obtida no momento da execucao.
 Conflitos resolvidos: Textos historicos ainda citavam contagens antigas e poderiam conflitar com a contagem atual do diretorio prompts/.
 Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
 

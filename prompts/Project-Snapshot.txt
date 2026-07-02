@@ -19,7 +19,7 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.33
+1.4.34
 
 Ultima atualizacao:
 2026-07-02
@@ -149,12 +149,13 @@ CONTROLES ATIVOS
 * Gates definidos em Human-Gate-Validation-Checklist.txt, Automatic-Review-Audit.txt e Engineering-Multi-Agent-System.txt.
 * Ajustes e melhorias documentais de 2026-06-22 registrados em Project-Snapshot.txt, State-Transition-Log.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt e Prompt-System-Readme.txt.
 * Auditoria documental 1.4.27 de 2026-07-02 registrada nos controles canonicos apos leitura dos .txt e correcao dos prompts recentes em prompts/.
-* Auditoria documental 1.4.28 de 2026-07-02 registrada apos segunda passada completa, com contagens historicas contextualizadas e contagem atual validada de 74 .txt.
+* Auditoria documental 1.4.28 de 2026-07-02 registrada apos segunda passada completa, com contagens historicas contextualizadas. A contagem atual deve ser obtida no momento da execucao.
 * Auditoria documental 1.4.29 de 2026-07-02 registrada apos terceira passada completa, com conflito de persistencia do Prompt-Dashboard.txt corrigido.
 * Auditoria documental 1.4.30 de 2026-07-02 registrada apos quarta passada completa, com relatorios retrospectivos ajustados para nao declarar estados historicos como estado atual sem contexto temporal.
 * Auditoria documental 1.4.31 de 2026-07-02 registrada apos quinta passada completa, com documentos sem REGRA DE OURO normalizados e padrao corporativo internacional formalizado.
 * Auditoria documental 1.4.32 de 2026-07-02 registrada apos sexta passada integrada, com titulos genericos padronizados para leitura corporativa isolada.
 * Auditoria documental 1.4.33 de 2026-07-02 registrada apos setima passada minuciosa, com ordem estrutural de System-Reorganisation-Codex-Prompt.txt alinhada ao padrao corporativo internacional.
+* Auditoria documental 1.4.34 de 2026-07-02 registrada apos integracao de Prompt-Audit-Full.txt como prompt canonico de auditoria funcional completa.
 
 ---
 
@@ -924,6 +925,15 @@ RISCOS
     * Prompt-Index.txt passou a catalogar Prompt-Auth.txt, Prompt-Dashboard.txt e Prompt-Adjustments.txt.
     * Validacoes locais aprovadas: git diff --check, npm run prisma:validate, npm run typecheck, npm test, npm run lint e npm run build.
   * O registro 1.4.26 documenta alteracoes ja executadas neste workspace e nao muda STATE-08 PRODUCTION_RELEASE.
+  * A partir do patch 1.4.35, fica registrada a manutencao funcional pos-release solicitada em 2026-07-02 para executar Prompt-Audit-Full.txt ate finalizar correcoes:
+    * prisma/schema.prisma recebeu ActivityTask.dueAt e indice por companyId/dueAt/archivedAt/deletedAt.
+    * Migration 20260702193000_audit_full_residual_fixes foi criada para adicionar dueAt em activity_tasks.
+    * Backend passou a aceitar dueAt em tarefas internas e filtro attention para OVERDUE, CRITICAL e SLA_RISK em dashboard/atividades.
+    * Dashboard passou a calcular overdue e averageResolutionHours, adicionar widgets de atrasadas, tempo medio, Kanban resumido e alertas operacionais, e bloquear widgets desconhecidos.
+    * Frontend passou a exibir prazo em tarefas internas, filtro de atraso/criticidade, widgets novos, Configuracoes agrupadas e Gestao de Perfis com permissoes agrupadas por modulo.
+    * Perfis do sistema passaram a ter edicao bloqueada no backend e controles desabilitados no frontend.
+    * A contagem atual validada de prompts passou a ser 75 .txt.
+  * O registro 1.4.35 documenta manutencao funcional pos-release e nao muda STATE-08 PRODUCTION_RELEASE.
 
 ---
 

@@ -14,7 +14,8 @@ export type View =
   | "shifts"
   | "activities"
   | "kanban"
-  | "reports";
+  | "reports"
+  | "settings";
 export type ApiEnvelope<T> = { data: T };
 export type SessionUser = {
   id: string;
@@ -32,6 +33,8 @@ export type DashboardSummary = {
   done: number;
   critical: number;
   slaAtRisk: number;
+  overdue: number;
+  averageResolutionHours: number;
 };
 export type GroupCount = {
   _count?: { _all?: number };
@@ -209,6 +212,7 @@ export type ActivityTaskItem = {
   position: number;
   completedAt?: string | null;
   archivedAt?: string | null;
+  dueAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
   assigneeId?: string | null;
@@ -237,6 +241,7 @@ export type Filters = {
   assigneeId: string;
   priority: string;
   status: string;
+  attention: string;
   from: string;
   to: string;
 };

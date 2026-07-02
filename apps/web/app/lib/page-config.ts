@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ListChecks,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
   Workflow,
   type LucideIcon
@@ -30,7 +31,8 @@ export const menu: MenuItem[] = [
   { id: "shifts", icon: CalendarClock, resource: "shifts", action: "read" },
   { id: "activities", icon: ListChecks, resource: "activities", action: "read" },
   { id: "kanban", icon: Columns3, resource: "activities", action: "read" },
-  { id: "reports", icon: Activity, resource: "reports", action: "read" }
+  { id: "reports", icon: Activity, resource: "reports", action: "read" },
+  { id: "settings", icon: SlidersHorizontal, resource: "users", action: "read" }
 ];
 
 export type DashboardLayoutKey = "MAIN" | "TEAM";
@@ -49,6 +51,10 @@ export const defaultDashboardLayouts: Record<DashboardLayoutKey, DashboardConfig
       ["summary-done", "SUMMARY_CARD", "Finalizadas", 2, 2],
       ["summary-critical", "SUMMARY_CARD", "Criticas", 2, 2],
       ["summary-risk", "INDICATOR", "SLA em risco", 2, 2],
+      ["summary-overdue", "SUMMARY_CARD", "Atividades atrasadas", 3, 2],
+      ["summary-average-resolution", "INDICATOR", "Tempo medio", 3, 2],
+      ["kanban-summary", "BAR_CHART", "Kanban resumido", 6, 3],
+      ["operational-alerts", "LIST", "Alertas operacionais", 12, 2],
       ["team-summary", "LIST", "Equipes", 12, 1],
       ["chart-team", "BAR_CHART", "Atividades por equipe", 6, 3],
       ["chart-client", "BAR_CHART", "Atividades por cliente", 6, 3],

@@ -171,6 +171,17 @@ export function FilterBar({
         label={t.filterStatus}
         emptyLabel={t.all}
       />
+      <Select
+        value={filters.attention}
+        onChange={(value) => update("attention", value)}
+        options={[
+          ["OVERDUE", t.filterOverdue],
+          ["CRITICAL", t.filterCritical],
+          ["SLA_RISK", t.filterSlaRisk]
+        ]}
+        label={t.filterAttention}
+        emptyLabel={t.all}
+      />
       <label className="date-label">
         <span>{t.filterStartDate}</span>
         <input

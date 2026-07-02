@@ -46,6 +46,14 @@ export function RoleManagementView({
   const availablePermissions = permissions.filter(
     (permission) => permission.id && !assignedPermissionIds.has(permission.id)
   );
+  const groupedPermissions = useMemo(() => {
+    const groups = new Map<string, NonNullable<RoleRef["permissions"]>>();
+    (selectedRole?.permissions ?? []).forEach((item) => {
+      const resource = item.permission?.resource ?? "outros";
+      groups.set(resource, [...(groups.get(resource) ?? []), item]);
+    });
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [selectedRole]);
   const [selectedPermissionId, setSelectedPermissionId] = useState(
     availablePermissions[0]?.id ?? ""
   );
@@ -117,16 +125,26 @@ export function RoleManagementView({
                   <span>
                     {assignedPermissionIds.size} permissoes -{" "}
                     {selectedRole._count?.assignments ?? 0} usuarios
+                    {selectedRole.isSystem ? " - perfil do sistema" : ""}
                   </span>
                 </div>
                 <div className="role-edit-fields">
                   <label>
                     Nome
-                    <input name="name" defaultValue={selectedRole.name ?? ""} required />
+                    <input
+                      name="name"
+                      defaultValue={selectedRole.name ?? ""}
+                      disabled={selectedRole.isSystem}
+                      required
+                    />
                   </label>
                   <label>
                     Escopo
-                    <select name="scope" defaultValue={selectedRole.scope ?? "COMPANY"}>
+                    <select
+                      name="scope"
+                      defaultValue={selectedRole.scope ?? "COMPANY"}
+                      disabled={selectedRole.isSystem}
+                    >
                       <option value="COMPANY">Empresa</option>
                       <option value="TEAM">Equipe</option>
                       <option value="CLIENT">Cliente</option>
@@ -134,7 +152,11 @@ export function RoleManagementView({
                   </label>
                   <label>
                     Descricao
-                    <textarea name="description" defaultValue={selectedRole.description ?? ""} />
+                    <textarea
+                      name="description"
+                      defaultValue={selectedRole.description ?? ""}
+                      disabled={selectedRole.isSystem}
+                    />
                   </label>
                   <label>
                     Cor
@@ -142,6 +164,7 @@ export function RoleManagementView({
                       name="color"
                       type="color"
                       defaultValue={selectedRole.color ?? "#0f766e"}
+                      disabled={selectedRole.isSystem}
                     />
                   </label>
                   <label className="toggle-label">
@@ -149,12 +172,13 @@ export function RoleManagementView({
                       name="isActive"
                       type="checkbox"
                       defaultChecked={selectedRole.isActive !== false}
+                      disabled={selectedRole.isSystem}
                     />
                     Ativo
                   </label>
                   <button
                     className="primary-button"
-                    disabled={busy || !effectiveRoleId}
+                    disabled={busy || selectedRole.isSystem || !effectiveRoleId}
                     type="submit"
                   >
                     {t.save}
@@ -190,7 +214,12 @@ export function RoleManagementView({
                 <div className="role-permission-controls">
                   <select
                     value={effectivePermissionId}
-                    disabled={busy || !effectiveRoleId || !availablePermissions.length}
+                    disabled={
+                      busy ||
+                      selectedRole.isSystem ||
+                      !effectiveRoleId ||
+                      !availablePermissions.length
+                    }
                     onChange={(event) => setSelectedPermissionId(event.target.value)}
                   >
                     {availablePermissions.length ? null : (
@@ -204,7 +233,9 @@ export function RoleManagementView({
                   </select>
                   <button
                     className="primary-button"
-                    disabled={busy || !effectiveRoleId || !effectivePermissionId}
+                    disabled={
+                      busy || selectedRole.isSystem || !effectiveRoleId || !effectivePermissionId
+                    }
                     type="button"
                     onClick={() => onAssignPermission(effectiveRoleId, effectivePermissionId)}
                   >
@@ -218,25 +249,30 @@ export function RoleManagementView({
                     <span>Descricao</span>
                     <span />
                   </div>
-                  {selectedRole.permissions?.length ? (
-                    selectedRole.permissions.map((item) => {
-                      const permissionId = item.permissionId ?? item.permission?.id ?? "";
-                      return (
-                        <div className="permission-table-row" key={item.id ?? permissionId}>
-                          <strong>{item.permission?.resource ?? "-"}</strong>
-                          <span>{item.permission?.action ?? "-"}</span>
-                          <small>{item.permission?.description ?? "-"}</small>
-                          <button
-                            className="danger-button"
-                            disabled={busy || !permissionId}
-                            type="button"
-                            onClick={() => onRemovePermission(effectiveRoleId, permissionId)}
-                          >
-                            Remover
-                          </button>
-                        </div>
-                      );
-                    })
+                  {groupedPermissions.length ? (
+                    groupedPermissions.map(([resource, items]) => (
+                      <section className="permission-group" key={resource}>
+                        <h4>{resource}</h4>
+                        {items.map((item) => {
+                          const permissionId = item.permissionId ?? item.permission?.id ?? "";
+                          return (
+                            <div className="permission-table-row" key={item.id ?? permissionId}>
+                              <strong>{item.permission?.resource ?? "-"}</strong>
+                              <span>{item.permission?.action ?? "-"}</span>
+                              <small>{item.permission?.description ?? "-"}</small>
+                              <button
+                                className="danger-button"
+                                disabled={busy || selectedRole.isSystem || !permissionId}
+                                type="button"
+                                onClick={() => onRemovePermission(effectiveRoleId, permissionId)}
+                              >
+                                {selectedRole.isSystem ? "Bloqueada" : "Remover"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </section>
+                    ))
                   ) : (
                     <p className="empty-state">Nenhuma permissao vinculada.</p>
                   )}
