@@ -19,6 +19,10 @@ body {
   font-family: var(--font-sans);
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 button,
 input,
 select,
@@ -248,6 +252,7 @@ textarea {
 }
 
 .topbar-actions {
+  align-items: center;
   flex: 0 0 auto;
   flex-wrap: nowrap;
   justify-content: flex-end;
@@ -255,7 +260,7 @@ textarea {
 }
 
 .topbar-actions .search-box {
-  flex: 1 1 260px;
+  flex: 0 0 clamp(160px, 18vw, 260px);
 }
 
 .segmented {
@@ -288,6 +293,7 @@ textarea {
   grid-template-rows: auto 1fr;
   height: 100dvh;
   min-height: 100dvh;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 28px 18px;
   position: sticky;
@@ -334,16 +340,21 @@ textarea {
 
 .nav-collapsed .brand-mark span,
 .nav-collapsed .nav-button span {
+  max-width: 0;
   opacity: 0;
+  overflow: hidden;
   pointer-events: none;
   position: absolute;
   width: 0;
+  white-space: nowrap;
 }
 
 .sidebar nav {
   display: grid;
   align-content: start;
   gap: 8px;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .nav-button {
@@ -354,6 +365,7 @@ textarea {
   overflow: hidden;
   padding: 0 14px;
   position: relative;
+  min-width: 0;
   width: 100%;
 }
 
@@ -382,17 +394,19 @@ textarea {
 .workspace {
   max-width: none;
   min-width: 0;
-  padding: 22px;
+  padding: 0 22px 22px;
   width: 100%;
 }
 
 .topbar {
   align-items: center;
   display: grid;
-  gap: 16px;
-  grid-template-columns: auto minmax(260px, 1fr) auto;
-  margin-bottom: 22px;
+  column-gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: 0;
   min-width: 0;
+  min-height: 0;
+  padding: 16px 0;
 }
 
 .mobile-nav-trigger {
@@ -403,6 +417,7 @@ textarea {
   align-items: center;
   display: flex;
   gap: 14px;
+  height: 38px;
   min-width: 0;
   overflow: hidden;
 }
@@ -421,8 +436,9 @@ textarea {
 
 .topbar-title h1 {
   flex: 1 1 auto;
-  font-size: 1.65rem;
+  font-size: 1.55rem;
   line-height: 1.1;
+  margin: 0;
 }
 
 .search-box {
@@ -434,7 +450,7 @@ textarea {
   gap: 8px;
   min-height: 38px;
   padding: 0 10px;
-  width: 260px;
+  width: clamp(160px, 18vw, 260px);
 }
 
 .search-box input {
@@ -774,14 +790,14 @@ tbody tr {
 .team-summary,
 .team-grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
 .team-strip {
   align-items: center;
   display: grid;
-  gap: 12px;
+  column-gap: 12px;
   grid-template-columns: 12px minmax(0, 1fr);
   min-width: 0;
 }
@@ -801,15 +817,30 @@ tbody tr {
   min-width: 0;
 }
 
+.team-strip-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
 .team-strip-name {
   display: block;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.team-strip b,
 .team-strip-sla {
   white-space: nowrap;
+}
+
+.team-strip b {
+  flex: 0 0 auto;
+  min-width: 18px;
+  text-align: right;
 }
 
 .team-strip small,
@@ -1125,8 +1156,9 @@ dt {
   background: rgb(15 23 42 / 46%);
   display: flex;
   inset: 0;
-  justify-content: flex-end;
-  padding: 18px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 16px;
   position: fixed;
   z-index: 50;
 }
@@ -1137,10 +1169,12 @@ dt {
   border-radius: var(--radius);
   box-shadow: 0 20px 70px rgb(15 23 42 / 24%);
   color: var(--text);
-  max-width: 980px;
+  height: calc(100dvh - 32px);
+  max-width: none;
   overflow: auto;
   padding: 18px;
-  width: min(100%, 980px);
+  scrollbar-gutter: stable;
+  width: min(100%, calc(100dvw - 32px));
 }
 
 .modal-header,
@@ -1204,8 +1238,8 @@ dt {
 .internal-kanban-board {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  overflow-x: auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  overflow-x: clip;
   padding-bottom: 4px;
 }
 
@@ -1693,6 +1727,7 @@ dt {
 
   .record-modal {
     border-radius: 0;
+    width: 100dvw;
   }
 
   .modal-grid,
@@ -1790,7 +1825,7 @@ textarea:disabled {
 }
 
 .topbar-title {
-  min-height: 44px;
+  min-height: 38px;
 }
 
 .app-message {
@@ -2247,6 +2282,7 @@ td:last-child {
 
   .record-modal {
     max-height: calc(100dvh - 28px);
+    width: 100%;
   }
 
   .role-admin-shell {
@@ -2317,9 +2353,462 @@ td:last-child {
 
   .record-modal {
     min-height: 100dvh;
+    width: 100dvw;
   }
 
   .modal-grid .primary-button.span-2 {
     width: 100%;
+  }
+}
+
+/* Prompt-Layout pass: final design-system and responsive alignment layer. */
+.app-shell {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --control-h: 38px;
+  --panel-pad: 16px;
+  --radius-sm: 6px;
+  --radius-md: var(--radius);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 8%);
+  --shadow-floating: 0 20px 70px rgb(15 23 42 / 24%);
+  font-size: 14px;
+  overflow-x: clip;
+}
+
+.app-shell[data-theme="dark"] {
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 28%);
+  --shadow-floating: 0 26px 80px rgb(0 0 0 / 42%);
+}
+
+.sr-only {
+  clip: rect(0 0 0 0);
+  border: 0;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.workspace {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: 0 22px 22px;
+}
+
+.topbar {
+  align-items: center;
+  align-self: start;
+  background: var(--bg);
+  column-gap: var(--space-4);
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  margin: 0;
+  min-height: 0;
+  padding: var(--space-4) 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar-title {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  height: var(--control-h);
+  min-height: var(--control-h);
+}
+
+.topbar-title .eyebrow {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+}
+
+.topbar-title h1 {
+  flex: 0 1 auto;
+  font-size: clamp(1.28rem, 1.25vw, 1.55rem);
+  line-height: 1.1;
+}
+
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.topbar-actions .search-box,
+.search-box {
+  flex: 0 0 clamp(170px, 16vw, 260px);
+  height: var(--control-h);
+  min-height: var(--control-h);
+  width: clamp(170px, 16vw, 260px);
+}
+
+.content-grid,
+.custom-dashboard,
+.dashboard-panels {
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.login-card,
+.panel,
+.metric-card,
+.kanban-column,
+.team-card,
+.dashboard-toolbar,
+.widget-palette,
+.widget-edit-bar,
+.filter-bar,
+.team-summary,
+.status-legend,
+.settings-group,
+.record-modal {
+  box-shadow: var(--shadow-card);
+}
+
+.panel,
+.metric-card,
+.team-card,
+.filter-bar,
+.team-summary,
+.status-legend,
+.settings-group {
+  padding: var(--panel-pad);
+}
+
+.filter-bar {
+  align-items: end;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.filter-bar > span {
+  font-size: 0.98rem;
+  min-height: auto;
+}
+
+.select-label,
+.date-label {
+  gap: 6px;
+}
+
+input,
+select,
+textarea,
+.primary-button,
+.compact-button,
+.danger-button,
+.icon-button,
+.select-button,
+.segmented button {
+  min-height: var(--control-h);
+}
+
+input,
+select,
+textarea {
+  min-width: 0;
+}
+
+.primary-button,
+.compact-button,
+.danger-button,
+.select-button {
+  padding-inline: 14px;
+  white-space: nowrap;
+}
+
+.icon-button {
+  flex: 0 0 var(--control-h);
+  width: var(--control-h);
+}
+
+.panel-header {
+  align-items: center;
+  border-bottom: 1px solid rgb(148 163 184 / 18%);
+  gap: var(--space-3);
+  margin: 0;
+  min-height: var(--control-h);
+  padding-bottom: var(--space-3);
+}
+
+.panel-header h2,
+.panel-header h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-card {
+  min-height: 124px;
+}
+
+.metric-card strong {
+  font-size: clamp(1.65rem, 2vw, 2rem);
+}
+
+.team-summary {
+  align-items: center;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.team-strip {
+  min-height: 44px;
+}
+
+.team-strip-heading {
+  justify-content: flex-start;
+}
+
+.team-strip b {
+  margin-left: auto;
+}
+
+.custom-dashboard-grid {
+  gap: var(--space-4);
+}
+
+.dashboard-widget {
+  min-width: 0;
+}
+
+.dashboard-widget-body > .metric-card,
+.dashboard-widget-body > .panel,
+.dashboard-widget-body > .team-summary,
+.dashboard-widget-body > .status-legend {
+  min-height: 100%;
+}
+
+.bar-chart {
+  min-height: 180px;
+  overflow: hidden;
+}
+
+.table-wrap {
+  max-width: 100%;
+  overflow: auto;
+}
+
+thead {
+  top: 0;
+}
+
+th,
+td {
+  max-width: 280px;
+}
+
+.table-empty-cell {
+  color: var(--muted);
+  padding: 28px 14px;
+  text-align: center;
+  white-space: normal;
+}
+
+.team-card[role="button"]:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.kanban-board {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  overflow-x: clip;
+}
+
+.kanban-column {
+  min-height: 420px;
+}
+
+.role-admin-shell {
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+}
+
+.role-edit-fields {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.role-edit-fields label:nth-child(3) {
+  grid-column: span 2;
+}
+
+.permission-table-row {
+  min-width: 0;
+}
+
+.modal-backdrop {
+  padding: var(--space-4);
+}
+
+.record-modal {
+  box-shadow: var(--shadow-floating);
+  height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 32px);
+  width: calc(100dvw - 32px);
+}
+
+.modal-grid,
+.detail-grid {
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+}
+
+.span-2 {
+  grid-column: 1 / -1;
+}
+
+.internal-kanban-board {
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+}
+
+@media (min-width: 1440px) {
+  .workspace {
+    padding-inline: 28px;
+  }
+
+  .topbar {
+    padding-block: 18px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .topbar {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-3);
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .workspace {
+    padding: 0 16px 18px;
+  }
+
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding-block: var(--space-3);
+  }
+
+  .topbar-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    height: auto;
+    min-height: var(--control-h);
+  }
+
+  .topbar-actions {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(180px, 1fr) repeat(7, var(--control-h));
+    width: 100%;
+  }
+
+  .topbar-actions .search-box,
+  .search-box {
+    width: 100%;
+  }
+
+  .filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .custom-dashboard-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .dashboard-widget {
+    grid-column: 1 / -1 !important;
+  }
+
+  .role-edit-fields label:nth-child(3) {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .workspace {
+    padding: 0 12px 14px;
+  }
+
+  .topbar {
+    padding-block: var(--space-3);
+  }
+
+  .topbar-title {
+    grid-column: 1 / -1;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+    grid-template-columns: repeat(7, minmax(34px, 1fr));
+  }
+
+  .topbar-actions .search-box {
+    grid-column: 1 / -1 !important;
+  }
+
+  .topbar-actions .icon-button {
+    min-height: 36px;
+    width: 100%;
+  }
+
+  .filter-bar,
+  .kpi-grid,
+  .team-summary,
+  .team-grid,
+  .dashboard-panels,
+  .role-list,
+  .team-member-controls,
+  .role-permission-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-toolbar,
+  .widget-palette-row,
+  .widget-edit-bar,
+  .panel-header,
+  .modal-actions,
+  .table-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primary-button,
+  .compact-button,
+  .danger-button,
+  .select-button {
+    width: 100%;
+  }
+
+  .modal-backdrop {
+    padding: 0;
+  }
+
+  .record-modal {
+    border-radius: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    width: 100dvw;
   }
 }

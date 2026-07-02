@@ -49,14 +49,32 @@ function colorsForTeamGroups(groups: DashboardCharts["byTeam"], teams: TeamRef[]
   );
 }
 
-function TeamSummaryStrip({ teams }: { teams: TeamRef[] }) {
+function activityCountsByTeam(groups: DashboardCharts["byTeam"], teams: TeamRef[]) {
+  const counts = new Map<string, number>();
+  groups.forEach((group, index) => {
+    const key = group.teamId ?? teams[index]?.id;
+    if (key) counts.set(key, countOf(group));
+  });
+  return counts;
+}
+
+function TeamSummaryStrip({
+  teams,
+  activityCounts
+}: {
+  teams: TeamRef[];
+  activityCounts: Map<string, number>;
+}) {
   return (
     <section className="team-summary">
       {teams.map((team) => (
         <article className="team-strip" key={team.id ?? team.name}>
           <span style={{ backgroundColor: team.color ?? defaultTeamColor }} />
           <div className="team-strip-body">
-            <strong className="team-strip-name">{team.name ?? "-"}</strong>
+            <div className="team-strip-heading">
+              <strong className="team-strip-name">{team.name ?? "-"}</strong>
+              <b>{team.id ? (activityCounts.get(team.id) ?? 0) : 0}</b>
+            </div>
             <small className="team-strip-sla">
               {team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min SLA` : "-"}
             </small>
@@ -124,6 +142,7 @@ export function MainDashboard({
 }) {
   const palette = teamPalette(teams);
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
+  const teamActivityCounts = activityCountsByTeam(charts.byTeam, teams);
   const dashboardLegend = statusLegend(t);
   const metric = (key: string, label: string, value: number) => (
     <article className="metric-card" key={key}>
@@ -187,7 +206,7 @@ export function MainDashboard({
       widgetType: "LIST",
       defaultWidth: 12,
       defaultHeight: 1,
-      render: () => <TeamSummaryStrip teams={teams} />
+      render: () => <TeamSummaryStrip teams={teams} activityCounts={teamActivityCounts} />
     },
     {
       key: "chart-team",
@@ -324,6 +343,7 @@ export function TeamDashboard({
 }) {
   const palette = teamPalette(teams);
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
+  const teamActivityCounts = activityCountsByTeam(charts.byTeam, teams);
   const definitions: DashboardWidgetDefinition[] = [
     {
       key: "team-summary",
@@ -331,7 +351,7 @@ export function TeamDashboard({
       widgetType: "LIST",
       defaultWidth: 12,
       defaultHeight: 2,
-      render: () => <TeamSummaryStrip teams={teams} />
+      render: () => <TeamSummaryStrip teams={teams} activityCounts={teamActivityCounts} />
     },
     {
       key: "team-productivity",

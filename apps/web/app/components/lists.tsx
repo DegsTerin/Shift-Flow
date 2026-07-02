@@ -135,6 +135,7 @@ export function ActivityList({
       </div>
       <div className="table-wrap" tabIndex={0}>
         <table>
+          <caption className="sr-only">{compact ? t.operationalList : t.activities}</caption>
           <thead>
             <tr>
               {columns.map((column, index) => (
@@ -170,7 +171,9 @@ export function ActivityList({
             ))}
             {!activities.length ? (
               <tr>
-                <td colSpan={10}>{t.noRows}</td>
+                <td className="table-empty-cell" colSpan={10}>
+                  {t.noRows}
+                </td>
               </tr>
             ) : null}
           </tbody>
@@ -244,6 +247,7 @@ export function ManagementTable<T>({
       </div>
       <div className="table-wrap" tabIndex={0}>
         <table>
+          <caption className="sr-only">{title}</caption>
           <thead>
             <tr>
               {columns.map((column, index) => (
@@ -268,7 +272,9 @@ export function ManagementTable<T>({
             ))}
             {!rows.length ? (
               <tr>
-                <td colSpan={columns.length}>{t.noRows}</td>
+                <td className="table-empty-cell" colSpan={columns.length}>
+                  {t.noRows}
+                </td>
               </tr>
             ) : null}
           </tbody>
@@ -306,7 +312,19 @@ export function TeamsView({
       </div>
       <div className="team-grid">
         {teams.map((team) => (
-          <article className="team-card" key={team.id ?? team.name} onClick={() => onOpen(team)}>
+          <article
+            className="team-card"
+            key={team.id ?? team.name}
+            onClick={() => onOpen(team)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onOpen(team);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
             <span style={{ backgroundColor: team.color ?? "#0ea5e9" }} />
             <h3>{team.name ?? "-"}</h3>
             <p>{team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min` : "-"}</p>
