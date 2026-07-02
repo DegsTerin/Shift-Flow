@@ -765,6 +765,128 @@ async function main() {
       ]
     },
     {
+      title: "Portal B2B indisponivel com SLA vencida",
+      description:
+        "Usuarios corporativos nao conseguem acessar pedidos e notas fiscais no portal B2B.",
+      requested: "Restaurar acesso, publicar comunicacao de incidente e atualizar diretoria.",
+      performed: "Falha reproduzida no balanceador. Equipe iniciou rollback controlado.",
+      inProgressDetail: "Rollback em execucao com acompanhamento do NOC e validacao do cliente.",
+      pendingDetail: "SLA ja vencida. Falta confirmar recuperacao total e registrar causa raiz.",
+      finalizationDetail: "Pendente ate estabilizacao e aceite do cliente.",
+      observations:
+        "Cenario cobre SLA vencida, incidente ativo, escalacao executiva e comunicacao recorrente.",
+      systemName: "Portal B2B",
+      serviceName: "Autenticacao corporativa",
+      status: "IN_PROGRESS",
+      priority: "CRITICAL",
+      slaDueAt: hoursFromNow(-4),
+      clientKey: "varejo",
+      teamKey: "noc",
+      shiftKey: "manha",
+      assigneeKey: "supervisor",
+      reporterKey: "executive",
+      historyNote: "SLA vencida identificada durante a triagem executiva.",
+      notificationType: "SLA_BREACHED",
+      notificationTitle: "SLA vencida no Portal B2B",
+      notificationBody: "O incidente permanece aberto apos o prazo contratado.",
+      tasks: [
+        {
+          title: "Executar rollback do balanceador",
+          description: "Retornar para a versao estavel e validar saude do portal.",
+          labels: ["sla-vencida", "rollback"],
+          columnIndex: 1,
+          assigneeKey: "supervisor"
+        },
+        {
+          title: "Publicar comunicado executivo",
+          description: "Atualizar diretoria com impacto, acao e novo prazo.",
+          labels: ["comunicacao", "executivo"],
+          columnIndex: 0,
+          assigneeKey: "admin"
+        }
+      ],
+      comments: [
+        {
+          authorKey: "executive",
+          body: "SLA vencida. Solicito atualizacao executiva a cada 15 minutos ate normalizacao."
+        },
+        {
+          authorKey: "supervisor",
+          body: "Rollback iniciado. Proxima validacao de saude em andamento."
+        }
+      ],
+      attachments: [
+        {
+          uploadedByKey: "supervisor",
+          fileName: "evidencia-sla-vencida-portal-b2b.txt",
+          mimeType: "text/plain",
+          byteSize: 4096,
+          checksumSha256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ]
+    },
+    {
+      title: "Consolidacao bancaria atrasada com SLA vencida",
+      description:
+        "Rotina de conciliacao bancaria nao concluiu no horario acordado e bloqueia relatorio financeiro.",
+      requested: "Validar lote, corrigir divergencias e entregar arquivo consolidado ao cliente.",
+      performed: "Divergencia encontrada em arquivo de retorno. Reprocessamento parcial iniciado.",
+      inProgressDetail: "Equipe de pagamentos compara lote reprocessado com o extrato oficial.",
+      pendingDetail: "SLA vencida por atraso no arquivo do banco correspondente.",
+      finalizationDetail: "Pendente de validacao da tesouraria.",
+      observations:
+        "Cenario cobre SLA vencida por dependencia externa, cliente aguardando e tarefas internas.",
+      systemName: "Conciliacao Financeira",
+      serviceName: "Retorno bancario",
+      status: "WAITING_CUSTOMER",
+      priority: "HIGH",
+      slaDueAt: hoursFromNow(-1.5),
+      clientKey: "banco",
+      teamKey: "pagamentos",
+      shiftKey: "reaberto",
+      assigneeKey: "payments",
+      reporterKey: "admin",
+      historyNote: "SLA vencida registrada e pendencia atribuida ao cliente.",
+      notificationType: "SLA_BREACHED",
+      notificationTitle: "SLA vencida na conciliacao bancaria",
+      notificationBody: "A rotina financeira segue aberta apos o prazo de atendimento.",
+      tasks: [
+        {
+          title: "Comparar retorno bancario",
+          description: "Conferir linhas divergentes do arquivo de retorno.",
+          labels: ["financeiro", "sla-vencida"],
+          columnIndex: 1,
+          assigneeKey: "payments"
+        },
+        {
+          title: "Solicitar aceite da tesouraria",
+          description: "Validar se o lote reprocessado pode ser enviado.",
+          labels: ["cliente"],
+          columnIndex: 2,
+          assigneeKey: "supervisor"
+        }
+      ],
+      comments: [
+        {
+          authorKey: "admin",
+          body: "Registrar atraso como SLA vencida e manter tesouraria informada."
+        },
+        {
+          authorKey: "payments",
+          body: "Arquivo reprocessado parcialmente; aguardando confirmacao do cliente."
+        }
+      ],
+      attachments: [
+        {
+          uploadedByKey: "payments",
+          fileName: "divergencias-conciliacao.csv",
+          mimeType: "text/csv",
+          byteSize: 12288,
+          checksumSha256: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        }
+      ]
+    },
+    {
       title: "Revisao preventiva de acesso privilegiado",
       description: "Validacao de permissoes privilegiadas antes de janela de manutencao.",
       requested: "Conferir usuarios com papel administrativo no ambiente de saude.",
@@ -1015,6 +1137,12 @@ async function main() {
       )
     );
   }
+  const overdueActivities = activities.filter(
+    (activity) =>
+      !["DONE", "CANCELLED"].includes(activity.status) &&
+      activity.slaDueAt &&
+      activity.slaDueAt.getTime() < now.getTime()
+  );
 
   const report = await prisma.shiftReport.create({
     data: {
@@ -1032,7 +1160,13 @@ async function main() {
         totalAtividades: activities.length,
         concluidas: activities.filter((activity) => activity.status === "DONE").length,
         criticas: activities.filter((activity) => activity.priority === "CRITICAL").length,
-        slaEmRisco: 1
+        slaVencidas: overdueActivities.length,
+        slaEmRisco: activities.filter(
+          (activity) =>
+            !["DONE", "CANCELLED"].includes(activity.status) &&
+            activity.slaDueAt &&
+            activity.slaDueAt.getTime() <= hoursFromNow(1).getTime()
+        ).length
       },
       submittedAt: hoursFromNow(-12),
       approvedAt: hoursFromNow(-11)
@@ -1078,6 +1212,22 @@ async function main() {
       },
       {
         companyId: company.id,
+        clientId: overdueActivities[0]?.clientId ?? clientsByKey.get("varejo").id,
+        teamId: overdueActivities[0]?.teamId ?? teamsByKey.get("noc").id,
+        shiftId: overdueActivities[0]?.shiftId ?? shiftsByKey.get("manha").id,
+        activityId: overdueActivities[0]?.id ?? activities[0].id,
+        actorUserId: supervisor.id,
+        entityType: "Activity",
+        entityId: overdueActivities[0]?.id ?? activities[0].id,
+        action: "REGISTER_SLA_BREACH",
+        before: { sla: "em_risco" },
+        after: { sla: "vencida", totalSlaVencidas: overdueActivities.length },
+        requestId: "seed-realistic-003",
+        ipAddress: "127.0.0.1",
+        userAgent: "prisma/realistic-seed"
+      },
+      {
+        companyId: company.id,
         teamId: teamsByKey.get("noc").id,
         shiftId: shiftsByKey.get("ontem").id,
         shiftReportId: report.id,
@@ -1086,7 +1236,7 @@ async function main() {
         entityId: report.id,
         action: "APPROVE",
         after: { status: "APPROVED" },
-        requestId: "seed-realistic-003",
+        requestId: "seed-realistic-004",
         ipAddress: "127.0.0.1",
         userAgent: "prisma/realistic-seed"
       }
@@ -1153,7 +1303,14 @@ async function main() {
     shiftReports: await prisma.shiftReport.count(),
     auditLogs: await prisma.auditLog.count(),
     dashboardConfigurations: await prisma.dashboardConfiguration.count(),
-    dashboardWidgets: await prisma.dashboardWidget.count()
+    dashboardWidgets: await prisma.dashboardWidget.count(),
+    slaVencidas: await prisma.activity.count({
+      where: {
+        deletedAt: null,
+        status: { notIn: ["DONE", "CANCELLED"] },
+        slaDueAt: { lt: now }
+      }
+    })
   };
 
   console.log(
