@@ -7,6 +7,16 @@ Apenas a State Machine pode alterar estado.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 OBJETIVO
 
 Registrar alteracoes feitas no sistema de prompts.
@@ -27,6 +37,15 @@ Estado afetado:
 ---
 
 REGISTROS
+
+Data: 2026-07-02
+Versao: 1.4.36
+Tipo: patch documental
+Arquivos alterados: Todos os arquivos .txt em prompts/, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt
+Resumo: Incluida REGRA DE COMMIT em todos os .txt canonicos.
+Impacto: Toda alteracao documental ou funcional solicitada a partir dos prompts passa a exigir commit local de escopo fechado quando houver mudancas de arquivo.
+Conflitos resolvidos: A obrigacao de commitar ficava dependente da conversa atual ou de memoria operacional, nao de regra canonica nos arquivos.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
 
 Data: 2026-07-02
 Versao: 1.4.35

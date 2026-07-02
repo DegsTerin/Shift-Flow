@@ -7,6 +7,16 @@ Qualquer mudanca funcional exige pedido explicito, classificacao, evidencias e g
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 OBJETIVO
 
 Sistematizar o projeto para torna-lo organizado, modular, auditavel, escalavel e facil de manter.

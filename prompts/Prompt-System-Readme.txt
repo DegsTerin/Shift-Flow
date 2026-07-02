@@ -7,6 +7,16 @@ Apenas a State Machine pode alterar estado.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 OBJETIVO
 
 Este arquivo explica como usar o sistema de prompts no dia a dia.
@@ -179,4 +189,3 @@ REGRA FINAL
 Se houver duvida, aplique Conflict-Resolution-Policy.txt.
 Se houver bloqueio, aplique Blocked-State-Protocol.txt.
 Se houver reversao, aplique Controlled-Rollback-Policy.txt.
-

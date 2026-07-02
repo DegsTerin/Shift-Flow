@@ -7,6 +7,16 @@ Apenas a State Machine pode alterar estado.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 OBJETIVO
 
 Definir uma auditoria periodica do proprio sistema de prompts.
@@ -111,6 +121,22 @@ RECOMENDACAO:
 ---
 
 ULTIMA AUDITORIA REGISTRADA
+
+Data: 2026-07-02
+Versao: 1.4.36
+Arquivos auditados: Todos os .txt em prompts/ e controles canonicos de versionamento, estado, snapshot, auditoria e log.
+Status: APROVADO APOS INCLUSAO DE REGRA DE COMMIT
+Conflitos encontrados:
+* A obrigacao de commitar alteracoes dependia de instrucao conversacional ou memoria operacional, nao de regra canonica nos .txt.
+Correcoes aplicadas:
+* Todos os arquivos .txt canonicos receberam REGRA DE COMMIT.
+* A regra exige commit local com escopo fechado quando houver mudancas de arquivo.
+* A regra proibe incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+* Controles canonicos foram atualizados para 1.4.36.
+Risco:
+* O commit deve continuar respeitando worktree sujo e nao deve incluir mudancas de usuario fora do escopo.
+Recomendacao:
+* Antes de commitar, executar git status, git diff --check e revisar o escopo staged.
 
 Data: 2026-07-02
 Versao: 1.4.34

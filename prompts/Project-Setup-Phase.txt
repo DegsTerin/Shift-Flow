@@ -6,6 +6,16 @@ Nenhum prompt pode criar ou alterar estado. Apenas a State Machine pode.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 ESCOPO
 
 Executar a preparacao tecnica inicial do projeto.

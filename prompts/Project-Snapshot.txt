@@ -7,6 +7,16 @@ Apenas a State Machine pode alterar estado.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 ESTADO OPERACIONAL
 
 Estado atual declarado pela State Machine:
@@ -19,7 +29,7 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.34
+1.4.36
 
 Ultima atualizacao:
 2026-07-02
@@ -156,6 +166,7 @@ CONTROLES ATIVOS
 * Auditoria documental 1.4.32 de 2026-07-02 registrada apos sexta passada integrada, com titulos genericos padronizados para leitura corporativa isolada.
 * Auditoria documental 1.4.33 de 2026-07-02 registrada apos setima passada minuciosa, com ordem estrutural de System-Reorganisation-Codex-Prompt.txt alinhada ao padrao corporativo internacional.
 * Auditoria documental 1.4.34 de 2026-07-02 registrada apos integracao de Prompt-Audit-Full.txt como prompt canonico de auditoria funcional completa.
+* Auditoria documental 1.4.36 de 2026-07-02 registrada apos inclusao de REGRA DE COMMIT em todos os arquivos .txt canonicos.
 
 ---
 
@@ -173,6 +184,7 @@ DECISOES FIXAS
 * Prompt-Auth.txt e Prompt-Password.txt sao complementares: o primeiro cobre autenticacao/sessao ampla; o segundo cobre remediacao de senhas, credenciais e valores sensiveis em arquivos.
 * Prompt-Dashboard.txt define personalizacao persistida por userId e companyId; perfil ou tipo de dashboard pode servir como template/default, nao como escopo substituto da preferencia individual.
 * Padrao corporativo internacional dos .txt exige titulo claro, REGRA DE OURO quando aplicavel, contexto temporal para estados historicos, ASCII limpo e separacao explicita entre patch documental e manutencao funcional pos-release.
+* REGRA DE COMMIT exige commit local de escopo fechado ao concluir alteracoes solicitadas quando houver mudancas de arquivo, preservando alteracoes externas nao relacionadas fora do commit.
 
 ---
 

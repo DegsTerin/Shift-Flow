@@ -7,6 +7,16 @@ Apenas a State Machine pode alterar estado.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 OBJETIVO
 
 Definir o que conta como evidencia valida para cada fase e modulo.
@@ -136,8 +146,3 @@ Nao conta como evidencia suficiente:
 * Usar snapshot como prova unica sem apontar artefato.
 * Usar recomendacao de gate como transicao de estado.
 * Usar prompt de modulo para justificar alteracao fora da fase.
-
-
-
-
-

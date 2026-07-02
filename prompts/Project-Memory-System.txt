@@ -9,6 +9,16 @@ Apenas a State Machine pode alterar estado.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 OBJETIVO
 
 Garantir consistencia entre fases, evitar perda de contexto e impedir decisoes contraditorias.
@@ -143,7 +153,3 @@ E proibido:
 
 O snapshot registra a verdade observavel do projeto.
 A State Machine e a unica autoridade para transicao de estado.
-
-
-
-

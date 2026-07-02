@@ -7,6 +7,16 @@ Apenas a State Machine pode alterar estado.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 OBJETIVO
 
 Registrar historico de decisoes de transicao tomadas pela State Machine.
@@ -30,6 +40,18 @@ Observacoes:
 ---
 
 REGISTROS
+
+Data: 2026-07-02
+Estado anterior: STATE-08 PRODUCTION_RELEASE
+Estado solicitado: STATE-08 PRODUCTION_RELEASE
+Estado novo: STATE-08 PRODUCTION_RELEASE
+Tipo: Inclusao documental de regra de commit sem transicao
+Gates avaliados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Official-State-Machine.txt.
+Resultado dos gates: Patch documental aprovado; sem alteracao de codigo, schema, migration, runtime, tooling ou estado.
+Evidencias: Todos os 75 arquivos .txt em prompts/ receberam REGRA DE COMMIT; Prompt-System-Version.txt atualizado para 1.4.36; validacao documental de indice, referencias, caracteres nao ASCII e git diff --check executada.
+Responsavel: Sistema de prompts
+Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
+Observacoes: Commits devem manter escopo fechado e preservar mudancas externas nao relacionadas fora do staged set.
 
 Data: 2026-07-02
 Estado anterior: STATE-08 PRODUCTION_RELEASE

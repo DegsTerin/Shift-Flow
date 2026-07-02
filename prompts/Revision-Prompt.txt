@@ -7,6 +7,16 @@ Ele nao altera estado, nao substitui a State Machine e so pode gerar correcoes q
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 OBJETIVO
 
 Revisar o ShiftFlow para corrigir problemas funcionais, usabilidade, responsividade e fluxo operacional.

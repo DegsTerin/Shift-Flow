@@ -7,15 +7,28 @@ Apenas a State Machine pode alterar estado.
 
 ---
 
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.35
+PROMPT_SYSTEM_VERSION: 1.4.36
 
 Data:
 2026-07-02
 
 Status:
-Manutencao funcional pos-release executada em 2026-07-02 a partir de Prompt-Audit-Full.txt. Foram corrigidas lacunas residuais de dashboard personalizavel, Kanban interno, filtros, Gestao de Perfis, Configuracoes e contagem documental atual dos .txt. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+Regra global de commit incorporada a todos os .txt canonicos em 2026-07-02. Ao concluir alteracao solicitada em arquivo .txt ou derivada dele, deve ser criado commit local com mensagem clara, escopo fechado e sem incluir mudancas externas nao relacionadas. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.36:
+Incluida REGRA DE COMMIT em todos os arquivos .txt canonicos em prompts/. A regra determina que alteracoes solicitadas devem terminar com commit local de escopo fechado quando houver mudancas de arquivo, e que mudancas externas, geradas ou nao relacionadas nao devem ser incluidas sem solicitacao explicita. Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt e State-Transition-Log.txt foram atualizados.
 
 Patch 1.4.35:
 Registrada manutencao funcional pos-release derivada da auditoria completa executada por Prompt-Audit-Full.txt. O registro cobre dueAt em ActivityTask com migration 20260702193000_audit_full_residual_fixes, filtro de atraso/criticidade, validacao de widgets conhecidos no dashboard, widgets adicionais para atrasadas, tempo medio, Kanban resumido e alertas operacionais, agrupamento de Configuracoes, permissao agrupada por modulo e bloqueio de edicao de perfis do sistema. A contagem atual validada passa a ser 75 .txt. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
