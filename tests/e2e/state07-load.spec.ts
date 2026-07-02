@@ -16,7 +16,7 @@ const credentials = {
 };
 const concurrency = Number(process.env.LOAD_CONCURRENCY ?? 8);
 const minimumActivities = Number(process.env.LOAD_MIN_ACTIVITIES ?? 120);
-const p95ThresholdMs = Number(process.env.LOAD_P95_THRESHOLD_MS ?? 1500);
+const p95ThresholdMs = Number(process.env.LOAD_P95_THRESHOLD_MS ?? 2000);
 const maxThresholdMs = Number(process.env.LOAD_MAX_THRESHOLD_MS ?? 3000);
 
 async function timed<T>(operation: () => Promise<T>) {

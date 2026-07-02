@@ -688,9 +688,17 @@ th {
 }
 
 .bar-chart b {
+  background: rgb(15 23 42 / 88%);
+  border-radius: 999px;
   color: #ffffff;
   font-size: 0.78rem;
-  padding-bottom: 6px;
+  margin-bottom: 6px;
+  padding: 2px 6px;
+}
+
+.app-shell[data-theme="dark"] .bar-chart b {
+  background: rgb(248 250 252 / 92%);
+  color: #0f172a;
 }
 
 .chart-legend,
@@ -1959,8 +1967,13 @@ textarea:disabled {
 .metric-card small {
   background: var(--success-bg);
   border-radius: 999px;
+  color: #14532d;
   justify-self: start;
   padding: 3px 8px;
+}
+
+.app-shell[data-theme="dark"] .metric-card small {
+  color: #dcfce7;
 }
 
 .custom-dashboard-grid {
@@ -2437,6 +2450,10 @@ td:last-child {
   line-height: 1.1;
 }
 
+.monitor-mode .topbar-title h1 {
+  font-size: 1.65rem;
+}
+
 .topbar-actions {
   align-items: center;
   display: flex;
@@ -2593,6 +2610,21 @@ textarea {
 .bar-chart {
   min-height: 180px;
   overflow: hidden;
+}
+
+.bar-chart span > b {
+  align-items: center;
+  background: #0f172a;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  min-height: 20px;
+  padding: 2px 7px;
+}
+
+.app-shell[data-theme="dark"] .bar-chart span > b {
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .table-wrap {

@@ -1,6 +1,7 @@
 /* global console, process */
 
 import "dotenv/config";
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
@@ -32,6 +33,13 @@ const integrationUser = {
   email: requiredSeedEnv("E2E_EMAIL"),
   password: requiredSeedEnv("E2E_PASSWORD")
 };
+
+function hashIdentifier(value) {
+  return crypto
+    .createHash("sha256")
+    .update(value?.trim().toLowerCase() ?? "unknown")
+    .digest("hex");
+}
 
 async function findOrCreate(delegate, where, create, update = {}) {
   const existing = await delegate.findFirst({ where });
@@ -116,6 +124,9 @@ async function main() {
     }
   );
   admin = await syncSeedPassword(admin);
+  await prisma.authLoginAttempt.deleteMany({
+    where: { emailHash: hashIdentifier(integrationUser.email) }
+  });
 
   let analyst = await findOrCreate(
     prisma.user,

@@ -39,7 +39,11 @@ async function main() {
     prisma.client.findFirstOrThrow({ where: { name: "Integration Client", deletedAt: null } }),
     prisma.team.findFirstOrThrow({ where: { name: "Integration Operations", deletedAt: null } }),
     prisma.shift.findFirstOrThrow({ where: { name: "Integration Day Shift", deletedAt: null } }),
-    prisma.user.findFirstOrThrow({ where: { email: "integration.admin@shiftflow.local" } }),
+    prisma.user.findFirstOrThrow({
+      where: {
+        OR: [{ email: process.env.E2E_EMAIL ?? "" }, { displayName: "Integration Admin" }]
+      }
+    }),
     prisma.user.findFirstOrThrow({ where: { email: "integration.analyst@shiftflow.local" } })
   ]);
 

@@ -56,13 +56,15 @@ The frontend is functional but has large files, especially `apps/web/app/compone
 - Added focused unit coverage for comment mutation authorization, including author edits, moderator deletes, and forbidden edits from unrelated users.
 - Added focused unit coverage for readiness success and failure paths.
 - Extracted the record modal create form and operational fields to `apps/web/app/components/record-modal-create-form.tsx`, reducing the size of `record-modal.tsx` without changing UI behavior.
+- Updated `docs/governance-index.md` so prompt control artifacts are correctly documented under `prompts/`.
+- Extracted the record modal internal Kanban board to `apps/web/app/components/record-modal-task-board.tsx`, further reducing modal responsibility without changing API calls or payloads.
 
 ## Current Priorities
 
 1. Replace CODEOWNERS placeholders with real GitHub users or teams before enabling branch protection ownership enforcement.
 2. Continue expanding unit tests around tenant scope, RBAC-sensitive services, reports, dashboard filters, comments, and readiness failures.
-3. Decompose the largest frontend files in behavior-preserving slices, starting with `record-modal.tsx`.
-4. Archive or relocate root control files only through a documentation-only change that checks references and records replacements.
+3. Continue decomposing the largest frontend files in behavior-preserving slices, especially `record-modal.tsx`, `views.tsx`, and `page.tsx`.
+4. Keep prompt control files under `prompts/` and archive obsolete prompt artifacts only through documentation-only changes that check references and record replacements.
 5. Add production deployment descriptors for API and web runtimes once the target infrastructure is selected.
 
 ## Remaining Risks

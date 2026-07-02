@@ -30,19 +30,22 @@ export default defineConfig({
     {
       command: "npx tsx apps/api/src/server.ts",
       url: "http://localhost:3001/health",
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 20_000,
       env: {
         DATABASE_URL: databaseUrl,
         JWT_SECRET: process.env.JWT_SECRET ?? "replace-with-a-local-secret",
         CORS_ORIGIN: "http://localhost:3000",
-        API_PORT: "3001"
+        API_PORT: "3001",
+        API_RATE_LIMIT_MAX: "5000",
+        AUTH_LOCKOUT_MAX_ATTEMPTS: "5000",
+        AUTH_RATE_LIMIT_MAX: "5000"
       }
     },
     {
       command: "npx next dev apps/web -p 3000",
       url: "http://localhost:3000",
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 30_000,
       env: {
         NEXT_PUBLIC_API_BASE_URL: "http://localhost:3001"
