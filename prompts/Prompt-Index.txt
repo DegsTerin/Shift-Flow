@@ -116,6 +116,13 @@ Prompt-Adjustments.txt
 * Funcao: Solicitar Kanban interno por atividade, ajustes de legenda/filtros, reestruturacao de Gestao de Perfis, cores por equipe no Kanban e expansao de Configuracoes.
 * Regra: Nao altera estado. Implementacao deve ser registrada como manutencao funcional pos-release quando alterar banco, backend, frontend, permissoes ou comportamento de produto.
 
+Prompt-Layout.txt
+
+* Tipo: GLOBAL UI/UX LAYOUT REQUEST
+* Autoridade: Entrada operacional de revisao visual e experiencia
+* Funcao: Solicitar revisao completa de UI/UX, design system, layout, responsividade, acessibilidade, componentes, dashboards, tabelas, formularios, modais e navegacao.
+* Regra: Nao altera estado. Implementacao deve preservar regras de negocio, APIs e contratos existentes, com validacoes proporcionais de layout, responsividade, acessibilidade e regressao.
+
 Project-Snapshot.txt
 
 * Tipo: SNAPSHOT
@@ -379,6 +386,5 @@ RBAC-Module.txt
 * Tipo: CROSS-LAYER MODULE
 * Modulo: MOD-11 RBAC
 * Funcao: Perfis, permissoes, middleware, UI administrativa e validacao ponta a ponta.
-
 
 
