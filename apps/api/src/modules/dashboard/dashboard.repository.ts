@@ -96,7 +96,11 @@ export class DashboardRepository {
     });
   }
 
-  async replaceWidgets(dashboardConfigId: string, companyId: string, widgets: Record<string, unknown>[]) {
+  async replaceWidgets(
+    dashboardConfigId: string,
+    companyId: string,
+    widgets: Record<string, unknown>[]
+  ) {
     const widgetDelegate = await this.widgets();
     await widgetDelegate.deleteMany({ where: { dashboardConfigId, companyId } });
     if (widgets.length) {

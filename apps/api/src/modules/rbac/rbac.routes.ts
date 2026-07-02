@@ -28,11 +28,7 @@ rbacRoutes.patch(
   validate("body", roleSchema.partial()),
   RbacController.roles.update
 );
-rbacRoutes.delete(
-  "/roles/:id",
-  requirePermission("rbac", "delete"),
-  RbacController.roles.remove
-);
+rbacRoutes.delete("/roles/:id", requirePermission("rbac", "delete"), RbacController.roles.remove);
 rbacRoutes.post(
   "/roles/:id/duplicate",
   requirePermission("rbac", "write"),

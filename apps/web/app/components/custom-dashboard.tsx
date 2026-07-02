@@ -348,7 +348,9 @@ export function CustomizableDashboard({
                       aria-label={t.delete}
                       className="icon-button"
                       onClick={() =>
-                        mutate((widgets) => resequence(widgets.filter((item) => item.key !== widget.key)))
+                        mutate((widgets) =>
+                          resequence(widgets.filter((item) => item.key !== widget.key))
+                        )
                       }
                       title={t.delete}
                       type="button"

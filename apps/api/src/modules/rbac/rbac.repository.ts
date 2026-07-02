@@ -88,9 +88,12 @@ export class RbacRepository {
     const existing = await delegate.findFirst({
       where: { roleId, permissionId }
     });
-    return existing ?? delegate.create({
-      data: { roleId, permissionId, companyId }
-    });
+    return (
+      existing ??
+      delegate.create({
+        data: { roleId, permissionId, companyId }
+      })
+    );
   }
 
   async removePermission(roleId: string, permissionId: string, companyId: string) {
@@ -121,12 +124,16 @@ export class RbacRepository {
   }
 
   async duplicateRole(roleId: string, companyId: string, name: string) {
-    const role = await (await this.roleDelegate()).findFirst({
+    const role = await (
+      await this.roleDelegate()
+    ).findFirst({
       where: { id: roleId, companyId, deletedAt: null },
       include: { permissions: true }
     });
     if (!role) return null;
-    const created = (await (await this.roleDelegate()).create({
+    const created = (await (
+      await this.roleDelegate()
+    ).create({
       data: {
         companyId,
         name,

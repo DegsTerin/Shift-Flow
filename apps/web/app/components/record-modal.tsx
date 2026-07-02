@@ -1036,7 +1036,9 @@ function InternalTaskBoard({
   async function loadBoard() {
     if (!token) return;
     try {
-      setBoard(await apiRequest<ActivityTaskBoard>(`/api/activities/${activityId}/task-board`, token));
+      setBoard(
+        await apiRequest<ActivityTaskBoard>(`/api/activities/${activityId}/task-board`, token)
+      );
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Falha ao carregar tarefas");
     }
@@ -1246,7 +1248,10 @@ function InternalTaskBoard({
                 onDropBefore={() => draggedTaskId && void moveTask(draggedTaskId, column.id, index)}
               />
             ))}
-            <form className="task-create-form" onSubmit={(event) => void createTask(event, column.id)}>
+            <form
+              className="task-create-form"
+              onSubmit={(event) => void createTask(event, column.id)}
+            >
               <input name="columnId" type="hidden" value={column.id} readOnly />
               <input name="title" placeholder="Nova tarefa" required />
               <select name="assigneeId" defaultValue="">
@@ -1417,7 +1422,12 @@ function InternalTaskCard({
             <button className="compact-button" type="button" onClick={() => setEditing(true)}>
               Editar
             </button>
-            <button className="icon-button static" type="button" title="Arquivar" onClick={onArchive}>
+            <button
+              className="icon-button static"
+              type="button"
+              title="Arquivar"
+              onClick={onArchive}
+            >
               <Archive size={15} />
             </button>
             <button className="icon-button static" type="button" title="Excluir" onClick={onDelete}>

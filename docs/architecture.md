@@ -11,6 +11,20 @@ ShiftFlow uses a modular monorepo layout. Product surfaces live under `apps/`, i
 - `prisma`: PostgreSQL schema, migrations, and deterministic seed scripts.
 - `tests/e2e`: Playwright tests for homologation, accessibility, and load-oriented flows.
 
+## Activity Task Boards
+
+Activities can own an internal task board that is independent from the main operational Kanban. The main Kanban continues to move `Activity` records across `ActivityStatus` values, while the internal board stores task-level workflow under the activity:
+
+- `ActivityTaskColumn`: activity-scoped columns with persisted order and optional color.
+- `ActivityTask`: task cards linked to an activity and column, with assignee, priority, labels, attachment references, archived/completed timestamps, and persisted order.
+- `ActivityTaskHistory`: movement and lifecycle history for task changes.
+
+The API exposes the board through nested activity routes under `/api/activities/:id/task-board`. This keeps ownership and tenant scoping in the activities module and avoids creating a disconnected task module.
+
+## RBAC Profile Management
+
+Profiles are represented by `Role` records and remain enforced by backend RBAC checks. Role management supports profile color, active/inactive state, permission assignment, duplication, and guarded deletion. Roles with active user assignments cannot be deleted; inactive roles are ignored by permission checks.
+
 ## API Module Pattern
 
 Each API capability follows the same internal structure:
@@ -46,7 +60,7 @@ The API emits structured JSON logs. Each request gets a `requestId`, returned as
 ## Security Controls
 
 - Authentication uses JWT access tokens and refresh-token rotation.
-- Authorization is enforced by RBAC middleware and module services.
+- Authorization is enforced by RBAC middleware and module services; inactive roles do not grant permissions.
 - Tenant context is explicit through request headers and service scope checks.
 - Rate limiting is configurable through `API_RATE_LIMIT_WINDOW_MS` and `API_RATE_LIMIT_MAX`.
 - Production startup requires explicit CORS origin and JWT secrets.

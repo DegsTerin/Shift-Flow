@@ -160,7 +160,9 @@ export class ActivitiesService extends BaseService {
     await this.get(req, activityId);
     await this.ensureTaskColumns(req, activityId);
     const companyId = this.companyId(req);
-    const columns = await (await this.activitiesRepository.taskColumns()).findMany({
+    const columns = await (
+      await this.activitiesRepository.taskColumns()
+    ).findMany({
       where: { companyId, activityId, deletedAt: null },
       orderBy: { position: "asc" },
       include: {
@@ -171,7 +173,9 @@ export class ActivitiesService extends BaseService {
         }
       }
     });
-    const history = await (await this.activitiesRepository.taskHistory()).findMany({
+    const history = await (
+      await this.activitiesRepository.taskHistory()
+    ).findMany({
       where: { companyId, activityId },
       orderBy: { createdAt: "desc" },
       take: 40,
@@ -186,10 +190,16 @@ export class ActivitiesService extends BaseService {
     const position =
       typeof data.position === "number"
         ? data.position
-        : (await (await this.activitiesRepository.taskColumns()).findMany({
-            where: { companyId, activityId, deletedAt: null }
-          })).length;
-    const created = await (await this.activitiesRepository.taskColumns()).create({
+        : (
+            await (
+              await this.activitiesRepository.taskColumns()
+            ).findMany({
+              where: { companyId, activityId, deletedAt: null }
+            })
+          ).length;
+    const created = await (
+      await this.activitiesRepository.taskColumns()
+    ).create({
       data: { ...data, activityId, companyId, position }
     });
     return created;
@@ -211,7 +221,9 @@ export class ActivitiesService extends BaseService {
   async deleteTaskColumn(req: ApiRequest, activityId: string, columnId: string) {
     const column = await this.assertTaskColumn(req, activityId, columnId);
     const taskCount = (
-      await (await this.activitiesRepository.tasks()).findMany({
+      await (
+        await this.activitiesRepository.tasks()
+      ).findMany({
         where: { columnId, deletedAt: null, archivedAt: null }
       })
     ).length;
@@ -227,7 +239,9 @@ export class ActivitiesService extends BaseService {
   async reorderTaskColumns(req: ApiRequest, activityId: string, columnIds: string[]) {
     await this.get(req, activityId);
     const companyId = this.companyId(req);
-    const columns = await (await this.activitiesRepository.taskColumns()).findMany({
+    const columns = await (
+      await this.activitiesRepository.taskColumns()
+    ).findMany({
       where: { companyId, activityId, deletedAt: null }
     });
     const existingIds = new Set(columns.map((column) => column.id));
@@ -256,16 +270,22 @@ export class ActivitiesService extends BaseService {
     const position =
       typeof data.position === "number"
         ? data.position
-        : (await (await this.activitiesRepository.tasks()).findMany({
-            where: {
-              companyId,
-              activityId,
-              columnId: String(data.columnId),
-              deletedAt: null,
-              archivedAt: null
-            }
-          })).length;
-    const created = await (await this.activitiesRepository.tasks()).create({
+        : (
+            await (
+              await this.activitiesRepository.tasks()
+            ).findMany({
+              where: {
+                companyId,
+                activityId,
+                columnId: String(data.columnId),
+                deletedAt: null,
+                archivedAt: null
+              }
+            })
+          ).length;
+    const created = await (
+      await this.activitiesRepository.tasks()
+    ).create({
       data: { ...data, activityId, companyId, position }
     });
     await this.taskHistory(req, activityId, "CREATED", {
@@ -291,7 +311,9 @@ export class ActivitiesService extends BaseService {
       data.assigneeId ? String(data.assigneeId) : undefined,
       activeCompanyId(req)
     );
-    const updated = await (await this.activitiesRepository.tasks()).update({
+    const updated = await (
+      await this.activitiesRepository.tasks()
+    ).update({
       where: { id: taskId },
       data
     });
@@ -304,7 +326,9 @@ export class ActivitiesService extends BaseService {
 
   async deleteTask(req: ApiRequest, activityId: string, taskId: string) {
     await this.assertTask(req, activityId, taskId);
-    const deleted = await (await this.activitiesRepository.tasks()).update({
+    const deleted = await (
+      await this.activitiesRepository.tasks()
+    ).update({
       where: { id: taskId },
       data: { deletedAt: new Date() }
     });
@@ -315,7 +339,9 @@ export class ActivitiesService extends BaseService {
   async archiveTask(req: ApiRequest, activityId: string, taskId: string) {
     const task = await this.assertTask(req, activityId, taskId);
     const nextArchivedAt = (task as { archivedAt?: Date | null }).archivedAt ? null : new Date();
-    const archived = await (await this.activitiesRepository.tasks()).update({
+    const archived = await (
+      await this.activitiesRepository.tasks()
+    ).update({
       where: { id: taskId },
       data: { archivedAt: nextArchivedAt }
     });
@@ -337,7 +363,9 @@ export class ActivitiesService extends BaseService {
     const previous = await this.assertTask(req, activityId, taskId);
     const targetColumn = await this.assertTaskColumn(req, activityId, columnId);
     const companyId = this.companyId(req);
-    const siblings = await (await this.activitiesRepository.tasks()).findMany({
+    const siblings = await (
+      await this.activitiesRepository.tasks()
+    ).findMany({
       where: {
         companyId,
         activityId,
@@ -358,7 +386,9 @@ export class ActivitiesService extends BaseService {
           }))()
       )
     );
-    const moved = await (await this.activitiesRepository.tasks()).update({
+    const moved = await (
+      await this.activitiesRepository.tasks()
+    ).update({
       where: { id: taskId },
       data: {
         columnId,
@@ -398,7 +428,9 @@ export class ActivitiesService extends BaseService {
     type: string,
     data: Record<string, unknown>
   ) {
-    await (await this.activitiesRepository.taskHistory()).create({
+    await (
+      await this.activitiesRepository.taskHistory()
+    ).create({
       data: {
         ...data,
         activityId,
@@ -411,18 +443,24 @@ export class ActivitiesService extends BaseService {
 
   private async ensureTaskColumns(req: ApiRequest, activityId: string) {
     const companyId = this.companyId(req);
-    const columns = await (await this.activitiesRepository.taskColumns()).findMany({
+    const columns = await (
+      await this.activitiesRepository.taskColumns()
+    ).findMany({
       where: { companyId, activityId, deletedAt: null }
     });
     if (columns.length) return;
-    await (await this.activitiesRepository.taskColumns()).createMany({
+    await (
+      await this.activitiesRepository.taskColumns()
+    ).createMany({
       data: defaultTaskColumns.map((column) => ({ ...column, activityId, companyId }))
     });
   }
 
   private async assertTaskColumn(req: ApiRequest, activityId: string, columnId: string) {
     await this.get(req, activityId);
-    const column = await (await this.activitiesRepository.taskColumns()).findFirst({
+    const column = await (
+      await this.activitiesRepository.taskColumns()
+    ).findFirst({
       where: { id: columnId, activityId, companyId: this.companyId(req), deletedAt: null }
     });
     if (!column) {
@@ -433,7 +471,9 @@ export class ActivitiesService extends BaseService {
 
   private async assertTask(req: ApiRequest, activityId: string, taskId: string) {
     await this.get(req, activityId);
-    const task = await (await this.activitiesRepository.tasks()).findFirst({
+    const task = await (
+      await this.activitiesRepository.tasks()
+    ).findFirst({
       where: { id: taskId, activityId, companyId: this.companyId(req), deletedAt: null }
     });
     if (!task) {

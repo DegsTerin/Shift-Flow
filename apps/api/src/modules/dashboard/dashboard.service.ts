@@ -1,30 +1,232 @@
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { activeCompanyId, assertTeamInCompany } from "../../shared/services/scope.service.js";
-import type { DashboardConfigurationDto, DashboardTypeDto, DashboardWidgetDto } from "./dashboard.dto.js";
+import type {
+  DashboardConfigurationDto,
+  DashboardTypeDto,
+  DashboardWidgetDto
+} from "./dashboard.dto.js";
 import { DashboardRepository } from "./dashboard.repository.js";
 
 const mainDashboardWidgets: DashboardWidgetDto[] = [
-  { key: "summary-total", widgetType: "SUMMARY_CARD", title: "Atividades totais", gridColumn: 1, gridRow: 1, gridWidth: 2, gridHeight: 2, isVisible: true, isPinned: false, order: 0 },
-  { key: "summary-pending", widgetType: "SUMMARY_CARD", title: "Pendentes", gridColumn: 3, gridRow: 1, gridWidth: 2, gridHeight: 2, isVisible: true, isPinned: false, order: 1 },
-  { key: "summary-running", widgetType: "SUMMARY_CARD", title: "Em andamento", gridColumn: 5, gridRow: 1, gridWidth: 2, gridHeight: 2, isVisible: true, isPinned: false, order: 2 },
-  { key: "summary-done", widgetType: "SUMMARY_CARD", title: "Finalizadas", gridColumn: 7, gridRow: 1, gridWidth: 2, gridHeight: 2, isVisible: true, isPinned: false, order: 3 },
-  { key: "summary-critical", widgetType: "SUMMARY_CARD", title: "Criticas", gridColumn: 9, gridRow: 1, gridWidth: 2, gridHeight: 2, isVisible: true, isPinned: false, order: 4 },
-  { key: "summary-risk", widgetType: "INDICATOR", title: "SLA em risco", gridColumn: 11, gridRow: 1, gridWidth: 2, gridHeight: 2, isVisible: true, isPinned: false, order: 5 },
-  { key: "team-summary", widgetType: "LIST", title: "Equipes", gridColumn: 1, gridRow: 3, gridWidth: 12, gridHeight: 1, isVisible: true, isPinned: false, order: 6 },
-  { key: "chart-team", widgetType: "BAR_CHART", title: "Atividades por equipe", gridColumn: 1, gridRow: 4, gridWidth: 6, gridHeight: 3, isVisible: true, isPinned: false, order: 7 },
-  { key: "chart-client", widgetType: "BAR_CHART", title: "Atividades por cliente", gridColumn: 7, gridRow: 4, gridWidth: 6, gridHeight: 3, isVisible: true, isPinned: false, order: 8 },
-  { key: "chart-priority", widgetType: "BAR_CHART", title: "Atividades por prioridade", gridColumn: 1, gridRow: 7, gridWidth: 6, gridHeight: 3, isVisible: true, isPinned: false, order: 9 },
-  { key: "chart-shift", widgetType: "BAR_CHART", title: "Incidentes por turno", gridColumn: 7, gridRow: 7, gridWidth: 6, gridHeight: 3, isVisible: true, isPinned: false, order: 10 },
-  { key: "chart-status", widgetType: "BAR_CHART", title: "Evolucao mensal", gridColumn: 1, gridRow: 10, gridWidth: 6, gridHeight: 3, isVisible: true, isPinned: false, order: 11 },
-  { key: "status-legend", widgetType: "INDICATOR", title: "Legenda de status", gridColumn: 7, gridRow: 10, gridWidth: 6, gridHeight: 1, isVisible: true, isPinned: false, order: 12 },
-  { key: "activity-list", widgetType: "RECENT_ACTIVITIES", title: "Ultimas atividades", gridColumn: 1, gridRow: 13, gridWidth: 12, gridHeight: 4, isVisible: true, isPinned: false, order: 13 }
+  {
+    key: "summary-total",
+    widgetType: "SUMMARY_CARD",
+    title: "Atividades totais",
+    gridColumn: 1,
+    gridRow: 1,
+    gridWidth: 2,
+    gridHeight: 2,
+    isVisible: true,
+    isPinned: false,
+    order: 0
+  },
+  {
+    key: "summary-pending",
+    widgetType: "SUMMARY_CARD",
+    title: "Pendentes",
+    gridColumn: 3,
+    gridRow: 1,
+    gridWidth: 2,
+    gridHeight: 2,
+    isVisible: true,
+    isPinned: false,
+    order: 1
+  },
+  {
+    key: "summary-running",
+    widgetType: "SUMMARY_CARD",
+    title: "Em andamento",
+    gridColumn: 5,
+    gridRow: 1,
+    gridWidth: 2,
+    gridHeight: 2,
+    isVisible: true,
+    isPinned: false,
+    order: 2
+  },
+  {
+    key: "summary-done",
+    widgetType: "SUMMARY_CARD",
+    title: "Finalizadas",
+    gridColumn: 7,
+    gridRow: 1,
+    gridWidth: 2,
+    gridHeight: 2,
+    isVisible: true,
+    isPinned: false,
+    order: 3
+  },
+  {
+    key: "summary-critical",
+    widgetType: "SUMMARY_CARD",
+    title: "Criticas",
+    gridColumn: 9,
+    gridRow: 1,
+    gridWidth: 2,
+    gridHeight: 2,
+    isVisible: true,
+    isPinned: false,
+    order: 4
+  },
+  {
+    key: "summary-risk",
+    widgetType: "INDICATOR",
+    title: "SLA em risco",
+    gridColumn: 11,
+    gridRow: 1,
+    gridWidth: 2,
+    gridHeight: 2,
+    isVisible: true,
+    isPinned: false,
+    order: 5
+  },
+  {
+    key: "team-summary",
+    widgetType: "LIST",
+    title: "Equipes",
+    gridColumn: 1,
+    gridRow: 3,
+    gridWidth: 12,
+    gridHeight: 1,
+    isVisible: true,
+    isPinned: false,
+    order: 6
+  },
+  {
+    key: "chart-team",
+    widgetType: "BAR_CHART",
+    title: "Atividades por equipe",
+    gridColumn: 1,
+    gridRow: 4,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 7
+  },
+  {
+    key: "chart-client",
+    widgetType: "BAR_CHART",
+    title: "Atividades por cliente",
+    gridColumn: 7,
+    gridRow: 4,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 8
+  },
+  {
+    key: "chart-priority",
+    widgetType: "BAR_CHART",
+    title: "Atividades por prioridade",
+    gridColumn: 1,
+    gridRow: 7,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 9
+  },
+  {
+    key: "chart-shift",
+    widgetType: "BAR_CHART",
+    title: "Incidentes por turno",
+    gridColumn: 7,
+    gridRow: 7,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 10
+  },
+  {
+    key: "chart-status",
+    widgetType: "BAR_CHART",
+    title: "Evolucao mensal",
+    gridColumn: 1,
+    gridRow: 10,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 11
+  },
+  {
+    key: "status-legend",
+    widgetType: "INDICATOR",
+    title: "Legenda de status",
+    gridColumn: 7,
+    gridRow: 10,
+    gridWidth: 6,
+    gridHeight: 1,
+    isVisible: true,
+    isPinned: false,
+    order: 12
+  },
+  {
+    key: "activity-list",
+    widgetType: "RECENT_ACTIVITIES",
+    title: "Ultimas atividades",
+    gridColumn: 1,
+    gridRow: 13,
+    gridWidth: 12,
+    gridHeight: 4,
+    isVisible: true,
+    isPinned: false,
+    order: 13
+  }
 ];
 
 const teamDashboardWidgets: DashboardWidgetDto[] = [
-  { key: "team-summary", widgetType: "LIST", title: "Equipes", gridColumn: 1, gridRow: 1, gridWidth: 12, gridHeight: 2, isVisible: true, isPinned: false, order: 0 },
-  { key: "team-productivity", widgetType: "BAR_CHART", title: "Produtividade por analista", gridColumn: 1, gridRow: 3, gridWidth: 6, gridHeight: 3, isVisible: true, isPinned: false, order: 1 },
-  { key: "team-risk", widgetType: "BAR_CHART", title: "SLA em risco", gridColumn: 7, gridRow: 3, gridWidth: 6, gridHeight: 3, isVisible: true, isPinned: false, order: 2 },
-  { key: "team-activity-list", widgetType: "RECENT_ACTIVITIES", title: "Ultimas atividades", gridColumn: 1, gridRow: 6, gridWidth: 12, gridHeight: 4, isVisible: true, isPinned: false, order: 3 }
+  {
+    key: "team-summary",
+    widgetType: "LIST",
+    title: "Equipes",
+    gridColumn: 1,
+    gridRow: 1,
+    gridWidth: 12,
+    gridHeight: 2,
+    isVisible: true,
+    isPinned: false,
+    order: 0
+  },
+  {
+    key: "team-productivity",
+    widgetType: "BAR_CHART",
+    title: "Produtividade por analista",
+    gridColumn: 1,
+    gridRow: 3,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 1
+  },
+  {
+    key: "team-risk",
+    widgetType: "BAR_CHART",
+    title: "SLA em risco",
+    gridColumn: 7,
+    gridRow: 3,
+    gridWidth: 6,
+    gridHeight: 3,
+    isVisible: true,
+    isPinned: false,
+    order: 2
+  },
+  {
+    key: "team-activity-list",
+    widgetType: "RECENT_ACTIVITIES",
+    title: "Ultimas atividades",
+    gridColumn: 1,
+    gridRow: 6,
+    gridWidth: 12,
+    gridHeight: 4,
+    isVisible: true,
+    isPinned: false,
+    order: 3
+  }
 ];
 
 export class DashboardService {
@@ -247,7 +449,9 @@ export class DashboardService {
     };
   }
 
-  private serializeConfiguration(record: Record<string, unknown>): DashboardConfigurationDto & { id: string } {
+  private serializeConfiguration(
+    record: Record<string, unknown>
+  ): DashboardConfigurationDto & { id: string } {
     const widgets = Array.isArray(record.widgets) ? record.widgets : [];
     return {
       id: String(record.id),

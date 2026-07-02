@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  CheckCircle2,
-  Copy,
-  Download,
-  ShieldCheck
-} from "lucide-react";
+import { CheckCircle2, Copy, Download, ShieldCheck } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import type {
   ActivityItem,
@@ -19,7 +14,14 @@ import type {
   TeamRef,
   Texts
 } from "../lib/types";
-import { countOf, statusColors, statusGroups, statusLabel, statusLegend, slaLabel } from "../lib/utils";
+import {
+  countOf,
+  statusColors,
+  statusGroups,
+  statusLabel,
+  statusLegend,
+  slaLabel
+} from "../lib/utils";
 import { ChartPanel } from "./charts";
 import { CustomizableDashboard, type DashboardWidgetDefinition } from "./custom-dashboard";
 import { ActivityList } from "./lists";
@@ -214,7 +216,9 @@ export function MainDashboard({
       widgetType: "BAR_CHART",
       defaultWidth: 6,
       defaultHeight: 3,
-      render: () => <ChartPanel title={t.byTeam} values={charts.byTeam.map(countOf)} colors={teamColors} />
+      render: () => (
+        <ChartPanel title={t.byTeam} values={charts.byTeam.map(countOf)} colors={teamColors} />
+      )
     },
     {
       key: "chart-client",
@@ -360,7 +364,11 @@ export function TeamDashboard({
       defaultWidth: 6,
       defaultHeight: 3,
       render: () => (
-        <ChartPanel title={t.productivity} values={charts.byTeam.map(countOf)} colors={teamColors} />
+        <ChartPanel
+          title={t.productivity}
+          values={charts.byTeam.map(countOf)}
+          colors={teamColors}
+        />
       )
     },
     {
@@ -569,7 +577,9 @@ export function RoleManagementView({
   const availablePermissions = permissions.filter(
     (permission) => permission.id && !assignedPermissionIds.has(permission.id)
   );
-  const [selectedPermissionId, setSelectedPermissionId] = useState(availablePermissions[0]?.id ?? "");
+  const [selectedPermissionId, setSelectedPermissionId] = useState(
+    availablePermissions[0]?.id ?? ""
+  );
   const effectivePermissionId = availablePermissions.some(
     (permission) => permission.id === selectedPermissionId
   )
@@ -636,7 +646,8 @@ export function RoleManagementView({
                 <div className="section-heading">
                   <h3>Detalhes do perfil</h3>
                   <span>
-                    {assignedPermissionIds.size} permissoes - {selectedRole._count?.assignments ?? 0} usuarios
+                    {assignedPermissionIds.size} permissoes -{" "}
+                    {selectedRole._count?.assignments ?? 0} usuarios
                   </span>
                 </div>
                 <div className="role-edit-fields">
@@ -658,7 +669,11 @@ export function RoleManagementView({
                   </label>
                   <label>
                     Cor
-                    <input name="color" type="color" defaultValue={selectedRole.color ?? "#0f766e"} />
+                    <input
+                      name="color"
+                      type="color"
+                      defaultValue={selectedRole.color ?? "#0f766e"}
+                    />
                   </label>
                   <label className="toggle-label">
                     <input

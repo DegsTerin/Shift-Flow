@@ -60,7 +60,9 @@ export const ActivitiesController = {
     );
   }),
   reorderTaskColumns: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(await service.reorderTaskColumns(req, param(req.params.id, "id"), req.body.columnIds)));
+    res.json(
+      ok(await service.reorderTaskColumns(req, param(req.params.id, "id"), req.body.columnIds))
+    );
   }),
   createTask: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.createTask(req, param(req.params.id, "id"), req.body)));

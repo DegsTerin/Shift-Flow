@@ -3,6 +3,7 @@
 ## Near Term
 
 - Add service-level tests for every API module that mutates tenant-scoped data.
+- Add Playwright coverage for internal activity task-board drag and drop, task editing, and role-management flows.
 - Introduce a typed Prisma access layer that reduces `unknown` usage while preserving generated-client loading.
 - Add OpenAPI documentation for public API contracts.
 - Split `record-modal.tsx` into entity-specific form/detail components.

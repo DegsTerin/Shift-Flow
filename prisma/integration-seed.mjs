@@ -18,9 +18,7 @@ const prisma = new PrismaClient({
 function requiredSeedEnv(name) {
   const value = process.env[name];
   if (!value) {
-    throw new Error(
-      `${name} is required at seed runtime and must not be committed to .env files.`
-    );
+    throw new Error(`${name} is required at seed runtime and must not be committed to .env files.`);
   }
   return value;
 }
