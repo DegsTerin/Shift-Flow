@@ -37,4 +37,4 @@ When a prompt control file is still required, keep it in `prompts/` and referenc
 - Delivery and operations: `.github`, `scripts`, `docker-compose.yml`, runbooks, and release gates.
 - Governance: `docs`, `prompts`, ADRs, security, and contribution policy.
 
-GitHub handle-based enforcement belongs in `.github/CODEOWNERS`. Keep the logical domains above aligned with CODEOWNERS once real users or teams are assigned.
+GitHub handle-based enforcement belongs in `.github/CODEOWNERS`. Keep the logical domains above aligned with CODEOWNERS as ownership changes.

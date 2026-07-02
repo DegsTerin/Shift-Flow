@@ -1,26 +1,17 @@
 "use client";
 
 import {
-  Activity,
-  BarChart3,
   Bell,
-  Building2,
-  CalendarClock,
-  Columns3,
   Globe2,
-  LayoutDashboard,
   LayoutGrid,
-  ListChecks,
-  LogOut,
-  Menu,
   LockKeyhole,
+  LogOut,
   Maximize2,
+  Menu,
   Moon,
   RefreshCcw,
   Search,
-  ShieldCheck,
   Sun,
-  Users,
   Workflow
 } from "lucide-react";
 import type { FormEvent } from "react";
@@ -28,15 +19,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FilterBar, IconToggle, SegmentedControl } from "./components/controls";
 import { ActivityList, ManagementTable, shiftCells, TeamsView } from "./components/lists";
 import { RecordModal } from "./components/record-modal";
-import {
-  KanbanBoard,
-  MainDashboard,
-  ReportsView,
-  RoleManagementView,
-  TeamDashboard
-} from "./components/views";
+import { RoleManagementView } from "./components/role-management-view";
+import { KanbanBoard, MainDashboard, ReportsView, TeamDashboard } from "./components/views";
 import { apiRequest, queryString } from "./lib/api";
 import { messages } from "./lib/i18n";
+import { defaultDashboardLayouts, menu, type DashboardLayoutKey } from "./lib/page-config";
 import type {
   ActivityItem,
   ClientRef,
@@ -57,86 +44,6 @@ import type {
   View
 } from "./lib/types";
 import { emptyFilters, hasPermission, matchesSearch, userRoleName } from "./lib/utils";
-
-const menu: Array<{ id: View; icon: typeof LayoutDashboard; resource: string; action: string }> = [
-  { id: "dashboard", icon: LayoutDashboard, resource: "dashboard", action: "read" },
-  { id: "team-dashboard", icon: BarChart3, resource: "dashboard", action: "read" },
-  { id: "users", icon: Users, resource: "users", action: "read" },
-  { id: "clients", icon: Building2, resource: "clients", action: "read" },
-  { id: "teams", icon: Workflow, resource: "teams", action: "read" },
-  { id: "roles", icon: ShieldCheck, resource: "rbac", action: "read" },
-  { id: "shifts", icon: CalendarClock, resource: "shifts", action: "read" },
-  { id: "activities", icon: ListChecks, resource: "activities", action: "read" },
-  { id: "kanban", icon: Columns3, resource: "activities", action: "read" },
-  { id: "reports", icon: Activity, resource: "reports", action: "read" }
-];
-
-type DashboardLayoutKey = "MAIN" | "TEAM";
-
-const defaultDashboardLayouts: Record<DashboardLayoutKey, DashboardConfiguration> = {
-  MAIN: {
-    dashboardType: "MAIN",
-    gridColumns: 12,
-    gridGap: 16,
-    isDefault: true,
-    metadata: {},
-    widgets: [
-      ["summary-total", "SUMMARY_CARD", "Atividades totais", 2, 2],
-      ["summary-pending", "SUMMARY_CARD", "Pendentes", 2, 2],
-      ["summary-running", "SUMMARY_CARD", "Em andamento", 2, 2],
-      ["summary-done", "SUMMARY_CARD", "Finalizadas", 2, 2],
-      ["summary-critical", "SUMMARY_CARD", "Criticas", 2, 2],
-      ["summary-risk", "INDICATOR", "SLA em risco", 2, 2],
-      ["team-summary", "LIST", "Equipes", 12, 1],
-      ["chart-team", "BAR_CHART", "Atividades por equipe", 6, 3],
-      ["chart-client", "BAR_CHART", "Atividades por cliente", 6, 3],
-      ["chart-priority", "BAR_CHART", "Atividades por prioridade", 6, 3],
-      ["chart-shift", "BAR_CHART", "Incidentes por turno", 6, 3],
-      ["chart-status", "BAR_CHART", "Evolucao mensal", 6, 3],
-      ["status-legend", "INDICATOR", "Legenda de status", 6, 1],
-      ["activity-list", "RECENT_ACTIVITIES", "Ultimas atividades", 12, 4]
-    ].map(([key, widgetType, title, gridWidth, gridHeight], order) => ({
-      key: String(key),
-      widgetType: widgetType as DashboardConfiguration["widgets"][number]["widgetType"],
-      title: String(title),
-      gridColumn: order % 2 === 0 ? 1 : 7,
-      gridRow: Math.floor(order / 2) + 1,
-      gridWidth: Number(gridWidth),
-      gridHeight: Number(gridHeight),
-      isVisible: true,
-      isPinned: false,
-      order,
-      refreshIntervalMs: 60000,
-      settings: { sourceKey: String(key) }
-    }))
-  },
-  TEAM: {
-    dashboardType: "TEAM",
-    gridColumns: 12,
-    gridGap: 16,
-    isDefault: true,
-    metadata: {},
-    widgets: [
-      ["team-summary", "LIST", "Equipes", 12, 2],
-      ["team-productivity", "BAR_CHART", "Produtividade por analista", 6, 3],
-      ["team-risk", "BAR_CHART", "SLA em risco", 6, 3],
-      ["team-activity-list", "RECENT_ACTIVITIES", "Ultimas atividades", 12, 4]
-    ].map(([key, widgetType, title, gridWidth, gridHeight], order) => ({
-      key: String(key),
-      widgetType: widgetType as DashboardConfiguration["widgets"][number]["widgetType"],
-      title: String(title),
-      gridColumn: order % 2 === 0 ? 1 : 7,
-      gridRow: Math.floor(order / 2) + 1,
-      gridWidth: Number(gridWidth),
-      gridHeight: Number(gridHeight),
-      isVisible: true,
-      isPinned: false,
-      order,
-      refreshIntervalMs: 60000,
-      settings: { sourceKey: String(key) }
-    }))
-  }
-};
 
 function parseStoredJson(value: string | null) {
   if (!value) return null;
