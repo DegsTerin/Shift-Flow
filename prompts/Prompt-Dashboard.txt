@@ -1,202 +1,132 @@
-## Dashboard de KPIs Personalizável
+PROMPT DASHBOARD PERSONALIZAVEL
 
-Implementar um Dashboard de KPIs totalmente personalizável para os módulos que possuem dashboards.
+REGRA DE OURO
 
-### Objetivos
+Este prompt nao cria, altera ou transiciona estado.
+Apenas a State Machine pode alterar estado.
 
-* Permitir que cada usuário organize seu próprio dashboard.
-* Melhorar a visualização das informações mais importantes.
-* Criar uma estrutura preparada para futuras expansões.
+Se a execucao alterar schema, migration, backend, frontend, permissoes,
+persistencia, testes ou comportamento de produto em STATE-08 PRODUCTION_RELEASE,
+registrar como manutencao funcional pos-release.
 
-## Layout
+---
 
-Cada dashboard deverá ser composto por widgets (cards) independentes.
+OBJETIVO
 
-Cada widget poderá representar, por exemplo:
+Transformar o dashboard do ShiftFlow em uma area operacional personalizavel por
+usuario, com KPIs, widgets e layout responsivo persistidos por usuario e empresa.
+Perfis podem fornecer layouts padrao, mas nao substituem o escopo persistido por
+usuario quando houver personalizacao individual.
 
-* KPI numérico
-* Gráfico de barras
-* Gráfico de linhas
-* Gráfico de pizza
-* Tabela
-* Lista
-* Indicadores
-* Calendário
-* Atividades recentes
+---
 
-## Funcionalidades
+ESCOPO FUNCIONAL
 
-Permitir que o usuário:
+O dashboard deve permitir:
 
-* Mover widgets por Drag & Drop.
-* Reorganizar livremente o layout.
-* Redimensionar widgets.
-* Expandir ou reduzir altura e largura.
-* Fixar widgets importantes.
-* Ocultar widgets.
-* Mostrar widgets ocultos.
-* Adicionar novos widgets.
-* Remover widgets do dashboard.
-* Duplicar widgets.
-* Restaurar o layout padrão.
-* Salvar automaticamente todas as alterações.
+* Selecionar quais widgets ficam visiveis.
+* Reordenar widgets.
+* Redimensionar widgets quando o grid permitir.
+* Persistir preferencias por usuario.
+* Restaurar layout padrao.
+* Diferenciar dashboard executivo, operacional e de acompanhamento quando houver contexto.
+* Preservar desempenho e legibilidade em mobile, desktop e modo TV.
 
-## Persistência
+---
 
-Salvar por usuário:
+WIDGETS ESPERADOS
 
-* Ordem dos widgets.
-* Tamanho.
-* Posição.
-* Widgets ocultos.
-* Configurações individuais.
-* Dashboard padrão.
+O conjunto inicial pode incluir:
 
-As configurações devem permanecer após logout, troca de navegador e atualização da página.
+* Atividades por status.
+* Atividades atrasadas.
+* Atividades criticas.
+* SLA e tempo medio.
+* Ocorrencias recentes.
+* Distribuicao por equipe.
+* Distribuicao por cliente.
+* Pendencias por turno.
+* Kanban resumido.
+* Alertas operacionais.
 
-## Responsividade
+Cada widget deve possuir:
 
-Garantir funcionamento em:
-
-* Desktop.
-* Tablet.
-* Smartphone.
-
-O layout deve se reorganizar automaticamente conforme o tamanho da tela.
-
-## Widgets
-
-Criar uma arquitetura baseada em componentes reutilizáveis para facilitar a criação de novos widgets.
-
-Cada widget deverá possuir:
-
-* Título.
-* Ícone.
-* Atualização automática.
-* Menu de opções.
+* Identificador estavel.
+* Titulo curto.
 * Estado de carregamento.
 * Estado vazio.
-* Tratamento de erros.
+* Tratamento de erro.
+* Fonte de dados definida.
+* Permissao ou regra de visibilidade quando aplicavel.
 
-## KPIs sugeridos
+---
 
-* Projetos ativos.
-* Projetos concluídos.
-* Atividades abertas.
-* Atividades concluídas.
-* Atividades atrasadas.
-* Atividades em andamento.
-* Tempo médio de conclusão.
-* Tempo médio por equipe.
-* Produtividade por equipe.
-* Produtividade por usuário.
-* Cumprimento de prazos.
-* Distribuição por prioridade.
-* Distribuição por status.
-* Distribuição por equipe.
-* Distribuição por perfil.
-* Atividades criadas por período.
-* Atividades concluídas por período.
-* Evolução semanal.
-* Evolução mensal.
-* Percentual de conclusão dos projetos.
-* Usuários mais ativos.
-* Equipes mais produtivas.
-* Últimas atividades realizadas.
+PERSISTENCIA
 
-## Configuração
+Persistir configuracao de dashboard sem misturar empresas ou usuarios:
 
-Criar uma opção chamada **Personalizar Dashboard**, permitindo:
+* Escopo minimo: userId e companyId.
+* Dados persistidos: widgets visiveis, ordem, tamanho, filtros e versao do layout.
+* Layout padrao deve funcionar mesmo sem configuracao salva.
+* Layout padrao por perfil ou tipo de dashboard deve ser tratado como template, nao como preferencia individual.
+* Configuracao invalida ou antiga deve cair para fallback seguro.
 
-* Entrar no modo de edição.
-* Mover widgets.
-* Redimensionar widgets.
-* Adicionar widgets.
-* Remover widgets.
-* Restaurar layout padrão.
-* Salvar alterações.
-* Cancelar alterações.
+---
 
-## Requisitos Técnicos
+BACKEND E API
 
-* Utilizar Grid Layout com suporte a Drag & Drop.
-* Reutilizar componentes existentes.
-* Evitar código duplicado.
-* Manter a arquitetura atual.
-* Não causar regressões.
-* Garantir boa performance mesmo com muitos widgets.
-* Atualizar APIs e banco de dados apenas quando necessário.
+Quando houver implementacao:
 
-## Entrega
+* Criar rotas especificas para buscar, salvar, substituir e restaurar layout.
+* Validar ownership por empresa ativa.
+* Validar schema do payload.
+* Evitar gravar widgets desconhecidos.
+* Registrar erros de forma auditavel sem expor dados sensiveis.
 
-Ao finalizar, apresentar:
+---
 
-* Widgets implementados.
-* Componentes criados.
-* APIs alteradas.
-* Alterações no banco de dados.
-* Estratégia utilizada para persistência do layout.
-* Sugestões de novos KPIs para futuras versões.
+FRONTEND
 
-## Dashboard
+O frontend deve:
 
-Adicionar um modo de personalização para todos os módulos que possuam Dashboard.
+* Separar modo visualizacao e modo personalizacao.
+* Indicar edicao ativa sem poluir o uso normal.
+* Usar controles adequados para adicionar, remover, mover e restaurar widgets.
+* Evitar mudancas de tamanho inesperadas durante hover, loading ou drag.
+* Manter navegacao por teclado quando possivel.
+* Garantir que texto e botoes nao se sobreponham em telas pequenas.
 
-### Funcionalidades
+---
 
-Permitir que o usuário personalize a disposição dos componentes do Dashboard, incluindo:
+RESTRICOES
 
-* Mover widgets por Drag & Drop.
-* Reposicionar os widgets livremente.
-* Redimensionar os widgets (altura e largura).
-* Expandir ou reduzir o tamanho dos widgets.
-* Reorganizar o layout conforme a necessidade.
-* Ocultar ou exibir widgets.
-* Adicionar ou remover widgets disponíveis para o Dashboard.
-* Fixar widgets em posições específicas, quando aplicável.
-* Restaurar o layout padrão.
-* Salvar automaticamente a disposição personalizada de cada usuário.
-* Manter o layout após logout, troca de navegador ou troca de dispositivo, quando aplicável.
+Nao duplicar regras de filtro que ja existam em servicos compartilhados.
+Nao criar widget sem fonte de dados definida.
+Nao persistir configuracao global quando a necessidade for por usuario.
+Nao misturar dashboard personalizavel com modo TV sem regra explicita.
+Nao remover dashboard atual sem fallback validado.
 
-### Requisitos
+---
 
-* Utilizar um sistema de grid responsivo.
-* Garantir compatibilidade com desktop, tablet e dispositivos móveis.
-* Evitar sobreposição entre os widgets.
-* Manter alinhamento e espaçamento consistentes.
-* Preservar o padrão visual do sistema.
-* Não impactar o desempenho da aplicação.
-* Reutilizar componentes existentes sempre que possível.
-* Permitir fácil expansão para novos widgets no futuro.
-* Atualizar o layout em tempo real durante a edição, sem necessidade de recarregar a página.
+CRITERIOS DE ACEITE
 
-### Persistência
+* Dashboard carrega com layout padrao.
+* Usuario consegue personalizar e salvar.
+* Layout salvo permanece apos reload.
+* Outro usuario ou empresa nao recebe a configuracao indevida.
+* Restaurar padrao funciona.
+* Widgets tratam loading, vazio e erro.
+* Lint, typecheck, testes e build passam quando codigo for alterado.
 
-A configuração do Dashboard deverá ser armazenada individualmente para cada usuário, preservando:
+---
 
-* Posição dos widgets.
-* Dimensões dos widgets.
-* Ordem de exibição.
-* Widgets ocultos ou visíveis.
-* Preferências de layout.
+ENTREGAVEIS
 
-### Modo de Personalização
+Ao executar este prompt, registrar:
 
-Adicionar uma opção **Personalizar Dashboard**, que permita:
-
-* Entrar e sair do modo de edição.
-* Exibir controles de movimentação e redimensionamento apenas durante a edição.
-* Salvar ou cancelar alterações.
-* Restaurar o layout padrão a qualquer momento.
-
-Enquanto o modo de personalização estiver desativado, o Dashboard deverá permanecer bloqueado contra alterações acidentais.
-
-### Critérios de Aceitação
-
-* O usuário consegue reorganizar o Dashboard de forma intuitiva.
-* Todas as alterações são persistidas corretamente.
-* O layout permanece consistente em diferentes resoluções.
-* Não há regressões nos Dashboards existentes.
-* A personalização é aplicada individualmente para cada usuário, sem afetar os demais.
-* O Dashboard continua totalmente funcional durante e após a personalização.
-* O desempenho da aplicação permanece estável mesmo com múltiplos widgets.
+* Problemas encontrados.
+* Modelo de persistencia adotado.
+* APIs e telas alteradas.
+* Widgets implementados ou ajustados.
+* Evidencias de validacao.
+* Pendencias futuras.

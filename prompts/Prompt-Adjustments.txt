@@ -1,242 +1,150 @@
-# Solicitação de Melhorias no Sistema
+PROMPT DE AJUSTES OPERACIONAIS
 
-Antes de iniciar qualquer implementação, analise cuidadosamente a arquitetura atual do projeto, identificando padrões de organização, componentes reutilizáveis, estrutura de rotas, modelos de dados e fluxo da aplicação.
+REGRA DE OURO
 
-As alterações devem preservar o padrão visual existente, manter a arquitetura atual e priorizar a reutilização de componentes, evitando duplicação de código e regressões.
+Este prompt nao cria, altera ou transiciona estado.
+Apenas a State Machine pode alterar estado.
 
-## 1. Kanban interno nas Atividades
+Quando executado em STATE-08 PRODUCTION_RELEASE, qualquer alteracao de banco,
+schema, migration, backend, frontend, permissoes, testes ou comportamento de
+produto deve ser registrada como manutencao funcional pos-release.
 
-Implementar um Kanban próprio dentro de cada atividade, independente do Kanban principal.
+---
 
-Estrutura esperada:
+OBJETIVO
 
-```
-Projeto
- └── Atividade
-      └── Kanban de tarefas
-```
+Auditar e corrigir ajustes operacionais do ShiftFlow relacionados a Kanban
+interno de atividades, dashboard, filtros, gestao de perfis, cores por equipe e
+configuracoes.
 
-Cada atividade deverá possuir seu próprio conjunto de colunas, por exemplo:
+---
 
-* A Fazer
-* Em Andamento
-* Revisão
-* Concluído
+1. KANBAN INTERNO NAS ATIVIDADES
 
-Cada coluna poderá conter diversas tarefas.
+Cada atividade pode ter um Kanban interno de tarefas ou subtarefas.
 
-### Requisitos
+Fluxo conceitual:
 
-* Criar, editar, excluir e arquivar tarefas.
-* Criar, editar, excluir e ordenar colunas.
-* Permitir Drag & Drop entre colunas.
-* Permitir reordenação de tarefas dentro da mesma coluna.
-* Persistir a ordem das colunas.
-* Persistir a ordem das tarefas.
-* Manter relacionamento entre Projeto → Atividade → Tarefa.
-* Registrar histórico das movimentações das tarefas.
-* Registrar data de criação, atualização e conclusão.
-* Permitir responsáveis, etiquetas, prioridade e anexos utilizando os componentes já existentes, quando aplicável.
-* Não alterar o funcionamento do Kanban principal.
+Projeto -> Atividade -> Kanban de tarefas
 
-## 2. Dashboard Principal
+Requisitos:
 
-Melhorar a legenda do Dashboard Principal.
+* Criar, editar, mover e excluir tarefas internas quando permitido.
+* Persistir status, ordem, responsavel, prioridade e prazo.
+* Registrar historico de alteracoes relevantes.
+* Respeitar empresa, cliente, equipe, turno e permissoes.
+* Exibir o Kanban dentro da tela ou modal da atividade sem confundir com o Kanban principal.
 
-### Alterações
+---
 
-* Utilizar exatamente as mesmas cores utilizadas nas colunas do Kanban.
-* Exibir um indicador visual colorido para cada status.
-* Remover a quantidade de membros exibida ao lado das legendas.
-* Garantir consistência visual entre Dashboard e Kanban.
+2. DASHBOARD PRINCIPAL E LEGENDA
 
-## ## 3. Filtros
+Revisar:
 
-Padronizar a utilização de filtros nos módulos do sistema.
+* Legendas de status.
+* Cores usadas por prioridade, status e equipe.
+* Coerencia entre numeros do dashboard e listas detalhadas.
+* Clique em KPI levando ao filtro correspondente quando aplicavel.
+* Estados empty, loading e error.
 
-### Manter filtros apenas nos seguintes módulos
+Evitar duplicar regras ja cobertas por Prompt-Dashboard.txt. Este prompt deve
+tratar ajustes operacionais e consistencia com os demais modulos.
 
-* Relatórios
-* Kanban
-* Gestão de Atividades
-* Dashboard por Equipe
-* Dashboard Principal
+---
 
-### Remover os filtros de todos os demais módulos
+3. FILTROS
 
-Antes da remoção, verificar se existem dependências que utilizem os filtros para:
+Filtros devem ser reais, combinaveis e previsiveis.
 
-* Consultas
-* Paginação
-* Ordenação
-* Pesquisas
-* Carregamento de dados
-* APIs
+Requisitos:
 
-A remoção dos filtros não deve alterar o funcionamento dos módulos nem causar regressões na interface ou na lógica da aplicação.
+* Busca textual.
+* Status.
+* Prioridade.
+* Cliente.
+* Equipe.
+* Turno.
+* Responsavel.
+* Periodo.
+* Atraso ou criticidade quando aplicavel.
 
-Sempre que possível, reutilizar os componentes de filtro já existentes, mantendo o mesmo padrão visual e comportamental nos módulos em que os filtros permanecerem.
+Os filtros devem manter coerencia entre backend, frontend, URL ou estado local,
+sem retornar dados fora da empresa ativa.
 
-## ## 4. Gestão de Perfis
+---
 
-Reestruturar completamente o layout do módulo Gestão de Perfis.
+4. GESTAO DE PERFIS
 
-### Objetivos
+Reestruturar a gestao de perfis para um fluxo claro:
 
-* Interface mais moderna.
-* Melhor organização visual.
-* Melhor aproveitamento do espaço.
-* Melhor experiência de uso.
-* Padronização com o restante do sistema.
+* Lista de perfis.
+* Detalhe do perfil selecionado.
+* Permissoes agrupadas por modulo.
+* Edicao controlada.
+* Validacao de perfis do sistema.
+* Evidencia visual de permissoes herdadas ou bloqueadas, quando existir.
 
-Sempre que possível utilizar:
+Evitar layout com excesso de cards e baixa densidade. Preferir navegacao lateral
+com area principal de detalhe quando houver muitos grupos de permissao.
 
-* Cards
-* Grids responsivos
-* Agrupamento lógico das informações
-* Componentes reutilizáveis
-* Melhor hierarquia visual
+---
 
-### Funcionalidades
+5. KANBAN PRINCIPAL E CORES POR EQUIPE
 
-Implementar gerenciamento completo dos perfis, permitindo:
+O Kanban principal deve:
 
-* Criar perfis.
-* Editar perfis existentes.
-* Excluir perfis (quando permitido).
-* Ativar ou desativar perfis.
-* Duplicar perfis para facilitar a criação de novos.
-* Definir nome, descrição e cor de identificação do perfil.
-* Configurar permissões associadas ao perfil.
-* Visualizar a quantidade de usuários vinculados a cada perfil.
-* Impedir a exclusão de perfis que estejam em uso, exibindo uma mensagem informativa.
-* Registrar histórico das alterações realizadas nos perfis, quando aplicável.
+* Usar cores por equipe de forma consistente e acessivel.
+* Manter status e prioridade distinguiveis sem depender apenas de cor.
+* Persistir movimentacao.
+* Respeitar permissoes.
+* Evitar mistura visual com o Kanban interno de tarefas da atividade.
 
-A tela de edição deve ser intuitiva, organizada por seções e permitir alterar todas as propriedades do perfil sem necessidade de criar um novo.
+---
 
-Garantir que todas as alterações sejam refletidas imediatamente nas permissões e funcionalidades do sistema, respeitando as regras de acesso já existentes.
+6. CONFIGURACOES
 
-## 5. Kanban Principal
+Configuracoes devem agrupar opcoes de forma operacional:
 
-Melhorar a identificação visual das atividades.
+* Empresa.
+* Usuarios.
+* Equipes.
+* Clientes.
+* Turnos.
+* Perfis e permissoes.
+* Preferencias de interface.
+* Politicas de seguranca quando aplicavel.
 
-### Requisitos
+Cada grupo deve ter responsabilidade clara e evitar duplicar telas ja existentes.
 
-Cada equipe deverá possuir uma cor própria.
+---
 
-Essa cor deverá aparecer de forma evidente nos cartões das atividades, por exemplo através de:
+RESTRICOES
 
-* barra lateral
-* faixa superior
-* borda
-* indicador colorido
+Nao remover regras de RBAC para simplificar interface.
+Nao criar Kanban interno sem persistencia ou contrato de dados claro.
+Nao usar dados demonstrativos quando endpoint real existir.
+Nao duplicar widgets do dashboard personalizavel sem necessidade.
+Nao misturar configuracoes administrativas com acoes operacionais diarias.
 
-O usuário deve identificar imediatamente qual equipe é responsável pela atividade sem precisar abrir o cartão.
+---
 
-As cores devem ser centralizadas em um único local da aplicação para facilitar futuras alterações.
+CRITERIOS DE ACEITE
 
-## 6. Configurações
+* Kanban interno e Kanban principal sao visual e funcionalmente distintos.
+* Filtros retornam resultados coerentes e escopados por empresa.
+* Gestao de perfis permite leitura e edicao sem layout confuso.
+* Cores por equipe nao quebram acessibilidade.
+* Configuracoes ficam agrupadas por responsabilidade.
+* Validacoes proporcionais passam quando houver alteracao de codigo.
 
-Expandir significativamente o módulo Configurações, transformando-o em um painel administrativo preparado para crescimento futuro.
+---
 
-Criar uma estrutura modular contendo, no mínimo:
+ENTREGAVEIS
 
-### Administração
+Ao executar este prompt, registrar:
 
-* Configurações Gerais
-* Usuários
-* Equipes
-* Perfis
-* Permissões
-
-### Gestão
-
-* Status
-* Prioridades
-* Etiquetas
-* Tipos de Atividade
-* Cores
-
-### Sistema
-
-* Notificações
-* Integrações
-* Personalização
-* Preferências do Usuário
-* Logs (quando aplicável)
-* Auditoria (quando aplicável)
-
-A estrutura deve facilitar futuras expansões sem necessidade de grandes refatorações.
-
-## Requisitos Técnicos
-
-Durante toda a implementação:
-
-* Manter a arquitetura atual.
-* Seguir os padrões existentes do projeto.
-* Reutilizar componentes sempre que possível.
-* Evitar código duplicado.
-* Garantir tipagem consistente.
-* Manter compatibilidade com dispositivos móveis.
-* Garantir responsividade.
-* Não introduzir regressões.
-* Atualizar rotas apenas quando necessário.
-* Atualizar APIs apenas quando necessário.
-* Atualizar modelos e tipos afetados.
-* Atualizar documentação técnica quando houver alterações relevantes.
-
-Caso sejam necessárias alterações no banco de dados:
-
-* Criar as migrations correspondentes.
-* Atualizar os modelos.
-* Atualizar os relacionamentos.
-* Garantir compatibilidade com os dados existentes.
-* Evitar perda de informações.
-
-## Critérios de Aceitação
-
-Antes de concluir a implementação, validar que:
-
-* Todas as funcionalidades existentes continuam operando normalmente.
-* Não existam erros de compilação.
-* Não existam erros de lint.
-* Não existam erros de tipagem.
-* Não existam regressões visuais.
-* Todas as telas permaneçam responsivas.
-* O Drag & Drop funcione corretamente.
-* A persistência das alterações esteja funcionando.
-* As permissões continuem sendo respeitadas.
-* As APIs permaneçam compatíveis.
-
-## Entrega Final
-
-Ao finalizar, apresentar um relatório contendo:
-
-### Arquivos modificados
-
-Listagem completa dos arquivos alterados.
-
-### Novos componentes
-
-Todos os componentes criados.
-
-### Banco de dados
-
-* Novas tabelas
-* Novas migrations
-* Novos relacionamentos
-* Campos adicionados
-* Campos removidos
-
-### APIs
-
-* Endpoints criados
-* Endpoints alterados
-
-### Impactos
-
-Descrição dos possíveis impactos causados pelas alterações.
-
-### Melhorias futuras
-
-Apresentar sugestões de evolução do sistema, priorizadas por impacto e esforço, indicando quais funcionalidades poderiam ser implementadas nas próximas versões.
+* Achados por area.
+* Correcoes aplicadas.
+* Arquivos alterados.
+* Evidencias de validacao.
+* Riscos e pendencias.

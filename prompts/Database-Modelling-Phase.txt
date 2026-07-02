@@ -1,4 +1,10 @@
+PROMPT DE FASE DATABASE MODELING
+
+PAPEL OPERACIONAL:
+
 Atue como DBA Senior.
+
+---
 
 ESTADO DA STATE MACHINE:
 
@@ -136,7 +142,6 @@ E permitido:
 * Descrever estrategia de migracao.
 
 A Fase 02 e exclusivamente modelagem de dados.
-
 
 
 

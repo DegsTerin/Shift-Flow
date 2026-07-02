@@ -1,353 +1,136 @@
-# Revisão Completa de UI/UX, Design System e Layout da Aplicação
+PROMPT DE REVISAO DE LAYOUT E DESIGN SYSTEM
 
-Realize uma revisão completa de toda a aplicação, abrangendo todas as páginas, módulos, componentes, layouts, dashboards, formulários, tabelas, menus, barras de navegação, modais, cartões, notificações, painéis, gráficos, listas, assistentes, telas de autenticação, configurações e qualquer outro elemento da interface.
+REGRA DE OURO
 
-O objetivo é transformar a aplicação em um produto moderno, profissional, intuitivo, consistente e altamente utilizável, preservando integralmente toda a lógica de negócio existente.
+Este prompt nao cria, altera ou transiciona estado.
+Apenas a State Machine pode alterar estado.
 
-## Objetivos Gerais
-
-* Criar uma interface moderna, limpa, elegante e profissional.
-* Garantir consistência visual em toda a aplicação.
-* Melhorar significativamente a experiência do utilizador (UX).
-* Tornar a navegação simples, intuitiva e previsível.
-* Reduzir a carga cognitiva do utilizador.
-* Destacar apenas as informações e ações mais importantes.
-* Melhorar a produtividade através de fluxos claros e eficientes.
-* Garantir excelente desempenho visual em qualquer resolução.
+Qualquer correcao de layout que altere codigo, comportamento de produto,
+contrato visual, componente compartilhado, CSS global ou fluxo de usuario deve
+ser classificada como manutencao funcional pos-release quando executada em
+STATE-08 PRODUCTION_RELEASE.
 
 ---
 
-# Design System
+OBJETIVO
 
-Implemente ou padronize um Design System consistente para toda a aplicação.
-
-Padronize:
-
-* Paleta de cores.
-* Tipografia.
-* Escala tipográfica.
-* Espaçamentos.
-* Grid.
-* Margens.
-* Padding.
-* Bordas.
-* Border Radius.
-* Sombras.
-* Elevação.
-* Ícones.
-* Estados de interação.
-* Animações.
-* Transições.
-* Componentes reutilizáveis.
-* Tokens de design.
-
-Nenhum componente deve possuir estilos próprios quando puder utilizar componentes reutilizáveis.
+Auditar e corrigir a experiencia visual do ShiftFlow de forma sistematica,
+removendo inconsistencias de layout, responsividade, acessibilidade, excesso de
+ruido visual, desalinhamentos e padroes fora do design system.
 
 ---
 
-# Simetria e Organização Visual
+ESCOPO
 
-Toda a interface deve transmitir sensação de organização e equilíbrio.
+Este prompt cobre:
 
-Garanta:
-
-* Alinhamento perfeito entre elementos.
-* Espaçamentos consistentes.
-* Distribuição simétrica dos componentes.
-* Uso correto de grids.
-* Proporções equilibradas.
-* Hierarquia visual clara.
-* Boa utilização dos espaços em branco.
-
-Eliminar:
-
-* Componentes desalinhados.
-* Margens inconsistentes.
-* Espaços vazios desnecessários.
-* Informações excessivamente comprimidas.
-* Poluição visual.
-
-Cada tela deve parecer cuidadosamente desenhada.
+* Layout principal, navegacao, sidebar, cabecalho e areas de conteudo.
+* Dashboards, cards de KPI, graficos, tabelas, filtros e barras de acao.
+* Formularios, modais, drawers, menus, tooltips e estados vazios.
+* Kanban, listas operacionais, paginas administrativas e configuracoes.
+* Responsividade mobile, tablet, desktop e modo TV.
+* Acessibilidade visual e navegacional.
 
 ---
 
-# Layout
+PADRAO VISUAL
 
-Revise completamente todos os layouts.
+Aplicar uma linguagem visual corporativa, operacional e objetiva:
 
-Corrija:
+* Hierarquia clara entre pagina, secao, grupo e item.
+* Densidade adequada para uso recorrente em ambiente de operacao.
+* Pouco ornamento e foco em legibilidade, comparacao e tomada de decisao.
+* Componentes consistentes entre modulos.
+* Estados visuais previsiveis para hover, focus, loading, disabled, empty e error.
+
+Evitar:
+
+* Cards aninhados sem necessidade.
+* Hero section, linguagem de landing page ou composicao promocional.
+* Gradientes decorativos, fundos ruidosos e paletas de uma unica familia de cor.
+* Textos explicando a interface dentro da propria tela quando o controle ja e claro.
+* Elementos que mudam de tamanho ao passar o mouse, carregar dados ou trocar estado.
+
+---
+
+DESIGN SYSTEM
+
+Verificar e padronizar:
+
+* Tokens de cor, contraste, borda, sombra, espacamento e raio.
+* Escala tipografica sem fontes enormes em superficies compactas.
+* Icones em botoes de ferramenta quando houver simbolo reconhecivel.
+* Botoes somente para comandos claros.
+* Toggles, checkboxes, sliders, selects, tabs e menus conforme a natureza do dado.
+* Tabelas e listas com alinhamento, truncamento e densidade consistentes.
+
+---
+
+RESPONSIVIDADE
+
+Validar cada tela em:
+
+* Mobile estreito.
+* Mobile largo.
+* Tablet.
+* Desktop.
+* Desktop largo.
+* Modo TV quando aplicavel.
+
+Corrigir:
 
 * Overflow horizontal.
-* Quebras inadequadas.
-* Scroll desnecessário.
-* Sobreposição de componentes.
-* Conteúdo cortado.
-* Problemas de alinhamento.
-* Elementos inconsistentes.
-* Responsividade incompleta.
-
-Todas as páginas devem manter o mesmo padrão visual.
+* Texto cortado ou sobreposto.
+* Botoes inacessiveis.
+* Areas clicaveis pequenas.
+* Cards ou colunas comprimidos alem do legivel.
+* Navegacao que bloqueia conteudo.
 
 ---
 
-# Navegação
-
-Melhore toda a navegação da aplicação.
+ACESSIBILIDADE
 
 Garantir:
 
-* Menus intuitivos.
-* Fluxos simples.
-* Navegação previsível.
-* Breadcrumbs quando necessário.
-* Menor quantidade possível de cliques.
-* Localização rápida das funcionalidades.
-
-O utilizador deve compreender naturalmente onde está e para onde pode ir.
-
----
-
-# Responsividade
-
-Toda a aplicação deve funcionar perfeitamente em:
-
-* Monitores ultrawide.
-* Desktop.
-* Notebook.
-* Tablet.
-* Smartphone.
-
-Garantir:
-
-* Layout fluido.
-* Componentes adaptáveis.
-* Imagens responsivas.
-* Tabelas responsivas.
-* Menus adaptáveis.
-* Modais responsivos.
-
-Nenhum elemento pode apresentar:
-
-* Overflow.
-* Texto cortado.
-* Componentes sobrepostos.
-* Botões inacessíveis.
-* Quebras inesperadas.
+* Contraste minimo adequado.
+* Foco visivel.
+* Ordem de tabulacao coerente.
+* Elementos interativos identificaveis.
+* Labels em formularios.
+* Feedback de erro associado ao campo correto.
+* Estados de carregamento e vazio compreensiveis.
 
 ---
 
-# Acessibilidade
+RESTRICOES
 
-A aplicação deve seguir boas práticas de acessibilidade, preferencialmente em conformidade com as recomendações WCAG 2.2 nível AA.
-
-Garantir:
-
-* Contraste adequado.
-* Fontes legíveis.
-* Espaçamento confortável.
-* Área mínima de clique.
-* Navegação por teclado.
-* Estados de foco claramente visíveis.
-* Labels corretamente associados.
-* Hierarquia correta de títulos.
-* Compatibilidade com leitores de ecrã.
-* Não utilizar apenas cores para transmitir informação.
-* Mensagens compreensíveis para todos os utilizadores.
+Nao remover funcionalidade existente para simplificar layout.
+Nao alterar regra de negocio sem autorizacao explicita.
+Nao alterar schema, migrations ou APIs apenas por conveniencia visual.
+Nao criar novo framework visual se o padrao existente resolver o problema.
+Nao duplicar componentes quando houver componente compartilhado apropriado.
 
 ---
 
-# Formulários
+CRITERIOS DE ACEITE
 
-Reestruture todos os formulários.
+A revisao so pode ser considerada concluida quando:
 
-Melhorias:
-
-* Agrupar campos relacionados.
-* Reduzir complexidade.
-* Melhorar organização.
-* Destacar ações principais.
-* Labels claros.
-* Placeholders apenas como apoio.
-* Validação em tempo real quando apropriado.
-* Mensagens de erro objetivas.
-* Mensagens de sucesso consistentes.
-* Campos obrigatórios claramente identificados.
+* As telas principais estiverem visualmente consistentes.
+* Nao houver overflow ou sobreposicao em viewports comuns.
+* Formularios, tabelas, filtros e modais seguirem o mesmo padrao.
+* Layouts densos continuarem legiveis e operaveis.
+* Estados empty, loading, error e disabled forem tratados.
+* A mudanca tiver evidencias proporcionais, como lint, typecheck, build e captura visual quando aplicavel.
 
 ---
 
-# Tabelas
+ENTREGAVEIS
 
-Padronizar todas as tabelas.
+Ao executar este prompt, produzir:
 
-Adicionar quando aplicável:
-
-* Pesquisa.
-* Ordenação.
-* Filtros.
-* Paginação.
-* Seleção múltipla.
-* Estado vazio.
-* Estado de carregamento.
-* Cabeçalhos fixos.
-* Colunas bem distribuídas.
-* Boa legibilidade.
-
----
-
-# Dashboards
-
-Reorganizar dashboards.
-
-Priorizar:
-
-* Indicadores principais.
-* Hierarquia visual.
-* Cartões padronizados.
-* Gráficos organizados.
-* Excelente leitura.
-* Espaçamento adequado.
-
-Eliminar informações redundantes.
-
----
-
-# Componentes
-
-Padronizar completamente:
-
-* Botões.
-* Campos de texto.
-* Selects.
-* Checkboxes.
-* Radio buttons.
-* Switches.
-* Cards.
-* Badges.
-* Alertas.
-* Toasts.
-* Tooltips.
-* Modais.
-* Menus.
-* Dropdowns.
-* Tabs.
-* Paginação.
-* Avatares.
-* Chips.
-* Skeleton loaders.
-* Spinners.
-* Barras de progresso.
-* Empty States.
-* Calendários.
-* Date Pickers.
-* Time Pickers.
-
-Todos devem compartilhar exatamente o mesmo padrão visual.
-
----
-
-# Estados da Interface
-
-Padronizar todos os estados.
-
-Incluindo:
-
-* Hover.
-* Focus.
-* Active.
-* Disabled.
-* Loading.
-* Empty.
-* Error.
-* Success.
-* Warning.
-* Information.
-
-As transições devem ser suaves e consistentes.
-
----
-
-# Feedback ao Utilizador
-
-Padronizar:
-
-* Mensagens de erro.
-* Mensagens de sucesso.
-* Confirmações.
-* Alertas.
-* Avisos.
-* Carregamentos.
-* Toasts.
-* Skeletons.
-* Estados vazios.
-
-Todas as mensagens devem ser claras, objetivas e consistentes.
-
----
-
-# Performance e Qualidade do Código
-
-Sempre que possível:
-
-* Refatorar componentes repetidos.
-* Reutilizar componentes.
-* Eliminar duplicações.
-* Simplificar estruturas.
-* Melhorar organização do código.
-* Facilitar manutenção futura.
-* Melhorar desempenho de renderização.
-* Reduzir código desnecessário.
-
----
-
-# Boas Práticas
-
-Seguir boas práticas de desenvolvimento.
-
-Priorizar:
-
-* Clean Code.
-* SOLID.
-* DRY.
-* KISS.
-* Componentização.
-* Reutilização.
-* Organização modular.
-* Escalabilidade.
-* Manutenibilidade.
-
----
-
-# Restrições
-
-Durante toda a implementação:
-
-* Não remover funcionalidades.
-* Não alterar regras de negócio.
-* Não modificar APIs.
-* Não alterar contratos existentes.
-* Não modificar a estrutura dos dados, salvo quando estritamente necessário para suportar melhorias visuais.
-* Preservar integralmente toda a lógica existente.
-* Garantir compatibilidade com funcionalidades atuais.
-
----
-
-# Critérios de Aceitação
-
-A implementação somente deve ser considerada concluída quando:
-
-* Todas as telas seguirem exatamente o mesmo padrão visual.
-* Todos os componentes estiverem padronizados.
-* Não existirem problemas de alinhamento.
-* Não existirem problemas de responsividade.
-* Não existirem problemas de acessibilidade.
-* Não existirem inconsistências de espaçamento.
-* Não existirem componentes duplicados sem necessidade.
-* Não existirem problemas de overflow.
-* Não existirem elementos visualmente desalinhados.
-* Toda a aplicação apresentar aparência profissional e consistente.
-* A navegação for intuitiva e exigir o mínimo de esforço do utilizador.
-* A interface transmitir qualidade, organização, equilíbrio visual e confiança.
-
-## Resultado Esperado
-
-A aplicação deve apresentar um padrão visual consistente e um elevado nível de qualidade em todas as telas, proporcionando uma experiência moderna, intuitiva e acessível. O layout deve ser simétrico, responsivo e organizado, com componentes reutilizáveis, espaçamentos uniformes e navegação clara. A interface deve reduzir a carga cognitiva, destacar as ações mais importantes e permitir que qualquer utilizador localize informações e conclua tarefas com rapidez, segurança e o mínimo de esforço, sem qualquer alteração na lógica de negócio ou nas funcionalidades existentes.
+* Lista de problemas encontrados.
+* Correcoes aplicadas por area.
+* Riscos ou pendencias remanescentes.
+* Evidencias de validacao.
+* Classificacao da manutencao conforme o estado atual.

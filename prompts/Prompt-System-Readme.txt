@@ -13,6 +13,22 @@ Este arquivo explica como usar o sistema de prompts no dia a dia.
 
 ---
 
+PADRAO CORPORATIVO INTERNACIONAL
+
+Todos os .txt devem seguir linguagem objetiva, auditavel e institucional.
+O padrao minimo esperado e:
+
+* Titulo claro e estavel.
+* REGRA DE OURO explicita quando o arquivo tiver autoridade operacional, historica, tecnica ou de validacao.
+* Separadores consistentes com "---" entre blocos principais.
+* Escopo, objetivo, criterios ou evidencias descritos sem ambiguidade.
+* Contexto temporal explicito quando o arquivo mencionar estados historicos.
+* ASCII limpo, sem caracteres decorativos, setas Unicode ou diagramas de caixa.
+* Distincao clara entre patch documental e manutencao funcional pos-release.
+* Nenhum segredo, senha, token ou credencial real.
+
+---
+
 COMO USAR
 
 1. Consulte Start-Here.txt.
@@ -70,7 +86,7 @@ Escopo documentado em 2026-06-22:
 * incorporacao de Revision-Prompt.txt e Restructuring-Prompt.txt como entradas pos-release;
 * preservacao de STATE-08 PRODUCTION_RELEASE sem transicao de estado;
 * uso dos controles existentes, sem criar novo arquivo de controle para a mesma finalidade.
-* reconciliacao da conversa sobre 17 prompts antigos com a baseline numerada anterior;
+* reconciliacao da conversa sobre prompts legados da conversa inicial com a baseline numerada anterior;
 * definicao da serie numerada anterior como etapa intermediaria de reorganizacao para proximas leituras e execucoes.
 * renomeacao dos .txt para Pascal-Kebab-Case em en-GB, sem prefixos numericos.
 * atualizacao das referencias internas para os nomes canonicos atuais.
@@ -163,6 +179,4 @@ REGRA FINAL
 Se houver duvida, aplique Conflict-Resolution-Policy.txt.
 Se houver bloqueio, aplique Blocked-State-Protocol.txt.
 Se houver reversao, aplique Controlled-Rollback-Policy.txt.
-
-
 

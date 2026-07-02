@@ -102,6 +102,13 @@ Prompt-Auth.txt
 * Funcao: Solicitar auditoria completa de login, credenciais, sessao, JWT, refresh token, rate limiting, RBAC, logs, CORS, headers e dependencias.
 * Regra: Nao altera estado. Correcoes exigem solicitacao explicita, classificacao como manutencao funcional pos-release quando houver codigo/schema/migration, evidencias e gates proporcionais.
 
+Prompt-Password.txt
+
+* Tipo: PASSWORD AND CREDENTIAL REMEDIATION REQUEST
+* Autoridade: Entrada operacional de remediacao de credenciais
+* Funcao: Solicitar auditoria e correcao de senhas, tokens, hashes, placeholders, seeds, testes, envs, documentacao e valores sensiveis expostos.
+* Regra: Nao altera estado. Complementa Prompt-Auth.txt e deve registrar como manutencao funcional pos-release qualquer correcao que altere codigo, configuracao, seed, teste ou comportamento de seguranca.
+
 Prompt-Dashboard.txt
 
 * Tipo: DASHBOARD PERSONALIZATION REQUEST
@@ -275,7 +282,7 @@ Engineering-Multi-Agent-System.txt
 
 ARTEFATOS DE EVIDENCIA E RELATORIOS
 
-Estes arquivos fazem parte da rastreabilidade dos 69 .txt, mas nao sao prompts operacionais por si mesmos.
+Estes arquivos fazem parte da rastreabilidade dos .txt existentes naquela rodada historica, mas nao sao prompts operacionais por si mesmos.
 Eles nao alteram estado e devem ser usados como evidencia historica, relatorio tecnico ou documento de fase.
 
 Automatic-Review-Audit-Architecture.txt
@@ -386,5 +393,4 @@ RBAC-Module.txt
 * Tipo: CROSS-LAYER MODULE
 * Modulo: MOD-11 RBAC
 * Funcao: Perfis, permissoes, middleware, UI administrativa e validacao ponta a ponta.
-
 

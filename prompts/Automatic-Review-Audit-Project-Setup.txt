@@ -22,7 +22,7 @@ Comando:
 Auditar STATE-01 SETUP_PROJECT e executar Human CI
 
 Observacao de estado:
-Current-State.txt declara estado atual STATE-04 BACKEND_IMPLEMENTATION.
+Na data desta auditoria retrospectiva, Current-State.txt declarava STATE-04 BACKEND_IMPLEMENTATION como estado vigente.
 Esta auditoria nao reexecuta setup, nao instala dependencias, nao executa Prisma CLI e nao altera package.json.
 
 ---
@@ -107,4 +107,4 @@ DECISAO:
 APROVAR AUDITORIA RETROSPECTIVA DE STATE-01 SETUP_PROJECT.
 
 TRANSICAO DE ESTADO:
-Nao aplicavel nesta auditoria retrospectiva. A State Machine ja declara estado atual STATE-04 BACKEND_IMPLEMENTATION.
+Nao aplicavel nesta auditoria retrospectiva. Na data deste registro, a State Machine declarava STATE-04 BACKEND_IMPLEMENTATION como estado vigente.

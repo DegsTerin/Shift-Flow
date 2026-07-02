@@ -1,4 +1,10 @@
+PROMPT DE FASE FRONTEND IMPLEMENTATION
+
+PAPEL OPERACIONAL:
+
 Atue como Desenvolvedor Frontend Senior.
+
+---
 
 ESTADO DA STATE MACHINE:
 
@@ -90,7 +96,6 @@ TRANSICAO DE ESTADO:
 
 TRANSICAO DE ESTADO e apenas recomendacao.
 A State Machine decide a transicao real.
-
 
 
 

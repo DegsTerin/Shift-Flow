@@ -22,7 +22,7 @@ Comando:
 Auditar STATE-02 ARCHITECTURE e executar Human CI
 
 Observacao de estado:
-Current-State.txt declara estado atual STATE-04 BACKEND_IMPLEMENTATION.
+Na data desta validacao retrospectiva, Current-State.txt declarava STATE-04 BACKEND_IMPLEMENTATION como estado vigente.
 Esta validacao nao altera estado, nao reexecuta arquitetura e nao autoriza retorno automatico de fase.
 
 ---
@@ -96,7 +96,7 @@ STATUS:
 APROVADO
 
 RECOMENDACAO:
-Manter STATE-02 ARCHITECTURE como aprovado historicamente e manter o fluxo atual em STATE-04 BACKEND_IMPLEMENTATION.
+Manter STATE-02 ARCHITECTURE como aprovado historicamente e preservar o fluxo vigente naquele registro em STATE-04 BACKEND_IMPLEMENTATION.
 
 TRANSICAO DE ESTADO:
 Nao aplicavel. Validacao retrospectiva nao altera estado.

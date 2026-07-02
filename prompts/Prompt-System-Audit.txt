@@ -26,6 +26,15 @@ Executar esta auditoria:
 
 CHECKLIST DE AUDITORIA
 
+0. Padrao corporativo internacional
+
+* O arquivo possui titulo claro e estavel?
+* A REGRA DE OURO aparece quando o arquivo tem autoridade operacional, historica, tecnica ou de validacao?
+* O texto separa estado atual de estado historico?
+* O arquivo usa ASCII limpo, sem caracteres decorativos ou diagramas Unicode?
+* A classificacao entre patch documental e manutencao funcional pos-release esta clara?
+* O texto evita linguagem informal, ambigua ou conversacional como abertura principal?
+
 1. Estados
 
 * Existem estados duplicados?
@@ -86,6 +95,93 @@ RECOMENDACAO:
 
 ULTIMA AUDITORIA REGISTRADA
 
+Data: 2026-07-02
+Versao: 1.4.31
+Arquivos auditados: Todos os .txt em prompts/, com foco em padrao corporativo internacional, REGRA DE OURO e cabecalhos institucionais.
+Status: APROVADO APOS QUINTA CORRECAO DOCUMENTAL
+Conflitos encontrados:
+* Alguns documentos historicos e tecnicos ainda nao possuiam REGRA DE OURO, apesar de registrarem evidencias, validacoes ou arquitetura.
+* Alguns prompts de fase abriam com linguagem conversacional antes de declarar cabecalho institucional.
+* O checklist de auditoria ainda nao explicitava o padrao corporativo internacional como criterio proprio.
+Correcoes aplicadas:
+* Automatic-Review-Audit-Database-Modelling.txt, Database-Modelling-Document.txt, Human-CI-Validation-Architecture.txt, Human-CI-Validation-Database-Modelling.txt e Solution-Architecture-Document.txt receberam REGRA DE OURO.
+* Backend-Phase.txt, Database-Modelling-Phase.txt, Frontend-Phase.txt, Solution-Architecture-Phase.txt e System-Reorganisation-Codex-Prompt.txt receberam cabecalho institucional e PAPEL OPERACIONAL.
+* Prompt-System-Readme.txt e Prompt-System-Audit.txt passaram a declarar padrao corporativo internacional.
+Risco:
+* Novos .txt podem degradar o padrao se nao passarem pelo checklist de auditoria.
+Recomendacao:
+* Antes de concluir qualquer nova rodada documental, validar REGRA DE OURO, titulo institucional, ASCII, contexto temporal e classificacao de manutencao.
+
+Data: 2026-07-02
+Versao: 1.4.30
+Arquivos auditados: Todos os .txt em prompts/, com foco em relatorios retrospectivos, logs historicos e mencoes a estado atual.
+Status: APROVADO APOS QUARTA CORRECAO DOCUMENTAL
+Conflitos encontrados:
+* Relatorios retrospectivos de STATE-01 e STATE-02 ainda declaravam STATE-04 BACKEND_IMPLEMENTATION como estado atual sem explicitar que isso valia apenas na data daqueles registros.
+* State-Transition-Log.txt e Project-Snapshot.txt continham frases historicas que apresentavam STATE-04 como estado preservado sem contexto temporal explicito, criando risco de conflito com STATE-08 PRODUCTION_RELEASE.
+Correcoes aplicadas:
+* Automatic-Review-Audit-Architecture.txt, Automatic-Review-Audit-Project-Setup.txt, Human-CI-Validation-Architecture-Retrospective.txt e Human-CI-Validation-Project-Setup.txt passaram a usar "estado vigente naquele registro".
+* Project-Snapshot.txt e State-Transition-Log.txt foram alinhados para preservar historico sem declarar STATE-04 como estado atual.
+* Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Current-State.txt e Prompt-System-Audit.txt foram atualizados para 1.4.30.
+Risco:
+* Novos relatorios historicos devem sempre separar estado vigente na data do registro e estado atual consultado em Current-State.txt.
+Recomendacao:
+* Em auditorias futuras, tratar frases "estado atual STATE-0x" em documentos historicos como achado se nao houver contexto temporal explicito.
+
+Data: 2026-07-02
+Versao: 1.4.29
+Arquivos auditados: Todos os .txt em prompts/, com foco nos prompts recentes e na consistencia semantica de Prompt-Dashboard.txt.
+Status: APROVADO APOS TERCEIRA CORRECAO DOCUMENTAL
+Conflitos encontrados:
+* Prompt-Dashboard.txt mencionava persistencia por perfil ou usuario no objetivo, mas a secao de persistencia definia userId e companyId como escopo minimo.
+Correcoes aplicadas:
+* Prompt-Dashboard.txt passou a declarar que personalizacao salva usa usuario e empresa.
+* Layout por perfil ou tipo de dashboard foi limitado a template/default, sem substituir preferencia individual.
+* Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Current-State.txt, Project-Snapshot.txt, Prompt-System-Audit.txt e State-Transition-Log.txt foram alinhados ao patch 1.4.29.
+Risco:
+* Implementacoes futuras de dashboard devem separar template padrao de configuracao persistida do usuario.
+Recomendacao:
+* Validar qualquer schema/API de dashboard contra userId e companyId antes de executar mudanca funcional.
+
+Data: 2026-07-02
+Versao: 1.4.28
+Arquivos auditados: Todos os .txt em prompts/ e controles canonicos impactados por contagens historicas.
+Status: APROVADO APOS SEGUNDA CORRECAO DOCUMENTAL
+Conflitos encontrados:
+* Registros historicos ainda citavam contagens antigas de arquivos ou prompts de forma que poderia ser confundida com a contagem atual.
+* Prompt-Index.txt descrevia artefatos de evidencia usando contagem historica, apesar de o diretorio prompts/ conter 74 .txt.
+Correcoes aplicadas:
+* Referencias numericas historicas foram reescritas para preservar o contexto historico sem competir com a contagem atual.
+* Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Current-State.txt, Project-Snapshot.txt, Prompt-System-Audit.txt e State-Transition-Log.txt foram alinhados ao patch 1.4.28.
+* Validacao final confirmou 74 .txt, zero arquivos fora de Prompt-Index.txt, zero referencias .txt quebradas, zero caracteres nao ASCII e git diff --check limpo.
+Risco:
+* Novos prompts precisam atualizar Prompt-Index.txt e os controles de versionamento para evitar nova divergencia de contagem.
+Recomendacao:
+* Tratar contagens antigas apenas como historico e usar validacao automatizada para contagem atual.
+
+Data: 2026-07-02
+Versao: 1.4.27
+Arquivos auditados: Todos os .txt em prompts/, com foco em Prompt-Layout.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt, Prompt-Password.txt e controles canonicos de indice, versao, changelog, snapshot, current state, auditoria e log de transicao.
+Status: APROVADO APOS CORRECAO DOCUMENTAL
+Conflitos encontrados:
+* Prompt-Password.txt existia em prompts/ mas nao estava catalogado no Prompt-Index.txt.
+* Prompt-Layout.txt estava fora do formato operacional canonico usado pelos prompts recentes.
+* Prompt-Dashboard.txt duplicava requisitos de dashboard personalizavel em secoes sobrepostas.
+* Prompt-Adjustments.txt continha marcadores de titulo duplicados e caracteres Unicode.
+* Prompt-Auth.txt e Prompt-Password.txt tinham sobreposicao de escopo sem fronteira explicita.
+* Prompts recentes voltaram a conter caracteres nao ASCII apos a normalizacao 1.4.24.
+Correcoes aplicadas:
+* Prompt-Layout.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt e Prompt-Password.txt foram reestruturados em ASCII, com regra de ouro, escopo, restricoes, criterios de aceite e entregaveis.
+* Prompt-Password.txt foi adicionado ao Prompt-Index.txt.
+* Prompt-Auth.txt e Prompt-Password.txt passaram a declarar relacao complementar.
+* Prompt-Dashboard.txt foi deduplicado e separado por escopo, widgets, persistencia, backend, frontend, restricoes e criterios.
+* Prompt-Adjustments.txt teve marcadores de titulo duplicados removidos e o diagrama Unicode substituido por texto ASCII.
+* Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Current-State.txt, Project-Snapshot.txt, Prompt-System-Audit.txt e State-Transition-Log.txt foram atualizados para 1.4.27.
+Risco:
+* Mudancas funcionais futuras ainda dependem de solicitacao explicita, classificacao pos-release e gates proporcionais.
+Recomendacao:
+* Manter Prompt-Index.txt como fonte para descobrir prompts operacionais e repetir validacao documental apos novos .txt.
+
 Data: 2026-07-01
 Versao: 1.4.26
 Arquivos auditados: Controles canonicos de manutencao pos-release, prompts novos em prompts/, migrations, schema, backend, frontend e documentacao alterada.
@@ -102,7 +198,7 @@ Conflitos encontrados:
 * Varios .txt continham trailing whitespace ou CR residual.
 * Production-Release-Phase.txt e Allowed-Commands-By-State.txt proibiam criar migration nova de forma absoluta em STATE-08, enquanto a regra 1.4.22 permitia manutencao funcional pos-release explicitamente solicitada e registrada.
 * Phase-Handoff-Template.txt mantinha frase historica dizendo que STATE-05 FRONTEND_IMPLEMENTATION era o estado operacional atual, criando risco de leitura conflitante com Current-State.txt.
-* Prompt-Index.txt catalogava prompts e controles, mas nao listava os artefatos de evidencia e relatorios, reduzindo rastreabilidade dos 69 .txt.
+* Prompt-Index.txt catalogava prompts e controles, mas nao listava os artefatos de evidencia e relatorios, reduzindo rastreabilidade dos .txt existentes naquela rodada historica.
 * Project-Snapshot.txt declarava versao 1.4.16 no cabecalho, enquanto Prompt-System-Version.txt declarava 1.4.21.
 * Prompt-Security.txt, Prompt-Systematization.txt e Prompt-Audit-Human-CI.txt existiam na raiz, mas nao estavam catalogados em Prompt-Index.txt.
 * Registros pos-release mencionavam migrations, backend, frontend, testes e comportamento de produto dentro de STATE-08 PRODUCTION_RELEASE sem uma classificacao canonica suficiente entre patch documental e manutencao funcional pos-release.
@@ -110,7 +206,7 @@ Conflitos encontrados:
 * Project-Snapshot.txt declarava versao 1.3.8, enquanto Prompt-System-Version.txt declarava 1.4.0.
 * Ajustes e melhorias ja estavam descritos na conversa e em entradas pos-release, mas precisavam de registro documental canonico.
 * O patch 1.4.1 registrava os ajustes, mas o README e o log de transicao ainda nao centralizavam explicitamente o fluxo de documentacao.
-* A conversa recente ainda mencionava os 17 prompts antigos, mas o workspace atual ja esta reorganizado em baseline numerada com controles, fases, gates e relatorios adicionais.
+* A conversa recente ainda mencionava os prompts antigos da conversa inicial, mas o workspace atual ja esta reorganizado em baseline numerada com controles, fases, gates e relatorios adicionais.
 * A baseline numerada continuava funcional, mas o usuario solicitou nomes sem numeros, em Pascal-Kebab-Case e en-GB.
 * A aba aberta no IDE ainda podia apontar para "00 - Start Here.txt" apos o rename, criando risco de confusao operacional.
 * git status exibe o rename massivo como arquivos removidos e novos ate staging ou commit.
@@ -194,8 +290,8 @@ Correcoes aplicadas:
 * Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt foram reestruturados em formato limpo, ASCII e operacional.
 * Official-State-Machine.txt passou a usar setas ASCII.
 * Human-CI-Validation-Architecture.txt, Human-CI-Validation-Frontend-Implementation.txt e Human-CI-Validation-Integration.txt passaram a declarar estados antigos como historicos.
-* Todos os 69 .txt foram normalizados sem trailing whitespace.
-* Validacoes finais: 69 .txt, UTF-8 valido, zero caracteres nao ASCII, zero referencias .txt quebradas, zero arquivos fora de Prompt-Index.txt e git diff --check limpo para .txt.
+* Todos os .txt existentes naquela rodada historica foram normalizados sem trailing whitespace.
+* Validacoes finais: .txt existentes naquela rodada historica, UTF-8 valido, zero caracteres nao ASCII, zero referencias .txt quebradas, zero arquivos fora de Prompt-Index.txt e git diff --check limpo para .txt.
 * Versao do sistema de prompts atualizada para 1.4.25.
 * scripts/docker-desktop.ps1 criado para centralizar inicializacao minimizada, espera do daemon e encerramento do Docker Desktop.
 * scripts/start.ps1 passou a iniciar Docker Desktop minimizado antes de docker compose up -d postgres.
@@ -211,7 +307,7 @@ Correcoes aplicadas:
 * Validacoes locais aprovadas para 1.4.26: git diff --check, npm run prisma:validate, npm run typecheck, npm test, npm run lint e npm run build.
 Risco:
 * Alteracoes funcionais futuras continuam dependendo de fase/estado permitido, gates e evidencias.
-* Referencias manuais aos 17 prompts antigos podem causar confusao se forem usadas como fonte operacional sem consultar Start-Here.txt e Prompt-Index.txt.
+* Referencias manuais aos prompts antigos da conversa inicial podem causar confusao se forem usadas como fonte operacional sem consultar Start-Here.txt e Prompt-Index.txt.
 * A ordem alfabetica deixou de refletir a ordem operacional; usar Prompt-Index.txt e Official-State-Machine.txt para sequencia e autoridade.
 * Abas antigas do IDE podem apontar para arquivos que foram renomeados; usar os nomes canonicos atuais.
 * Qualquer mencao historica a STATE-06, STATE-07 ou nomes antigos de arquivos deve ser interpretada pelo contexto do historico, nao como estado atual.

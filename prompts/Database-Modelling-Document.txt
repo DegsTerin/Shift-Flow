@@ -1,5 +1,12 @@
 DATABASE MODELING DOCUMENT
 
+REGRA DE OURO
+
+Nenhum documento, prompt, gate, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
 Estado:
 STATE-03 DATABASE_MODELING
 

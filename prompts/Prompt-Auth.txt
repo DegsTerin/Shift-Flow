@@ -1,138 +1,115 @@
-Quero que você faça uma auditoria completa da estrutura de autenticação e login deste sistema.
+PROMPT DE AUDITORIA DE AUTENTICACAO E SESSAO
 
-Analise todo o projeto, incluindo frontend, backend, banco de dados e arquivos de configuração, e produza um relatório técnico detalhado.
+REGRA DE OURO
 
-Verifique os seguintes pontos:
+Este prompt nao cria, altera ou transiciona estado.
+Apenas a State Machine pode alterar estado.
 
-1. Fluxo de autenticação
+Quando executado em STATE-08 PRODUCTION_RELEASE, qualquer alteracao de schema,
+migration, backend, frontend, configuracao, testes ou comportamento de seguranca
+deve ser registrada como manutencao funcional pos-release.
 
-   * Como o login é realizado.
-   * Como as credenciais são enviadas.
-   * Como ocorre a validação do usuário.
-   * Como é mantida a sessão autenticada.
+---
 
-2. Armazenamento de credenciais
+OBJETIVO
 
-   * Onde os usuários são armazenados.
-   * Como as senhas são armazenadas.
-   * Identifique se são utilizadas em texto puro, criptografia ou hash.
-   * Caso utilize hash, informe qual algoritmo (Argon2id, bcrypt, scrypt, PBKDF2, SHA-256, MD5 etc.).
-   * Verifique se existe uso de salt e parâmetros adequados.
+Auditar e corrigir o fluxo completo de autenticacao, sessao, autorizacao e
+seguranca relacionada a acesso no ShiftFlow.
 
-3. Segurança do backend
+---
 
-   * Procure hardcoded passwords.
-   * Procure chaves secretas expostas.
-   * Verifique arquivos `.env`.
-   * Verifique JWT Secret, API Keys e credenciais do banco.
-   * Informe se alguma informação sensível está versionada no repositório.
+ESCOPO
 
-4. Segurança do frontend
+Este prompt cobre:
 
-   * Verifique se existe exposição de tokens.
-   * Verifique se alguma API Key privada chega ao navegador.
-   * Verifique se algum hash ou senha é enviado ao cliente.
-   * Procure armazenamento inseguro em LocalStorage ou SessionStorage.
+* Login.
+* Logout.
+* Refresh token.
+* Revogacao de access token.
+* Politica de senha.
+* Bloqueio por tentativas.
+* Sessao no frontend.
+* JWT e segredos.
+* RBAC.
+* Escopo por empresa.
+* Logs e auditoria.
+* Headers, CORS e protecoes HTTP.
+* Dependencias relacionadas a seguranca.
 
-5. Sessão e autenticação
+Prompt-Password.txt complementa este prompt quando o foco for remediacao
+especifica de senhas, credenciais e valores sensiveis em arquivos.
 
-   * Informe se utiliza:
+---
 
-     * Cookies
-     * JWT
-     * Session
-     * OAuth
-     * OpenID Connect
-   * Analise o tempo de expiração.
-   * Verifique existência de Refresh Token.
-   * Verifique revogação de sessões.
+CHECKLIST DE AUDITORIA
 
-6. Banco de dados
+1. Login
 
-   * Localize as tabelas de usuários.
-   * Identifique os campos utilizados.
-   * Verifique constraints, índices e unicidade do login ou e-mail.
-   * Verifique se existem usuários administrativos padrão.
+* Validar credenciais sem revelar se usuario ou senha esta incorreto.
+* Aplicar rate limit e bloqueio progressivo quando configurado.
+* Garantir hash forte de senha.
+* Bloquear usuarios inativos ou excluidos logicamente.
+* Respeitar empresa ativa e permissao de acesso.
 
-7. Controle de acesso
+2. Sessao e tokens
 
-   * Identifique o modelo de autorização.
-   * Verifique Roles, Permissions ou RBAC.
-   * Procure endpoints sem autenticação.
-   * Verifique possíveis falhas de autorização.
+* Access token deve ter expiracao curta.
+* Refresh token deve ser persistido, revogavel e escopado corretamente.
+* Logout deve revogar tokens relevantes.
+* Troca de senha deve invalidar sessoes antigas quando aplicavel.
+* Segredo JWT nao pode usar fallback inseguro em producao.
 
-8. Segurança geral
-   Procure vulnerabilidades como:
+3. Frontend
 
-   * SQL Injection
-   * XSS
-   * CSRF
-   * IDOR
-   * Brute Force
-   * Session Fixation
-   * Session Hijacking
-   * Insecure Direct Object Reference
-   * Broken Authentication
-   * Broken Access Control
+* Sessao deve sobreviver a reload quando essa for a regra do produto.
+* Estado autenticado nao deve vazar entre usuarios.
+* Erros de login devem ser claros sem expor detalhes sensiveis.
+* Rotas protegidas devem bloquear acesso sem token valido.
 
-9. Logs
+4. RBAC e escopo
 
-   * Verifique se senhas aparecem em logs.
-   * Verifique se tokens aparecem em logs.
-   * Verifique se dados sensíveis são registrados.
+* Permissoes devem ser validadas no backend.
+* Frontend pode ocultar acoes, mas nao e fonte de autorizacao.
+* Operacoes devem respeitar companyId e escopo operacional.
+* Atribuicao de roles e permissions nao pode cruzar empresas indevidamente.
 
-10. Comunicação
+5. Configuracao e infraestrutura
 
-    * Verifique se todas as requisições utilizam HTTPS.
-    * Analise CORS.
-    * Analise cabeçalhos de segurança.
-    * Verifique HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy e Permissions-Policy.
+* CORS deve ser configuravel.
+* Headers de seguranca devem estar ativos.
+* Variaveis sensiveis nao devem ter defaults inseguros.
+* Logs nao devem expor senha, token ou hash.
 
-11. Dependências
+---
 
-    * Identifique bibliotecas responsáveis pela autenticação.
-    * Verifique versões.
-    * Procure dependências vulneráveis ou desatualizadas.
+RESTRICOES
 
-12. Fluxos especiais
-    Analise:
+Nao registrar senha, token ou hash em texto claro.
+Nao manter credenciais reais em .env.example, seeds, testes ou documentacao.
+Nao relaxar RBAC para corrigir fluxo de login.
+Nao criar permissao apenas visual sem validacao backend.
+Nao classificar mudanca de auth como patch documental se alterar comportamento.
 
-    * Cadastro de usuário.
-    * Recuperação de senha.
-    * Alteração de senha.
-    * Confirmação de e-mail.
-    * MFA/2FA.
-    * Bloqueio após múltiplas tentativas.
-    * Rate limiting.
-    * Auditoria de login.
+---
 
-13. Arquitetura
-    Explique detalhadamente:
+CRITERIOS DE ACEITE
 
-    * Como o login funciona do início ao fim.
-    * Quais arquivos participam do processo.
-    * Como frontend e backend se comunicam.
-    * Como o usuário permanece autenticado.
-    * Como ocorre o logout.
+* Login, refresh e logout funcionam conforme contrato.
+* Tokens podem ser revogados.
+* Tentativas invalidas sao tratadas sem vazamento de informacao.
+* RBAC continua aplicado no backend.
+* Escopo multiempresa e preservado.
+* Variaveis sensiveis estao documentadas sem segredo real.
+* Gates de seguranca, lint, typecheck, testes e build passam quando aplicavel.
 
-14. Código
-    Liste os principais arquivos relacionados ao login e autenticação, explicando a função de cada um.
+---
 
-15. Melhorias
-    Para cada problema encontrado:
+ENTREGAVEIS
 
-    * Explique o risco.
-    * Informe o nível de criticidade (Baixo, Médio, Alto ou Crítico).
-    * Mostre exatamente onde ocorre.
-    * Sugira a melhor prática.
-    * Sempre que possível, proponha o código corrigido.
+Ao executar este prompt, registrar:
 
-Ao final, apresente um relatório em formato de checklist contendo:
-
-* O que está correto.
-* O que precisa ser corrigido.
-* O que representa risco imediato.
-* O nível geral de segurança do sistema.
-* Um plano de ação priorizado por impacto e facilidade de implementação.
-
-Não faça suposições. Baseie todas as conclusões na análise real do código-fonte. Quando alguma informação não puder ser determinada, informe explicitamente que ela não foi encontrada e indique quais arquivos ou componentes precisariam ser analisados para confirmá-la.
+* Achados de seguranca.
+* Correcoes aplicadas.
+* Riscos remanescentes.
+* Evidencias de validacao.
+* Impacto em schema, API, frontend ou configuracao.

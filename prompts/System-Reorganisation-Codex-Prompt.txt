@@ -1,6 +1,12 @@
+PROMPT DE REORGANIZACAO DO SISTEMA DE PROMPTS
+
+PAPEL OPERACIONAL:
+
 Atue como um System Architect e Engine Designer de workflows de software.
 
 Sua tarefa e manter todos os arquivos de prompts existentes organizados em um unico sistema coerente de State Machine.
+
+---
 
 REGRA DE OURO
 
@@ -128,7 +134,6 @@ Ao executar este prompt, entregue:
 * Versao final corrigida do sistema.
 * Fluxo de execucao recomendado.
 * Confirmacao explicita se ainda ha conflitos.
-
 
 
 

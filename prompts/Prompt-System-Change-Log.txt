@@ -28,6 +28,51 @@ Estado afetado:
 
 REGISTROS
 
+Data: 2026-07-02
+Versao: 1.4.31
+Tipo: patch documental
+Arquivos alterados: Automatic-Review-Audit-Database-Modelling.txt, Database-Modelling-Document.txt, Human-CI-Validation-Architecture.txt, Human-CI-Validation-Database-Modelling.txt, Solution-Architecture-Document.txt, Backend-Phase.txt, Database-Modelling-Phase.txt, Frontend-Phase.txt, Solution-Architecture-Phase.txt, System-Reorganisation-Codex-Prompt.txt, Prompt-System-Readme.txt, Prompt-System-Audit.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt
+Resumo: Executada quinta passada de auditoria dos .txt para padrao corporativo internacional.
+Impacto: Documentos historicos sem REGRA DE OURO foram normalizados; prompts de fase com abertura conversacional receberam cabecalho institucional; README e auditoria passaram a conter criterio explicito de padrao corporativo internacional.
+Conflitos resolvidos: Inconsistencia estrutural entre documentos com autoridade operacional/historica e o padrao canonico dos demais .txt.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-02
+Versao: 1.4.30
+Tipo: patch documental
+Arquivos alterados: Automatic-Review-Audit-Architecture.txt, Automatic-Review-Audit-Project-Setup.txt, Human-CI-Validation-Architecture-Retrospective.txt, Human-CI-Validation-Project-Setup.txt, Project-Snapshot.txt, State-Transition-Log.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt
+Resumo: Executada quarta passada de auditoria dos .txt e corrigidas ambiguidades de estado atual em relatorios retrospectivos.
+Impacto: Relatorios historicos deixam de declarar STATE-04 como estado atual sem contexto; passam a declarar que STATE-04 era o estado vigente naquele registro historico. Current-State.txt e Project-Snapshot.txt permanecem alinhados a STATE-08 PRODUCTION_RELEASE.
+Conflitos resolvidos: Mencoes retrospectivas a "estado atual STATE-04" podiam conflitar com o estado atual declarado STATE-08.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-02
+Versao: 1.4.29
+Tipo: patch documental
+Arquivos alterados: Prompt-Dashboard.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt
+Resumo: Executada terceira passada de auditoria dos .txt e corrigido conflito semantico no escopo de persistencia do dashboard personalizavel.
+Impacto: Prompt-Dashboard.txt agora define que personalizacao salva usa userId e companyId; layouts por perfil ou tipo de dashboard sao templates/defaults, nao substitutos da preferencia individual.
+Conflitos resolvidos: O objetivo do dashboard mencionava persistencia por perfil ou usuario, enquanto a secao de persistencia exigia userId e companyId.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-02
+Versao: 1.4.28
+Tipo: patch documental
+Arquivos alterados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Audit.txt, Prompt-System-Change-Log.txt, Prompt-System-Version.txt, Prompt-System-Readme.txt, State-Transition-Log.txt
+Resumo: Executada segunda passada de auditoria sobre todos os .txt e removida ambiguidade de contagens historicas.
+Impacto: Referencias antigas a quantidades de arquivos ou prompts legados deixaram de parecer contagem atual. A contagem atual validada permanece 74 .txt, com zero arquivos fora do indice e zero referencias .txt quebradas.
+Conflitos resolvidos: Textos historicos ainda citavam contagens antigas e poderiam conflitar com a contagem atual do diretorio prompts/.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-02
+Versao: 1.4.27
+Tipo: patch documental
+Arquivos alterados: Prompt-Layout.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt, Prompt-Password.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt
+Resumo: Executada auditoria completa dos .txt com foco nos prompts recentes e corrigidos conflitos, redundancias, erros estruturais e falhas potenciais de fluxo.
+Impacto: Prompts recentes foram padronizados em ASCII e formato canonico; Prompt-Password.txt passou a constar no indice; Prompt-Auth.txt e Prompt-Password.txt tiveram escopo complementar definido; Prompt-Dashboard.txt foi deduplicado; Prompt-Adjustments.txt teve marcadores de titulo duplicados e Unicode removidos; Prompt-Layout.txt foi reestruturado para auditoria UI/UX operacional.
+Conflitos resolvidos: Prompt-Password.txt existia fora do indice; prompts recentes tinham acentos e Unicode apos a normalizacao 1.4.24; Prompt-Dashboard.txt duplicava requisitos de personalizacao; Prompt-Adjustments.txt continha marcadores de titulo duplicados; Prompt-Layout.txt estava fora do padrao operacional dos prompts recentes; Prompt-Auth.txt e Prompt-Password.txt tinham sobreposicao sem fronteira explicita.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
 Data: 2026-07-01
 Versao: 1.4.26
 Tipo: patch
@@ -49,7 +94,7 @@ Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
 Data: 2026-06-23
 Versao: 1.4.24
 Tipo: patch
-Arquivos alterados: Todos os 69 arquivos .txt por normalizacao de whitespace; Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt, Restructuring-Prompt.txt, Official-State-Machine.txt, Human-CI-Validation-Architecture.txt, Human-CI-Validation-Frontend-Implementation.txt, Human-CI-Validation-Integration.txt, Project-Snapshot.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, State-Transition-Log.txt
+Arquivos alterados: Todos os arquivos .txt existentes naquela rodada historica por normalizacao de whitespace; Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt, Restructuring-Prompt.txt, Official-State-Machine.txt, Human-CI-Validation-Architecture.txt, Human-CI-Validation-Frontend-Implementation.txt, Human-CI-Validation-Integration.txt, Project-Snapshot.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, State-Transition-Log.txt
 Resumo: Executada limpeza, organizacao, reestruturacao e sistematizacao final dos .txt apos auditoria de conflitos e fluxo.
 Impacto: Remove encoding invalido, caracteres nao ASCII, trailing whitespace, prompts externos redundantes/desorganizados e frases historicas que podiam ser lidas como estado atual.
 Conflitos resolvidos: Prompts globais estavam extensos, redundantes e com encoding inconsistente; Official-State-Machine.txt usava setas Unicode; relatorios Human CI historicos declaravam estados antigos sem contextualizacao historica; varios .txt tinham whitespace final.
@@ -60,7 +105,7 @@ Versao: 1.4.23
 Tipo: patch
 Arquivos alterados: Production-Release-Phase.txt, Allowed-Commands-By-State.txt, Phase-Handoff-Template.txt, Prompt-Index.txt, Prompt-System-Version.txt, Project-Snapshot.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, State-Transition-Log.txt
 Resumo: Corrigida segunda rodada de auditoria de conflito, redundancia e falha de fluxo nos .txt.
-Impacto: Remove contradicao entre proibicao absoluta de migration em STATE-08 e a regra de manutencao funcional pos-release; evita que handoff historico seja lido como estado atual; melhora rastreabilidade dos 69 .txt.
+Impacto: Remove contradicao entre proibicao absoluta de migration em STATE-08 e a regra de manutencao funcional pos-release; evita que handoff historico seja lido como estado atual; melhora rastreabilidade dos .txt existentes naquela rodada historica.
 Conflitos resolvidos: Comandos de STATE-08 proibiam migration nova sem excecao, apesar da regra 1.4.22 permitir manutencao pos-release registrada; Phase-Handoff-Template.txt ainda dizia que STATE-05 era o estado operacional atual em um bloco historico; Prompt-Index.txt nao listava os artefatos de evidencia e relatorios.
 Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
 
@@ -68,7 +113,7 @@ Data: 2026-06-23
 Versao: 1.4.22
 Tipo: patch
 Arquivos alterados: Project-Snapshot.txt, Prompt-Index.txt, Production-Release-Phase.txt, Official-State-Machine.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, State-Transition-Log.txt, Prompt-System-Readme.txt, Allowed-Commands-By-State.txt
-Resumo: Corrigidos conflitos documentais e de fluxo apos revisao dos 69 arquivos .txt. Snapshot alinhado a versao 1.4.22, prompts de auditoria/seguranca/sistematizacao catalogados no indice canonico e manutencao funcional pos-release formalizada.
+Resumo: Corrigidos conflitos documentais e de fluxo apos revisao dos arquivos .txt existentes naquela rodada historica. Snapshot alinhado a versao 1.4.22, prompts de auditoria/seguranca/sistematizacao catalogados no indice canonico e manutencao funcional pos-release formalizada.
 Impacto: Reduz ambiguidade entre patch documental e manutencao funcional pos-release; evita que migrations, codigo, testes ou comportamento de produto sejam registrados como simples documentacao; melhora rastreabilidade dos prompts existentes.
 Conflitos resolvidos: Project-Snapshot.txt declarava versao antiga; Prompt-Index.txt nao listava Prompt-Audit-Human-CI.txt, Prompt-Security.txt e Prompt-Systematization.txt; alteracoes funcionais pos-release ficavam descritas como sem transicao sem regra explicita de manutencao.
 Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
@@ -185,9 +230,9 @@ Data: 2026-06-22
 Versao: 1.4.3
 Tipo: patch
 Arquivos alterados: Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Prompt-System-Readme.txt
-Resumo: Registrada a reconciliacao entre a conversa sobre os 17 prompts antigos e o workspace atual reorganizado com baseline numerada intermediaria. A documentacao passou a declarar que aquela baseline substituia os prompts antigos ate a renomeacao Pascal-Kebab-Case.
+Resumo: Registrada a reconciliacao entre a conversa sobre os prompts antigos da conversa inicial e o workspace atual reorganizado com baseline numerada intermediaria. A documentacao passou a declarar que aquela baseline substituia os prompts antigos ate a renomeacao Pascal-Kebab-Case.
 Impacto: Evita que execucoes futuras procurem ou recriem arquivos legados removidos/renomeados e preserva a autoridade da State Machine, Guard Rails, Snapshot e README atuais.
-Conflitos resolvidos: Divergencia entre a memoria recente da conversa, que citava 17 prompts antigos, e o workspace atual, que ja contem a estrutura numerada de prompts, estado, gates, logs, auditorias e relatorios.
+Conflitos resolvidos: Divergencia entre a memoria recente da conversa, que citava prompts legados da conversa inicial, e o workspace atual, que ja contem a estrutura numerada de prompts, estado, gates, logs, auditorias e relatorios.
 Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
 
 Data: 2026-06-22

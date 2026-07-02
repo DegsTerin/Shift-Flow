@@ -1,5 +1,12 @@
 AUDITORIA DA FASE
 
+REGRA DE OURO
+
+Nenhum prompt, gate, auditoria, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
 Estado auditado:
 STATE-03 DATABASE_MODELING
 

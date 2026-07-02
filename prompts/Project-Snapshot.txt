@@ -19,10 +19,10 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.26
+1.4.31
 
 Ultima atualizacao:
-2026-07-01
+2026-07-02
 
 ---
 
@@ -148,6 +148,11 @@ CONTROLES ATIVOS
 * README operacional definido em Prompt-System-Readme.txt.
 * Gates definidos em Human-Gate-Validation-Checklist.txt, Automatic-Review-Audit.txt e Engineering-Multi-Agent-System.txt.
 * Ajustes e melhorias documentais de 2026-06-22 registrados em Project-Snapshot.txt, State-Transition-Log.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt e Prompt-System-Readme.txt.
+* Auditoria documental 1.4.27 de 2026-07-02 registrada nos controles canonicos apos leitura dos .txt e correcao dos prompts recentes em prompts/.
+* Auditoria documental 1.4.28 de 2026-07-02 registrada apos segunda passada completa, com contagens historicas contextualizadas e contagem atual validada de 74 .txt.
+* Auditoria documental 1.4.29 de 2026-07-02 registrada apos terceira passada completa, com conflito de persistencia do Prompt-Dashboard.txt corrigido.
+* Auditoria documental 1.4.30 de 2026-07-02 registrada apos quarta passada completa, com relatorios retrospectivos ajustados para nao declarar estados historicos como estado atual sem contexto temporal.
+* Auditoria documental 1.4.31 de 2026-07-02 registrada apos quinta passada completa, com documentos sem REGRA DE OURO normalizados e padrao corporativo internacional formalizado.
 
 ---
 
@@ -162,6 +167,9 @@ DECISOES FIXAS
 * Modulos sem prompt dedicado sao tratados pela fase ativa correspondente usando Canonical-State-And-Module-IDs.txt e Module-Phase-Matrix.txt.
 * Prompts de fase e modulo devem consultar Start-Here.txt, Prompt-System-Readme.txt e Project-Memory-System.txt antes de execucao.
 * Backend e frontend devem ser implementados em arquivos reais e finalizar com evidencias verificaveis.
+* Prompt-Auth.txt e Prompt-Password.txt sao complementares: o primeiro cobre autenticacao/sessao ampla; o segundo cobre remediacao de senhas, credenciais e valores sensiveis em arquivos.
+* Prompt-Dashboard.txt define personalizacao persistida por userId e companyId; perfil ou tipo de dashboard pode servir como template/default, nao como escopo substituto da preferencia individual.
+* Padrao corporativo internacional dos .txt exige titulo claro, REGRA DE OURO quando aplicavel, contexto temporal para estados historicos, ASCII limpo e separacao explicita entre patch documental e manutencao funcional pos-release.
 
 ---
 
@@ -200,7 +208,7 @@ Decisoes arquiteturais:
   * Automatic-Review-Audit-Architecture.txt.
   * Human-CI-Validation-Architecture-Retrospective.txt.
   * Resultado: aprovado.
-  * Observacao: validacao retrospectiva nao altera estado atual STATE-04 BACKEND_IMPLEMENTATION.
+  * Observacao: validacao retrospectiva nao alterou o estado vigente naquele registro, STATE-04 BACKEND_IMPLEMENTATION.
 
 Evidencias de conclusao:
 
@@ -595,7 +603,7 @@ EVIDENCIAS DE SETUP_PROJECT
   * Automatic-Review-Audit-Project-Setup.txt.
   * Human-CI-Validation-Project-Setup.txt.
   * Resultado: aprovado.
-  * Observacao: validacao retrospectiva nao altera estado atual STATE-04 BACKEND_IMPLEMENTATION.
+  * Observacao: validacao retrospectiva nao alterou o estado vigente naquele registro, STATE-04 BACKEND_IMPLEMENTATION.
 * Validacoes executadas:
   * npm run typecheck: aprovado.
   * npm run lint: aprovado.
@@ -625,7 +633,7 @@ HISTORICO RESUMIDO DO SISTEMA DE PROMPTS
 * Diretorio prisma removido para permitir execucao limpa a partir de STATE-01 SETUP_PROJECT.
 * Patch documental 1.4.1 registrado em 2026-06-22 para alinhar versao do snapshot, changelog, auditoria do sistema e estado atual sem alterar STATE-08 PRODUCTION_RELEASE.
 * Patch documental 1.4.2 registrado em 2026-06-22 para centralizar no README e nos controles canonicos onde ajustes, melhorias, conflitos, auditorias e decisoes sem transicao devem ser documentados.
-* Patch documental 1.4.3 registrado em 2026-06-22 para reconciliar a conversa sobre 17 prompts antigos com o workspace atual reorganizado. A serie numerada de .txt foi a baseline operacional intermediaria; prompts antigos removidos/renomeados sao historico e nao devem ser recriados sem comando explicito.
+* Patch documental 1.4.3 registrado em 2026-06-22 para reconciliar a conversa sobre prompts legados da conversa inicial com o workspace atual reorganizado. A serie numerada de .txt foi a baseline operacional intermediaria; prompts antigos removidos/renomeados sao historico e nao devem ser recriados sem comando explicito.
 * Patch documental 1.4.4 registrado em 2026-06-22 para remover prefixos numericos dos arquivos .txt, aplicar Pascal-Kebab-Case em en-GB e atualizar referencias internas aos nomes canonicos atuais.
 * Patch documental 1.4.5 registrado em 2026-06-22 para documentar o fechamento operacional da renomeacao: Start-Here.txt e o entrypoint vigente, abas antigas do IDE devem ser reabertas pelo novo nome, e git status pode representar os renames como delete/add ate staging ou commit.
 * Patch documental 1.4.6 registrado em 2026-06-22 para documentar a solicitacao atual do chat nos nomes canonicos atuais e corrigir redacoes residuais que tratavam STATE-06 INTEGRATION como estado operacional atual.
@@ -803,7 +811,7 @@ RISCOS
   * Tratar revisoes globais pos-release como entrada operacional controlada, nao como alteracao retroativa de release.
   * Resolver conflitos por Conflict-Resolution-Policy.txt e pela hierarquia de autoridade.
   * Executar melhorias funcionais apenas por fase/estado permitido ou por comando explicito compativel com a State Machine.
-  * Usar a baseline documental vigente como fonte operacional; os 17 prompts antigos citados na conversa foram substituidos pela reorganizacao documental e nao sao pre-condicao para novas execucoes.
+  * Usar a baseline documental vigente como fonte operacional; os prompts antigos da conversa inicial citados na conversa foram substituidos pela reorganizacao documental e nao sao pre-condicao para novas execucoes.
   * A partir do patch 1.4.4, a baseline operacional vigente usa nomes Pascal-Kebab-Case sem prefixos numericos; a sequencia correta deve ser obtida pelo Prompt-Index.txt e pela Official-State-Machine.txt.
   * A partir do patch 1.4.5, qualquer referencia manual a arquivo antigo aberto no IDE deve ser resolvida pelo nome canonico atual; nao recriar nomes antigos para satisfazer abas obsoletas.
   * A partir do patch 1.4.7, esta conversa esta documentada como consolidacao operacional: os ajustes devem ser consultados nos .txt canonicos atuais, nao em nomes numerados legados; nenhuma transicao, fase, tooling ou alteracao funcional foi executada por este registro documental.
@@ -885,9 +893,9 @@ RISCOS
   * A partir do patch 1.4.23, fica corrigida a segunda rodada de auditoria de conflitos:
     * Production-Release-Phase.txt e Allowed-Commands-By-State.txt nao proibem mais migration de forma absoluta quando a mudanca for manutencao funcional pos-release explicitamente solicitada e registrada.
     * Phase-Handoff-Template.txt nao declara mais STATE-05 como estado atual; a frase foi convertida em historico e Current-State.txt permanece a fonte vigente.
-    * Prompt-Index.txt passa a listar os artefatos de evidencia e relatorios para melhorar rastreabilidade dos 69 .txt.
+    * Prompt-Index.txt passa a listar os artefatos de evidencia e relatorios para melhorar rastreabilidade dos .txt existentes naquela rodada historica.
   * O registro 1.4.23 corrige fluxo documental e nao muda STATE-08 PRODUCTION_RELEASE.
-  * A partir do patch 1.4.24, fica registrada a limpeza e sistematizacao final dos 69 .txt:
+  * A partir do patch 1.4.24, fica registrada a limpeza e sistematizacao final dos .txt existentes naquela rodada historica:
     * Prompt-Audit-Human-CI.txt, Prompt-Security.txt, Prompt-Systematization.txt, Revision-Prompt.txt e Restructuring-Prompt.txt foram reestruturados para formato ASCII limpo, com regra de ouro, escopo, checklist e entregaveis.
     * Official-State-Machine.txt passou a usar setas ASCII no fluxo de estados.
     * Relatorios Human CI historicos passaram a declarar que STATE-02, STATE-05 e STATE-06 eram estados vigentes na validacao historica, nao o estado atual.

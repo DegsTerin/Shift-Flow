@@ -1,5 +1,12 @@
 HUMAN CI VALIDATION
 
+REGRA DE OURO
+
+Nenhum prompt, gate, checklist, validacao, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
 Estado validado:
 STATE-03 DATABASE_MODELING
 

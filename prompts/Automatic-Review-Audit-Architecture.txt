@@ -22,7 +22,7 @@ Comando:
 Auditar STATE-02 ARCHITECTURE e executar Human CI
 
 Observacao de estado:
-Current-State.txt declara estado atual STATE-04 BACKEND_IMPLEMENTATION.
+Na data desta auditoria retrospectiva, Current-State.txt declarava STATE-04 BACKEND_IMPLEMENTATION como estado vigente.
 Esta auditoria nao reexecuta arquitetura, nao altera schema Prisma, nao cria migrations, nao cria backend, nao cria frontend e nao altera estado.
 
 ---
@@ -131,4 +131,4 @@ DECISAO:
 APROVAR AUDITORIA RETROSPECTIVA DE STATE-02 ARCHITECTURE.
 
 TRANSICAO DE ESTADO:
-Nao aplicavel nesta auditoria retrospectiva. A State Machine ja declara estado atual STATE-04 BACKEND_IMPLEMENTATION.
+Nao aplicavel nesta auditoria retrospectiva. Na data deste registro, a State Machine declarava STATE-04 BACKEND_IMPLEMENTATION como estado vigente.

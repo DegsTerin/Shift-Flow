@@ -1,6 +1,12 @@
+PROMPT DE FASE SOLUTION ARCHITECTURE
+
+PAPEL OPERACIONAL:
+
 Atue como Arquiteto de Software Senior.
 
 Sua tarefa NAO e gerar codigo ainda.
+
+---
 
 ESTADO DA STATE MACHINE:
 
@@ -94,7 +100,6 @@ TRANSICAO DE ESTADO:
 
 TRANSICAO DE ESTADO e apenas recomendacao.
 A State Machine decide a transicao real.
-
 
 
 
