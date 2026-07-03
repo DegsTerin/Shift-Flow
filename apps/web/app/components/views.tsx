@@ -24,29 +24,26 @@ import { ChartPanel } from "./charts";
 import { CustomizableDashboard, type DashboardWidgetDefinition } from "./custom-dashboard";
 import { ActivityList } from "./lists";
 
-const defaultTeamColor = "#0ea5e9";
+const chartPalette = ["#4f6f88", "#2f7d73", "#6d6aa8", "#9a7131", "#4d7f9f", "#7b8063", "#8a5f73"];
+const defaultTeamColor = chartPalette[0];
 
-function teamPalette(teams: TeamRef[]) {
-  const colors = teams.map((team) => team.color || defaultTeamColor);
-  return colors.length ? colors : [defaultTeamColor];
+function seriesPalette() {
+  return chartPalette;
 }
 
 function colorsForValues(values: unknown[], colors: string[]) {
   return values.map((_, index) => colors[index % colors.length] ?? defaultTeamColor);
 }
 
-function colorsForTeamGroups(groups: DashboardCharts["byTeam"], teams: TeamRef[]) {
-  const teamColorById = new Map(
-    teams
-      .filter((team) => team.id)
-      .map((team) => [team.id as string, team.color || defaultTeamColor])
+function chartColorForTeam(teamId: string | null | undefined, teams: TeamRef[], index: number) {
+  const teamIndex = teamId ? teams.findIndex((team) => team.id === teamId) : index;
+  return (
+    chartPalette[(teamIndex >= 0 ? teamIndex : index) % chartPalette.length] ?? defaultTeamColor
   );
+}
 
-  return groups.map((group, index) =>
-    group.teamId
-      ? (teamColorById.get(group.teamId) ?? defaultTeamColor)
-      : (teams[index]?.color ?? defaultTeamColor)
-  );
+function colorsForTeamGroups(groups: DashboardCharts["byTeam"], teams: TeamRef[]) {
+  return groups.map((group, index) => chartColorForTeam(group.teamId, teams, index));
 }
 
 function activityCountsByTeam(groups: DashboardCharts["byTeam"], teams: TeamRef[]) {
@@ -67,9 +64,9 @@ function TeamSummaryStrip({
 }) {
   return (
     <section className="team-summary">
-      {teams.map((team) => (
+      {teams.map((team, index) => (
         <article className="team-strip" key={team.id ?? team.name}>
-          <span style={{ backgroundColor: team.color ?? defaultTeamColor }} />
+          <span style={{ backgroundColor: chartColorForTeam(team.id, teams, index) }} />
           <div className="team-strip-body">
             <div className="team-strip-heading">
               <strong className="team-strip-name">{team.name ?? "-"}</strong>
@@ -169,7 +166,7 @@ export function MainDashboard({
   onNew: () => void;
   onOpen: (item: ActivityItem) => void;
 }) {
-  const palette = teamPalette(teams);
+  const palette = seriesPalette();
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
   const teamActivityCounts = activityCountsByTeam(charts.byTeam, teams);
   const dashboardLegend = statusLegend(t);
@@ -428,7 +425,7 @@ export function TeamDashboard({
   onResetLayout: () => Promise<DashboardConfiguration | void>;
   onOpen: (item: ActivityItem) => void;
 }) {
-  const palette = teamPalette(teams);
+  const palette = seriesPalette();
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
   const teamActivityCounts = activityCountsByTeam(charts.byTeam, teams);
   const definitions: DashboardWidgetDefinition[] = [
@@ -567,7 +564,7 @@ export function ReportsView({
   locale: Locale;
   onOpen: (item: ActivityItem) => void;
 }) {
-  const palette = teamPalette(teams);
+  const palette = seriesPalette();
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
 
   return (

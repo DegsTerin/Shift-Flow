@@ -37,12 +37,12 @@ export const activityStatuses = statusGroups;
 export const shiftStatuses = ["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"];
 export const statusColors: Record<string, string> = {
   PENDING: "#64748b",
-  IN_PROGRESS: "#0ea5e9",
-  WAITING_CUSTOMER: "#8b5cf6",
-  WAITING_THIRD_PARTY: "#f59e0b",
-  MONITORING: "#14b8a6",
-  DONE: "#16a34a",
-  CANCELLED: "#dc2626"
+  IN_PROGRESS: "#4f6f88",
+  WAITING_CUSTOMER: "#6d6aa8",
+  WAITING_THIRD_PARTY: "#9a7131",
+  MONITORING: "#2f7d73",
+  DONE: "#4f8a5f",
+  CANCELLED: "#a85656"
 };
 
 export function countOf(item: { _count?: { _all?: number } }) {
