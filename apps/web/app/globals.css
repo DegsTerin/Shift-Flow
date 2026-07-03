@@ -2446,7 +2446,7 @@ td:last-child {
   }
 }
 
-/* Prompt-Layout pass: final design-system and responsive alignment layer. */
+/* Prompt-Interface-UI-UX pass: final design-system and responsive alignment layer. */
 .app-shell {
   --space-1: 4px;
   --space-2: 8px;

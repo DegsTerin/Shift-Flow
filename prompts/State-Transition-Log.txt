@@ -58,7 +58,7 @@ Estado anterior: STATE-08 PRODUCTION_RELEASE
 Estado solicitado: STATE-08 PRODUCTION_RELEASE
 Estado novo: STATE-08 PRODUCTION_RELEASE
 Tipo: Manutencao funcional pos-release sem transicao
-Gates avaliados: Current-State.txt, Prompt-Audit-Full.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Layout.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt.
+Gates avaliados: Current-State.txt, Prompt-Audit-Full.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Interface-UI-UX.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt.
 Resultado dos gates: Manutencao funcional explicitamente solicitada; sem transicao de estado; alteracoes classificadas como pos-release por envolverem schema, migration, backend, frontend, testes e documentacao.
 Evidencias: ActivityTask.dueAt, migration 20260702193000_audit_full_residual_fixes, filtro attention para atraso/criticidade, widgets adicionais de dashboard, whitelist de widgets, Configuracoes agrupadas, permissoes agrupadas por modulo, bloqueio de edicao de perfis do sistema e contagem atual de 75 .txt.
 Responsavel: Sistema de prompts
@@ -156,7 +156,7 @@ Estado novo: STATE-08 PRODUCTION_RELEASE
 Tipo: Correcao documental de prompts sem transicao
 Gates avaliados: Current-State.txt, Project-Snapshot.txt, Prompt-Index.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Official-State-Machine.txt.
 Resultado dos gates: Patch documental aprovado; sem alteracao de codigo, schema, migration, runtime, tooling ou estado.
-Evidencias: Leitura dos .txt em prompts/; Prompt-Layout.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt e Prompt-Password.txt reestruturados em ASCII; Prompt-Password.txt catalogado no Prompt-Index.txt; versionamento atualizado para 1.4.27; validacao documental de indice, referencias, caracteres nao ASCII e git diff --check executada.
+Evidencias: Leitura dos .txt em prompts/; Prompt-Interface-UI-UX.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt e Prompt-Password.txt reestruturados em ASCII; Prompt-Password.txt catalogado no Prompt-Index.txt; versionamento atualizado para 1.4.27; validacao documental de indice, referencias, caracteres nao ASCII e git diff --check executada.
 Responsavel: Sistema de prompts
 Decisao da State Machine: Manter estado atual como STATE-08 PRODUCTION_RELEASE.
 Observacoes: A correcao resolve conflitos e redundancias documentais sem executar fase funcional. Qualquer implementacao posterior derivada desses prompts deve ser classificada conforme o estado atual.

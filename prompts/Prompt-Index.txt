@@ -140,7 +140,7 @@ Prompt-Adjustments.txt
 * Funcao: Solicitar Kanban interno por atividade, ajustes de legenda/filtros, reestruturacao de Gestao de Perfis, cores por equipe no Kanban e expansao de Configuracoes.
 * Regra: Nao altera estado. Implementacao deve ser registrada como manutencao funcional pos-release quando alterar banco, backend, frontend, permissoes ou comportamento de produto.
 
-Prompt-Layout.txt
+Prompt-Interface-UI-UX.txt
 
 * Tipo: GLOBAL UI/UX LAYOUT REQUEST
 * Autoridade: Entrada operacional de revisao visual e experiencia

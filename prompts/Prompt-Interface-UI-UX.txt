@@ -1,0 +1,685 @@
+# REVISAO COMPLETA DA INTERFACE (UI/UX), LAYOUT, DESIGN SYSTEM E CORRECAO DE IMPERFEICOES VISUAIS
+
+## REGRA DE OURO
+
+Este prompt nao cria funcionalidades, nao altera regras de negocio, nao modifica fluxos funcionais e nao realiza transicoes de estado.
+
+Apenas a State Machine pode alterar estados da aplicacao.
+
+Qualquer alteracao que envolva componentes compartilhados, CSS global, Design System, contratos visuais, navegacao ou comportamento da interface durante o STATE-08 PRODUCTION_RELEASE deve ser classificada como manutencao funcional pos-release.
+
+---
+
+## REGRA DE COMMIT
+
+Ao concluir qualquer alteracao:
+
+* Criar commit local com mensagem objetiva e escopo fechado.
+* O commit deve conter somente arquivos relacionados a alteracao executada.
+* Nao incluir arquivos nao relacionados.
+* Caso nenhuma alteracao tenha sido realizada, informar explicitamente que nao existe commit a ser criado.
+
+---
+
+# OBJETIVO
+
+Executar uma auditoria completa da interface do ShiftFlow, eliminando qualquer inconsistencia visual, problema de layout, falha de responsividade, quebra de Design System, problema de UX, acessibilidade ou padronizacao.
+
+O objetivo final e entregar uma interface com qualidade de produto comercial, moderna, consistente, limpa, profissional, altamente responsiva e visualmente refinada.
+
+Nao considere uma tela pronta apenas porque funciona.
+
+Considere concluida somente quando nao existirem imperfeicoes visuais perceptiveis.
+
+---
+
+# MODO DE INSPECAO
+
+Nao assumir que qualquer tela esta correta.
+
+Realizar uma auditoria completa e sistematica em absolutamente toda a aplicacao.
+
+Para cada pagina:
+
+1. Inspecionar de cima para baixo.
+2. Inspecionar da esquerda para a direita.
+3. Validar cada componente individualmente.
+4. Comparar componentes equivalentes entre diferentes paginas.
+5. Comparar com o Design System.
+6. Corrigir qualquer inconsistencia encontrada.
+7. Reexecutar a inspecao apos cada conjunto de correcoes.
+
+Nao parar na primeira correcao encontrada.
+
+A revisao deve ser iterativa ate que nao existam inconsistencias relevantes.
+
+---
+
+# ESCOPO
+
+Auditar absolutamente tudo.
+
+## Estrutura
+
+* Header
+* Sidebar expandido
+* Sidebar recolhido
+* Footer
+* Content
+* Layout principal
+* Layout secundario
+* Containers
+* Grid
+* Flexbox
+
+## Paginas
+
+* Login
+* Dashboard
+* Home
+* Configuracoes
+* Administracao
+* Perfil
+* Usuarios
+* Permissoes
+* Formularios
+* Relatorios
+* Calendarios
+* Kanban
+* Listas
+* Paginas operacionais
+* Paginas administrativas
+* Todas as paginas existentes
+* Todas as paginas futuras
+
+## Componentes
+
+* Cards
+* KPIs
+* Graficos
+* Tabelas
+* Inputs
+* Selects
+* Checkboxes
+* Radio Buttons
+* Switches
+* Sliders
+* Date Pickers
+* Menus
+* Dropdowns
+* Tooltips
+* Popovers
+* Drawers
+* Dialogs
+* Modais
+* Toasts
+* Alerts
+* Badges
+* Chips
+* Avatares
+* Breadcrumbs
+* Tabs
+* Accordions
+* Paginacao
+* Loading
+* Skeleton
+* Empty State
+* Error State
+* Success State
+* Disabled State
+* Hover
+* Focus
+* Active
+
+---
+
+# PADRAO VISUAL
+
+Aplicar uma identidade visual corporativa, limpa, objetiva e consistente.
+
+Priorizar:
+
+* Hierarquia visual clara.
+* Alta legibilidade.
+* Consistencia.
+* Densidade adequada.
+* Interfaces operacionais.
+* Facilidade de leitura.
+* Clareza na tomada de decisao.
+
+Evitar:
+
+* Hero Sections.
+* Layout promocional.
+* Gradientes desnecessarios.
+* Fundos poluidos.
+* Cards aninhados sem necessidade.
+* Espacamentos irregulares.
+* Fontes exageradas.
+* Elementos que mudam de tamanho.
+* Animacoes excessivas.
+
+---
+
+# DESIGN SYSTEM
+
+Padronizar completamente:
+
+* Tokens de cor.
+* Tipografia.
+* Escala tipografica.
+* Espacamentos.
+* Padding.
+* Margin.
+* Radius.
+* Bordas.
+* Sombras.
+* Elevacao.
+* Grid.
+* Breakpoints.
+* Iconografia.
+* Componentes compartilhados.
+* Estados visuais.
+* Animacoes.
+* Duracao das transicoes.
+
+Nenhum componente equivalente deve possuir comportamento ou aparencia diferente sem justificativa.
+
+---
+
+# ITENS OBRIGATORIOS DE VERIFICACAO
+
+Procurar automaticamente por:
+
+* Alinhamentos incorretos.
+* Padding inconsistente.
+* Margin inconsistente.
+* Espacamentos diferentes.
+* Alturas diferentes.
+* Larguras diferentes.
+* Fontes inconsistentes.
+* Pesos tipograficos diferentes.
+* Cores inconsistentes.
+* Bordas diferentes.
+* Radius diferentes.
+* Sombras diferentes.
+* Icones desalinhados.
+* Textos desalinhados.
+* Cards desalinhados.
+* Tabelas desalinhadas.
+* Formularios inconsistentes.
+* Modais inconsistentes.
+* Menus inconsistentes.
+* Dropdowns inconsistentes.
+* Dialogs inconsistentes.
+* Hover diferente.
+* Focus diferente.
+* Loading diferente.
+* Disabled diferente.
+* Empty diferente.
+* Error diferente.
+* Success diferente.
+
+---
+
+# LAYOUT
+
+Localizar e corrigir:
+
+* Overflow horizontal.
+* Overflow vertical desnecessario.
+* Scroll duplo.
+* Scroll invisivel.
+* Conteudo cortado.
+* Componentes sobrepostos.
+* Elementos fora do viewport.
+* Texto truncado.
+* Containers quebrados.
+* Grid quebrado.
+* Problemas de Flexbox.
+* Problemas de CSS Grid.
+* Colunas desalinhadas.
+* Tabelas quebradas.
+* Cards comprimidos.
+* Quebras inesperadas.
+* Componentes escondidos.
+* Z-index incorreto.
+
+---
+
+# HEADER
+
+Revisar completamente:
+
+* Altura.
+* Alinhamento.
+* Logo.
+* Pesquisa.
+* Breadcrumb.
+* Menus.
+* Avatar.
+* Icones.
+* Botoes.
+* Responsividade.
+* Sobreposicoes.
+
+---
+
+# SIDEBAR
+
+Validar:
+
+* Expandido.
+* Recolhido.
+* Hover.
+* Focus.
+* Scroll.
+* Colisao com conteudo.
+* Responsividade.
+* Texto cortado.
+* Icones.
+* Tooltips.
+* Transicoes.
+
+---
+
+# CONTENT
+
+Padronizar:
+
+* Containers.
+* Grid.
+* Cards.
+* Graficos.
+* KPIs.
+* Formularios.
+* Tabelas.
+* Listas.
+* Kanban.
+* Calendarios.
+* Paginas administrativas.
+
+---
+
+# FOOTER
+
+Verificar:
+
+* Altura.
+* Posicionamento.
+* Responsividade.
+* Alinhamento.
+* Sobreposicoes.
+
+---
+
+# TIPOGRAFIA
+
+Garantir:
+
+* Escala consistente.
+* Hierarquia clara.
+* Contraste.
+* Legibilidade.
+* Espacamento adequado.
+* Peso consistente.
+* Alinhamento correto.
+
+---
+
+# CORES
+
+Validar:
+
+* Tema claro.
+* Tema escuro.
+* Contraste.
+* Estados.
+* Hover.
+* Focus.
+* Disabled.
+* Error.
+* Success.
+* Warning.
+* Information.
+
+---
+
+# RESPONSIVIDADE
+
+Executar validacao completa em:
+
+* 320 px
+* 360 px
+* 390 px
+* 414 px
+* 768 px
+* 820 px
+* 1024 px
+* 1280 px
+* 1366 px
+* 1440 px
+* 1600 px
+* 1920 px
+* Ultrawide
+* Tablet
+* Desktop
+* Mobile
+* Modo TV
+
+Corrigir automaticamente:
+
+* Overflow.
+* Quebras de layout.
+* Componentes comprimidos.
+* Navegacao bloqueando conteudo.
+* Scroll horizontal.
+* Botoes inacessiveis.
+* Areas clicaveis pequenas.
+* Texto sobreposto.
+* Cards quebrados.
+* Graficos quebrados.
+* Formularios quebrados.
+* Tabelas quebradas.
+
+---
+
+# ACESSIBILIDADE
+
+Garantir:
+
+* Contraste adequado.
+* Navegacao por teclado.
+* Focus visivel.
+* Labels corretos.
+* Ordem de tabulacao.
+* Areas clicaveis adequadas.
+* Feedback visual consistente.
+* Estados compreensiveis.
+
+---
+
+# UX
+
+Melhorar quando necessario:
+
+* Hierarquia.
+* Escaneabilidade.
+* Organizacao visual.
+* Consistencia.
+* Fluxo de leitura.
+* Facilidade de uso.
+* Tempo de identificacao das acoes.
+* Reducao de ruido visual.
+
+Sem alterar regras de negocio.
+
+---
+
+# RESTRICOES
+
+Nao alterar:
+
+* Regras de negocio.
+* APIs.
+* Banco de dados.
+* Schemas.
+* Migrations.
+* Fluxos de usuario.
+* Permissoes.
+* Estados.
+* Logica da aplicacao.
+
+Nao remover funcionalidades para simplificar layout.
+
+Nao criar novos componentes quando houver componente compartilhado adequado.
+
+Nao criar um novo Design System se o existente puder ser padronizado.
+
+---
+
+# CRITERIOS DE ACEITE
+
+A auditoria somente sera considerada concluida quando:
+
+* Todas as paginas estiverem visualmente consistentes.
+* Todos os componentes seguirem o mesmo Design System.
+* Nao existir overflow horizontal.
+* Nao existir sobreposicao de elementos.
+* Nao existir texto cortado.
+* Nao existir componente desalinhado.
+* Nao existir inconsistencia visual perceptivel.
+* Todos os estados estiverem tratados.
+* Todas as resolucoes estiverem validadas.
+* Todas as paginas tiverem sido revisadas.
+
+---
+
+# VALIDACAO FINAL
+
+Ao concluir:
+
+1. Executar uma nova auditoria completa.
+2. Procurar novas imperfeicoes geradas pelas correcoes.
+3. Corrigir imediatamente qualquer nova inconsistencia.
+4. Repetir este ciclo ate que nenhuma imperfeicao visual relevante seja encontrada.
+
+Nao interromper a revisao enquanto houver qualquer inconsistencia visual.
+
+---
+
+# ENTREGAVEIS
+
+Ao finalizar, apresentar obrigatoriamente:
+
+* Lista completa dos problemas encontrados.
+* Correcoes aplicadas por modulo.
+* Correcoes aplicadas por componente.
+* Evidencias de validacao (lint, typecheck, build, testes e capturas visuais quando aplicavel).
+* Pendencias remanescentes.
+* Riscos identificados.
+* Componentes reutilizados.
+* Componentes padronizados.
+* Melhorias de Design System realizadas.
+* Melhorias de UX realizadas.
+* Melhorias de responsividade realizadas.
+* Melhorias de acessibilidade realizadas.
+* Classificacao da manutencao conforme o estado atual da State Machine.
+* Informacao sobre o commit realizado ou justificativa da ausencia de commit.
+
+
+## MODO DE INSPECAO
+
+Nao assumir que qualquer tela esta correta apenas porque compila, funciona ou nao apresenta erros aparentes.
+
+Executar uma auditoria visual extremamente rigorosa em toda a aplicacao.
+
+Para cada pagina, modulo e componente:
+
+1. Percorrer toda a interface de cima para baixo.
+2. Percorrer novamente da esquerda para a direita.
+3. Validar individualmente cada componente visivel.
+4. Comparar componentes equivalentes entre diferentes paginas.
+5. Comparar o resultado com o Design System oficial.
+6. Procurar diferencas visuais, mesmo que pequenas.
+7. Corrigir imediatamente qualquer inconsistencia encontrada.
+8. Reexecutar toda a inspecao apos cada conjunto de correcoes.
+
+Nunca assumir que uma correcao nao afetou outras areas.
+
+Toda alteracao deve gerar uma nova rodada de verificacao.
+
+---
+
+## ITENS OBRIGATORIOS DE VERIFICACAO
+
+Verificar obrigatoriamente:
+
+### Layout
+
+* alinhamento
+* grid
+* flexbox
+* containers
+* overflow
+* scroll
+* viewport
+* z-index
+* posicionamento
+* espacamento
+
+### Tipografia
+
+* familia
+* tamanho
+* peso
+* line-height
+* letter-spacing
+* contraste
+* hierarquia
+* alinhamento
+
+### Componentes
+
+* cards
+* botoes
+* inputs
+* selects
+* tabelas
+* formularios
+* modais
+* drawers
+* dialogs
+* menus
+* dropdowns
+* tooltips
+* breadcrumbs
+* tabs
+* accordions
+* paginacao
+* avatars
+* badges
+* chips
+* notificacoes
+* skeleton
+* loading
+* empty state
+* error state
+
+### Consistencia
+
+* padding
+* margin
+* radius
+* bordas
+* sombras
+* cores
+* icones
+* alturas
+* larguras
+* espacamentos
+* animacoes
+* transicoes
+
+### Estados
+
+* hover
+* active
+* focus
+* disabled
+* loading
+* success
+* warning
+* error
+* empty
+
+---
+
+## VALIDACAO POR VIEWPORT
+
+Executar toda a auditoria obrigatoriamente em:
+
+* 320 px
+* 360 px
+* 375 px
+* 390 px
+* 412 px
+* 414 px
+* 768 px
+* 820 px
+* 1024 px
+* 1280 px
+* 1366 px
+* 1440 px
+* 1600 px
+* 1920 px
+* 2560 px
+* Ultrawide
+* Tablet
+* Desktop
+* Mobile
+* Modo TV
+
+Nao considerar qualquer pagina aprovada enquanto existir problema em qualquer viewport.
+
+---
+
+## AUDITORIA OBRIGATORIA
+
+Executar auditoria completa para:
+
+* UI
+* UX
+* Web Design
+* Front-end
+* Design System
+* Responsividade
+* Header
+* Sidebar expandido
+* Sidebar recolhido
+* Content
+* Footer
+* Navegacao
+* Menus
+* Dashboards
+* KPIs
+* Graficos
+* Cards
+* Formularios
+* Tabelas
+* Calendarios
+* Kanban
+* Listas
+* Modais
+* Drawers
+* Dialogs
+* Tooltips
+* Configuracoes
+* Paginas administrativas
+* Paginas operacionais
+* Login
+* Home
+* Todas as paginas
+* Todos os modulos
+* Todos os componentes compartilhados
+* Tema claro
+* Tema escuro
+* Modo TV
+
+---
+
+## REGRA DE POLIMENTO
+
+Nao interromper a auditoria apos a primeira rodada de correcoes.
+
+Ao finalizar todas as alteracoes:
+
+1. Executar nova auditoria completa.
+2. Procurar novas imperfeicoes geradas pelas alteracoes.
+3. Corrigir imediatamente essas imperfeicoes.
+4. Executar novamente toda a auditoria.
+5. Repetir este processo ate nao existir nenhuma inconsistencia visual relevante.
+
+O objetivo nao e apenas remover bugs de layout.
+
+O objetivo e entregar uma interface completamente refinada, consistente, profissional, responsiva, acessivel e visualmente impecavel em toda a aplicacao.

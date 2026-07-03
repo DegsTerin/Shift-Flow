@@ -252,17 +252,17 @@ Recomendacao:
 
 Data: 2026-07-02
 Versao: 1.4.27
-Arquivos auditados: Todos os .txt em prompts/, com foco em Prompt-Layout.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt, Prompt-Password.txt e controles canonicos de indice, versao, changelog, snapshot, current state, auditoria e log de transicao.
+Arquivos auditados: Todos os .txt em prompts/, com foco em Prompt-Interface-UI-UX.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt, Prompt-Password.txt e controles canonicos de indice, versao, changelog, snapshot, current state, auditoria e log de transicao.
 Status: APROVADO APOS CORRECAO DOCUMENTAL
 Conflitos encontrados:
 * Prompt-Password.txt existia em prompts/ mas nao estava catalogado no Prompt-Index.txt.
-* Prompt-Layout.txt estava fora do formato operacional canonico usado pelos prompts recentes.
+* Prompt-Interface-UI-UX.txt estava fora do formato operacional canonico usado pelos prompts recentes.
 * Prompt-Dashboard.txt duplicava requisitos de dashboard personalizavel em secoes sobrepostas.
 * Prompt-Adjustments.txt continha marcadores de titulo duplicados e caracteres Unicode.
 * Prompt-Auth.txt e Prompt-Password.txt tinham sobreposicao de escopo sem fronteira explicita.
 * Prompts recentes voltaram a conter caracteres nao ASCII apos a normalizacao 1.4.24.
 Correcoes aplicadas:
-* Prompt-Layout.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt e Prompt-Password.txt foram reestruturados em ASCII, com regra de ouro, escopo, restricoes, criterios de aceite e entregaveis.
+* Prompt-Interface-UI-UX.txt, Prompt-Dashboard.txt, Prompt-Adjustments.txt, Prompt-Auth.txt e Prompt-Password.txt foram reestruturados em ASCII, com regra de ouro, escopo, restricoes, criterios de aceite e entregaveis.
 * Prompt-Password.txt foi adicionado ao Prompt-Index.txt.
 * Prompt-Auth.txt e Prompt-Password.txt passaram a declarar relacao complementar.
 * Prompt-Dashboard.txt foi deduplicado e separado por escopo, widgets, persistencia, backend, frontend, restricoes e criterios.

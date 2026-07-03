@@ -39,7 +39,7 @@ Dar prioridade maxima aos prompts recentes:
 
 * Prompt-Adjustments.txt.
 * Prompt-Dashboard.txt.
-* Prompt-Layout.txt.
+* Prompt-Interface-UI-UX.txt.
 
 Esses arquivos devem ser tratados como obrigatorios e sua implementacao deve ser
 validada linha por linha quando a auditoria funcional for executada.
