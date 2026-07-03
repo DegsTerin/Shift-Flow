@@ -19,13 +19,16 @@ Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao expli
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.36
+PROMPT_SYSTEM_VERSION: 1.4.37
 
 Data:
-2026-07-02
+2026-07-03
 
 Status:
-Regra global de commit incorporada a todos os .txt canonicos em 2026-07-02. Ao concluir alteracao solicitada em arquivo .txt ou derivada dele, deve ser criado commit local com mensagem clara, escopo fechado e sem incluir mudancas externas nao relacionadas. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+Prompt-Interface-UI-UX.txt padronizado em 2026-07-03 como prompt executivo de auditoria visual, com escopo auditavel, fonte canonica de Design System, classificacao de achados, fluxo de execucao, evidencias, criterio de aprovacao, relatorio obrigatorio e resultado final. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.37:
+Prompt-Interface-UI-UX.txt foi reestruturado para remover duplicacoes, comandos absolutos, escopo nao verificavel e ambiguidades entre correcao visual e mudanca funcional. O prompt passa a separar paginas existentes de diretrizes futuras, tratar tema escuro e Modo TV apenas quando existirem, apontar fontes canonicas de Design System, exigir classificacao de severidade, definir fluxo de execucao, validacoes proporcionais, evidencias, criterio de aprovacao, relatorio obrigatorio e resultado final. Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt e State-Transition-Log.txt foram atualizados.
 
 Patch 1.4.36:
 Incluida REGRA DE COMMIT em todos os arquivos .txt canonicos em prompts/. A regra determina que alteracoes solicitadas devem terminar com commit local de escopo fechado quando houver mudancas de arquivo, e que mudancas externas, geradas ou nao relacionadas nao devem ser incluidas sem solicitacao explicita. Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt e State-Transition-Log.txt foram atualizados.

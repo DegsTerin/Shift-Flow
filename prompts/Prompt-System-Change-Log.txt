@@ -38,6 +38,15 @@ Estado afetado:
 
 REGISTROS
 
+Data: 2026-07-03
+Versao: 1.4.37
+Tipo: patch documental
+Arquivos alterados: Prompt-Interface-UI-UX.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt
+Resumo: Padronizado Prompt-Interface-UI-UX.txt em formato canonico de auditoria visual executiva.
+Impacto: O prompt deixa de ter secoes duplicadas, escopo impossivel e comandos absolutos de correcao; passa a ter fluxo de execucao, fontes canonicas de Design System, severidade de achados, validacoes proporcionais, evidencias, criterio de aprovacao, relatorio e resultado final.
+Conflitos resolvidos: Duplicacao de MODO DE INSPECAO e ITENS OBRIGATORIOS DE VERIFICACAO, listas divergentes de viewports, referencia a paginas futuras como item auditavel, tema escuro e Modo TV sem condicao de existencia, ausencia de fonte canonica de Design System, falta de relatorio/evidencias/criterio de aprovacao/resultado final e ambiguidade entre correcao visual e mudanca funcional.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
 Data: 2026-07-02
 Versao: 1.4.36
 Tipo: patch documental

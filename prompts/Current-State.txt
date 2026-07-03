@@ -33,7 +33,7 @@ Bloqueios:
 Nenhum bloqueio operacional registrado.
 
 Ultima atualizacao:
-2026-07-02
+2026-07-03
 
 Observacao documental:
 Ajustes e melhorias dos .txt foram registrados em 2026-06-22 como patch documental do sistema de prompts. Esta atualizacao nao altera o estado atual e nao recomenda transicao.
@@ -69,6 +69,7 @@ Patch documental 1.4.33 registra a setima passada minuciosa dos .txt: System-Reo
 Patch documental 1.4.34 registra a integracao de Prompt-Audit-Full.txt ao sistema canonico: o prompt foi normalizado, catalogado no Prompt-Index.txt e teve contagem fixa contraditoria substituida por contagem dinamica no momento da execucao. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Registro de manutencao funcional pos-release 1.4.35 registra a execucao completa de Prompt-Audit-Full.txt com correcoes funcionais residuais: prazo em tarefas internas, filtros de atraso/criticidade, widgets adicionais do dashboard, bloqueio de widgets desconhecidos, Gestao de Perfis agrupada por modulo, bloqueio de edicao de perfis do sistema, agrupamento de Configuracoes e correcao da contagem atual para 75 .txt. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.36 registra a inclusao de REGRA DE COMMIT em todos os .txt canonicos: alteracoes solicitadas devem terminar com commit local de escopo fechado quando houver mudancas de arquivo, sem incluir alteracoes externas nao relacionadas. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.37 registra a padronizacao de Prompt-Interface-UI-UX.txt: duplicacoes, comandos absolutos, escopo nao verificavel e ambiguidades de fluxo foram substituidos por escopo auditavel, classificacao de achados, fonte canonica de Design System, validacoes proporcionais, evidencias, criterio de aprovacao, relatorio obrigatorio e resultado final. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 
 ---
 

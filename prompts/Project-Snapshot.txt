@@ -29,10 +29,10 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.36
+1.4.37
 
 Ultima atualizacao:
-2026-07-02
+2026-07-03
 
 ---
 
@@ -167,6 +167,7 @@ CONTROLES ATIVOS
 * Auditoria documental 1.4.33 de 2026-07-02 registrada apos setima passada minuciosa, com ordem estrutural de System-Reorganisation-Codex-Prompt.txt alinhada ao padrao corporativo internacional.
 * Auditoria documental 1.4.34 de 2026-07-02 registrada apos integracao de Prompt-Audit-Full.txt como prompt canonico de auditoria funcional completa.
 * Auditoria documental 1.4.36 de 2026-07-02 registrada apos inclusao de REGRA DE COMMIT em todos os arquivos .txt canonicos.
+* Auditoria documental 1.4.37 de 2026-07-03 registrada apos padronizacao executiva de Prompt-Interface-UI-UX.txt.
 
 ---
 
