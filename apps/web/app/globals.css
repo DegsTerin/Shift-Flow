@@ -438,6 +438,7 @@ textarea {
 }
 
 .workspace {
+  align-content: start;
   max-width: none;
   min-width: 0;
   padding: 0 22px 22px;
@@ -1893,6 +1894,7 @@ textarea:disabled {
 }
 
 .workspace {
+  align-content: start;
   max-width: none;
   width: 100%;
 }
@@ -2482,6 +2484,7 @@ td:last-child {
 }
 
 .workspace {
+  align-content: start;
   display: grid;
   gap: var(--space-4);
   min-width: 0;
