@@ -70,6 +70,7 @@ Patch documental 1.4.34 registra a integracao de Prompt-Audit-Full.txt ao sistem
 Registro de manutencao funcional pos-release 1.4.35 registra a execucao completa de Prompt-Audit-Full.txt com correcoes funcionais residuais: prazo em tarefas internas, filtros de atraso/criticidade, widgets adicionais do dashboard, bloqueio de widgets desconhecidos, Gestao de Perfis agrupada por modulo, bloqueio de edicao de perfis do sistema, agrupamento de Configuracoes e correcao da contagem atual para 75 .txt. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.36 registra a inclusao de REGRA DE COMMIT em todos os .txt canonicos: alteracoes solicitadas devem terminar com commit local de escopo fechado quando houver mudancas de arquivo, sem incluir alteracoes externas nao relacionadas. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.37 registra a padronizacao de Prompt-Interface-UI-UX.txt: duplicacoes, comandos absolutos, escopo nao verificavel e ambiguidades de fluxo foram substituidos por escopo auditavel, classificacao de achados, fonte canonica de Design System, validacoes proporcionais, evidencias, criterio de aprovacao, relatorio obrigatorio e resultado final. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Patch documental 1.4.38 registra a ampliacao de Prompt-Interface-UI-UX.txt com Visual QA, Auditoria Pixel Perfect, Regressao Visual, Qualidade Visual Premium, Heuristicas de UX e Inspecao Visual Final. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 
 ---
 

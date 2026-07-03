@@ -35,8 +35,9 @@ explicita.
 OBJETIVO
 
 Executar auditoria completa e evidencial da interface do ShiftFlow, com foco em
-UI, UX, layout, responsividade, acessibilidade, Design System e consistencia
-visual.
+UI, UX, layout, responsividade, acessibilidade, Design System, consistencia
+visual, Visual QA, Pixel Perfect quando houver referencia e Visual Regression
+Testing quando houver baseline ou ferramenta disponivel.
 
 O objetivo e entregar uma interface corporativa, operacional, moderna, limpa,
 legivel, responsiva, acessivel e visualmente consistente, sem alterar regras de
@@ -161,6 +162,14 @@ Priorizar:
 * Clareza na tomada de decisao.
 * Estados visuais previsiveis.
 * Componentes estaveis, sem deslocamentos inesperados.
+* Simetria visual.
+* Equilibrio entre areas em branco.
+* Consistencia optica, nao apenas matematica.
+* Alinhamento optico de icones.
+* Ritmo visual.
+* Hierarquia por contraste.
+* Densidade visual consistente entre telas.
+* Qualidade visual compativel com produto corporativo finalizado.
 
 Evitar:
 
@@ -218,6 +227,137 @@ Verificar obrigatoriamente:
 * Estados de warning.
 * Animacoes.
 * Transicoes.
+* Simetria visual.
+* Equilibrio entre areas em branco.
+* Consistencia optica.
+* Alinhamento optico de icones.
+* Ritmo visual.
+* Hierarquia por contraste.
+* Consistencia de raio das bordas.
+* Consistencia de sombras.
+* Consistencia das transicoes.
+* Consistencia da escala tipografica.
+* Densidade visual entre telas.
+* Pixel Perfect, quando existir referencia visual.
+* Comparacao automatica por screenshots, quando existir baseline ou ferramenta.
+
+---
+
+QUALIDADE VISUAL PREMIUM
+
+Avaliar tambem aspectos subjetivos e perceptivos de design. Quando houver mais
+de uma solucao visual possivel, priorizar a alternativa mais limpa, simples,
+corporativa, legivel e consistente com o produto.
+
+Verificar:
+
+* Equilibrio visual.
+* Simetria.
+* Alinhamento optico.
+* Densidade visual.
+* Hierarquia visual.
+* Ritmo visual.
+* Consistencia entre paginas.
+* Consistencia entre modulos.
+* Facilidade de leitura.
+* Clareza das acoes principais.
+* Excesso de elementos.
+* Excesso de espacos vazios.
+* Poluicao visual.
+* Coerencia entre cores.
+* Coerencia entre tipografia.
+* Consistencia dos icones.
+* Consistencia das animacoes.
+* Aparencia profissional.
+* Sensacao de produto acabado.
+
+Nao aprovar uma tela apenas porque os valores de CSS estao corretos. A
+renderizacao final deve parecer visualmente correta para o usuario.
+
+---
+
+AUDITORIA PIXEL PERFECT
+
+Alem da analise estrutural do codigo, validar a interface renderizada por meio
+de screenshots reais quando houver ferramenta disponivel ou referencia visual
+comparavel.
+
+Comparar visualmente componentes equivalentes e estados interativos. Verificar
+diferencas opticas, mesmo quando o CSS estiver tecnicamente correto.
+
+Detectar:
+
+* Desalinhamentos de 1 px ou mais.
+* Diferencas de altura entre componentes equivalentes.
+* Diferencas de largura nao justificadas.
+* Diferencas de radius.
+* Diferencas de sombras.
+* Diferencas de opacidade.
+* Diferencas de espessura de bordas.
+* Diferencas de peso tipografico.
+* Diferencas de line-height.
+* Diferencas de escala tipografica.
+* Diferencas de espacamento interno.
+* Diferencas de espacamento externo.
+* Diferencas entre icones.
+* Diferencas entre estados hover, focus e active.
+* Diferencas de transicao entre componentes equivalentes.
+
+Nunca considerar um componente aprovado apenas porque utiliza o mesmo CSS. A
+aprovacao deve considerar a renderizacao final.
+
+Quando nao existir referencia visual ou baseline, registrar que a auditoria
+Pixel Perfect foi limitada a comparacao entre componentes e telas existentes.
+
+---
+
+REGRESSAO VISUAL
+
+Executar Visual Regression Testing quando houver baseline, snapshots visuais,
+Playwright screenshots ou ferramenta equivalente disponivel.
+
+Quando aplicavel:
+
+* Capturar screenshots automaticos das telas auditadas.
+* Capturar estados relevantes de componentes.
+* Comparar screenshots com a versao anterior ou baseline aprovada.
+* Utilizar comparacao pixel a pixel quando a ferramenta permitir.
+* Marcar qualquer diferenca visual encontrada.
+* Justificar diferencas aceitas.
+
+Classificar cada diferenca visual como:
+
+* Diferenca aceitavel.
+* Regressao visual.
+* Alteracao intencional.
+
+Nunca ignorar diferenca visual sem justificativa.
+
+Caso nao exista baseline, criar ou recomendar baseline inicial, conforme o
+escopo permitido da execucao. A criacao de baseline nao deve mascarar regressao
+existente; deve ser registrada como primeira referencia controlada.
+
+---
+
+HEURISTICAS DE UX
+
+Validar a interface usando as heuristicas de Nielsen como referencia de UX.
+
+Verificar:
+
+* Visibilidade do estado do sistema.
+* Correspondencia entre sistema e mundo real do usuario.
+* Controle e liberdade do usuario.
+* Consistencia e padroes.
+* Prevencao de erros.
+* Reconhecimento em vez de memorizacao.
+* Flexibilidade e eficiencia de uso.
+* Design minimalista.
+* Mensagens de erro compreensiveis.
+* Recuperacao de erros.
+* Ajuda contextual quando aplicavel.
+
+Registrar qualquer violacao com tela, componente, impacto e severidade.
 
 ---
 
@@ -341,17 +481,50 @@ Executar nesta ordem:
 5. Auditar estados visuais e interativos.
 6. Auditar responsividade pela matriz minima de viewports.
 7. Auditar acessibilidade visual e navegacao por teclado quando aplicavel.
-8. Classificar achados por severidade.
-9. Corrigir achados visuais permitidos pelo escopo.
-10. Registrar como pendencia qualquer achado que exija mudanca funcional.
-11. Reexecutar a auditoria nas areas alteradas.
-12. Executar validacoes tecnicas proporcionais.
-13. Gerar relatorio final com evidencias.
-14. Criar commit local de escopo fechado quando houver mudancas de arquivo.
+8. Auditar qualidade visual premium, consistencia optica e hierarquia por
+   contraste.
+9. Executar auditoria Pixel Perfect quando houver referencia visual ou
+   comparacao entre componentes equivalentes.
+10. Executar Visual Regression Testing quando houver baseline ou ferramenta
+   disponivel.
+11. Validar heuristicas de UX.
+12. Classificar achados por severidade.
+13. Corrigir achados visuais permitidos pelo escopo.
+14. Registrar como pendencia qualquer achado que exija mudanca funcional.
+15. Reexecutar a auditoria nas areas alteradas.
+16. Executar inspecao visual final.
+17. Executar validacoes tecnicas proporcionais.
+18. Gerar relatorio final com evidencias.
+19. Criar commit local de escopo fechado quando houver mudancas de arquivo.
 
 Nao interromper a execucao na primeira correcao encontrada. Encerrar somente
 apos corrigir achados permitidos, registrar pendencias justificadas e validar
 que as mudancas nao criaram regressao visual relevante.
+
+---
+
+INSPECAO VISUAL FINAL
+
+Apos todas as correcoes, executar uma inspecao manual completa.
+
+Percorrer todas as paginas auditadas como um usuario faria e verificar:
+
+* Sensacao geral de qualidade.
+* Sensacao de produto acabado.
+* Aparencia profissional.
+* Consistencia entre modulos.
+* Aparencia moderna.
+* Ausencia de componentes estranhos.
+* Ausencia de componentes que parecam improvisados.
+* Ausencia de mudancas visuais inesperadas durante navegacao.
+* Ausencia de flickering.
+* Ausencia de CLS, Cumulative Layout Shift, perceptivel.
+* Ausencia de animacoes bruscas.
+* Ausencia de pequenos defeitos visuais perceptiveis em uso normal.
+
+Somente considerar a interface aprovada quando nao houver inconsistencia visual
+perceptivel relevante durante uso normal ou quando pendencias remanescentes
+estiverem registradas com severidade, justificativa e impacto.
 
 ---
 
@@ -367,6 +540,10 @@ Quando houver alteracao de arquivo, executar validacoes proporcionais ao escopo:
   componentes compartilhados ou configuracao de build.
 * Playwright ou validacao visual equivalente, quando a alteracao afetar layout,
   responsividade, navegacao, Modo TV, modais, drawers ou fluxos de tela.
+* Captura automatica de screenshots, quando a alteracao afetar UI renderizada.
+* Comparacao visual contra baseline, quando baseline existir.
+* Criacao ou recomendacao de baseline inicial, quando nao existir baseline e a
+  execucao permitir criar evidencia visual controlada.
 
 Se alguma validacao nao puder ser executada, registrar motivo, impacto e risco
 remanescente.
@@ -383,6 +560,8 @@ Para cada conclusao relevante, registrar:
 * Viewport validado, quando aplicavel.
 * Evidencia objetiva: teste, build, screenshot, observacao reproduzivel ou linha
   de codigo.
+* Resultado de comparacao visual, quando houver.
+* Baseline utilizada ou justificativa de ausencia de baseline.
 * Severidade do achado.
 * Status: corrigido, pendente justificado ou nao aplicavel.
 
@@ -403,6 +582,9 @@ Considerar a auditoria aprovada quando:
 * Nao houver texto essencial cortado sem alternativa de acesso.
 * Componentes equivalentes seguirem o mesmo padrao visual ou possuirem
   justificativa objetiva.
+* Diferencas visuais detectadas por screenshots estiverem classificadas como
+  aceitaveis, regressoes corrigidas ou alteracoes intencionais.
+* Heuristicas de UX relevantes tiverem sido avaliadas e violacoes registradas.
 * Validacoes proporcionais tiverem sido executadas ou justificadas.
 * O relatorio final informar commit realizado ou justificar ausencia de commit.
 
@@ -421,8 +603,12 @@ Ao finalizar, apresentar:
 7. Pendencias justificadas.
 8. Riscos remanescentes.
 9. Evidencias de validacao.
-10. Classificacao da manutencao conforme o estado atual da State Machine.
-11. Commit realizado ou justificativa para ausencia de commit.
+10. Evidencias de Visual QA e screenshots, quando aplicavel.
+11. Resultado de Visual Regression Testing, quando aplicavel.
+12. Resultado de auditoria Pixel Perfect, quando aplicavel.
+13. Violacoes de heuristicas de UX.
+14. Classificacao da manutencao conforme o estado atual da State Machine.
+15. Commit realizado ou justificativa para ausencia de commit.
 
 ---
 
@@ -439,5 +625,9 @@ O resumo final deve informar:
 * Total de correcoes aplicadas.
 * Total de pendencias justificadas.
 * Validacoes executadas.
+* Resultado da auditoria Pixel Perfect.
+* Resultado do Visual Regression Testing.
+* Resultado da inspecao visual final.
+* Resultado das heuristicas de UX.
 * Percentual estimado de conformidade visual.
 * Hash do commit, quando houver mudancas de arquivo.

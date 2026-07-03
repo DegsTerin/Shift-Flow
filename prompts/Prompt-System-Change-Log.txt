@@ -39,6 +39,15 @@ Estado afetado:
 REGISTROS
 
 Data: 2026-07-03
+Versao: 1.4.38
+Tipo: patch documental
+Arquivos alterados: Prompt-Interface-UI-UX.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt
+Resumo: Ampliado Prompt-Interface-UI-UX.txt com Visual QA, Pixel Perfect, regressao visual, heuristicas de UX e inspecao visual final.
+Impacto: A auditoria UI UX passa a exigir avaliacao da interface renderizada, screenshots, comparacao visual quando houver baseline, consistencia optica, qualidade visual premium e heuristicas de Nielsen.
+Conflitos resolvidos: O prompt anterior cobria consistencia visual e responsividade, mas nao detalhava regressao visual automatica, auditoria Pixel Perfect, criterios opticos subjetivos, baseline de screenshots ou heuristicas de UX.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-03
 Versao: 1.4.37
 Tipo: patch documental
 Arquivos alterados: Prompt-Interface-UI-UX.txt, Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt, State-Transition-Log.txt

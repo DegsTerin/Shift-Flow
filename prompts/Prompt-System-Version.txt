@@ -19,13 +19,16 @@ Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao expli
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.37
+PROMPT_SYSTEM_VERSION: 1.4.38
 
 Data:
 2026-07-03
 
 Status:
-Prompt-Interface-UI-UX.txt padronizado em 2026-07-03 como prompt executivo de auditoria visual, com escopo auditavel, fonte canonica de Design System, classificacao de achados, fluxo de execucao, evidencias, criterio de aprovacao, relatorio obrigatorio e resultado final. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+Prompt-Interface-UI-UX.txt ampliado em 2026-07-03 com Visual QA, Pixel Perfect, Visual Regression Testing, qualidade visual premium, heuristicas de UX e inspecao visual final. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.38:
+Prompt-Interface-UI-UX.txt recebeu verificacoes avancadas de simetria, equilibrio de areas em branco, consistencia optica, alinhamento optico de icones, ritmo visual, hierarquia por contraste, consistencia de radius, sombras, transicoes e escala tipografica, densidade visual entre telas, Pixel Perfect quando houver referencia e comparacao automatica por screenshots. Tambem foram adicionadas secoes de Qualidade Visual Premium, Auditoria Pixel Perfect, Regressao Visual, Heuristicas de UX e Inspecao Visual Final, com ajustes no fluxo de execucao, validacoes, evidencias, criterio de aprovacao, relatorio obrigatorio e resultado final.
 
 Patch 1.4.37:
 Prompt-Interface-UI-UX.txt foi reestruturado para remover duplicacoes, comandos absolutos, escopo nao verificavel e ambiguidades entre correcao visual e mudanca funcional. O prompt passa a separar paginas existentes de diretrizes futuras, tratar tema escuro e Modo TV apenas quando existirem, apontar fontes canonicas de Design System, exigir classificacao de severidade, definir fluxo de execucao, validacoes proporcionais, evidencias, criterio de aprovacao, relatorio obrigatorio e resultado final. Prompt-System-Version.txt, Prompt-System-Change-Log.txt, Prompt-System-Audit.txt, Current-State.txt, Project-Snapshot.txt e State-Transition-Log.txt foram atualizados.
