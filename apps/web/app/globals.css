@@ -2617,6 +2617,16 @@ textarea {
   white-space: nowrap;
 }
 
+.app-shell[data-theme="dark"] .segmented button:not(.selected) {
+  background: #202832;
+  color: #edf2f7;
+}
+
+.app-shell[data-theme="dark"] .segmented .selected {
+  background: #171d23;
+  color: #2dd4bf;
+}
+
 .icon-button {
   flex: 0 0 var(--control-h);
   width: var(--control-h);
