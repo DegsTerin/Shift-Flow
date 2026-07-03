@@ -23,7 +23,16 @@ function Invoke-Step {
   )
 
   Write-Host "==> $Name"
+  $global:LASTEXITCODE = 0
   & $Command
+  if ($LASTEXITCODE -ne 0) {
+    throw "$Name failed with exit code $LASTEXITCODE."
+  }
+}
+
+function Test-IntegrationSeedEnv {
+  return -not [string]::IsNullOrWhiteSpace($env:E2E_EMAIL) -and
+    -not [string]::IsNullOrWhiteSpace($env:E2E_PASSWORD)
 }
 
 function Start-ManagedProcess {
@@ -37,7 +46,7 @@ function Start-ManagedProcess {
   $rootLiteral = "'" + ($root.Path -replace "'", "''") + "'"
   $outLiteral = "'" + ($OutLog -replace "'", "''") + "'"
   $errLiteral = "'" + ($ErrLog -replace "'", "''") + "'"
-  $childCommand = "Set-Location -LiteralPath $rootLiteral; $Command 1> $outLiteral 2> $errLiteral"
+  $childCommand = "Set-Location -LiteralPath $rootLiteral; cmd.exe /d /s /c `"$Command`" 1> $outLiteral 2> $errLiteral"
   $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCommand))
 
   $process = Start-Process `
@@ -130,8 +139,13 @@ Invoke-Step "Generating Prisma client" { npm run prisma:generate }
 Invoke-Step "Applying database migrations" { npx prisma migrate deploy }
 
 if (-not $SkipSeed) {
-  Invoke-Step "Seeding integration data" { npm run seed:integration }
-  Invoke-Step "Seeding homologation data" { npm run homologation:seed }
+  if (Test-IntegrationSeedEnv) {
+    Invoke-Step "Seeding integration data" { npm run seed:integration }
+    Invoke-Step "Seeding homologation data" { npm run homologation:seed }
+  } else {
+    Write-Warning "Skipping integration and homologation seeds because E2E_EMAIL and E2E_PASSWORD are not set in the current runtime."
+    Write-Warning "Provide them through the shell or CI secrets, or run npm run platform:start -- -SkipSeed when seed data is not needed."
+  }
 }
 
 if (Test-Path $pidFile) {
@@ -146,13 +160,13 @@ $webErrLog = Join-Path $runtimeDir "web.err.log"
 
 $processes += Start-ManagedProcess `
   -Name "api" `
-  -Command "npm run dev:api" `
+  -Command "node.exe node_modules/tsx/dist/cli.mjs watch apps/api/src/server.ts" `
   -OutLog $apiOutLog `
   -ErrLog $apiErrLog
 
 $processes += Start-ManagedProcess `
   -Name "web" `
-  -Command "npm run dev:web" `
+  -Command "node.exe node_modules/next/dist/bin/next dev apps/web" `
   -OutLog $webOutLog `
   -ErrLog $webErrLog
 
