@@ -15,13 +15,16 @@ Prefer updating the documents listed here instead of creating new root-level con
 - `docs/technical-roadmap.md`: planned technical evolution.
 - `docs/systematization-report.md`: systematization baseline, decisions, and remaining risks.
 - `docs/adr/`: architecture decision records.
-- `prompts/`: controlled prompt, phase, state-machine, audit, and execution protocol artifacts.
+- `prompts/`: the 17 active, controlled Codex instruction artifacts.
+- `docs/history/`: closed prompt-system, phase-validation, delivery, and state-transition evidence; never current instruction authority.
 
 ## Prompt Control Files
 
-The `prompts/*.md` files are treated as controlled process artifacts. They should remain stable unless a phase, state machine, audit process, or prompt protocol explicitly changes.
+The active prompt corpus is declared by `prompts/Start-Here.md` and contains exactly 17 Markdown files organised under `core/`, `state/`, `phases/`, `modules/`, and `playbooks/`. These files are controlled process artifacts and should remain stable unless a phase, state machine, audit process, or prompt protocol explicitly changes.
 
-When a prompt control file is still required, keep it in `prompts/` and reference it from this index or from the relevant canonical document. When a prompt control file becomes obsolete, archive it through a dedicated documentation-only change that records the replacement document and impact.
+Load current instructions from `prompts/`. Consult `docs/history/` only when a task needs historical evidence. Historical files may quote superseded rules and paths and must not override the active corpus.
+
+When a prompt control file is still required, keep it in the active manifest and reference it from the relevant canonical document. When a control becomes obsolete, consolidate it under `docs/history/` through a dedicated documentation-only change that records its replacement and impact.
 
 ## Change Rules
 
@@ -30,6 +33,41 @@ When a prompt control file is still required, keep it in `prompts/` and referenc
 - Keep phase/state/protocol changes separate from functional code changes.
 - Record durable architectural decisions as ADRs under `docs/adr/`.
 - Update this index whenever a governance source of truth changes.
+
+## Prompt System Layout
+
+- `prompts/Start-Here.md`: entrypoint, active manifest, version, and loading rules.
+- `prompts/core/`: authority, state machine, execution protocol, and quality gates.
+- `prompts/state/`: current state, current snapshot, rolling transition log, and prompt-system changelog.
+- `prompts/phases/`: foundation, implementation, and delivery instructions.
+- `prompts/modules/Modules.md`: canonical module catalogue and phase matrix.
+- `prompts/playbooks/`: audit, security/access, maintenance/product, and UI/UX workflows.
+- `docs/history/phase-validation-history.md`: consolidated Automatic Review, Human CI, and former prompt-system audit evidence.
+- `docs/history/phase-delivery-history.md`: consolidated architecture, data-model, handoff, integration, homologation, and release evidence.
+- `docs/history/state-transitions-2026.md`: consolidated pre-2.0 state, snapshot, transition, and version history.
+
+## Version 2.0 Legacy Mapping
+
+The 75-file corpus was migrated as follows:
+
+- `prompts/Start-Here.md`: absorbed `Start-Here.md`, `Prompt-System-Readme.md`, `Prompt-Index.md`, `Prompt-System-Version.md`, and `Prompt-System-Versioning-Policy.md`.
+- `prompts/core/Governance.md`: absorbed `System-Guard-Rails.md`, `Conflict-Resolution-Policy.md`, `Controlled-Rollback-Policy.md`, and `Blocked-State-Protocol.md`.
+- `prompts/core/Official-State-Machine.md`: absorbed `Official-State-Machine.md`, `Controlled-Phase-Execution-System.md`, `Canonical-State-And-Module-IDs.md`, and the authority/phase rules from `Module-Phase-Matrix.md`.
+- `prompts/core/Execution-Protocol.md`: absorbed `Execution-Protocol.md`, `Allowed-Commands-By-State.md`, `Project-Memory-System.md`, the reusable part of `Phase-Handoff-Template.md`, and `Engineering-Multi-Agent-System.md`.
+- `prompts/core/Quality-Gates.md`: absorbed `Acceptance-Criteria-By-State.md`, `Global-Definition-Of-Done.md`, `Evidence-Standard.md`, `Human-Gate-Validation-Checklist.md`, and `Automatic-Review-Audit.md`.
+- `prompts/phases/Foundation-Phases.md`: absorbed `Project-Setup-Phase.md`, `Solution-Architecture-Phase.md`, and `Database-Modelling-Phase.md`.
+- `prompts/phases/Implementation-Phases.md`: absorbed `Backend-Phase.md` and `Frontend-Phase.md`.
+- `prompts/phases/Delivery-Phases.md`: absorbed `Integration-Phase.md`, `Testing-And-Homologation-Phase.md`, and `Production-Release-Phase.md`.
+- `prompts/modules/Modules.md`: absorbed `Executive-Dashboard-Module.md`, `Operational-Kanban-Module.md`, `RBAC-Module.md`, `Shift-Management-Module.md`, `Team-Management-Module.md`, and the detailed module matrix.
+- `prompts/playbooks/Audit-Playbooks.md`: absorbed `Prompt-Audit-Full.md`, `Prompt-Audit-Human-CI.md`, and the reusable checklist from `Prompt-System-Audit.md`.
+- `prompts/playbooks/Security-Access-Playbooks.md`: absorbed `Prompt-Auth.md`, `Prompt-Password.md`, and `Prompt-Security.md`.
+- `prompts/playbooks/Maintenance-Playbooks.md`: absorbed `Prompt-Adjustments.md`, `Prompt-Dashboard.md`, `Prompt-Systematization.md`, `Revision-Prompt.md`, and `Restructuring-Prompt.md`.
+- `prompts/playbooks/Prompt-Interface-UI-UX.md`: preserved and moved `Prompt-Interface-UI-UX.md` while centralising shared policy.
+- `prompts/state/`: focused and relocated `Current-State.md`, `Project-Snapshot.md`, `State-Transition-Log.md`, and `Prompt-System-Change-Log.md`.
+- `docs/history/phase-validation-history.md`: preserves the eight `Automatic-Review-Audit-<Phase>.md` results, nine `Human-CI-Validation-<Phase>.md` results, and the original `Prompt-System-Audit.md`.
+- `docs/history/phase-delivery-history.md`: preserves `Database-Modelling-Document.md`, `Solution-Architecture-Document.md`, `Integration-Execution-Report.md`, `Testing-Homologation-Report.md`, `Production-Release-Report.md`, and the original handoff file.
+- `docs/history/state-transitions-2026.md`: preserves the original state, snapshot, transition, version, and prompt changelog records.
+- `System-Reorganisation-Codex-Prompt.md`: removed after its reusable governance and normalisation rules were absorbed by the active corpus.
 
 ## Ownership Domains
 

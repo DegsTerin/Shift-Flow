@@ -66,7 +66,7 @@ The frontend is functional but still has a few large orchestration files, especi
 
 1. Continue expanding unit tests around tenant scope, RBAC-sensitive services, reports, dashboard filters, comments, and readiness failures.
 2. Continue decomposing the largest frontend files in behavior-preserving slices, especially remaining `page.tsx` orchestration and generic record modal details.
-3. Keep prompt control files under `prompts/` and archive obsolete prompt artifacts only through documentation-only changes that check references and record replacements.
+3. Keep the 17-file active prompt manifest under `prompts/`; preserve closed prompt evidence under `docs/history/` and validate every replacement/reference during future structural changes.
 4. Add production deployment descriptors for API and web runtimes once the target infrastructure is selected.
 
 ## Remaining Risks

@@ -1,133 +1,95 @@
-START HERE - PROMPT SYSTEM ENTRYPOINT
+# ShiftFlow Prompt System
 
-REGRA DE OURO
+This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **2.0.0**.
 
-Nenhum prompt, gate, agente, documento operacional, snapshot ou log pode criar ou alterar estado.
-Apenas a State Machine pode alterar estado.
+## Golden rule
 
----
+No prompt, gate, agent, checklist, snapshot, index, report, or log may independently create or change project state. Only the state-machine decision recorded through [Official-State-Machine.md](core/Official-State-Machine.md) may change state.
 
-REGRA DE COMMIT
+## Commit rule
 
-Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
-O commit deve incluir somente arquivos relacionados a alteracao executada.
-Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
-Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+When an authorised task changes files, create a local commit with a clear message and closed scope after the required validation passes. Stage only files related to the task. Do not include generated, environment-specific, or unrelated changes without explicit authorisation. If no file changed, state that no commit is required.
 
----
+## Current operating state
 
+- State: `STATE-08 PRODUCTION_RELEASE`.
+- Current authority: [Current-State.md](state/Current-State.md).
+- Current evidence: [Project-Snapshot.md](state/Project-Snapshot.md).
+- Changes and historical decisions do not change state by themselves.
 
-OBJETIVO
+## Required reading by task
 
-Este e o ponto de entrada oficial do sistema de prompts.
-Sempre comece por este arquivo.
+### Always
 
----
+1. Read this file.
+2. Read [Current-State.md](state/Current-State.md).
+3. Read [Governance.md](core/Governance.md).
+4. Select only the phase, module, or playbook relevant to the request.
 
-REGRA ANTI-OVERENGINEERING
+### Phase execution
 
-Nao criar novo arquivo de controle se uma regra existente puder ser ajustada.
-Nao criar novo gate se um gate existente puder validar o mesmo risco.
-Nao criar novo estado se o fluxo atual ja comportar a execucao.
-Nao criar novo modulo se ele for apenas uma variacao de modulo existente.
+Also read:
 
-Antes de propor novo arquivo, responder:
+- [Official-State-Machine.md](core/Official-State-Machine.md)
+- [Execution-Protocol.md](core/Execution-Protocol.md)
+- [Quality-Gates.md](core/Quality-Gates.md)
+- One file under `phases/`
+- [Modules.md](modules/Modules.md) when a module is involved
 
-* Qual conflito ou risco real ele resolve?
-* Por que um arquivo existente nao basta?
-* Qual custo operacional ele adiciona?
-* Ele altera a State Machine? Se sim, bloquear e aplicar Conflict-Resolution-Policy.md.
+### Audit, security, maintenance, or UI/UX
 
----
+Read the matching file under `playbooks/`. A diagnostic-only request does not authorise implementation. A request to execute or correct a playbook authorises only changes within its declared scope and the current state.
 
-MODOS DE EXECUCAO
+### Exceptions
 
-MODO PADRAO:
+- Conflict, block, or rollback: use [Governance.md](core/Governance.md).
+- State transition: use the State Machine, quality gates, snapshot, and transition log.
+- Historical evidence: consult `docs/history/` only when the current task requires it.
 
-Usar para fases, modulos, transicoes, bloqueios, rollback e mudancas de prompts.
+## Execution modes
 
-MODO RESUMIDO:
+### Standard mode
 
-Usar apenas para consulta simples, auditoria leve ou leitura sem alteracao.
-Nao pode ser usado para alterar arquivos, executar fase, recomendar transicao, resolver bloqueio ou fazer rollback.
+Use for implementation, phase execution, state-sensitive work, migrations, releases, security work, broad audits, or any task that changes files.
 
----
+### Summary mode
 
-ARQUIVOS OBRIGATORIOS SEMPRE
+Use for read-only consultation or light analysis. Summary mode does not waive security, scope, state, or evidence requirements.
 
-* Start-Here.md
-* Current-State.md
-* Official-State-Machine.md
-* System-Guard-Rails.md
-* Prompt-Index.md
+## Active corpus
 
----
+The active corpus contains exactly 17 Markdown files:
 
-ARQUIVOS OBRIGATORIOS POR EXECUCAO DE FASE
+- `Start-Here.md`
+- `core/Governance.md`
+- `core/Official-State-Machine.md`
+- `core/Execution-Protocol.md`
+- `core/Quality-Gates.md`
+- `state/Current-State.md`
+- `state/Project-Snapshot.md`
+- `state/State-Transition-Log.md`
+- `state/Prompt-System-Change-Log.md`
+- `phases/Foundation-Phases.md`
+- `phases/Implementation-Phases.md`
+- `phases/Delivery-Phases.md`
+- `modules/Modules.md`
+- `playbooks/Audit-Playbooks.md`
+- `playbooks/Security-Access-Playbooks.md`
+- `playbooks/Maintenance-Playbooks.md`
+- `playbooks/Prompt-Interface-UI-UX.md`
 
-* Execution-Protocol.md
-* Prompt-System-Readme.md
-* Allowed-Commands-By-State.md
-* Project-Snapshot.md
-* Project-Memory-System.md
-* Canonical-State-And-Module-IDs.md
-* Acceptance-Criteria-By-State.md
-* Evidence-Standard.md
-* Global-Definition-Of-Done.md
-* Prompt da fase solicitada permitida pelo estado atual
+## Authority and versioning
 
----
+- Authority is defined once in [Governance.md](core/Governance.md).
+- State identifiers and transitions are defined once in [Official-State-Machine.md](core/Official-State-Machine.md).
+- Acceptance, evidence, and completion rules are defined once in [Quality-Gates.md](core/Quality-Gates.md).
+- The current version is declared here; version history belongs in [Prompt-System-Change-Log.md](state/Prompt-System-Change-Log.md).
+- Structural changes follow semantic versioning. Authority or state-model changes are major; new compatible capabilities are minor; corrections are patches.
 
-ARQUIVOS OBRIGATORIOS POR MODULO
+## Anti-overengineering
 
-* Module-Phase-Matrix.md
-* Prompt do modulo
+Do not create a new control, gate, state, module, report, or prompt when an existing canonical document can own the rule. A new file must resolve a distinct operational risk, have an owner and loading condition, and be added to this manifest.
 
----
+## Final rule
 
-ARQUIVOS OBRIGATORIOS POR EXCECAO
-
-Conflito:
-
-* Conflict-Resolution-Policy.md
-
-Bloqueio:
-
-* Blocked-State-Protocol.md
-
-Rollback:
-
-* Controlled-Rollback-Policy.md
-
-Handoff:
-
-* Phase-Handoff-Template.md
-
-Mudanca em prompts:
-
-* Prompt-System-Version.md
-* Prompt-System-Versioning-Policy.md
-* Prompt-System-Change-Log.md
-
-Auditoria do sistema de prompts:
-
-* Prompt-System-Audit.md
-
----
-
-FLUXO RAPIDO
-
-1. Ler Start-Here.md.
-2. Consultar Current-State.md.
-3. Confirmar comando permitido em Allowed-Commands-By-State.md.
-4. Consultar Official-State-Machine.md.
-5. Executar apenas a fase ou tarefa permitida.
-6. Validar com gates.
-7. Atualizar snapshot e logs quando aplicavel.
-
----
-
-REGRA FINAL
-
-Se houver duvida, nao criar novo controle.
-Aplicar a hierarquia existente e registrar o conflito.
+Load the smallest authoritative set that can execute the request safely. Current instructions prevail over historical material. When evidence conflicts with instructions, report the conflict and apply [Governance.md](core/Governance.md).

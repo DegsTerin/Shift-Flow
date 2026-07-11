@@ -1,2 +1,3 @@
-# en-GB: Preserves the canonical prompt format so automated styling does not rewrite governance records.
-prompts/*.md
+# en-GB: Preserves active prompt and historical evidence formatting so automated styling does not rewrite controlled records.
+prompts/**/*.md
+docs/history/*.md

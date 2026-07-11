@@ -21,6 +21,16 @@ Activities can own an internal task board that is independent from the main oper
 
 The API exposes the board through nested activity routes under `/api/activities/:id/task-board`. This keeps ownership and tenant scoping in the activities module and avoids creating a disconnected task module.
 
+## Data Model Invariants
+
+- Company scope is explicit for tenant-owned operational records and is revalidated by backend services.
+- Activities are operational dossiers with client, system/service, responsibility, status, priority, lifecycle timestamps, comments, attachments, task boards, audit, and chronological history.
+- Operational and audit history is append-only; mutable records use soft delete where deletion must not erase historical evidence.
+- Roles, permissions, memberships, and assignments are company-aware. Inactive roles and memberships do not grant access.
+- Refresh sessions retain company context and support rotation/revocation.
+- Teams and clients use active-record uniqueness rules where names or codes may be reused after logical deletion; user e-mail uniqueness follows the authentication contract.
+- Migrations are forward-only. Applied migration files remain immutable and remote environments receive approved migrations through deployment pipelines.
+
 ## RBAC Profile Management
 
 Profiles are represented by `Role` records and remain enforced by backend RBAC checks. Role management supports profile color, active/inactive state, permission assignment, duplication, and guarded deletion. Roles with active user assignments cannot be deleted; inactive roles are ignored by permission checks.
