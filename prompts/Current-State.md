@@ -72,6 +72,7 @@ Patch documental 1.4.36 registra a inclusao de REGRA DE COMMIT em todos os .md c
 Patch documental 1.4.37 registra a padronizacao de Prompt-Interface-UI-UX.md: duplicacoes, comandos absolutos, escopo nao verificavel e ambiguidades de fluxo foram substituidos por escopo auditavel, classificacao de achados, fonte canonica de Design System, validacoes proporcionais, evidencias, criterio de aprovacao, relatorio obrigatorio e resultado final. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.38 registra a ampliacao de Prompt-Interface-UI-UX.md com Visual QA, Auditoria Pixel Perfect, Regressao Visual, Qualidade Visual Premium, Heuristicas de UX e Inspecao Visual Final. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 Patch documental 1.4.39 registra a migracao integral dos 75 arquivos canonicos de .txt para .md, com atualizacao de referencias internas e indices. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
+Registro de manutencao funcional pos-release 1.4.40 aplica semantica HTML5, acessibilidade, responsividade, metadata e comentarios CSS en-GB nas fontes Next.js reais, sem editar o index.html gerado e sem alterar regras de negocio. O estado atual permanece STATE-08 PRODUCTION_RELEASE.
 
 ---
 

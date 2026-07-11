@@ -29,7 +29,7 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.39
+1.4.40
 
 Ultima atualizacao:
 2026-07-11
@@ -42,6 +42,8 @@ WORKSPACE ATUAL
 * STATE-02 ARCHITECTURE executado documentalmente e aprovado por Human CI em 2026-06-21.
 * Estado operacional atual: STATE-08 PRODUCTION_RELEASE.
 * Os 75 arquivos canonicos de prompts/ usam extensao .md; nao restam arquivos .txt versionados no corpus.
+* O frontend Next.js usa layout.tsx, page.tsx, componentes React e globals.css como fontes editaveis; index.html em .next/ permanece artefato gerado.
+* A interface possui main primario, skip link, metadata atualizada, lista de perfis semantica e comentarios en-GB em todas as declaracoes do CSS global.
 * Estrutura tecnica base criada.
 * package.json e package-lock.json criados.
 * Diretorios tecnicos criados:

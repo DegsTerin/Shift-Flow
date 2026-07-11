@@ -1,95 +1,175 @@
 @import "tailwindcss";
 
 :root {
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --font-sans: Arial, Helvetica, sans-serif;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --radius: 8px;
 }
 
 * {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   box-sizing: border-box;
 }
 
 html,
 body {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 100%;
 }
 
 body {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-family: var(--font-sans);
 }
 
 body.modal-open {
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+}
+
+.skip-link {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
+  background: var(--surface, #ffffff);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
+  border: 2px solid var(--accent, #0f766e);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
+  border-radius: var(--radius);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
+  color: var(--text, #182233);
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
+  left: 1rem;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
+  padding: 0.75rem 1rem;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
+  position: fixed;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
+  top: 1rem;
+  /* en-GB: Applies a visual transformation so the element reaches its intended state. */
+  transform: translateY(-200%);
+  /* en-GB: Controls motion so state changes remain clear and visually smooth. */
+  transition: transform 150ms ease;
+  /* en-GB: Sets the stacking order so overlays and fixed controls remain accessible. */
+  z-index: 100;
+}
+
+.skip-link:focus {
+  /* en-GB: Applies a visual transformation so the element reaches its intended state. */
+  transform: translateY(0);
 }
 
 button,
 input,
 select,
 textarea {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font: inherit;
 }
 
 button {
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: pointer;
 }
 
 .app-shell {
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --bg: #f5f7fb;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --surface: #ffffff;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --surface-strong: #eef3f8;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --border: #d8e0ea;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --text: #182233;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --muted: #475569;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --accent: #0f766e;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --accent-strong: #115e59;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --warning: #7c2d12;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --danger: #b91c1c;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --success: #15803d;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: 280px minmax(0, 1fr);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 100vh;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--bg);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
+  /* en-GB: Controls motion so state changes remain clear and visually smooth. */
   transition: grid-template-columns 180ms ease;
 }
 
 .app-shell.nav-collapsed {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: 76px minmax(0, 1fr);
 }
 
 .app-shell[data-theme="dark"] {
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --bg: #101418;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --surface: #171d23;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --surface-strong: #202832;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --border: #334150;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --text: #edf2f7;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --muted: #cbd5e1;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --accent: #2dd4bf;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --accent-strong: #5eead4;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --warning: #f59e0b;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --danger: #f87171;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --success: #4ade80;
 }
 
 .auth-shell {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(0, 1fr);
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   place-items: center;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 24px;
 }
 
 .auth-panel {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 20px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: min(100%, 480px);
 }
 
 .brand-mark {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--accent);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   letter-spacing: 0;
 }
 
@@ -98,95 +178,145 @@ button {
 .metric-card,
 .kanban-column,
 .team-card {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: 0 10px 30px rgb(15 23 42 / 8%);
 }
 
 .login-card {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 18px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 28px;
 }
 
 .login-card h1,
 .topbar h1 {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: clamp(1.8rem, 3vw, 2.6rem);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1.05;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .login-card p,
 .guard-note {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 8px 0 0;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   overflow-wrap: anywhere;
 }
 
 .form-error {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(185 28 28 / 12%);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid rgb(185 28 28 / 32%);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--danger);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0 0 14px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px 12px;
 }
 
 .task-overdue {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--danger);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
 }
 
 .eyebrow {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--accent);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.76rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   letter-spacing: 0;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0 0 6px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-transform: uppercase;
 }
 
 label {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.88rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 700;
 }
 
 input,
 select,
 textarea {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 42px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 12px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 100%;
 }
 
 select {
+  /* en-GB: Normalises native rendering so the control follows the shared interface style. */
   appearance: none;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background-image:
     linear-gradient(45deg, transparent 50%, var(--muted) 50%),
     linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background-position:
     calc(100% - 16px) 18px,
     calc(100% - 11px) 18px;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background-repeat: no-repeat;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background-size:
     5px 5px,
     5px 5px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-right: 30px;
 }
 
 textarea {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1.45;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 96px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px 12px;
+  /* en-GB: Controls manual resizing so editable content remains usable without breaking layout. */
   resize: vertical;
 }
 
@@ -197,26 +327,41 @@ textarea {
 .nav-button,
 .select-button,
 .segmented button {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: center;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 38px;
 }
 
 .primary-button {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--accent);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: var(--accent);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #ffffff;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
 }
 
 .danger-button {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(185 28 28 / 12%);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: rgb(185 28 28 / 30%);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--danger);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 12px;
 }
 
@@ -224,61 +369,88 @@ textarea {
 .icon-button,
 .select-button,
 .segmented button {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 12px;
 }
 
 .compact-button.active {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--accent);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: var(--accent);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #ffffff;
 }
 
 .alert-list,
 .settings-grid {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
 }
 
 .alert-list {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .alert-list span,
 .settings-group {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 12px;
 }
 
 .settings-grid {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .settings-group {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: start;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 6px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 96px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-align: left;
 }
 
 .settings-group span {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.86rem;
 }
 
 .settings-group:disabled {
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: not-allowed;
+  /* en-GB: Controls visibility so the interface communicates the current state correctly. */
   opacity: 0.55;
 }
 
 .icon-button {
+  /* en-GB: Controls media sizing so visual content keeps the intended proportions. */
   aspect-ratio: 1;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 38px;
 }
 
@@ -286,66 +458,104 @@ textarea {
 .topbar-actions,
 .filter-bar,
 .panel-header {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
 }
 
 .auth-actions,
 .topbar-actions,
 .filter-bar {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
 }
 
 .topbar-actions {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 0 auto;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: nowrap;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: flex-end;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .topbar-actions .search-box {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 0 clamp(160px, 18vw, 260px);
 }
 
 .segmented {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-grid;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-auto-flow: column;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 4px;
 }
 
 .segmented button {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: transparent;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 0;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 32px;
 }
 
 .segmented .selected {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--accent);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
 }
 
 .sidebar {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-self: start;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--bg);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-right: 1px solid var(--border);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 24px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-rows: auto 1fr;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: 100dvh;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 100dvh;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow-x: hidden;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow-y: auto;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 28px 18px;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: sticky;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   top: 0;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 280px;
+  /* en-GB: Sets the stacking order so overlays and fixed controls remain accessible. */
   z-index: 25;
+  /* en-GB: Controls motion so state changes remain clear and visually smooth. */
   transition:
     transform 180ms ease,
     width 180ms ease,
@@ -353,266 +563,403 @@ textarea {
 }
 
 .sidebar-brand {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: flex-start;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 14px;
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   justify-items: start;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
 }
 
 .sidebar-brand .brand-mark {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .sidebar-brand .icon-button {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 0 auto;
 }
 
 .nav-collapsed .sidebar {
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 28px 10px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 76px;
 }
 
 .nav-collapsed .sidebar-brand {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: center;
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   justify-items: center;
 }
 
 .nav-collapsed .brand-mark {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: center;
 }
 
 .nav-collapsed .brand-mark span,
 .nav-collapsed .nav-button span {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: 0;
+  /* en-GB: Controls visibility so the interface communicates the current state correctly. */
   opacity: 0;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   pointer-events: none;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: absolute;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 0;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .sidebar nav {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   align-content: start;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow-x: hidden;
 }
 
 .nav-button {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: transparent;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: flex-start;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 54px;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 14px;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: relative;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 100%;
 }
 
 .nav-button svg {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 0 auto;
 }
 
 .nav-button span {
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-overflow: ellipsis;
+  /* en-GB: Controls motion so state changes remain clear and visually smooth. */
   transition: opacity 160ms ease;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .nav-collapsed .nav-button {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: center;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0;
 }
 
 .nav-button.active {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--accent);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
 }
 
 .workspace {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   align-content: start;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: none;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 22px 22px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 100%;
 }
 
 .topbar {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   column-gap: 16px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(0, 1fr) auto;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-bottom: 0;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 16px 0;
 }
 
 .mobile-nav-trigger {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: none;
 }
 
 .topbar-title {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 14px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: 38px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
 }
 
 .topbar-title .eyebrow,
 .topbar-title h1 {
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-overflow: ellipsis;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .topbar-title .eyebrow {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 1 auto;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .topbar-title h1 {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 1 1 auto;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 1.55rem;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1.1;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .search-box {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 38px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 10px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: clamp(160px, 18vw, 260px);
 }
 
 .search-box input {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: transparent;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 0;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: auto;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0;
 }
 
 .drawer-backdrop {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: transparent;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 0;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: none;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0;
 }
 
 .content-grid,
 .dashboard-panels {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 16px;
 }
 
 .kpi-grid {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .metric-card {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 126px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 16px;
 }
 
 .metric-card span,
 .metric-card small,
 th {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
 }
 
 .metric-card strong {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 2rem;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1;
 }
 
 .metric-card small {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--success);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
 }
 
 .filter-bar,
 .team-summary {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 12px;
 }
 
 .filter-bar span {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-flex;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
 }
 
 .select-label,
 .date-label {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 150px;
 }
 
 .select-label span,
 .date-label span {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: none;
 }
 
 .date-filter {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: 160px;
 }
 
 .dashboard-panels {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .custom-dashboard {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 16px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .dashboard-toolbar,
 .widget-palette,
 .widget-edit-bar {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
 }
 
 .dashboard-toolbar {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: space-between;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px 12px;
 }
 
 .dashboard-save-error {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--danger);
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 1 1 180px;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.84rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   overflow-wrap: anywhere;
 }
 
@@ -621,165 +968,244 @@ th {
 .widget-palette-row,
 .widget-edit-bar,
 .widget-edit-actions {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .dashboard-toolbar-title span,
 .widget-edit-bar span,
 .widget-palette-row > span {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-overflow: ellipsis;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .dashboard-toolbar-actions,
 .widget-edit-actions {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: flex-end;
 }
 
 .widget-palette {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px 12px;
 }
 
 .widget-palette-row {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
 }
 
 .custom-dashboard-grid {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 16px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
 .dashboard-widget {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .custom-dashboard.editing .dashboard-widget {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   outline: 1px dashed var(--border);
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   outline-offset: 3px;
 }
 
 .dashboard-widget.pinned {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   outline-color: var(--accent);
 }
 
 .widget-edit-bar {
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: grab;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: space-between;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 8px;
 }
 
 .widget-edit-bar .icon-button {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 32px;
 }
 
 .dashboard-widget-body {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 100%;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .dashboard-widget-body > .panel,
 .dashboard-widget-body > .metric-card,
 .dashboard-widget-body > .team-summary {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: 100%;
 }
 
 .dashboard-widget-body > .status-legend {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   align-content: start;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-top: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 16px;
 }
 
 .panel {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 16px;
 }
 
 .panel.full-width {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-column: 1 / -1;
 }
 
 .panel-header {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: space-between;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-bottom: 14px;
 }
 
 .panel-header h2,
 .kanban-column h2,
 .team-card h3 {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 1rem;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .bar-chart {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: end;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-auto-flow: column;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: 180px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 26px 0 0;
 }
 
 .bar-chart span {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--accent-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: 4px 4px 0 0;
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%);
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 26px;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: relative;
 }
 
 .bar-chart b {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--foreground);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.82rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 900;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   left: 50%;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: absolute;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   top: -20px;
+  /* en-GB: Applies a visual transformation so the element reaches its intended state. */
   transform: translateX(-50%);
 }
 
 .app-shell[data-theme="dark"] .bar-chart b {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #d8e2ee;
 }
 
 .chart-legend,
 .status-legend {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-top: 12px;
 }
 
 .status-legend {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 12px;
 }
 
 .chart-legend span,
 .status-legend span {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-flex;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.8rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 6px;
 }
 
@@ -787,639 +1213,981 @@ th {
 .status-legend i,
 .role-selector-list i,
 .internal-kanban-column h3 i {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: 999px;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-block;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: 10px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 10px;
 }
 
 .table-wrap {
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow-x: auto;
 }
 
 table {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-collapse: collapse;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 760px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 100%;
 }
 
 th,
 td {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-bottom: 1px solid var(--border);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 12px 10px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-align: left;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 tbody tr:hover {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
 }
 
 tbody tr {
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: pointer;
 }
 
 .priority {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: 999px;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-block;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.75rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 4px 8px;
 }
 
 .priority.critical {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(185 28 28 / 14%);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--danger);
 }
 
 .priority.high {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(180 83 9 / 16%);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--warning);
 }
 
 .priority.medium {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(15 118 110 / 14%);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--accent);
 }
 
 .priority.low {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(20 83 45 / 18%);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #14532d;
 }
 
 .app-shell[data-theme="dark"] .priority.low {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(74 222 128 / 20%);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #86efac;
 }
 
 .team-summary,
 .team-grid {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px 24px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
 .team-strip {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   column-gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: 12px minmax(0, 1fr);
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .team-strip > span,
 .team-card > span {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: 999px;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: block;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: 12px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 12px;
 }
 
 .team-strip-body {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 2px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1.2;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .team-strip-heading {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .team-strip-name {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: block;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 1 auto;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-overflow: ellipsis;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .team-strip b,
 .team-strip-sla {
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .team-strip b {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 0 auto;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 18px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-align: right;
 }
 
 .team-strip small,
 .team-card p,
 dt {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
 }
 
 .team-card {
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 16px;
 }
 
 .team-card dl {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 18px 0 0;
 }
 
 .team-card dt,
 .team-card dd {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .team-card dd {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 1.25rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
 }
 
 .kanban-board {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(7, minmax(220px, 1fr));
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow-x: auto;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-bottom: 8px;
 }
 
 .kanban-column {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   align-content: start;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 520px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 12px;
 }
 
 .kanban-card {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-left: 5px solid var(--accent);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 9px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 12px;
 }
 
 .kanban-card p {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .kanban-card div {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 6px;
 }
 
 .kanban-card span,
 .role-list span {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: 999px;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.75rem;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 4px 8px;
 }
 
 .kanban-card small {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
 }
 
 .report-list,
 .role-list {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
 }
 
 .report-list div {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
 }
 
 .role-list {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .role-management {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 16px;
 }
 
 .role-admin-shell {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: 300px minmax(0, 1fr);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 620px;
 }
 
 .role-sidebar {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-right: 1px solid var(--border);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 16px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-rows: auto minmax(0, 1fr);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-right: 16px;
 }
 
 .role-main {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 18px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-left: 16px;
 }
 
 .role-create-form,
 .role-edit-form,
 .role-permission-panel {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
 }
 
 .role-create-form {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-bottom: 1px solid var(--border);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-bottom: 16px;
 }
 
 .role-create-form h3,
 .section-heading h3,
 .role-permission-panel h3 {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 1rem;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .role-selector-list {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls list markers so the semantic list matches the intended presentation. */
+  list-style: none;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
+  margin: 0;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   max-height: 540px;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: auto;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
+  padding: 0;
 }
 
-.role-selector-list button {
+.role-selector-item {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: transparent;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid transparent;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 4px;
-  grid-template-columns: auto minmax(0, 1fr);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 54px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px 12px;
-  text-align: left;
 }
 
-.role-selector-list button.selected {
+.role-selector-button {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
+  align-items: center;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
+  background: transparent;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
+  border: 0;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
+  color: inherit;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
+  display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
+  gap: 8px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
+  grid-template-columns: auto minmax(0, 1fr);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
+  padding: 0;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
+  text-align: left;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
+  width: 100%;
+}
+
+.role-selector-item.selected {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: var(--accent);
 }
 
-.role-selector-list span,
+.role-profile-details,
 .section-heading span,
 .permission-table-head,
 .permission-table-row small {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
 }
 
-.role-selector-list span {
-  grid-column: 2;
+.role-colour {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
+  border-radius: 50%;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
+  height: 0.75rem;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
+  width: 0.75rem;
+}
+
+.role-profile-details {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
+  display: flex;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
+  font-size: 0.78rem;
+  /* en-GB: Adds consistent space between child elements without external margins. */
+  gap: 1.5rem;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
+  margin: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
+  padding-left: 2rem;
 }
 
 .toggle-label {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-self: end;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 42px;
 }
 
 .toggle-label input {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: auto;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: auto;
 }
 
 .section-heading {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: space-between;
 }
 
 .role-edit-fields {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: end;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(180px, 0.8fr) 150px minmax(220px, 1.2fr) 90px auto auto auto;
 }
 
 .role-permission-controls {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .permission-table {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
 }
 
 .permission-group {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-top: 1px solid var(--border);
 }
 
 .permission-group:first-of-type {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-top: 0;
 }
 
 .permission-group h4 {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.78rem;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 8px 10px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-transform: uppercase;
 }
 
 .permission-table-head,
 .permission-table-row {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(110px, 0.75fr) minmax(90px, 0.55fr) minmax(180px, 1.4fr) auto;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 9px 10px;
 }
 
 .permission-table-head {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.78rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
 }
 
 .permission-group .permission-table-row + .permission-table-row {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-top: 1px solid var(--border);
 }
 
 .permission-table-row strong,
 .permission-table-row span,
 .permission-table-row small {
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-overflow: ellipsis;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .monitor-mode {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(0, 1fr);
 }
 
 .app-shell.monitor-mode.nav-collapsed {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(0, 1fr);
 }
 
 .monitor-mode .workspace {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: none;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 16px;
 }
 
 .monitor-mode .topbar {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(0, 1fr) auto;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-bottom: 14px;
 }
 
 .monitor-mode .topbar-title {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 38px;
 }
 
 .monitor-mode .topbar-title h1 {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 1.35rem;
 }
 
 .monitor-mode .topbar-actions {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
 }
 
 .monitor-mode .filter-bar,
 .monitor-mode .dashboard-toolbar {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: none;
 }
 
 .monitor-mode .kpi-grid {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .monitor-mode .metric-card {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 170px;
 }
 
 .monitor-mode .metric-card strong {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 3.5rem;
 }
 
 .settings-board {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 14px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .settings-group {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 14px;
 }
 
 .settings-links {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
 }
 
 .settings-links .compact-button {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: flex-start;
 }
 
 .modal-backdrop {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: stretch;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(15 23 42 / 46%);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   inset: 0;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: center;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 16px;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: fixed;
+  /* en-GB: Sets the stacking order so overlays and fixed controls remain accessible. */
   z-index: 50;
 }
 
 .record-modal {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: 0 20px 70px rgb(15 23 42 / 24%);
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: calc(100dvh - 32px);
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: none;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: auto;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 18px;
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   scrollbar-gutter: stable;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: min(100%, calc(100dvw - 32px));
 }
 
 .modal-header,
 .modal-actions,
 .comment-form {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
 }
 
 .modal-header {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: space-between;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-bottom: 16px;
 }
 
 .modal-header h2 {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 1.35rem;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .modal-grid,
 .detail-grid {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .modal-stack {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 16px;
 }
 
 .span-2 {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-column: 1 / -1;
 }
 
 .modal-actions {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: flex-end;
 }
 
 .detail-grid {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-top: 16px;
 }
 
 .internal-kanban {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
 }
 
 .inline-create-form {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(160px, 1fr) 44px 42px;
 }
 
 .inline-create-form input[type="color"] {
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 4px;
 }
 
 .internal-kanban-board {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow-x: clip;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-bottom: 4px;
 }
 
 .internal-kanban-column {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   align-content: start;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 360px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px;
 }
 
 .internal-column-header {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: space-between;
 }
 
 .internal-column-header h3 {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-flex;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.95rem;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 7px;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-overflow: ellipsis;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .internal-column-header > div {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 4px;
 }
 
 .internal-column-header .icon-button {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 30px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 30px;
 }
 
 .internal-column-header .compact-button {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 30px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 8px;
 }
 
 .internal-task-card,
 .task-create-form,
 .internal-task-edit-form {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px;
 }
 
 .internal-task-card {
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: relative;
 }
 
 .internal-task-card strong,
 .internal-task-card small,
 .internal-task-card p {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   overflow-wrap: anywhere;
 }
 
 .internal-task-card small,
 .internal-task-card p {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
 }
 
 .internal-task-card p {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .internal-task-card div {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 6px;
 }
 
 .internal-task-card div span:not(.priority) {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: 999px;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.75rem;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 4px 8px;
 }
 
 .internal-task-card > .icon-button:not(.static) {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 30px;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: absolute;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   right: 8px;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   top: 8px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 30px;
 }
 
@@ -1427,331 +2195,477 @@ dt {
 .task-create-form select,
 .internal-task-edit-form input,
 .internal-task-edit-form select {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 34px;
 }
 
 .internal-task-edit-form textarea {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 72px;
 }
 
 .internal-task-actions {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 6px;
 }
 
 .internal-task-actions .compact-button,
 .internal-task-actions .primary-button {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 32px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 9px;
 }
 
 .internal-task-actions .icon-button {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 32px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 32px;
 }
 
 .task-attachment-options {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 6px;
 }
 
 .task-attachment-options label {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 7px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .task-attachment-options input {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: auto;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: auto;
 }
 
 .internal-history {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-top: 1px solid var(--border);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-top: 12px;
 }
 
 .internal-history .panel-header {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-bottom: 0;
 }
 
 .internal-history h3 {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.95rem;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .team-members-panel {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-top: 1px solid var(--border);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-top: 16px;
 }
 
 .team-member-controls {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: end;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(0, 1fr) 180px auto;
 }
 
 .team-member-list {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
 }
 
 .team-member-list > div {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(0, 1fr) auto;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px;
 }
 
 .team-member-list span {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 2px;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .team-member-list strong {
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-overflow: ellipsis;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .team-member-list small,
 .empty-state {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
 }
 
 .timeline {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   max-height: 260px;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: auto;
 }
 
 .timeline div {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 4px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 10px;
 }
 
 .timeline span,
 .timeline small,
 .info-list dt {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
 }
 
 .info-list {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .info-list div {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 3px;
 }
 
 .info-list dt,
 .info-list dd {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
 }
 
 .info-list dd {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   overflow-wrap: anywhere;
 }
 
 .comment-form {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-bottom: 12px;
 }
 
 .comment-form .compact-button {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 44px;
 }
 
 .json-detail {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   max-height: 70vh;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: auto;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 14px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: pre-wrap;
 }
 
 @media (max-width: 1180px) {
   .kpi-grid {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .team-summary,
   .team-grid,
   .role-list {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .role-admin-shell {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 260px minmax(0, 1fr);
   }
 
   .role-edit-fields,
   .permission-table-head,
   .permission-table-row {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
   }
 
   .settings-board {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 860px) {
   .app-shell {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: minmax(0, 1fr);
+    /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
     overflow-x: clip;
   }
 
   .app-shell.nav-collapsed {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar {
+    /* en-GB: Defines the background treatment so the surface or state is visually clear. */
     background: var(--bg);
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-bottom: 0;
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-right: 1px solid var(--border);
+    /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
     box-shadow: 18px 0 44px rgb(15 23 42 / 18%);
+    /* en-GB: Adds consistent space between child elements without external margins. */
     gap: 20px;
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     height: 100dvh;
+    /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
     left: 0;
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     min-height: 100dvh;
+    /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
     overflow-y: auto;
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 24px 16px;
+    /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
     position: fixed;
+    /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
     top: 0;
+    /* en-GB: Applies a visual transformation so the element reaches its intended state. */
     transform: translateX(-102%);
+    /* en-GB: Controls visibility so the interface communicates the current state correctly. */
     visibility: hidden;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: min(82vw, 320px);
+    /* en-GB: Sets the stacking order so overlays and fixed controls remain accessible. */
     z-index: 40;
   }
 
   .drawer-open .sidebar {
+    /* en-GB: Applies a visual transformation so the element reaches its intended state. */
     transform: translateX(0);
+    /* en-GB: Controls visibility so the interface communicates the current state correctly. */
     visibility: visible;
   }
 
   .drawer-open .drawer-backdrop {
+    /* en-GB: Defines the background treatment so the surface or state is visually clear. */
     background: rgb(15 23 42 / 42%);
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: block;
+    /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
     inset: 0;
+    /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
     position: fixed;
+    /* en-GB: Sets the stacking order so overlays and fixed controls remain accessible. */
     z-index: 30;
   }
 
   .nav-collapsed .sidebar {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 24px 16px;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: min(82vw, 320px);
   }
 
   .nav-collapsed .sidebar-brand {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     justify-content: space-between;
   }
 
   .nav-collapsed .brand-mark {
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: flex;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     justify-content: flex-start;
   }
 
   .nav-collapsed .brand-mark span,
   .nav-collapsed .nav-button span {
+    /* en-GB: Controls visibility so the interface communicates the current state correctly. */
     opacity: 1;
+    /* en-GB: Controls pointer interaction so the element behaves as users expect. */
     pointer-events: auto;
+    /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
     position: static;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: auto;
   }
 
   .sidebar nav {
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: grid;
+    /* en-GB: Adds consistent space between child elements without external margins. */
     gap: 8px;
+    /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
     overflow: visible;
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-bottom: 0;
   }
 
   .nav-button {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex: initial;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     justify-content: flex-start;
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     min-height: 50px;
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 0 12px;
   }
 
   .topbar {
+    /* en-GB: Adds consistent space between child elements without external margins. */
     gap: 12px;
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: auto minmax(0, 1fr);
   }
 
   .mobile-nav-trigger {
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: block;
   }
 
   .topbar-title {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: flex-start;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex-direction: column;
+    /* en-GB: Adds consistent space between child elements without external margins. */
     gap: 4px;
   }
 
   .topbar-actions {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: 1 / -1;
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: grid;
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: minmax(0, 1fr) repeat(7, 38px);
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     justify-content: stretch;
   }
 
   .search-box {
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     min-width: 0;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: auto;
   }
 
   .dashboard-panels {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
   }
 
   .custom-dashboard-grid {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .dashboard-widget {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: span 6 !important;
   }
 
   .dashboard-toolbar {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: stretch;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex-direction: column;
   }
 
   .dashboard-toolbar-actions {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     justify-content: flex-start;
   }
 }
 
 @media (max-width: 620px) {
   .workspace {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 14px;
   }
 
   .sidebar {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 28px 18px;
   }
 
@@ -1759,13 +2673,16 @@ dt {
   .team-summary,
   .team-grid,
   .role-list {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
   }
 
   .auth-actions,
   .filter-bar,
   .modal-actions {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: stretch;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex-direction: column;
   }
 
@@ -1776,38 +2693,49 @@ dt {
   .select-label,
   .date-label,
   .date-filter {
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100%;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     max-width: none;
   }
 
   .topbar-actions .icon-button,
   .topbar-actions .compact-button {
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 38px;
   }
 
   .custom-dashboard-grid {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
   }
 
   .dashboard-widget {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: 1 / -1 !important;
   }
 
   .widget-edit-bar {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: stretch;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex-direction: column;
   }
 
   .widget-edit-actions {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     justify-content: flex-start;
   }
 
   .modal-backdrop {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 0;
   }
 
   .record-modal {
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-radius: 0;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100dvw;
   }
 
@@ -1822,34 +2750,51 @@ dt {
   .settings-board,
   .internal-kanban-board,
   .detail-grid {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
   }
 
   .role-sidebar,
   .role-main {
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-right: 0;
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-left: 0;
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-right: 0;
   }
 }
 
 /* Visual system refinements for consistent layout, focus and responsive density. */
 .app-shell {
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-sm: 0 1px 2px rgb(15 23 42 / 6%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-md: 0 12px 32px rgb(15 23 42 / 10%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-lg: 0 24px 70px rgb(15 23 42 / 22%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --focus-ring: 0 0 0 3px rgb(15 118 110 / 24%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --danger-bg: rgb(185 28 28 / 10%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --success-bg: rgb(21 128 61 / 12%);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1.45;
 }
 
 .app-shell[data-theme="dark"] {
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 18%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-md: 0 14px 34px rgb(0 0 0 / 24%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-lg: 0 28px 76px rgb(0 0 0 / 36%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --focus-ring: 0 0 0 3px rgb(45 212 191 / 24%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --danger-bg: rgb(248 113 113 / 13%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --success-bg: rgb(74 222 128 / 13%);
 }
 
@@ -1858,6 +2803,7 @@ input,
 select,
 textarea,
 [tabindex] {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   outline: none;
 }
 
@@ -1866,6 +2812,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--focus-ring);
 }
 
@@ -1873,7 +2820,9 @@ button:disabled,
 input:disabled,
 select:disabled,
 textarea:disabled {
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: not-allowed;
+  /* en-GB: Controls visibility so the interface communicates the current state correctly. */
   opacity: 0.58;
 }
 
@@ -1890,31 +2839,42 @@ textarea:disabled {
 .status-legend,
 .settings-group,
 .record-modal {
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--shadow-sm);
 }
 
 .workspace {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   align-content: start;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: none;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 100%;
 }
 
 .topbar {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--bg);
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: sticky;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   top: 0;
+  /* en-GB: Sets the stacking order so overlays and fixed controls remain accessible. */
   z-index: 20;
 }
 
 .topbar-title {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 38px;
 }
 
 .app-message {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0 0 14px;
 }
 
 .search-box {
+  /* en-GB: Controls motion so state changes remain clear and visually smooth. */
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -1922,7 +2882,9 @@ textarea:disabled {
 }
 
 .search-box:focus-within {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: var(--accent);
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--focus-ring);
 }
 
@@ -1933,6 +2895,7 @@ textarea:disabled {
 .nav-button,
 .select-button,
 .segmented button {
+  /* en-GB: Controls motion so state changes remain clear and visually smooth. */
   transition:
     background 150ms ease,
     border-color 150ms ease,
@@ -1941,10 +2904,12 @@ textarea:disabled {
 }
 
 .segmented button {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
 }
 
 .app-shell[data-theme="dark"] .segmented button:not(.selected) {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #edf2f7;
 }
 
@@ -1955,66 +2920,89 @@ textarea:disabled {
 .select-button:hover:not(:disabled),
 .segmented button:hover:not(:disabled),
 .nav-button:hover {
+  /* en-GB: Applies a visual transformation so the element reaches its intended state. */
   transform: translateY(-1px);
 }
 
 .compact-button:hover:not(:disabled),
 .icon-button:hover:not(:disabled),
 .select-button:hover:not(:disabled) {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: var(--accent);
 }
 
 .danger-button:hover:not(:disabled) {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--danger-bg);
 }
 
 .nav-button {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: transparent;
 }
 
 .nav-button:hover,
 .nav-button.active {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .filter-bar {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: end;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 12px;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .filter-bar > span {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-self: center;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-column: 1 / -1;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 42px;
 }
 
 .select-label,
 .date-label {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .select-label span,
 .date-label span {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: block;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.72rem;
 }
 
 .date-filter {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: none;
 }
 
 .panel {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 14px;
 }
 
 .panel-header {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-bottom: 1px solid rgb(148 163 184 / 22%);
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-bottom: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-bottom: 12px;
 }
 
@@ -2025,167 +3013,238 @@ textarea:disabled {
 .section-heading h3,
 .role-permission-panel h3,
 .internal-history h3 {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1.2;
 }
 
 .metric-card {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   align-content: space-between;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 132px;
 }
 
 .metric-card strong {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
 }
 
 .metric-card small {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--success-bg);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: 999px;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #14532d;
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   justify-self: start;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 3px 8px;
 }
 
 .app-shell[data-theme="dark"] .metric-card small {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #dcfce7;
 }
 
 .custom-dashboard-grid {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: stretch;
 }
 
 .dashboard-widget,
 .dashboard-widget-body,
 .dashboard-widget-body > .panel {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 0;
 }
 
 .widget-edit-bar {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: color-mix(in srgb, var(--surface) 92%, var(--accent));
 }
 
 .widget-edit-bar span {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-flex;
 }
 
 .table-wrap {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
 }
 
 table {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
 }
 
 thead {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: sticky;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   top: 0;
+  /* en-GB: Sets the stacking order so overlays and fixed controls remain accessible. */
   z-index: 1;
 }
 
 th {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.76rem;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-transform: uppercase;
 }
 
 td {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--text);
 }
 
 th:first-child,
 td:first-child {
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-left: 14px;
 }
 
 th:last-child,
 td:last-child {
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-right: 14px;
 }
 
 .table-sort {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: transparent;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 0;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: inherit;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-flex;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font: inherit;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 800;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 6px;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 26px;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-align: left;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-transform: inherit;
 }
 
 .table-sort span {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: 999px;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--accent);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.62rem;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 2px 6px;
 }
 
 .table-footer {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: wrap;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.85rem;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-weight: 700;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 10px;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: space-between;
 }
 
 .table-footer > div {
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: inline-flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 8px;
 }
 
 .priority {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px solid transparent;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 76px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-align: center;
 }
 
 .priority.critical {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: rgb(185 28 28 / 26%);
 }
 
 .priority.high {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: rgb(180 83 9 / 28%);
 }
 
 .priority.medium {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: rgb(15 118 110 / 26%);
 }
 
 .priority.low {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: rgb(21 128 61 / 26%);
 }
 
 .kanban-board {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   scroll-snap-type: x proximity;
 }
 
 .kanban-column {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 480px;
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   scroll-snap-align: start;
 }
 
 .kanban-card {
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: none;
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: grab;
 }
 
 .kanban-card:hover {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: var(--accent);
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--shadow-sm);
 }
 
 .kanban-card:active {
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: grabbing;
 }
 
@@ -2197,11 +3256,14 @@ td:last-child {
 .permission-table-row strong,
 .permission-table-row span,
 .permission-table-row small {
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   overflow-wrap: anywhere;
 }
 
 .team-card {
+  /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: pointer;
+  /* en-GB: Controls motion so state changes remain clear and visually smooth. */
   transition:
     border-color 150ms ease,
     transform 150ms ease,
@@ -2209,186 +3271,244 @@ td:last-child {
 }
 
 .team-card:hover {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: var(--accent);
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--shadow-md);
+  /* en-GB: Applies a visual transformation so the element reaches its intended state. */
   transform: translateY(-2px);
 }
 
 .empty-state {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 1px dashed var(--border);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-radius: var(--radius);
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-column: 1 / -1;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 16px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-align: center;
 }
 
 .role-admin-shell {
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 18px;
 }
 
 .role-sidebar {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
-.role-selector-list button:hover {
+.role-selector-item:hover {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface-strong);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-color: var(--border);
 }
 
 .role-edit-fields {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(4, minmax(140px, 1fr));
 }
 
 .role-edit-fields label:nth-child(3) {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-column: span 2;
 }
 
 .role-edit-fields button {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-self: end;
 }
 
 .permission-table {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--surface);
 }
 
 .modal-backdrop {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   backdrop-filter: blur(4px);
 }
 
 .record-modal {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   max-height: calc(100dvh - 36px);
 }
 
 .modal-header {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-bottom: 1px solid var(--border);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-bottom: 14px;
 }
 
 .modal-grid,
 .detail-grid {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: start;
 }
 
 .modal-actions {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-top: 1px solid var(--border);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-top: 12px;
 }
 
 .comment-form {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: stretch;
 }
 
 .comment-form textarea {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 80px;
 }
 
 .settings-group .panel-header {
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-bottom: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-bottom: 0;
 }
 
 .settings-links .compact-button {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 40px;
 }
 
 @media (max-width: 1360px) {
   .filter-bar {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 }
 
 @media (max-width: 1180px) {
   .filter-bar {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .filter-bar > span {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: 1 / -1;
   }
 
   .role-admin-shell {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: minmax(0, 1fr);
   }
 
   .role-sidebar {
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-bottom: 1px solid var(--border);
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-right: 0;
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 0 0 16px;
   }
 
   .role-main {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-left: 0;
   }
 
   .section-heading {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: flex-start;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex-wrap: wrap;
+    /* en-GB: Adds consistent space between child elements without external margins. */
     gap: 8px;
   }
 
   .role-edit-fields,
   .permission-table-head,
   .permission-table-row {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: minmax(0, 1fr);
   }
 
   .role-edit-fields label:nth-child(3) {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: span 1;
   }
 
   .permission-table-head {
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: none;
   }
 
   .permission-table-row {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: stretch;
   }
 
   .permission-table-row strong,
   .permission-table-row span,
   .permission-table-row small {
+    /* en-GB: Controls text presentation so labels remain readable within available space. */
     white-space: normal;
   }
 }
 
 @media (max-width: 860px) {
   .topbar {
+    /* en-GB: Adds consistent space between child elements without external margins. */
     gap: 12px;
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-top: 4px;
   }
 
   .filter-bar {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .filter-bar .select-button {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: auto;
   }
 
   .record-modal {
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     max-height: calc(100dvh - 28px);
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100%;
   }
 
   .role-admin-shell {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
   }
 
   .role-sidebar {
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-right: 0;
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-bottom: 1px solid var(--border);
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 0 0 16px;
   }
 
   .role-main {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-left: 0;
   }
 }
 
 @media (max-width: 620px) {
   .filter-bar {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
   }
 
@@ -2396,6 +3516,7 @@ td:last-child {
   .metric-card,
   .team-card,
   .login-card {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 14px;
   }
 
@@ -2404,151 +3525,230 @@ td:last-child {
   .modal-header,
   .modal-actions,
   .table-footer {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: stretch;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex-direction: column;
   }
 
   .table-footer > div {
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: grid;
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr 1fr;
   }
 
   .table-footer .compact-button {
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: auto;
   }
 
   .topbar-actions {
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: grid !important;
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(7, minmax(38px, 1fr));
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100%;
   }
 
   .topbar-actions .search-box {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: 1 / -1 !important;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100% !important;
   }
 
   .compact-table .table-wrap,
   .panel.full-width .table-wrap {
+    /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
     margin-inline: -2px;
   }
 
   th,
   td {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 10px 12px;
   }
 
   .record-modal {
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     min-height: 100dvh;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100dvw;
   }
 
   .modal-grid .primary-button.span-2 {
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100%;
   }
 }
 
 /* Prompt-Interface-UI-UX pass: final design-system and responsive alignment layer. */
 .app-shell {
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --space-1: 4px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --space-2: 8px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --space-3: 12px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --space-4: 16px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --space-5: 20px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --space-6: 24px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --control-h: 38px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --panel-pad: 16px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --radius-sm: 6px;
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --radius-md: var(--radius);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-card: 0 1px 2px rgb(15 23 42 / 8%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-floating: 0 20px 70px rgb(15 23 42 / 24%);
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 14px;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow-x: clip;
 }
 
 .app-shell[data-theme="dark"] {
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-card: 0 1px 2px rgb(0 0 0 / 28%);
+  /* en-GB: Defines a reusable design token so related rules share a consistent value. */
   --shadow-floating: 0 26px 80px rgb(0 0 0 / 42%);
 }
 
 .sr-only {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   clip: rect(0 0 0 0);
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border: 0;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: 1px;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: -1px;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: absolute;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 1px;
 }
 
 .workspace {
+  /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   align-content: start;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: var(--space-4);
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 0 22px 22px;
 }
 
 .topbar {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-self: start;
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: var(--bg);
+  /* en-GB: Adds consistent space between child elements without external margins. */
   column-gap: var(--space-4);
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: grid;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(260px, 1fr) auto;
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 0;
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: var(--space-4) 0;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   position: sticky;
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   top: 0;
+  /* en-GB: Sets the stacking order so overlays and fixed controls remain accessible. */
   z-index: 20;
 }
 
 .topbar-title {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: var(--space-3);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: var(--control-h);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: var(--control-h);
 }
 
 .topbar-title .eyebrow {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 0 auto;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.72rem;
 }
 
 .topbar-title h1 {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 1 auto;
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: clamp(1.28rem, 1.25vw, 1.55rem);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   line-height: 1.1;
 }
 
 .monitor-mode .topbar-title h1 {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 1.65rem;
 }
 
 .topbar-actions {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Selects the layout model so child elements are arranged as intended. */
   display: flex;
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex-wrap: nowrap;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: var(--space-2);
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: flex-end;
 }
 
 .topbar-actions .search-box,
 .search-box {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 0 clamp(170px, 16vw, 260px);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: var(--control-h);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: var(--control-h);
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: clamp(170px, 16vw, 260px);
 }
 
 .content-grid,
 .custom-dashboard,
 .dashboard-panels {
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: var(--space-4);
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
@@ -2565,6 +3765,7 @@ td:last-child {
 .status-legend,
 .settings-group,
 .record-modal {
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--shadow-card);
 }
 
@@ -2575,22 +3776,29 @@ td:last-child {
 .team-summary,
 .status-legend,
 .settings-group {
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: var(--panel-pad);
 }
 
 .filter-bar {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: end;
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: var(--space-3);
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .filter-bar > span {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: 0.98rem;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: auto;
 }
 
 .select-label,
 .date-label {
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: 6px;
 }
 
@@ -2603,12 +3811,14 @@ textarea,
 .icon-button,
 .select-button,
 .segmented button {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: var(--control-h);
 }
 
 input,
 select,
 textarea {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
@@ -2616,72 +3826,99 @@ textarea {
 .compact-button,
 .danger-button,
 .select-button {
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-inline: 14px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .app-shell[data-theme="dark"] .segmented button:not(.selected) {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: #202832;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #edf2f7;
 }
 
 .app-shell[data-theme="dark"] .segmented .selected {
+  /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: #171d23;
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: #2dd4bf;
 }
 
 .icon-button {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   flex: 0 0 var(--control-h);
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: var(--control-h);
 }
 
 .panel-header {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
   border-bottom: 1px solid rgb(148 163 184 / 18%);
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: var(--space-3);
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin: 0;
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: var(--control-h);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding-bottom: var(--space-3);
 }
 
 .panel-header h2,
 .panel-header h3 {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: hidden;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-overflow: ellipsis;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: nowrap;
 }
 
 .metric-card {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 124px;
 }
 
 .metric-card strong {
+  /* en-GB: Controls typography so the content remains legible and hierarchically clear. */
   font-size: clamp(1.65rem, 2vw, 2rem);
 }
 
 .team-summary {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   align-items: center;
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .team-strip {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 44px;
 }
 
 .team-strip-heading {
+  /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
   justify-content: flex-start;
 }
 
 .team-strip b {
+  /* en-GB: Controls outer spacing so this element remains separated from neighbouring content. */
   margin-left: auto;
 }
 
 .custom-dashboard-grid {
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: var(--space-4);
 }
 
 .dashboard-widget {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
@@ -2689,189 +3926,249 @@ textarea {
 .dashboard-widget-body > .panel,
 .dashboard-widget-body > .team-summary,
 .dashboard-widget-body > .status-legend {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 100%;
 }
 
 .bar-chart {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 180px;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: visible;
 }
 
 .table-wrap {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: 100%;
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow: auto;
 }
 
 thead {
+  /* en-GB: Positions the element so it appears in the intended layout or overlay layer. */
   top: 0;
 }
 
 th,
 td {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   max-width: 280px;
 }
 
 .table-empty-cell {
+  /* en-GB: Sets the foreground colour so text or icons retain the required contrast. */
   color: var(--muted);
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: 28px 14px;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   text-align: center;
+  /* en-GB: Controls text presentation so labels remain readable within available space. */
   white-space: normal;
 }
 
 .team-card[role="button"]:focus-visible {
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--focus-ring);
 }
 
 .kanban-board {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  /* en-GB: Manages excess content so the layout does not break at constrained sizes. */
   overflow-x: clip;
 }
 
 .kanban-column {
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 420px;
 }
 
 .role-admin-shell {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
 }
 
 .role-edit-fields {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .role-edit-fields label:nth-child(3) {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-column: span 2;
 }
 
 .permission-table-row {
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   min-width: 0;
 }
 
 .modal-backdrop {
+  /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
   padding: var(--space-4);
 }
 
 .record-modal {
+  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--shadow-floating);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   height: calc(100dvh - 32px);
+  /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   max-height: calc(100dvh - 32px);
+  /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: calc(100dvw - 32px);
 }
 
 .modal-grid,
 .detail-grid {
+  /* en-GB: Adds consistent space between child elements without external margins. */
   gap: var(--space-3);
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
 }
 
 .span-2 {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-column: 1 / -1;
 }
 
 .internal-kanban-board {
+  /* en-GB: Configures the grid layout so content remains structured across available space. */
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
 }
 
 @media (min-width: 1440px) {
   .workspace {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-inline: 28px;
   }
 
   .topbar {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-block: 18px;
   }
 
   .kpi-grid {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 1180px) {
   .topbar {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: minmax(0, 1fr);
+    /* en-GB: Adds consistent space between child elements without external margins. */
     row-gap: var(--space-3);
   }
 
   .topbar-actions {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     justify-content: flex-start;
   }
 
   .kpi-grid {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 860px) {
   .workspace {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 0 16px 18px;
   }
 
   .topbar {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: auto minmax(0, 1fr);
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-block: var(--space-3);
   }
 
   .topbar-title {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: flex-start;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex-direction: column;
+    /* en-GB: Adds consistent space between child elements without external margins. */
     gap: 2px;
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     height: auto;
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     min-height: var(--control-h);
   }
 
   .topbar-actions {
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
     display: grid;
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: 1 / -1;
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: minmax(180px, 1fr) repeat(7, var(--control-h));
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100%;
   }
 
   .topbar-actions .search-box,
   .search-box {
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100%;
   }
 
   .filter-bar {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .custom-dashboard-grid {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .dashboard-widget {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: 1 / -1 !important;
   }
 
   .role-edit-fields label:nth-child(3) {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: span 1;
   }
 }
 
 @media (max-width: 620px) {
   .workspace {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 0 12px 14px;
   }
 
   .topbar {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding-block: var(--space-3);
   }
 
   .topbar-title {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: 1 / -1;
   }
 
   .topbar-actions {
+    /* en-GB: Adds consistent space between child elements without external margins. */
     gap: 6px;
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: repeat(7, minmax(34px, 1fr));
   }
 
   .topbar-actions .search-box {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-column: 1 / -1 !important;
   }
 
   .topbar-actions .icon-button {
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     min-height: 36px;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100%;
   }
 
@@ -2883,7 +4180,15 @@ td {
   .role-list,
   .team-member-controls,
   .role-permission-controls {
+    /* en-GB: Configures the grid layout so content remains structured across available space. */
     grid-template-columns: 1fr;
+  }
+
+  .role-profile-details {
+    /* en-GB: Selects the layout model so child elements are arranged as intended. */
+    display: grid;
+    /* en-GB: Adds consistent space between child elements without external margins. */
+    gap: 0.25rem;
   }
 
   .dashboard-toolbar,
@@ -2892,7 +4197,9 @@ td {
   .panel-header,
   .modal-actions,
   .table-footer {
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     align-items: stretch;
+    /* en-GB: Controls flexible alignment so content keeps the intended responsive arrangement. */
     flex-direction: column;
   }
 
@@ -2900,17 +4207,23 @@ td {
   .compact-button,
   .danger-button,
   .select-button {
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100%;
   }
 
   .modal-backdrop {
+    /* en-GB: Controls inner spacing so content remains readable and easy to interact with. */
     padding: 0;
   }
 
   .record-modal {
+    /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
     border-radius: 0;
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     height: 100dvh;
+    /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
     max-height: 100dvh;
+    /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
     width: 100dvw;
   }
 }

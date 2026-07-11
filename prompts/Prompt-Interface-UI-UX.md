@@ -148,6 +148,38 @@ equivalente.
 
 ---
 
+ARQUITETURA HTML E CSS DO FRONTEND
+
+O ShiftFlow usa Next.js e React. Nao editar
+apps/web/.next/server/app/index.html, pois esse arquivo e gerado pelo build.
+Aplicar alteracoes nas fontes reais:
+
+* apps/web/app/layout.tsx para metadata e estrutura raiz.
+* apps/web/app/page.tsx para landmarks e composicao da pagina.
+* apps/web/app/components/ para semantica dos componentes.
+* apps/web/app/globals.css para apresentacao e responsividade.
+
+Requisitos obrigatorios:
+
+* Usar header, nav, main, section, article, aside, footer, figure, figcaption,
+  ul, ol e li quando a funcao semantica existir.
+* Manter apenas um landmark main primario por pagina renderizada.
+* Preservar hierarquia de titulos, rotulos acessiveis, foco visivel, skip link e
+  suporte a leitores de tela.
+* Usar ul para colecoes sem ordem e ol somente quando houver sequencia real de
+  informacoes ou etapas dentro do item.
+* Usar texto alternativo util em imagens informativas e ocultar icones
+  decorativos de tecnologias assistivas.
+* Manter HTML/React, CSS e TypeScript separados por responsabilidade.
+* Implementar layout fluido para mobile, tablet e desktop com unidades
+  relativas, Grid, Flexbox e media queries orientadas pelo conteudo.
+* Comentar cada declaracao CSS em en-GB, explicando de forma curta o que a
+  propriedade controla e por que ela e necessaria.
+* Preservar conteudo, estilo, comportamento, regras de negocio e integracoes
+  existentes durante a reorganizacao semantica.
+
+---
+
 PADRAO VISUAL
 
 Aplicar identidade visual corporativa, operacional e consistente.

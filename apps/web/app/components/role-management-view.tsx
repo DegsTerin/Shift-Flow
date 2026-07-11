@@ -64,10 +64,10 @@ export function RoleManagementView({
     : (availablePermissions[0]?.id ?? "");
 
   return (
-    <section className="panel full-width role-management">
+    <section className="panel full-width role-management" aria-labelledby="roles-heading">
       <div className="panel-header">
-        <h2>{t.rolesManagement}</h2>
-        <ShieldCheck size={18} />
+        <h2 id="roles-heading">{t.rolesManagement}</h2>
+        <ShieldCheck aria-hidden="true" size={18} />
       </div>
       <div className="role-admin-shell">
         <aside className="role-sidebar">
@@ -97,22 +97,49 @@ export function RoleManagementView({
               {t.save}
             </button>
           </form>
-          <div className="role-selector-list">
-            {roles.map((role) => (
-              <button
-                className={role.id === effectiveRoleId ? "selected" : ""}
-                key={role.id ?? role.name}
-                type="button"
-                onClick={() => setSelectedRoleId(role.id ?? "")}
-              >
-                <i style={{ backgroundColor: role.color ?? "#0f766e" }} />
-                <strong>{role.name ?? "-"}</strong>
-                <span>{role.isActive === false ? "Inativo" : (role.scope ?? "COMPANY")}</span>
-              </button>
-            ))}
-          </div>
+          <ul className="role-selector-list" aria-label="Perfis disponíveis">
+            {roles.map((role, index) => {
+              const detailsId = `role-${role.id ?? index}-details`;
+              return (
+                <li key={role.id ?? role.name ?? index}>
+                  <article
+                    className={
+                      role.id === effectiveRoleId
+                        ? "role-selector-item selected"
+                        : "role-selector-item"
+                    }
+                  >
+                    <button
+                      aria-pressed={role.id === effectiveRoleId}
+                      aria-describedby={detailsId}
+                      className="role-selector-button"
+                      type="button"
+                      onClick={() => setSelectedRoleId(role.id ?? "")}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="role-colour"
+                        style={{ backgroundColor: role.color ?? "#0f766e" }}
+                      />
+                      <strong>{role.name ?? "-"}</strong>
+                    </button>
+                    <ol className="role-profile-details" id={detailsId}>
+                      <li>
+                        <span className="sr-only">Estado: </span>
+                        {role.isActive === false ? "Inativo" : "Ativo"}
+                      </li>
+                      <li>
+                        <span className="sr-only">Escopo: </span>
+                        {role.scope ?? "COMPANY"}
+                      </li>
+                    </ol>
+                  </article>
+                </li>
+              );
+            })}
+          </ul>
         </aside>
-        <section className="role-main">
+        <section className="role-main" aria-live="polite">
           {selectedRole ? (
             <>
               <form

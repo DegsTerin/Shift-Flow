@@ -87,7 +87,9 @@ sem retornar dados fora da empresa ativa.
 
 Reestruturar a gestao de perfis para um fluxo claro:
 
-* Lista de perfis.
+* Lista de perfis representada por ul e li, pois nao possui ordem obrigatoria.
+* Cada perfil pode usar ol internamente apenas para metadados ou etapas que
+  possuam sequencia significativa.
 * Detalhe do perfil selecionado.
 * Permissoes agrupadas por modulo.
 * Edicao controlada.

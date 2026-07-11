@@ -19,13 +19,16 @@ Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao expli
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.39
+PROMPT_SYSTEM_VERSION: 1.4.40
 
 Data:
 2026-07-11
 
 Status:
-Corpus canonico migrado integralmente de .txt para .md em 2026-07-11, com referencias internas e indices atualizados. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+Padrao frontend atualizado em 2026-07-11 para refletir a arquitetura Next.js real, sem editar index.html gerado, com semantica HTML5, acessibilidade, responsividade, perfis em listas semanticas e comentarios CSS en-GB. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.40:
+Prompt-Interface-UI-UX.md, Prompt-Adjustments.md e docs/development-standards.md passaram a definir as fontes React/CSS editaveis, landmarks, listas semanticas, metadata, acessibilidade, responsividade e comentarios CSS en-GB. O frontend recebeu main primario, skip link, metadata atualizada e lista de perfis em ul/li/article com sequencia interna em ol, preservando os fluxos existentes.
 
 Patch 1.4.39:
 Os 75 arquivos canonicos em prompts/ foram renomeados de .txt para .md. Referencias internas e o indice de governanca foram atualizados para os novos caminhos; a integridade do corpus foi validada sem arquivos .txt versionados ou referencias quebradas aos nomes anteriores.

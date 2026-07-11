@@ -561,10 +561,13 @@ export default function Page() {
   const topbarContext = session.user.displayName ?? session.user.email;
 
   return (
-    <main
+    <div
       className={`${monitorMode ? "app-shell monitor-mode" : "app-shell"}${!monitorMode && navCollapsed ? " nav-collapsed" : ""}${!monitorMode && drawerOpen ? " drawer-open" : ""}`}
       data-theme={theme}
     >
+      <a className="skip-link" href="#main-content">
+        Ir para o conteúdo principal
+      </a>
       {!monitorMode ? (
         <button
           aria-label={t.closeNavigation}
@@ -575,7 +578,7 @@ export default function Page() {
       ) : null}
       {!monitorMode ? (
         <aside className="sidebar" aria-label={t.navigation}>
-          <div className="sidebar-brand">
+          <header className="sidebar-brand">
             <div className="brand-mark">
               <Workflow size={26} />
               <span>{t.app}</span>
@@ -585,8 +588,8 @@ export default function Page() {
               icon={Menu}
               onClick={toggleNavigation}
             />
-          </div>
-          <nav tabIndex={0}>
+          </header>
+          <nav aria-label={t.navigation}>
             {availableMenu.map((item) => {
               const Icon = item.icon;
               const key = item.id === "team-dashboard" ? "teamDashboard" : item.id;
@@ -606,7 +609,7 @@ export default function Page() {
           </nav>
         </aside>
       ) : null}
-      <section className="workspace">
+      <main className="workspace" data-theme={theme} id="main-content" tabIndex={-1}>
         <header className="topbar">
           {!monitorMode ? (
             <div className="mobile-nav-trigger">
@@ -619,7 +622,7 @@ export default function Page() {
           ) : null}
           <div className="topbar-title">
             <p className="eyebrow">{topbarContext}</p>
-            <h1>{t[activeTitleKey]}</h1>
+            <h1 id="page-title">{t[activeTitleKey]}</h1>
           </div>
           <div className="topbar-actions">
             <div className="search-box">
@@ -660,7 +663,7 @@ export default function Page() {
           </p>
         ) : null}
         {loading ? <p className="guard-note app-message">{t.loading}</p> : null}
-        <section className="content-grid">
+        <section className="content-grid" aria-labelledby="page-title">
           {["dashboard", "team-dashboard", "activities", "kanban", "reports"].includes(view) ? (
             <FilterBar
               t={t}
@@ -801,7 +804,7 @@ export default function Page() {
             />
           )}
         </section>
-      </section>
+      </main>
       {modal ? (
         <RecordModal
           state={modal}
@@ -817,6 +820,6 @@ export default function Page() {
           onReload={loadData}
         />
       ) : null}
-    </main>
+    </div>
   );
 }

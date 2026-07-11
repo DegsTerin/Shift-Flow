@@ -123,6 +123,25 @@ RECOMENDACAO:
 ULTIMA AUDITORIA REGISTRADA
 
 Data: 2026-07-11
+Versao: 1.4.40
+Arquivos auditados: Fontes frontend Next.js, CSS global, Prompt-Interface-UI-UX.md, Prompt-Adjustments.md, docs/development-standards.md e controles canonicos.
+Status: APROVADO APOS ALINHAMENTO DE SEMANTICA E RESPONSIVIDADE
+Conflitos encontrados:
+* O requisito citava index.html, mas o unico arquivo com esse nome e gerado em apps/web/.next/.
+* A lista de perfis usava agrupamento generico em vez de ul e li.
+* Metadata descrevia o produto como scaffold e o CSS nao documentava cada declaracao em en-GB.
+Correcoes aplicadas:
+* Fontes React e CSS reais documentadas; index.html gerado explicitamente protegido contra edicao manual.
+* Main primario, skip link, landmarks rotulados, metadata e estrutura semantica de perfis implementados.
+* Todas as declaracoes de globals.css receberam comentario curto en-GB sobre finalidade e uso.
+* Axe validou login em 390x844, 820x1180 e 1440x900 sem violacao seria ou critica e sem overflow horizontal.
+* .prettierignore passou a preservar prompts/*.md sem retirar o restante do projeto do gate de formatacao.
+Risco:
+* O volume de comentarios aumenta o tamanho do arquivo fonte, mas nao altera o CSS entregue nem o comportamento funcional.
+Recomendacao:
+* Manter o mesmo padrao em novas regras CSS e validar typecheck, lint, build e acessibilidade em alteracoes futuras.
+
+Data: 2026-07-11
 Versao: 1.4.39
 Arquivos auditados: 75 arquivos canonicos em prompts/, docs/governance-index.md e controles canonicos de versionamento, estado, snapshot, auditoria e log.
 Status: APROVADO APOS MIGRACAO DE EXTENSAO

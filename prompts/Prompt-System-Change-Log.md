@@ -39,6 +39,15 @@ Estado afetado:
 REGISTROS
 
 Data: 2026-07-11
+Versao: 1.4.40
+Tipo: manutencao funcional pos-release
+Arquivos alterados: .prettierignore, apps/web/app/layout.tsx, apps/web/app/page.tsx, apps/web/app/components/role-management-view.tsx, apps/web/app/globals.css, docs/development-standards.md, Prompt-Interface-UI-UX.md, Prompt-Adjustments.md e controles canonicos.
+Resumo: Aplicado o padrao de semantica HTML5, acessibilidade, responsividade, SEO privado e documentacao CSS en-GB a arquitetura Next.js real.
+Impacto: O frontend passa a expor main primario e skip link, metadata coerente, lista de perfis semantica e comentarios explicativos em todas as declaracoes CSS, sem editar o index.html gerado.
+Conflitos resolvidos: O requisito original apontava para index.html inexistente como fonte, usava div para a lista de perfis e nao estava formalizado nos padroes do projeto. A migracao anterior para .md tambem fazia o Prettier tentar reformatar o corpus canonico; prompts/*.md passou a ser preservado por .prettierignore.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-11
 Versao: 1.4.39
 Tipo: patch documental
 Arquivos alterados: 75 arquivos canonicos em prompts/, docs/governance-index.md, Prompt-System-Version.md, Prompt-System-Change-Log.md, Prompt-System-Audit.md, Current-State.md, Project-Snapshot.md, State-Transition-Log.md
