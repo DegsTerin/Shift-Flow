@@ -1,0 +1,111 @@
+CHECKLIST OBRIGATORIO DE VALIDACAO POR FASE (HUMAN GATE)
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente ou snapshot pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
+Nenhuma fase pode ser considerada concluida sem aprovacao explicita baseada neste checklist.
+
+Human CI pode aprovar, reprovar ou bloquear uma fase.
+Human CI nao pode alterar estado.
+
+---
+
+CHECKLIST GERAL, TODAS AS FASES
+
+Antes de encerrar qualquer fase, o agente deve validar:
+
+1. Escopo
+
+* Tudo esta dentro da fase atual?
+* Nada de fases futuras foi iniciado?
+* Nenhum modulo ultrapassou a camada permitida?
+
+2. Proibicao de tooling de setup
+
+* Nenhum comando de instalacao foi executado fora de SETUP_PROJECT?
+* Nenhuma configuracao de ambiente foi alterada fora de SETUP_PROJECT?
+* Nenhum package.json foi alterado fora de SETUP_PROJECT?
+
+3. Consistencia
+
+* A saida esta coerente com a fase anterior?
+* Nao ha dependencia quebrada?
+* O snapshot foi consultado?
+* Start-Here.md foi consultado?
+* Prompt-System-Readme.md foi consultado?
+* Prompt-Index.md foi consultado?
+* Current-State.md foi consultado?
+* Project-Snapshot.md foi consultado?
+* Project-Memory-System.md foi consultado?
+* Execution-Protocol.md foi consultado?
+* Allowed-Commands-By-State.md foi consultado?
+* Acceptance-Criteria-By-State.md foi consultado?
+* Evidence-Standard.md foi atendido?
+* Global-Definition-Of-Done.md foi atendido?
+* Module-Phase-Matrix.md foi consultado quando havia modulo envolvido?
+* Conflict-Resolution-Policy.md foi aplicada quando houve conflito?
+* Controlled-Rollback-Policy.md foi aplicada quando houve reversao solicitada?
+* Blocked-State-Protocol.md foi aplicado quando houve bloqueio?
+* Phase-Handoff-Template.md foi preenchido quando houve recomendacao de transicao?
+* Prompt-System-Audit.md foi executado quando houve mudanca de versao?
+
+4. Evidencia
+
+* Se a fase gerou codigo, toda funcionalidade declarada tem codigo correspondente?
+* Se a fase foi conceitual, toda decisao tem evidencia documental?
+* Nada foi declarado como pronto sem evidencia real?
+
+5. Isolamento
+
+* Nenhuma camada adjacente foi modificada indevidamente?
+* Backend nao alterou banco fora de DATABASE_MODELING?
+* Frontend nao alterou API fora de INTEGRATION?
+
+6. Integridade de arquitetura
+
+* Nao houve criacao de arquivos fora do escopo?
+* Estrutura respeita o padrao definido?
+* Modulos cross-layer foram tratados apenas na camada permitida?
+* State-Transition-Log.md foi atualizado quando houve recomendacao ou decisao de transicao?
+
+---
+
+REGRA DE BLOQUEIO
+
+Se qualquer item acima falhar:
+
+* A fase NAO pode ser finalizada.
+* O agente deve corrigir antes de continuar.
+* Ou declarar explicitamente como pendencia bloqueante.
+* A State Machine deve permanecer no estado atual.
+
+---
+
+FORMATO FINAL OBRIGATORIO
+
+STATUS:
+CONCLUIDO:
+NAO CONCLUIDO:
+EVIDENCIAS:
+DEPENDENCIAS:
+RISCOS:
+BLOQUEIOS:
+PROXIMA ACAO:
+TRANSICAO DE ESTADO:
+
+TRANSICAO DE ESTADO e apenas recomendacao.
+A State Machine decide a transicao real.

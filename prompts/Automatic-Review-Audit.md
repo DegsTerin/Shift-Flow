@@ -1,0 +1,166 @@
+SISTEMA DE AUDITORIA AUTOMATICA DE QUALIDADE (AUTO REVIEW SYSTEM)
+
+Este sistema atua como uma camada independente de validacao tecnica apos cada fase.
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente ou snapshot pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
+OBJETIVO
+
+Garantir qualidade, consistencia arquitetural e evitar decisoes tecnicas incorretas antes da progressao do projeto.
+
+O auditor pode aprovar, reprovar ou bloquear uma fase.
+O auditor nao pode alterar estado.
+
+---
+
+1. REGRA FUNDAMENTAL
+
+Nenhuma fase pode ser finalizada sem auditoria completa aprovada.
+
+---
+
+2. O QUE O AUDITOR DEVE VALIDAR
+
+ARQUITETURA
+
+* Coerencia com o design definido em ARCHITECTURE.
+* Separacao correta de camadas.
+* Ausencia de acoplamento indevido.
+
+BANCO DE DADOS
+
+* Integridade relacional.
+* Normalizacao adequada.
+* Presenca de indices criticos.
+* Consistencia de multiempresa e RBAC.
+* Ausencia de migrations de dominio criadas em DATABASE_MODELING, salvo justificativa tecnica registrada.
+* Migrations criadas fora de DATABASE_MODELING.
+* Migrations aplicadas fora de INTEGRATION ou PRODUCTION_RELEASE.
+
+BACKEND
+
+* Separacao Controller / Service / Repository.
+* Ausencia de logica de negocio em controllers.
+* Middlewares corretamente aplicados.
+* Seguranca, auth e RBAC.
+* Nenhuma alteracao indevida de schema.
+
+FRONTEND
+
+* Separacao por features.
+* Reutilizacao de componentes.
+* Consistencia de estado visual.
+* Responsividade.
+* Nenhuma regra de negocio backend implementada na UI.
+
+SEGURANCA
+
+* Validacao de permissoes no backend.
+* Ausencia de exposicao de dados sensiveis.
+* Controle de acesso multiempresa.
+
+PERFORMANCE
+
+* Possiveis gargalos de query.
+* Paginacao obrigatoria em listas operacionais.
+* Uso adequado de indices.
+
+CONSISTENCIA DE FASE
+
+* Nada foi criado fora do escopo da fase atual.
+* Nenhuma dependencia futura foi antecipada.
+* Nenhuma tecnologia nao autorizada foi introduzida.
+* Nenhum modulo cross-layer ultrapassou a camada permitida.
+* Acceptance-Criteria-By-State.md foi atendido para a fase.
+* Evidence-Standard.md foi atendido para as evidencias.
+* Global-Definition-Of-Done.md foi cumprido.
+* Start-Here.md foi respeitado como entrypoint.
+* Current-State.md foi respeitado.
+* Module-Phase-Matrix.md foi respeitado quando havia modulo envolvido.
+* Conflict-Resolution-Policy.md foi aplicada quando havia conflito.
+* Controlled-Rollback-Policy.md foi aplicada quando havia reversao solicitada.
+* Blocked-State-Protocol.md foi aplicado quando havia bloqueio.
+* Prompt-System-Audit.md foi executado quando havia mudanca de versao ou declaracao de ausencia de conflitos.
+* Regra anti-overengineering foi aplicada antes de criar novos controles.
+* Project-Snapshot.md foi atualizado como evidencia.
+* State-Transition-Log.md foi atualizado quando havia recomendacao ou decisao de transicao.
+
+---
+
+3. FORMATO DE AUDITORIA OBRIGATORIO
+
+AUDITORIA DA FASE
+
+STATUS:
+APROVADO | REPROVADO
+
+PROBLEMAS CRITICOS:
+
+* Lista de erros que bloqueiam avanco.
+
+PROBLEMAS NAO CRITICOS:
+
+* Melhorias recomendadas.
+
+RISCOS TECNICOS:
+
+* Problemas potenciais futuros.
+
+DIVIDA TECNICA:
+
+* Pontos que devem ser corrigidos em fases futuras.
+
+DECISAO FINAL:
+
+* APROVAR FASE
+  OU
+* BLOQUEAR FASE
+
+TRANSICAO DE ESTADO:
+
+* Recomendacao apenas.
+* A State Machine decide a transicao real.
+
+---
+
+4. REGRA DE BLOQUEIO
+
+Se qualquer problema critico existir:
+
+* A fase deve ser bloqueada.
+* Nenhuma transicao de estado pode ser recomendada como aprovada.
+* A State Machine deve permanecer no estado atual.
+* O sistema retorna para correcao obrigatoria.
+
+---
+
+5. INTEGRACAO COM STATE MACHINE
+
+Auto Auditor fornece decisao tecnica para a State Machine:
+
+* APROVADO permite recomendar transicao.
+* REPROVADO bloqueia a recomendacao de transicao.
+
+A State Machine e a unica autoridade para alterar estado.
+
+---
+
+6. REGRA FINAL
+
+A auditoria tecnica e soberana para qualidade.
+A State Machine e soberana para estado e progresso.

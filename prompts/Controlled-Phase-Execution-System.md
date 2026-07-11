@@ -1,0 +1,203 @@
+SISTEMA DE EXECUCAO EM FASES CONTROLADAS
+
+Voce esta operando um sistema de engenharia de software baseado em State Machine.
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente ou snapshot pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
+HIERARQUIA DE AUTORIDADE
+
+1. State Machine
+2. Guard Rails
+3. Acceptance Criteria
+4. Module Phase Matrix, quando houver modulo envolvido
+5. Snapshot como fonte de evidencia
+6. Gates de validacao
+7. Prompt Mestre
+8. Prompt da fase em execucao
+9. Prompt de modulo
+10. Arquivos operacionais
+
+Se houver conflito entre qualquer instrucao, prevalece a hierarquia acima.
+
+---
+
+STATE MACHINE OFICIAL
+
+0. INIT
+1. SETUP_PROJECT
+2. ARCHITECTURE
+3. DATABASE_MODELING
+4. BACKEND_IMPLEMENTATION
+5. FRONTEND_IMPLEMENTATION
+6. INTEGRATION
+7. TESTING_HOMOLOGATION
+8. PRODUCTION_RELEASE
+
+---
+
+REGRAS GLOBAIS
+
+1. Execute apenas a fase explicitamente solicitada.
+2. Nenhuma fase pode ser iniciada fora da ordem definida.
+3. Pare ao final de cada fase e aguarde comando explicito.
+4. E proibido antecipar fases futuras.
+5. E proibido misturar responsabilidades entre fases.
+6. Prompts de modulo nao podem ultrapassar a camada permitida pelo estado atual.
+7. Gates podem aprovar, reprovar ou bloquear, mas nao podem alterar estado.
+8. Snapshot registra evidencia e decisoes, mas nao altera estado.
+9. Acceptance-Criteria-By-State.md deve ser consultado antes de recomendar conclusao de fase.
+10. Module-Phase-Matrix.md deve ser consultado antes de executar qualquer modulo.
+11. State-Transition-Log.md deve registrar toda decisao ou tentativa de transicao.
+12. Execution-Protocol.md deve orientar a execucao operacional.
+13. Evidence-Standard.md deve validar as evidencias apresentadas.
+14. Global-Definition-Of-Done.md deve ser cumprido antes de recomendar conclusao.
+15. Conflict-Resolution-Policy.md deve ser aplicada quando houver conflito.
+16. Controlled-Rollback-Policy.md deve ser aplicada quando houver reversao solicitada.
+17. Current-State.md deve ser consultado antes de qualquer execucao.
+18. Allowed-Commands-By-State.md deve validar comandos por estado.
+19. Phase-Handoff-Template.md deve ser usado ao recomendar transicao.
+20. Blocked-State-Protocol.md deve ser aplicado quando houver bloqueio.
+21. Prompt-System-Change-Log.md deve registrar alteracoes em prompts.
+22. Prompt-System-Version.md deve declarar a versao atual.
+23. Prompt-System-Versioning-Policy.md deve definir a versao das alteracoes.
+24. Start-Here.md e o ponto de entrada oficial.
+25. Prompt-System-Audit.md deve ser executado a cada mudanca de versao e antes de declarar ausencia de conflitos.
+26. Nao criar novo controle se uma regra existente puder ser ajustada.
+
+---
+
+REGRA DE ESTADO
+
+* Nenhuma fase pode ser executada se o estado atual nao permitir.
+* Nenhum estado pode ser pulado.
+* Nenhum estado pode ser revertido sem comando explicito.
+* Resultados como APROVADO, REPROVADO, READY ou BLOCKED pertencem aos gates, nao aos nomes dos estados.
+
+---
+
+SKIP_CONTROLLED
+
+SKIP_CONTROLLED nao e um estado.
+E uma excecao controlada para pular uma fase ja comprovadamente concluida.
+
+So pode ser usado quando:
+
+* O usuario solicitar explicitamente.
+* O snapshot comprovar conclusao da fase.
+* Guard Rails aprovar o escopo.
+* Auto Auditor aprovar a evidencia.
+* Human CI aprovar explicitamente.
+
+Se qualquer condicao falhar, a execucao permanece no estado atual.
+
+---
+
+REGRA DE TOOLING
+
+Permitido somente em SETUP_PROJECT como tooling de setup:
+
+* npm init
+* instalacao de dependencias
+* prisma init
+* configuracao de ambiente
+* docker, se necessario
+* alteracao de package.json
+* configuracao de runtime
+
+Proibido em todas as outras fases:
+
+* instalar dependencias
+* executar comandos de setup
+* alterar package.json
+* configurar runtime
+
+Comandos Prisma de migration de dominio nao sao tooling de setup.
+Eles so podem ocorrer quando explicitamente autorizados por DATABASE_MODELING, INTEGRATION ou PRODUCTION_RELEASE.
+
+---
+
+REGRA DE ARQUITETURA
+
+* Arquitetura so pode ser definida em ARCHITECTURE.
+* Banco de dados so pode ser criado ou alterado em DATABASE_MODELING.
+* Migrations de dominio so podem ser criadas em DATABASE_MODELING.
+* Backend so pode ser criado ou alterado em BACKEND_IMPLEMENTATION.
+* Frontend so pode ser criado ou alterado em FRONTEND_IMPLEMENTATION.
+* Integracao so pode ocorrer em INTEGRATION.
+* Migrations aprovadas so podem ser aplicadas em INTEGRATION ou PRODUCTION_RELEASE.
+* Testes e homologacao so podem aprovar, reprovar ou apontar correcoes.
+
+---
+
+FORMATO PADRAO DE ENCERRAMENTO
+
+STATUS:
+CONCLUIDO:
+NAO CONCLUIDO:
+EVIDENCIAS:
+DEPENDENCIAS:
+RISCOS:
+BLOQUEIOS:
+PROXIMA ACAO:
+TRANSICAO DE ESTADO:
+
+TRANSICAO DE ESTADO e apenas recomendacao.
+A State Machine decide a transicao real.
+
+---
+
+ARTEFATOS OPERACIONAIS
+
+Consultar antes de executar:
+
+* Start-Here.md
+* Prompt-System-Readme.md
+* Prompt-Index.md
+* Official-State-Machine.md
+* System-Guard-Rails.md
+* Current-State.md
+* Project-Snapshot.md
+* Project-Memory-System.md
+* Canonical-State-And-Module-IDs.md
+* Allowed-Commands-By-State.md
+* Acceptance-Criteria-By-State.md
+* Execution-Protocol.md
+* Evidence-Standard.md
+* Global-Definition-Of-Done.md
+* Module-Phase-Matrix.md, quando houver modulo envolvido
+* Conflict-Resolution-Policy.md, quando houver conflito
+* Controlled-Rollback-Policy.md, quando houver reversao solicitada
+* Blocked-State-Protocol.md, quando houver bloqueio
+* Prompt-System-Version.md, quando houver mudanca em prompts
+* Prompt-System-Versioning-Policy.md, quando houver mudanca em prompts
+* Prompt-System-Audit.md, quando houver mudanca de versao ou auditoria de conflitos
+
+Atualizar ao encerrar:
+
+* Project-Snapshot.md
+* State-Transition-Log.md
+* Current-State.md, apenas apos decisao da State Machine
+* Phase-Handoff-Template.md, quando houver recomendacao de transicao
+* Prompt-System-Change-Log.md, quando prompts forem alterados
+* Prompt-System-Version.md, quando prompts forem alterados
+
+---
+
+REGRA FINAL
+
+Se houver conflito entre qualquer instrucao e este sistema, este sistema tem prioridade absoluta dentro da hierarquia definida.

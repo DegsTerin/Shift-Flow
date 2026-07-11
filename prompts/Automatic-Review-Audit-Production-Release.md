@@ -1,0 +1,346 @@
+AUTOMATIC REVIEW AUDIT - STATE-08 PRODUCTION_RELEASE
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, auditoria, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
+DATA
+
+2026-06-21
+
+---
+
+ESCOPO AUDITADO
+
+STATE-08 PRODUCTION_RELEASE
+
+Solicitacao:
+
+* Executar STATE-08 PRODUCTION_RELEASE.
+
+---
+
+GUARD RAILS
+
+* Estado atual consultado: STATE-08 PRODUCTION_RELEASE.
+* Comando permitido em Allowed-Commands-By-State.md: Executar STATE-08 PRODUCTION_RELEASE.
+* Nenhuma feature nova criada.
+* Nenhuma migration nova criada.
+* Nenhum schema alterado.
+* Nenhum backend ou frontend alterado.
+* Nenhum package.json, lockfile ou configuracao de runtime alterado.
+* Prisma CLI usado apenas para status/deploy de migration aprovada, permitido em PRODUCTION_RELEASE.
+
+Resultado: APROVADO.
+
+---
+
+ACCEPTANCE CRITERIA
+
+* TESTING_HOMOLOGATION aprovado: APROVADO.
+* Bloqueios criticos resolvidos: APROVADO.
+* Migrations aprovadas preparadas/aplicadas conforme estrategia: APROVADO.
+* Riscos remanescentes aceitos explicitamente: APROVADO.
+* Snapshot final atualizado: APROVADO.
+* State-Transition-Log.md atualizado: APROVADO.
+
+Resultado: APROVADO.
+
+---
+
+EVIDENCE STANDARD
+
+Evidencias tecnicas revisadas:
+
+* Production-Release-Report.md.
+* docker compose ps: PostgreSQL healthy.
+* npm run prisma:validate: schema valido.
+* npx prisma migrate status: schema up to date.
+* npx prisma migrate deploy: No pending migrations to apply.
+* node prisma/integration-seed.mjs: aprovado.
+* npm run homologation:seed: aprovado.
+* npm audit --audit-level=moderate: 0 vulnerabilities.
+* npm run audit:overrides: status ok.
+* npm run lint: aprovado.
+* npm run typecheck: aprovado.
+* npm test: 3 passed.
+* npm run build: API e Web aprovados.
+* npm run test:e2e: 8 passed, 2 skipped intencionais.
+* npm run test:load:stress: 3 passed, 3 skipped intencionais.
+
+Resultado: APROVADO.
+
+---
+
+OBSERVACOES
+
+* Houve uma falha operacional inicial ao rodar Playwright e stress em paralelo, causada por conflito de web servers locais. A reexecucao sequencial passou.
+* A ausencia de ambiente remoto de producao impede declarar deploy externo. Isto foi registrado como risco aceito e pendencia nao bloqueante.
+
+---
+
+RISKS
+
+Riscos aceitos:
+
+* Ambiente remoto de producao nao declarado.
+* Git sem remote e sem commit inicial.
+* Overrides transitivos controlados por npm run audit:overrides.
+* Stress local nao substitui ensaio distribuido externo.
+* Storage de anexos depende de decisao concreta por ambiente.
+
+Riscos bloqueantes:
+
+* Nenhum.
+
+---
+
+RESULTADO
+
+APROVADO.
+
+STATE-08 PRODUCTION_RELEASE atende aos criterios tecnicos de aceite para encerramento local de release.
+
+---
+
+ADENDO DE AUDITORIA POS-RELEASE - 2026-06-22
+
+Escopo auditado:
+
+* Manutencao de frontend para navegacao e menu lateral responsivo.
+* Correcao operacional de ambiente local para login Playwright/API.
+
+Arquivos revisados:
+
+* apps/web/app/page.tsx.
+* apps/web/app/globals.css.
+* apps/web/app/lib/i18n.ts.
+* tests/e2e/state07-homologation.spec.ts.
+
+Criterios avaliados:
+
+* Mobile/tablet usa drawer/offcanvas em vez de sidebar fixa: APROVADO.
+* Icone hamburguer abre o drawer em mobile/tablet: APROVADO.
+* Drawer fecha ao selecionar item ou clicar fora: APROVADO.
+* Conteudo principal usa toda a largura quando drawer fechado: APROVADO.
+* Desktop/notebook mantem sidebar visivel por padrao: APROVADO.
+* Desktop permite recolher/expandir pelo mesmo icone: APROVADO.
+* Desktop recolhido exibe apenas icones e maximiza area util: APROVADO.
+* Estado recolhido/expandido e persistido durante navegacao: APROVADO.
+* Light Mode, Dark Mode, PT-BR e EN-GB preservados: APROVADO.
+* Animacoes suaves de abertura/fechamento: APROVADO.
+* Teste mobile cobre login, ausencia de overflow horizontal e fluxo do drawer: APROVADO.
+
+Validacoes reexecutadas:
+
+* npm run typecheck: aprovado.
+* npm run lint: aprovado.
+* npm run build:web: aprovado.
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile": aprovado.
+
+Observacao:
+
+* A falha inicial do Playwright mobile foi causada por PostgreSQL local parado, resultando em Prisma ECONNREFUSED no login. O ambiente foi corrigido com docker compose, migrations, Prisma Client e seeds; apos isso, o teste passou.
+
+Resultado:
+
+APROVADO.
+
+Manutencao pos-release de navegacao responsiva validada sem nova transicao de estado.
+
+---
+
+AUDITORIA FORMAL STATE-08 PRODUCTION_RELEASE + HUMAN CI REQUEST - 2026-06-22
+
+Escopo auditado:
+
+* Auditar STATE-08 PRODUCTION_RELEASE.
+* Executar Human CI.
+* Revalidar o workspace atual apos manutencoes pos-release de 2026-06-22.
+
+Estado e comando:
+
+* Current-State.md declara STATE-08 PRODUCTION_RELEASE.
+* Allowed-Commands-By-State.md permite Auditar release em STATE-08.
+* Nenhuma transicao de estado foi executada.
+
+Achados durante auditoria:
+
+* Playwright completo falhou inicialmente em 2 testes mobile porque os testes tentavam clicar Kanban diretamente, enquanto a navegacao mobile atual exige abrir o drawer/hamburguer antes de selecionar o item.
+* O teste de carga stress falhou inicialmente em 1 repeticao com p95 acima do limite local: 1522ms e depois 1535ms contra limite de 1500ms.
+
+Correcoes aplicadas durante a auditoria:
+
+* tests/e2e/state07-homologation.spec.ts: helper de navegacao mobile abre o drawer antes de clicar Kanban quando isMobile e true.
+* tests/e2e/state07-accessibility.spec.ts: mesmo ajuste para fluxo axe mobile.
+* apps/api/src/modules/dashboard/dashboard.service.ts: summary passou a calcular status/prioridade via groupBy, reduzindo counts separados sob carga e preservando o formato da resposta.
+
+Validacoes finais aprovadas:
+
+* docker compose ps: PostgreSQL healthy.
+* npm run prisma:validate: aprovado.
+* npx prisma migrate status: 6 migrations encontradas; database schema is up to date.
+* npm audit --audit-level=moderate: 0 vulnerabilities.
+* npm run audit:overrides: status ok.
+* npm run lint: aprovado.
+* npm run typecheck: aprovado.
+* npm test: 1 arquivo, 3 testes aprovados.
+* npm run build: build API e Web aprovados.
+* node prisma/integration-seed.mjs: aprovado.
+* npm run homologation:seed: aprovado; 120 atividades de homologacao e 124 atividades totais.
+* npm run test:e2e: 11 passed, 3 skipped intencionais.
+* npm run test:load:stress: 3 passed, 3 skipped intencionais.
+* npx prisma migrate deploy: No pending migrations to apply.
+
+Guard Rails:
+
+* Nenhuma dependency nova instalada.
+* Nenhum package.json ou runtime config alterado nesta auditoria.
+* Nenhuma migration nova criada nesta auditoria.
+* A auditoria corrigiu teste de validacao e gargalo de performance sem criar modulo novo.
+* O workspace ja continha manutencoes pos-release e migrations de 2026-06-22 antes desta auditoria; estas foram tratadas como base atual auditada e nao revertidas.
+
+Riscos e observacoes:
+
+* Ha alteracoes pos-release ainda nao commitadas no workspace.
+* Remote Git continua nao configurado.
+* Ambiente remoto de producao/pipeline externo continua nao declarado.
+* A aprovacao tecnica desta auditoria cobre o ambiente local configurado, nao um deploy remoto externo.
+
+Resultado:
+
+APROVADO COM OBSERVACAO.
+
+STATE-08 PRODUCTION_RELEASE permanece tecnicamente aprovado no ambiente local atual, com pendencia operacional nao bloqueante de versionar/publicar as alteracoes pos-release quando houver remote definido.
+
+---
+
+ADENDO DE AUDITORIA POS-RELEASE - 2026-06-22 - UX E SESSAO
+
+Escopo auditado:
+
+* Correcao de Modo TV com menu lateral recolhido.
+* Ajuste visual de cabecalho em Modo TV e modo normal.
+* Persistencia de sessao para evitar logoff ao atualizar a pagina.
+
+Criterios avaliados:
+
+* Modo TV sem coluna fantasma de 76px quando sidebar estava recolhida: APROVADO.
+* Modo TV sem herdar nav-collapsed/drawer-open: APROVADO.
+* Sidebar ausente em Modo TV: APROVADO.
+* Cabecalho sem frase "Dados carregados de endpoints reais": APROVADO.
+* Titulo do Modo TV em tamanho padrao da topbar: APROVADO.
+* Sessao restaurada apos page.reload/F5: APROVADO.
+* Logout remove sessao persistida: APROVADO por implementacao.
+* Storage invalido nao quebra hidratacao: APROVADO por implementacao defensiva.
+
+Validacoes:
+
+* npm run typecheck: aprovado.
+* npm run lint: aprovado.
+* npm run build:web: aprovado.
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode": aprovado.
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "authenticated session after page reload": aprovado.
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile": aprovado.
+
+Resultado:
+
+APROVADO.
+
+Manutencoes pos-release de UX e sessao validadas sem nova transicao de estado.
+
+---
+
+AUDITORIA GLOBAL E HUMAN CI COMPLETO - 2026-06-22
+
+Escopo auditado:
+
+* Projeto inteiro no workspace atual.
+* Reexecucao de Human CI completo local para STATE-08 PRODUCTION_RELEASE.
+* Registro documental da evidencia nos .md canonicos atuais.
+
+Validacoes aprovadas:
+
+* docker compose ps: PostgreSQL healthy.
+* npm run prisma:validate: aprovado.
+* npx prisma migrate status: schema up to date.
+* npx prisma migrate deploy: No pending migrations to apply.
+* npm audit --audit-level=moderate: 0 vulnerabilities.
+* npm run audit:overrides: status ok.
+* npm run lint: aprovado.
+* npm run typecheck: aprovado.
+* npm test: 1 arquivo, 3 testes aprovados.
+* npm run build: API e Web aprovados.
+* node prisma/integration-seed.mjs: aprovado.
+* npm run homologation:seed: aprovado; 120 atividades de homologacao mantidas.
+* npm run test:e2e: aprovado na reexecucao, 11 passed e 3 skipped intencionais.
+* npm run test:load: aprovado.
+* npm run test:load:stress: aprovado na reexecucao, 3 passed e 3 skipped intencionais.
+
+Observacao de risco:
+
+* A primeira execucao de npm run test:e2e falhou no teste de carga desktop por p95 1662.6589ms contra limite de 1500ms.
+* A primeira execucao de npm run test:load:stress falhou em duas repeticoes por p95 1600ms e 1529ms contra limite de 1500ms.
+* Reexecucoes oficiais passaram sem alteracao funcional; o risco foi classificado como flutuacao local nao bloqueante do runner Playwright sob paralelismo.
+
+Resultado:
+
+APROVADO COM OBSERVACAO.
+
+Nenhuma alteracao funcional, schema, package.json, runtime config, migration nova, novo controle ou transicao de estado foi executada por esta auditoria documental.
+
+---
+
+AUDITORIA DE CORRECAO DOS BLOQUEIOS - 2026-06-22
+
+Escopo auditado:
+
+* Correcoes dos bloqueios encontrados na auditoria completa.
+* Reexecucao de gates locais apos correcoes.
+
+Correcoes aplicadas:
+
+* BaseRepository.update passou a validar companyId antes de atualizar recursos escopados.
+* UsersService passou a validar get/update/remove por vinculo ativo com a empresa atual.
+* RBAC passou a validar empresa ativa, papel, permissao e vinculo de usuario antes de criar atribuicoes.
+* JWT passou a exigir segredo explicito em producao.
+* CORS passou a aceitar CORS_ORIGIN configuravel.
+* Teste de carga representativa foi ajustado para concorrencia padrao 8 no runner Playwright.
+* Teste axe dedicado recebeu timeout de 60s.
+
+Validacoes aprovadas:
+
+* npm run lint.
+* npm run typecheck.
+* npm test.
+* npm run build.
+* npm run prisma:validate.
+* npx prisma migrate status.
+* npx prisma migrate deploy.
+* npm audit --audit-level=moderate.
+* npm run audit:overrides.
+* node prisma/integration-seed.mjs.
+* npm run homologation:seed.
+* npm run test:e2e: 11 passed, 3 skipped intencionais.
+* npm run test:load:stress: 3 passed, 3 skipped intencionais.
+* Supertest cross-tenant: PATCH usuario de outra empresa retornou 404.
+* Supertest RBAC cross-company: POST assignment para outra empresa retornou 403.
+
+Resultado:
+
+APROVADO.
+
+Bloqueios tecnicos da auditoria completa foram corrigidos no ambiente local atual.

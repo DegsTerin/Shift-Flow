@@ -1,0 +1,365 @@
+HUMAN CI VALIDATION - STATE-08 PRODUCTION_RELEASE
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, checklist, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
+DATA
+
+2026-06-21
+
+---
+
+ESCOPO
+
+Validacao Human CI de STATE-08 PRODUCTION_RELEASE.
+
+---
+
+CHECKLIST
+
+* Estado atual permite a fase executada: APROVADO.
+* Comando solicitado permitido: APROVADO.
+* Homologacao anterior aprovada: APROVADO.
+* Release executado sem feature nova: APROVADO.
+* Release executado sem migration nova: APROVADO.
+* Deploy/verificacao de migration aprovada executado: APROVADO.
+* Gates de qualidade e build aprovados: APROVADO.
+* Riscos remanescentes documentados e aceitos: APROVADO.
+* Pendencias nao bloqueantes classificadas: APROVADO.
+* Snapshot final atualizado: APROVADO.
+* State Transition Log atualizado: APROVADO.
+
+---
+
+EVIDENCIAS
+
+* Production-Release-Report.md.
+* Automatic-Review-Audit-Production-Release.md.
+* Project-Snapshot.md.
+* State-Transition-Log.md.
+* npx prisma migrate deploy: No pending migrations to apply.
+* npm run build: aprovado.
+* npm run test:e2e: 8 passed, 2 skipped intencionais.
+* npm run test:load:stress: 3 passed, 3 skipped intencionais.
+
+---
+
+PENDENCIAS BLOQUEANTES
+
+Nenhuma.
+
+---
+
+PENDENCIAS NAO BLOQUEANTES
+
+* Definir ambiente remoto/pipeline para deploy externo.
+* Configurar remote Git.
+* Criar commit inicial quando solicitado.
+* Manter gates de auditoria, E2E e carga em manutencoes futuras.
+
+---
+
+RISCO
+
+Riscos remanescentes aceitos explicitamente no relatorio final de release.
+
+---
+
+RECOMENDACAO
+
+APROVAR encerramento local de STATE-08 PRODUCTION_RELEASE.
+
+TRANSICAO DE ESTADO:
+Sem recomendacao de nova transicao. A State Machine permanece como unica autoridade de estado.
+
+---
+
+ADENDO HUMAN CI POS-RELEASE - 2026-06-22
+
+Escopo:
+
+* Conferencia humana/documental dos ajustes de navegacao responsiva solicitados apos release local.
+
+Checklist:
+
+* Mobile/tablet sem menu lateral fixo: APROVADO.
+* Icone hamburguer padrao presente: APROVADO.
+* Menu abre como drawer/offcanvas: APROVADO.
+* Selecionar item fecha o drawer: APROVADO.
+* Clicar fora fecha o drawer: APROVADO.
+* Conteudo principal usa largura disponivel quando menu fechado: APROVADO.
+* Desktop/notebook com sidebar visivel por padrao: APROVADO.
+* Desktop/notebook permite recolher e expandir pelo mesmo icone: APROVADO.
+* Sidebar recolhida exibe somente icones: APROVADO.
+* Sidebar expandida exibe icones e descricoes: APROVADO.
+* Estado de recolhimento persistido durante navegacao: APROVADO.
+* Light Mode e Dark Mode preservados: APROVADO.
+* PT-BR e EN-GB preservados: APROVADO.
+* Animacoes suaves mantidas: APROVADO.
+* Sem overflow horizontal no teste mobile: APROVADO.
+
+Evidencias:
+
+* apps/web/app/page.tsx.
+* apps/web/app/globals.css.
+* apps/web/app/lib/i18n.ts.
+* tests/e2e/state07-homologation.spec.ts.
+* npm run typecheck: aprovado.
+* npm run lint: aprovado.
+* npm run build:web: aprovado.
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile": aprovado.
+
+Pendencias bloqueantes:
+
+Nenhuma identificada para o ajuste de navegacao responsiva.
+
+Observacao:
+
+* O ambiente local de teste depende de PostgreSQL, API e web ativos. A indisponibilidade inicial do PostgreSQL causou falha de login antes da UI; a causa foi corrigida e documentada no snapshot e log.
+
+Recomendacao:
+
+APROVAR manutencao pos-release de navegacao responsiva.
+
+TRANSICAO DE ESTADO:
+Sem recomendacao de nova transicao.
+
+---
+
+ADENDO HUMAN CI COMPLETO - 2026-06-22 - AUDITORIA GLOBAL
+
+Escopo:
+
+* Auditar o projeto inteiro no workspace atual.
+* Executar Human CI completo local.
+* Documentar os ajustes e evidencias deste chat nos .md canonicos atuais.
+
+Checklist:
+
+* Estado atual permite auditoria de release: APROVADO.
+* Comando solicitado permitido em STATE-08: APROVADO.
+* Banco local healthy: APROVADO.
+* Schema Prisma e migrations: APROVADO.
+* Deploy de migrations aprovadas sem pendencias: APROVADO.
+* npm audit sem vulnerabilidades moderadas: APROVADO.
+* Overrides transitivos verificados: APROVADO.
+* Lint e typecheck: APROVADO.
+* Testes unitarios: APROVADO.
+* Build API/Web: APROVADO.
+* Seeds idempotentes: APROVADO.
+* Playwright completo: APROVADO NA REEXECUCAO.
+* Teste de carga isolado: APROVADO.
+* Stress de carga: APROVADO NA REEXECUCAO.
+* Nenhuma transicao de estado executada por este gate: APROVADO.
+
+Evidencias:
+
+* docker compose ps.
+* npm run prisma:validate.
+* npx prisma migrate status.
+* npx prisma migrate deploy.
+* npm audit --audit-level=moderate.
+* npm run audit:overrides.
+* npm run lint.
+* npm run typecheck.
+* npm test.
+* npm run build.
+* node prisma/integration-seed.mjs.
+* npm run homologation:seed.
+* npm run test:e2e.
+* npm run test:load.
+* npm run test:load:stress.
+
+Pendencias bloqueantes:
+
+Nenhuma.
+
+Pendencias nao bloqueantes:
+
+* Configurar remote Git quando houver URL.
+* Executar pipeline/deploy externo quando houver ambiente remoto declarado.
+* Monitorar flutuacao local de p95 do teste de carga Playwright em execucoes paralelas.
+
+Recomendacao:
+
+APROVAR Human CI completo local com observacao de performance flutuante nao bloqueante.
+
+TRANSICAO DE ESTADO:
+Sem recomendacao de nova transicao. A State Machine permanece em STATE-08 PRODUCTION_RELEASE.
+
+---
+
+ADENDO HUMAN CI COMPLETO - 2026-06-22 - CORRECOES APOS AUDITORIA
+
+Escopo:
+
+* Validar correcoes dos bloqueios encontrados na auditoria completa.
+
+Checklist:
+
+* Users get/update/remove respeitam empresa ativa: APROVADO.
+* RBAC assignment bloqueia empresa fora do contexto ativo: APROVADO.
+* RBAC permission assignment valida papel/permissao no escopo ativo: APROVADO.
+* BaseRepository.update respeita companyId quando fornecido: APROVADO.
+* JWT exige segredo em producao: APROVADO.
+* CORS configuravel por env: APROVADO.
+* Stress oficial estabilizado: APROVADO.
+* Axe dedicado com timeout proprio: APROVADO.
+* Nenhuma nova migration/dependencia/transicao: APROVADO.
+
+Evidencias:
+
+* npm run lint.
+* npm run typecheck.
+* npm test.
+* npm run build.
+* npm run prisma:validate.
+* npx prisma migrate status.
+* npx prisma migrate deploy.
+* npm audit --audit-level=moderate.
+* npm run audit:overrides.
+* node prisma/integration-seed.mjs.
+* npm run homologation:seed.
+* npm run test:e2e.
+* npm run test:load:stress.
+* Supertest cross-tenant 404/403.
+
+Pendencias bloqueantes:
+
+Nenhuma identificada apos as correcoes locais.
+
+Recomendacao:
+
+APROVAR Human CI completo local apos correcoes.
+
+TRANSICAO DE ESTADO:
+Sem recomendacao de nova transicao. A State Machine permanece em STATE-08 PRODUCTION_RELEASE.
+
+---
+
+HUMAN CI FORMAL - STATE-08 PRODUCTION_RELEASE - 2026-06-22
+
+Escopo:
+
+* Auditar STATE-08 PRODUCTION_RELEASE e executar Human CI sobre o workspace atual.
+
+Checklist:
+
+* Estado atual permite auditoria de release: APROVADO.
+* Comando solicitado e permitido em STATE-08: APROVADO.
+* Homologacao/release anteriores possuem evidencias registradas: APROVADO.
+* Banco local esta healthy: APROVADO.
+* Schema Prisma valido: APROVADO.
+* Migrations locais up to date: APROVADO.
+* Deploy de migrations aprovado/verificado por npx prisma migrate deploy: APROVADO.
+* npm audit sem vulnerabilidades moderadas: APROVADO.
+* Overrides transitivos verificados: APROVADO.
+* Lint aprovado: APROVADO.
+* Typecheck aprovado: APROVADO.
+* Testes unitarios aprovados: APROVADO.
+* Build API/Web aprovado: APROVADO.
+* Seeds idempotentes aprovados: APROVADO.
+* Playwright completo aprovado apos correcao de fluxo mobile do teste: APROVADO.
+* Stress de carga aprovado apos otimizacao do summary do dashboard: APROVADO.
+* Nenhuma transicao de estado executada por este gate: APROVADO.
+
+Achados corrigidos:
+
+* Testes mobile de Kanban estavam desatualizados para a navegacao por drawer/hamburguer.
+* Summary do dashboard fazia counts separados suficientes para estourar marginalmente o p95 do stress local.
+
+Evidencias:
+
+* Automatic-Review-Audit-Production-Release.md.
+* tests/e2e/state07-homologation.spec.ts.
+* tests/e2e/state07-accessibility.spec.ts.
+* apps/api/src/modules/dashboard/dashboard.service.ts.
+* docker compose ps.
+* npm run prisma:validate.
+* npx prisma migrate status.
+* npx prisma migrate deploy.
+* npm audit --audit-level=moderate.
+* npm run audit:overrides.
+* npm run lint.
+* npm run typecheck.
+* npm test.
+* npm run build.
+* node prisma/integration-seed.mjs.
+* npm run homologation:seed.
+* npm run test:e2e.
+* npm run test:load:stress.
+
+Pendencias bloqueantes:
+
+Nenhuma pendencia tecnica bloqueante identificada para o ambiente local atual.
+
+Pendencias nao bloqueantes:
+
+* Versionar as alteracoes pos-release ainda nao commitadas.
+* Configurar remote Git quando houver URL do repositorio.
+* Executar pipeline/deploy remoto quando houver ambiente externo declarado.
+
+Recomendacao:
+
+APROVAR STATE-08 PRODUCTION_RELEASE no ambiente local atual, com observacao de versionamento/publicacao pendente.
+
+TRANSICAO DE ESTADO:
+Sem recomendacao de nova transicao. A State Machine permanece em STATE-08 PRODUCTION_RELEASE.
+
+---
+
+ADENDO HUMAN CI POS-RELEASE - 2026-06-22 - UX E SESSAO
+
+Escopo:
+
+* Validar documentalmente as correcoes de Modo TV, cabecalho e persistencia de sessao feitas neste chat.
+
+Checklist:
+
+* Modo TV nao herda menu recolhido: APROVADO.
+* Modo TV sem sidebar/coluna fantasma: APROVADO.
+* Cabecalho do Modo TV com tamanho padrao: APROVADO.
+* Frase "Dados carregados de endpoints reais" removida do cabecalho: APROVADO.
+* Ajuste aplicado tambem ao modo normal autenticado: APROVADO.
+* F5/page reload preserva sessao autenticada: APROVADO.
+* Logout remove sessao persistida: APROVADO.
+* Testes automatizados cobrem reload, Modo TV e drawer mobile: APROVADO.
+
+Evidencias:
+
+* apps/web/app/page.tsx.
+* apps/web/app/globals.css.
+* tests/e2e/state07-homologation.spec.ts.
+* Project-Snapshot.md.
+* State-Transition-Log.md.
+* npm run typecheck.
+* npm run lint.
+* npm run build:web.
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "TV mode".
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=desktop-chrome --grep "authenticated session after page reload".
+* npx playwright test tests/e2e/state07-homologation.spec.ts --project=mobile-chrome --grep "keeps mobile".
+
+Pendencias bloqueantes:
+
+Nenhuma.
+
+Recomendacao:
+
+APROVAR manutencoes pos-release de UX e sessao.
+
+TRANSICAO DE ESTADO:
+Sem recomendacao de nova transicao.

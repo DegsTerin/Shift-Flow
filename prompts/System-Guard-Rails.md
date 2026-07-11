@@ -1,0 +1,119 @@
+REGRAS ABSOLUTAS DO SISTEMA
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente ou snapshot pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
+1. HIERARQUIA DE AUTORIDADE
+
+1. State Machine
+2. Guard Rails
+3. Acceptance Criteria
+4. Module Phase Matrix, quando houver modulo envolvido
+5. Snapshot como fonte de evidencia
+6. Gates de validacao
+7. Prompt Mestre
+8. Prompt da fase em execucao
+9. Prompt de modulo
+10. Arquivos operacionais
+
+Se houver conflito, prevalece o item de maior autoridade.
+
+---
+
+2. ISOLAMENTO DE FASE
+
+Cada fase e independente e isolada.
+
+Voce nao pode:
+
+* reutilizar decisoes de fases futuras
+* antecipar arquitetura nao definida na fase atual
+* misturar backend, frontend ou banco fora do escopo
+* executar modulo alem da camada permitida pelo estado atual
+
+---
+
+3. PROIBICOES GLOBAIS, EXCETO SETUP_PROJECT
+
+Em todas as fases exceto SETUP_PROJECT:
+
+* proibido instalar dependencias
+* proibido executar comandos de setup
+* proibido alterar package.json
+* proibido rodar Prisma CLI fora das permissoes explicitas de migration
+* proibido criar migrations fora de DATABASE_MODELING
+* proibido configurar runtime
+
+---
+
+4. TOOLING RULE
+
+SETUP_PROJECT e a unica fase onde tooling de setup e permitido.
+
+---
+
+5. CONSISTENCIA OBRIGATORIA
+
+Toda saida deve ser consistente com:
+
+* State Machine atual
+* Current-State.md
+* snapshot do projeto
+* fase solicitada
+* prompt de fase
+* constraints globais
+* Start-Here.md
+* Allowed-Commands-By-State.md
+* Execution-Protocol.md
+* Acceptance-Criteria-By-State.md
+* Evidence-Standard.md
+* Global-Definition-Of-Done.md
+* Module-Phase-Matrix.md, quando houver modulo envolvido
+* Conflict-Resolution-Policy.md, quando houver conflito
+* Controlled-Rollback-Policy.md, quando houver reversao solicitada
+* Blocked-State-Protocol.md, quando houver bloqueio
+* Prompt-System-Audit.md, quando houver mudanca de versao ou declaracao de ausencia de conflitos
+
+---
+
+6. BLOQUEIO AUTOMATICO
+
+Se houver violacao de escopo:
+
+* a execucao deve parar imediatamente
+* o erro deve ser reportado
+* a fase nao pode continuar
+* a State Machine deve permanecer no estado atual
+
+Tambem deve bloquear se:
+
+* criterios obrigatorios de Acceptance-Criteria-By-State.md forem ignorados
+* Global-Definition-Of-Done.md nao for cumprido
+* Evidence-Standard.md nao for atendido
+* modulo for executado fora da fase definida em Module-Phase-Matrix.md
+* comando nao estiver permitido em Allowed-Commands-By-State.md
+* transicao nao for registrada em State-Transition-Log.md quando aplicavel
+* Current-State.md for ignorado
+* bloqueio nao seguir Blocked-State-Protocol.md
+* novo controle for criado sem aplicar regra anti-overengineering
+
+---
+
+7. REGRA FINAL
+
+Guard Rails podem bloquear execucao.
+Guard Rails nao podem alterar estado.

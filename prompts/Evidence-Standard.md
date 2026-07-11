@@ -1,0 +1,148 @@
+PADRAO DE EVIDENCIAS
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, evidencia, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
+OBJETIVO
+
+Definir o que conta como evidencia valida para cada fase e modulo.
+
+Uma declaracao sem evidencia nao pode concluir fase.
+
+---
+
+EVIDENCIAS POR ESTADO
+
+STATE-00 INIT:
+
+* Lista de prompts existentes.
+* Official-State-Machine.md.
+* Prompt-Index.md.
+* Project-Snapshot.md.
+* State-Transition-Log.md com registro inicial.
+
+STATE-01 SETUP_PROJECT:
+
+* Project-Setup-Phase.md executado.
+* package.json, se aplicavel.
+* lockfile, se aplicavel.
+* arquivos de configuracao.
+* estrutura base de diretorios.
+* evidencia de que tooling de setup ocorreu apenas nessa fase.
+
+STATE-02 ARCHITECTURE:
+
+* Documento de arquitetura.
+* Diagrama logico textual ou visual.
+* Estrutura de pastas proposta.
+* Decisoes arquiteturais registradas.
+* Estrategias de auth, RBAC, i18n, tema, multiempresa, auditoria, backup e escalabilidade.
+
+STATE-03 DATABASE_MODELING:
+
+* prisma/schema.prisma.
+* Arquivos de migration, quando aplicavel.
+* Entidades obrigatorias presentes.
+* Relacionamentos documentados.
+* Indices e constraints documentados.
+* Estrategia de migracao.
+* Evidencia de que Prisma CLI foi limitado a validacao/geracao de migrations de dominio.
+
+STATE-04 BACKEND_IMPLEMENTATION:
+
+* Arquivos de rotas.
+* Controllers.
+* Services.
+* Repositories.
+* Middlewares.
+* DTOs.
+* Validators.
+* Lista de APIs prontas e pendentes.
+* Evidencia de que schema e frontend nao foram alterados indevidamente.
+
+STATE-05 FRONTEND_IMPLEMENTATION:
+
+* Telas e componentes.
+* Estrutura de rotas/paginas.
+* Implementacao de temas.
+* Implementacao de idiomas.
+* Evidencia de responsividade.
+* Evidencia de que backend e banco nao foram alterados indevidamente.
+
+STATE-06 INTEGRATION:
+
+* Integration-Phase.md executado.
+* Fluxos ponta a ponta validados.
+* Evidencia de migrations aprovadas aplicadas em ambiente de integracao, quando aplicavel.
+* Contratos API revisados.
+* Evidencia de integracao de Auth, RBAC, Dashboard, Kanban, Teams, Shifts e Activities.
+* Lista de falhas corrigidas ou pendentes.
+
+STATE-07 TESTING_HOMOLOGATION:
+
+* Relatorio de auditoria.
+* Resultado de testes.
+* Bugs encontrados.
+* Correcoes necessarias.
+* Melhorias recomendadas.
+* Riscos e divida tecnica.
+
+STATE-08 PRODUCTION_RELEASE:
+
+* Production-Release-Phase.md executado.
+* Aprovacao final.
+* Snapshot final.
+* State-Transition-Log.md atualizado.
+* Registro de riscos aceitos.
+* Checklist de release.
+* Evidencia de deploy de migrations aprovadas ou justificativa de nao aplicabilidade.
+
+---
+
+EVIDENCIAS POR TIPO DE MODULO
+
+Banco:
+
+* Schema, relacionamentos, indices, constraints e soft delete.
+
+Backend:
+
+* Endpoints, services, policies, validadores e middlewares.
+
+Frontend:
+
+* Telas, componentes, estados visuais, temas e traducoes.
+
+Integracao:
+
+* Fluxos ponta a ponta e contratos API.
+
+Auditoria:
+
+* Relatorio, checklist, bugs, riscos e decisoes.
+
+---
+
+EVIDENCIA INVALIDA
+
+Nao conta como evidencia suficiente:
+
+* Declarar "implementado" sem arquivo, trecho, relatorio ou artefato.
+* Descrever feature futura como se estivesse pronta.
+* Usar snapshot como prova unica sem apontar artefato.
+* Usar recomendacao de gate como transicao de estado.
+* Usar prompt de modulo para justificar alteracao fora da fase.

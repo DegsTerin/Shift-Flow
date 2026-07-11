@@ -1,0 +1,108 @@
+POLITICA DE RESOLUCAO DE CONFLITOS
+
+REGRA DE OURO
+
+Nenhum prompt, gate, agente, politica, snapshot ou log pode criar ou alterar estado.
+Apenas a State Machine pode alterar estado.
+
+---
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+
+OBJETIVO
+
+Definir como resolver conflitos entre arquivos, prompts, gates, modulos, criterios e instrucoes do usuario.
+
+---
+
+HIERARQUIA DE AUTORIDADE
+
+1. Official-State-Machine.md
+2. System-Guard-Rails.md
+3. Acceptance-Criteria-By-State.md
+4. Module-Phase-Matrix.md, quando houver modulo envolvido
+5. Project-Snapshot.md como fonte de evidencia
+6. Gates de validacao:
+   * Human-Gate-Validation-Checklist.md
+   * Automatic-Review-Audit.md
+   * Engineering-Multi-Agent-System.md
+7. Controlled-Phase-Execution-System.md
+8. Prompt da fase em execucao
+9. Prompt de modulo
+10. Arquivos operacionais:
+   * Prompt-Index.md
+   * Execution-Protocol.md
+   * Evidence-Standard.md
+   * Global-Definition-Of-Done.md
+   * Controlled-Rollback-Policy.md
+   * State-Transition-Log.md
+
+Se houver conflito, prevalece o item de maior autoridade.
+
+---
+
+TIPOS DE CONFLITO
+
+CONFLITO DE ESTADO:
+
+* Dois arquivos indicam estados diferentes.
+* Resolucao: prevalece a State Machine; snapshot e log registram evidencia.
+
+CONFLITO DE ESCOPO:
+
+* Um prompt pede acao fora da fase atual.
+* Resolucao: prevalecem Guard Rails e Module Phase Matrix.
+
+CONFLITO DE TOOLING:
+
+* Um prompt pede instalacao, setup, package.json ou runtime fora de SETUP_PROJECT.
+* Um prompt pede Prisma CLI fora das permissoes explicitas de migration.
+* Resolucao: bloquear execucao.
+
+CONFLITO DE EVIDENCIA:
+
+* Uma fase e declarada concluida sem artefatos verificaveis.
+* Resolucao: bloquear conclusao ate cumprir Evidence Standard e Acceptance Criteria.
+
+CONFLITO DE MODULO:
+
+* Um modulo pede banco, backend e frontend ao mesmo tempo.
+* Resolucao: executar apenas a parte permitida pelo estado atual.
+
+CONFLITO DE GATE:
+
+* Um gate aprova e outro reprova.
+* Resolucao: qualquer reprova ou bloqueio critico impede recomendacao de transicao.
+
+CONFLITO COM INSTRUCAO DO USUARIO:
+
+* O usuario solicita algo fora da State Machine ou fora da fase.
+* Resolucao: reportar conflito, aplicar Guard Rails e aguardar comando valido ou SKIP_CONTROLLED.
+
+---
+
+FORMATO DE RELATO DE CONFLITO
+
+CONFLITO:
+ARQUIVOS ENVOLVIDOS:
+TIPO:
+AUTORIDADE APLICADA:
+DECISAO:
+IMPACTO:
+CORRECAO NECESSARIA:
+STATUS:
+
+---
+
+REGRA FINAL
+
+Resolver conflito nao altera estado.
+A State Machine decide qualquer transicao.

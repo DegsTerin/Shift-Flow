@@ -18,7 +18,7 @@ Prefer updating the documents listed here instead of creating new root-level con
 
 ## Prompt Control Files
 
-The `prompts/*.txt` files are treated as controlled process artifacts. They should remain stable unless a phase, state machine, audit process, or prompt protocol explicitly changes.
+The `prompts/*.md` files are treated as controlled process artifacts. They should remain stable unless a phase, state machine, audit process, or prompt protocol explicitly changes.
 
 When a prompt control file is still required, keep it in `prompts/` and reference it from this index or from the relevant canonical document. When a prompt control file becomes obsolete, archive it through a dedicated documentation-only change that records the replacement document and impact.
 

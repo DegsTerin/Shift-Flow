@@ -1,0 +1,107 @@
+PROMPT DE FASE FRONTEND IMPLEMENTATION
+
+PAPEL OPERACIONAL:
+
+Atue como Desenvolvedor Frontend Senior.
+
+---
+
+ESTADO DA STATE MACHINE:
+
+STATE-05 FRONTEND_IMPLEMENTATION
+
+REGRA DE OURO:
+
+Nenhum prompt pode criar ou alterar estado. Apenas a State Machine pode.
+
+REGRA DE COMMIT
+
+Ao concluir qualquer alteracao solicitada neste arquivo ou derivada dele, criar commit local com mensagem clara e escopo fechado.
+O commit deve incluir somente arquivos relacionados a alteracao executada.
+Se nao houver alteracao de arquivo, registrar explicitamente que nao ha commit a criar.
+Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao explicita.
+
+---
+
+ESCOPO:
+
+* Criar ou alterar apenas frontend.
+* Nao alterar backend.
+* Nao alterar schema de banco.
+* Nao executar tooling de setup.
+* Nao implementar regras de negocio backend na UI.
+
+ANTES DE EXECUTAR:
+
+* Consultar Start-Here.md.
+* Consultar Prompt-System-Readme.md.
+* Consultar Prompt-Index.md.
+* Consultar Current-State.md.
+* Consultar Project-Snapshot.md.
+* Consultar Project-Memory-System.md.
+* Consultar Canonical-State-And-Module-IDs.md.
+* Consultar Allowed-Commands-By-State.md.
+* Consultar Acceptance-Criteria-By-State.md.
+* Consultar Execution-Protocol.md.
+* Consultar Evidence-Standard.md.
+* Consultar Global-Definition-Of-Done.md.
+* Consultar Module-Phase-Matrix.md para modulos que tenham parte frontend.
+* Consultar Blocked-State-Protocol.md se houver bloqueio.
+
+Crie o frontend completo utilizando:
+
+* Next.js
+* TypeScript
+* Tailwind
+* ShadCN
+
+Criar:
+
+* Login
+* Dashboard Principal
+* Dashboard por Equipe
+* Gestao de Usuarios
+* Gestao de Equipes
+* Gestao de Turnos
+* Gestao de Atividades
+* Kanban
+* Relatorios
+* Configuracoes
+
+Implementar:
+
+* Dark Mode
+* Light Mode
+* PT-BR
+* EN-GB
+
+Todos os componentes devem ser responsivos.
+
+Requisitos operacionais globais quando estiverem no escopo do frontend:
+
+* Validar desktop, notebook, tablet, mobile, Light Mode, Dark Mode, PT-BR e EN-GB.
+* Padronizar menu lateral em largura, alinhamento, espacamento, altura dos itens, icones e comportamento responsivo.
+* Garantir que botoes "+ Novo" abram o fluxo correto de criacao.
+* Garantir que registros abram modal, drawer ou painel de detalhes sobre a tela atual.
+* Exibir em atividade: resumo, dados principais, descricao completa, historico/timeline, anexos, auditoria e acoes permitidas.
+* Expor filtros reais na UI e pesquisa por ID, cliente, sistema, equipe, responsavel, status e texto livre quando o backend suportar.
+* Criar layout de dashboard operacional/TV com auto refresh, cards grandes, destaques de criticos e SLA em risco quando o modulo estiver no escopo.
+* Nenhum elemento deve gerar scroll horizontal indevido ou ultrapassar a largura da tela.
+
+Implementar nos arquivos do projeto.
+Ao final, listar arquivos criados ou alterados e evidencias verificaveis.
+
+Ao final informe no formato padrao:
+
+STATUS:
+CONCLUIDO:
+NAO CONCLUIDO:
+EVIDENCIAS:
+DEPENDENCIAS:
+RISCOS:
+BLOQUEIOS:
+PROXIMA ACAO:
+TRANSICAO DE ESTADO:
+
+TRANSICAO DE ESTADO e apenas recomendacao.
+A State Machine decide a transicao real.
