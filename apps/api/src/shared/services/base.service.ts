@@ -1,3 +1,4 @@
+// en-GB: Implements application rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../http/request-types.js";
 import { toPagination, toSkipTake } from "../http/pagination.js";
 import { badRequest, notFound } from "../errors/app-error.js";

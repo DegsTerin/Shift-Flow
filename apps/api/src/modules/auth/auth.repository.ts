@@ -1,3 +1,4 @@
+// en-GB: Encapsulates auth persistence so data access remains consistent and testable.
 import { getDelegate, getPrisma } from "../../shared/lib/prisma.js";
 
 type UserDelegate = {

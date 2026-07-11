@@ -1,3 +1,4 @@
+// en-GB: Defines the request logger implementation so this project responsibility remains explicit and maintainable.
 import type { NextFunction, Response } from "express";
 import type { ApiRequest } from "../http/request-types.js";
 import { logger } from "../observability/logger.js";

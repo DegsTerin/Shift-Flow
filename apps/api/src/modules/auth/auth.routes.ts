@@ -1,3 +1,4 @@
+// en-GB: Registers auth endpoints and middleware so the request flow remains explicit.
 import { Router } from "express";
 import { authenticate } from "../../shared/middlewares/authenticate.js";
 import { loginRateLimit } from "../../shared/middlewares/rate-limit.js";

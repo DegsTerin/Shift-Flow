@@ -1,3 +1,4 @@
+# en-GB: Configures  gitleaks rules so automated security checks remain deterministic.
 [allowlist]
 description = "Ignore generated local artifacts that are already excluded from Git."
 paths = [

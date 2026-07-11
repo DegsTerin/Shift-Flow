@@ -1,3 +1,4 @@
+// en-GB: Defines the request context implementation so this project responsibility remains explicit and maintainable.
 import type { NextFunction, Response } from "express";
 import type { ApiRequest } from "../http/request-types.js";
 

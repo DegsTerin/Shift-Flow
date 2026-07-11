@@ -1,3 +1,4 @@
+// en-GB: Defines dashboard transfer shapes so data crossing application boundaries remains explicit.
 export type DashboardFiltersDto = {
   teamId?: string;
   assigneeId?: string;

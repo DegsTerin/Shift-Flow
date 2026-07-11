@@ -1,3 +1,4 @@
+// en-GB: Defines the validate implementation so this project responsibility remains explicit and maintainable.
 import type { NextFunction, Request, Response } from "express";
 import type { ZodType } from "zod";
 import { badRequest } from "../errors/app-error.js";

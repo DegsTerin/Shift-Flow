@@ -1,3 +1,4 @@
+// en-GB: Implements dashboard rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { badRequest } from "../../shared/errors/app-error.js";
 import { activeCompanyId, assertTeamInCompany } from "../../shared/services/scope.service.js";

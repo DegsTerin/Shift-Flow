@@ -1,3 +1,4 @@
+// en-GB: Defines the server implementation so this project responsibility remains explicit and maintainable.
 import "dotenv/config";
 
 import { env } from "./shared/config/env.js";

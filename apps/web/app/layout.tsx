@@ -1,3 +1,4 @@
+// en-GB: Defines the root document and metadata so every rendered page has a consistent accessible shell.
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";

@@ -1,3 +1,4 @@
+# en-GB: Defines editor defaults so contributors produce consistent text files across platforms.
 root = true
 
 [*]

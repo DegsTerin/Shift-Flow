@@ -1,3 +1,4 @@
+// en-GB: Defines the prisma implementation so this project responsibility remains explicit and maintainable.
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";

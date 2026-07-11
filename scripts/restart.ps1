@@ -1,3 +1,4 @@
+# en-GB: Implements the restart workflow so Windows operations remain repeatable and observable.
 param(
   [switch]$SkipInstall,
   [switch]$SkipSeed,

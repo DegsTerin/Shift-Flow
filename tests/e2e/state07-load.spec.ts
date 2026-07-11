@@ -1,3 +1,4 @@
+// en-GB: Verifies state07 load spec end-to-end so release behaviour remains observable in a real browser.
 import { expect, test } from "@playwright/test";
 
 const apiBaseUrl = process.env.API_BASE_URL ?? "http://localhost:3001";

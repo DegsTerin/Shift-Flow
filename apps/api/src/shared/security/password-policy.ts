@@ -1,3 +1,4 @@
+// en-GB: Defines the password policy implementation so this project responsibility remains explicit and maintainable.
 import { badRequest } from "../errors/app-error.js";
 
 const commonPasswords = new Set([

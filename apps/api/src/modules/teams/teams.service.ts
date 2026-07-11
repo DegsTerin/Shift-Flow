@@ -1,3 +1,4 @@
+// en-GB: Implements teams rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { toPagination, toSkipTake } from "../../shared/http/pagination.js";
 import { notFound } from "../../shared/errors/app-error.js";

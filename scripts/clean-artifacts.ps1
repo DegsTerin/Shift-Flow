@@ -1,3 +1,4 @@
+# en-GB: Implements the clean artifacts workflow so Windows operations remain repeatable and observable.
 $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")

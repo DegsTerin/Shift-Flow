@@ -1,3 +1,4 @@
+// en-GB: Defines activities transfer shapes so data crossing application boundaries remains explicit.
 export type CreateActivityDto = {
   clientId: string;
   teamId: string;

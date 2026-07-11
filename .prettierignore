@@ -1,1 +1,2 @@
+# en-GB: Preserves the canonical prompt format so automated styling does not rewrite governance records.
 prompts/*.md

@@ -1,3 +1,4 @@
+// en-GB: Implements application rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../http/request-types.js";
 import { badRequest, forbidden, notFound } from "../errors/app-error.js";
 import { getDelegate } from "../lib/prisma.js";

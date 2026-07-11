@@ -1,3 +1,4 @@
+// en-GB: Handles rbac HTTP requests so transport concerns remain separate from business behaviour.
 import type { Response } from "express";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { CrudController } from "../../shared/controllers/crud.controller.js";

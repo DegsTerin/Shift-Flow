@@ -19,13 +19,16 @@ Nao incluir mudancas externas, geradas ou nao relacionadas sem solicitacao expli
 
 VERSAO ATUAL
 
-PROMPT_SYSTEM_VERSION: 1.4.40
+PROMPT_SYSTEM_VERSION: 1.4.41
 
 Data:
 2026-07-11
 
 Status:
-Padrao frontend atualizado em 2026-07-11 para refletir a arquitetura Next.js real, sem editar index.html gerado, com semantica HTML5, acessibilidade, responsividade, perfis em listas semanticas e comentarios CSS en-GB. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+Padrao de comentarios en-GB expandido em 2026-07-11 para todo o codigo-fonte e configuracao editavel do projeto, com manifesto de excecoes e gate automatico. STATE-08 PRODUCTION_RELEASE permanece como estado atual.
+
+Patch 1.4.41:
+Todos os arquivos de codigo e configuracao editaveis que aceitam comentarios receberam cabecalho en-GB especifico por responsabilidade. Foi criado docs/source-commenting-manifest.md para JSON estrito, arquivos gerados e migrations imutaveis, alem de scripts/verify-source-comments.mjs e npm run comments:verify para impedir regressao. O CSS preserva a regra adicional de comentario em cada declaracao.
 
 Patch 1.4.40:
 Prompt-Interface-UI-UX.md, Prompt-Adjustments.md e docs/development-standards.md passaram a definir as fontes React/CSS editaveis, landmarks, listas semanticas, metadata, acessibilidade, responsividade e comentarios CSS en-GB. O frontend recebeu main primario, skip link, metadata atualizada e lista de perfis em ul/li/article com sequencia interna em ol, preservando os fluxos existentes.

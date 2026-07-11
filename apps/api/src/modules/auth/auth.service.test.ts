@@ -1,3 +1,4 @@
+// en-GB: Exercises auth behaviour so regressions at this boundary are detected automatically.
 import bcrypt from "bcryptjs";
 import { describe, expect, it, vi } from "vitest";
 import { AuthService } from "./auth.service.js";

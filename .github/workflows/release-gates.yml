@@ -1,3 +1,4 @@
+# en-GB: Configures release gates automation so infrastructure and release behaviour remain reproducible.
 name: Release gates
 
 on:

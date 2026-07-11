@@ -123,6 +123,23 @@ RECOMENDACAO:
 ULTIMA AUDITORIA REGISTRADA
 
 Data: 2026-07-11
+Versao: 1.4.41
+Arquivos auditados: Todo codigo e configuracao versionado, manifesto de comentarios, gate automatico, padroes de desenvolvimento e controles canonicos.
+Status: APROVADO APOS EXPANSAO DE COMENTARIOS EN-GB
+Conflitos encontrados:
+* A regra anterior exigia comentario por declaracao apenas no CSS e nao cobria formalmente as demais linguagens.
+* JSON estrito, arquivos gerados e migrations aplicadas nao podiam receber comentarios sem quebrar sintaxe, geracao ou checksum.
+Correcoes aplicadas:
+* As 157 fontes editaveis comentaveis receberam cabecalho en-GB especifico por responsabilidade.
+* docs/source-commenting-manifest.md documenta 17 excecoes sintaticas, geradas e imutaveis.
+* scripts/verify-source-comments.mjs valida 157 fontes e todas as 1.266 declaracoes CSS.
+* npm run comments:verify foi integrado a npm run quality.
+Risco:
+* Comentarios genericos podem perder valor se nao forem atualizados junto com a responsabilidade do arquivo.
+Recomendacao:
+* Manter comentarios focados em intencao, invariantes e restricoes, evitando narracao redundante de sintaxe. Quality, 28 testes unitarios e build foram aprovados nesta rodada.
+
+Data: 2026-07-11
 Versao: 1.4.40
 Arquivos auditados: Fontes frontend Next.js, CSS global, Prompt-Interface-UI-UX.md, Prompt-Adjustments.md, docs/development-standards.md e controles canonicos.
 Status: APROVADO APOS ALINHAMENTO DE SEMANTICA E RESPONSIVIDADE

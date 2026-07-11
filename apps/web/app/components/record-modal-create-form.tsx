@@ -1,3 +1,4 @@
+// en-GB: Renders the record modal create form interface so its behaviour and accessible structure stay reusable.
 import { Save } from "lucide-react";
 import type { FormEvent } from "react";
 import type {

@@ -1,3 +1,4 @@
+// en-GB: Defines the app implementation so this project responsibility remains explicit and maintainable.
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";

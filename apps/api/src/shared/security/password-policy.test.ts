@@ -1,3 +1,4 @@
+// en-GB: Exercises application behaviour so regressions at this boundary are detected automatically.
 import { describe, expect, it } from "vitest";
 import { validatePasswordPolicy } from "./password-policy.js";
 

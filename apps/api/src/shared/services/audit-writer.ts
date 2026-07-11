@@ -1,3 +1,4 @@
+// en-GB: Defines the audit writer implementation so this project responsibility remains explicit and maintainable.
 import { getDelegate } from "../lib/prisma.js";
 import type { ApiRequest } from "../http/request-types.js";
 

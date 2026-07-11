@@ -173,8 +173,17 @@ Requisitos obrigatorios:
 * Manter HTML/React, CSS e TypeScript separados por responsabilidade.
 * Implementar layout fluido para mobile, tablet e desktop com unidades
   relativas, Grid, Flexbox e media queries orientadas pelo conteudo.
+* Iniciar todo arquivo editavel de codigo ou configuracao que aceite comentarios
+  com comentario en-GB sobre sua responsabilidade e finalidade.
+* Comentar em en-GB algoritmos nao obvios, limites de seguranca, invariantes de
+  negocio, decisoes de compatibilidade e efeitos operacionais.
 * Comentar cada declaracao CSS em en-GB, explicando de forma curta o que a
   propriedade controla e por que ela e necessaria.
+* Nao narrar sintaxe autoexplicativa linha por linha; comentarios devem explicar
+  intencao, restricao e motivo.
+* Aplicar as excecoes de JSON estrito, arquivos gerados e migrations imutaveis
+  definidas em docs/source-commenting-manifest.md.
+* Executar npm run comments:verify antes de aprovar alteracoes de codigo.
 * Preservar conteudo, estilo, comportamento, regras de negocio e integracoes
   existentes durante a reorganizacao semantica.
 

@@ -1,3 +1,4 @@
+// en-GB: Exercises comments behaviour so regressions at this boundary are detected automatically.
 import { describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { CommentsService } from "./comments.service.js";

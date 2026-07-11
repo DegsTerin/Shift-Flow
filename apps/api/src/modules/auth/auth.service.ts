@@ -1,3 +1,4 @@
+// en-GB: Implements auth rules so invariants remain centralised outside the transport layer.
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { env } from "../../shared/config/env.js";

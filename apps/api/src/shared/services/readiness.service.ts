@@ -1,3 +1,4 @@
+// en-GB: Implements application rules so invariants remain centralised outside the transport layer.
 import { getPrisma } from "../lib/prisma.js";
 import { AppError } from "../errors/app-error.js";
 

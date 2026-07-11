@@ -1,3 +1,4 @@
+// en-GB: Defines the pagination implementation so this project responsibility remains explicit and maintainable.
 import { z } from "zod";
 
 export const paginationSchema = z.object({

@@ -1,3 +1,4 @@
+// en-GB: Defines users transfer shapes so data crossing application boundaries remains explicit.
 export type CreateUserDto = {
   email: string;
   password: string;

@@ -1,3 +1,4 @@
+// en-GB: Provides shared i18n definitions so frontend modules use one consistent implementation.
 export const messages = {
   "pt-BR": {
     app: "ShiftFlow",

@@ -115,6 +115,7 @@ npm run build
 Additional checks:
 
 ```bash
+npm run comments:verify
 npm run test:e2e
 npm run test:a11y
 npm run test:load
@@ -139,6 +140,7 @@ npm run clean:artifacts
 - [Security](SECURITY.md)
 - [Architecture](docs/architecture.md)
 - [Development Standards](docs/development-standards.md)
+- [Source Commenting Manifest](docs/source-commenting-manifest.md)
 - [Governance Index](docs/governance-index.md)
 - [Production Runbook](docs/production-runbook.md)
 - [Systematization Report](docs/systematization-report.md)

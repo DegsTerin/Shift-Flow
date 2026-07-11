@@ -1,3 +1,4 @@
+// en-GB: Exercises application behaviour so regressions at this boundary are detected automatically.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Response } from "express";
 import type { ApiRequest, AuthenticatedUser } from "../http/request-types.js";

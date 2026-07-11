@@ -1,3 +1,4 @@
+# en-GB: Implements the stop workflow so Windows operations remain repeatable and observable.
 param(
   [switch]$KeepDatabase
 )

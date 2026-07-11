@@ -1,3 +1,4 @@
+// en-GB: Defines the logger implementation so this project responsibility remains explicit and maintainable.
 import { env } from "../config/env.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";

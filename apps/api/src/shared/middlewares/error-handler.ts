@@ -1,3 +1,4 @@
+// en-GB: Defines the error handler implementation so this project responsibility remains explicit and maintainable.
 import type { NextFunction, Request, Response } from "express";
 import { AppError, conflict } from "../errors/app-error.js";
 import { env } from "../config/env.js";

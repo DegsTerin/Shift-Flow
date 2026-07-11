@@ -1,3 +1,4 @@
+// en-GB: Encapsulates application persistence so data access remains consistent and testable.
 import { getDelegate } from "../lib/prisma.js";
 import { notFound } from "../errors/app-error.js";
 

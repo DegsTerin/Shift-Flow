@@ -29,7 +29,7 @@ Proxima fase permitida:
 Encerramento de release
 
 Versao do sistema de prompts:
-1.4.40
+1.4.41
 
 Ultima atualizacao:
 2026-07-11
@@ -44,6 +44,8 @@ WORKSPACE ATUAL
 * Os 75 arquivos canonicos de prompts/ usam extensao .md; nao restam arquivos .txt versionados no corpus.
 * O frontend Next.js usa layout.tsx, page.tsx, componentes React e globals.css como fontes editaveis; index.html em .next/ permanece artefato gerado.
 * A interface possui main primario, skip link, metadata atualizada, lista de perfis semantica e comentarios en-GB em todas as declaracoes do CSS global.
+* As 157 fontes de codigo e configuracao editavel que aceitam comentarios possuem cabecalho en-GB; 17 formatos estritos, gerados ou migrations imutaveis estao documentados em docs/source-commenting-manifest.md.
+* npm run comments:verify integra o gate quality e valida 157 fontes e 1.266 declaracoes CSS.
 * Estrutura tecnica base criada.
 * package.json e package-lock.json criados.
 * Diretorios tecnicos criados:

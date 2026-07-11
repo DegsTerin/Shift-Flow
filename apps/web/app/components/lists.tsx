@@ -1,3 +1,4 @@
+// en-GB: Renders the lists interface so its behaviour and accessible structure stay reusable.
 "use client";
 
 import { Plus } from "lucide-react";

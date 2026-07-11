@@ -1,3 +1,4 @@
+# en-GB: Implements the status workflow so Windows operations remain repeatable and observable.
 $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")

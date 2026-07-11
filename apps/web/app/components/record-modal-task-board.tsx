@@ -1,3 +1,4 @@
+// en-GB: Renders the record modal task board interface so its behaviour and accessible structure stay reusable.
 import { Archive, ChevronLeft, ChevronRight, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { apiRequest } from "../lib/api";

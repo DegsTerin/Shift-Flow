@@ -1,3 +1,4 @@
+// en-GB: Defines the response implementation so this project responsibility remains explicit and maintainable.
 const redactedResponseKeys = new Set(["password", "passwordHash", "tokenHash"]);
 const redactedResponseKeyPattern =
   /(api[-_]?key|authorization|cookie|credential|jwt|password|refresh[-_]?token|secret|token[-_]?hash)/i;

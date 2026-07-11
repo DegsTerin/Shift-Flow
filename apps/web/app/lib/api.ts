@@ -1,3 +1,4 @@
+// en-GB: Provides shared api definitions so frontend modules use one consistent implementation.
 import type { ApiEnvelope, Filters } from "./types";
 
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";

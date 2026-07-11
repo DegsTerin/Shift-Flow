@@ -1,3 +1,4 @@
+// en-GB: Validates shifts input so malformed data cannot cross the module boundary.
 import { z } from "zod";
 
 export const shiftSchema = z.object({

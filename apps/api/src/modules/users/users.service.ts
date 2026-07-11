@@ -1,3 +1,4 @@
+// en-GB: Implements users rules so invariants remain centralised outside the transport layer.
 import bcrypt from "bcryptjs";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { getDelegate } from "../../shared/lib/prisma.js";

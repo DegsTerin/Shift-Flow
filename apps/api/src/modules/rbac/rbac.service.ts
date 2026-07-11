@@ -1,3 +1,4 @@
+// en-GB: Implements rbac rules so invariants remain centralised outside the transport layer.
 import type {
   ApiRequest,
   AuthenticatedUser,

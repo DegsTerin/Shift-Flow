@@ -1,3 +1,4 @@
+// en-GB: Configures vitest config so tooling follows the repository testing and build conventions.
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({

@@ -1,3 +1,4 @@
+// en-GB: Defines the async handler implementation so this project responsibility remains explicit and maintainable.
 import type { NextFunction, Request, Response } from "express";
 
 export type AsyncRequestHandler = (

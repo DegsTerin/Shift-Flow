@@ -1,3 +1,4 @@
+// en-GB: Implements the security scan check so automated gates enforce a stable repository invariant.
 /* global console, process */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";

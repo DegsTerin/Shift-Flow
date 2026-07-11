@@ -1,3 +1,4 @@
+// en-GB: Renders the views interface so its behaviour and accessible structure stay reusable.
 "use client";
 
 import { CheckCircle2, Download } from "lucide-react";

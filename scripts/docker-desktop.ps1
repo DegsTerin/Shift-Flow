@@ -1,3 +1,4 @@
+# en-GB: Implements the docker desktop workflow so Windows operations remain repeatable and observable.
 $DockerDesktopStartupTimeoutSeconds = 120
 
 function Test-DockerDaemon {

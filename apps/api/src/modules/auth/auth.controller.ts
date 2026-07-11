@@ -1,3 +1,4 @@
+// en-GB: Handles auth HTTP requests so transport concerns remain separate from business behaviour.
 import type { Response } from "express";
 import crypto from "node:crypto";
 import { asyncHandler } from "../../shared/http/async-handler.js";

@@ -1,3 +1,4 @@
+// en-GB: Provides shared page config definitions so frontend modules use one consistent implementation.
 import {
   Activity,
   BarChart3,

@@ -1,3 +1,4 @@
+// en-GB: Verifies state07 homologation spec end-to-end so release behaviour remains observable in a real browser.
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 

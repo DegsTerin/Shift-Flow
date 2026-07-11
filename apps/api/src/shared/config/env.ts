@@ -1,3 +1,4 @@
+// en-GB: Defines the env implementation so this project responsibility remains explicit and maintainable.
 import { z } from "zod";
 
 const booleanFromString = z

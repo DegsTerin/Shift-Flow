@@ -1,3 +1,4 @@
+// en-GB: Configures playwright config so tooling follows the repository testing and build conventions.
 import "dotenv/config";
 import { defineConfig, devices } from "@playwright/test";
 

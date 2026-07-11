@@ -1,3 +1,4 @@
+// en-GB: Handles dashboard HTTP requests so transport concerns remain separate from business behaviour.
 import type { Response } from "express";
 import { asyncHandler } from "../../shared/http/async-handler.js";
 import type { ApiRequest } from "../../shared/http/request-types.js";

@@ -1,3 +1,4 @@
+// en-GB: Defines the verify origin implementation so this project responsibility remains explicit and maintainable.
 import type { NextFunction, Response } from "express";
 import { configuredCorsOrigins, requireOriginOnUnsafeRequests } from "../config/env.js";
 import type { ApiRequest } from "../http/request-types.js";

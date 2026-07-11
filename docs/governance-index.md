@@ -10,6 +10,7 @@ Prefer updating the documents listed here instead of creating new root-level con
 - `SECURITY.md`: vulnerability handling and security policy.
 - `docs/architecture.md`: runtime architecture, module boundaries, observability, and security controls.
 - `docs/development-standards.md`: engineering standards, naming, checks, review, versioning, and documentation rules.
+- `docs/source-commenting-manifest.md`: en-GB source-comment policy, syntax exceptions, immutable-file rules, and automated coverage gate.
 - `docs/production-runbook.md`: production operations and incident handling.
 - `docs/technical-roadmap.md`: planned technical evolution.
 - `docs/systematization-report.md`: systematization baseline, decisions, and remaining risks.

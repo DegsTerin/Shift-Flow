@@ -1,3 +1,4 @@
+// en-GB: Validates clients input so malformed data cannot cross the module boundary.
 import { z } from "zod";
 
 export const clientSchema = z.object({

@@ -1,3 +1,4 @@
+// en-GB: Provides shared types definitions so frontend modules use one consistent implementation.
 import type { Dispatch, SetStateAction } from "react";
 import type { LayoutDashboard, Moon } from "lucide-react";
 import type { messages } from "./i18n";

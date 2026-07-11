@@ -1,3 +1,4 @@
+// en-GB: Validates audit input so malformed data cannot cross the module boundary.
 import { z } from "zod";
 
 export const auditFilterSchema = z.object({

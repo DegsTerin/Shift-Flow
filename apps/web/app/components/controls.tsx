@@ -1,3 +1,4 @@
+// en-GB: Renders the controls interface so its behaviour and accessible structure stay reusable.
 "use client";
 
 import { Filter } from "lucide-react";

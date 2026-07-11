@@ -1,3 +1,4 @@
+// en-GB: Configures eslint config so tooling follows the repository testing and build conventions.
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 

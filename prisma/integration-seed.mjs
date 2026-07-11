@@ -1,3 +1,4 @@
+// en-GB: Creates controlled integration seed data so local validation uses a repeatable database state.
 /* global console, process */
 
 import "dotenv/config";

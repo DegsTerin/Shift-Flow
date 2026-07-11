@@ -1,3 +1,4 @@
+# en-GB: Excludes generated and local-only artefacts so commits contain intentional source changes.
 node_modules
 # Keep environment variables out of version control
 .env

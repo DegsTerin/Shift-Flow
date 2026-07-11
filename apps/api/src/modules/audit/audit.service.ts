@@ -1,3 +1,4 @@
+// en-GB: Implements audit rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { AuditRepository } from "./audit.repository.js";

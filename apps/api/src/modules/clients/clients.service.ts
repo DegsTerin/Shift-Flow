@@ -1,3 +1,4 @@
+// en-GB: Implements clients rules so invariants remain centralised outside the transport layer.
 import { BaseService } from "../../shared/services/base.service.js";
 import { ClientsRepository } from "./clients.repository.js";
 

@@ -1,3 +1,4 @@
+// en-GB: Renders the role management view interface so its behaviour and accessible structure stay reusable.
 "use client";
 
 import { Copy, ShieldCheck } from "lucide-react";

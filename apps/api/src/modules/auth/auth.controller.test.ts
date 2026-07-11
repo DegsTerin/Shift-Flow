@@ -1,3 +1,4 @@
+// en-GB: Exercises auth behaviour so regressions at this boundary are detected automatically.
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi, afterEach } from "vitest";

@@ -1,3 +1,4 @@
+// en-GB: Implements the verify production config check so automated gates enforce a stable repository invariant.
 /* global console, process */
 
 import crypto from "node:crypto";

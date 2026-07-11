@@ -1,3 +1,4 @@
+// en-GB: Defines the authorize implementation so this project responsibility remains explicit and maintainable.
 import type { NextFunction, Response } from "express";
 import { forbidden } from "../errors/app-error.js";
 import type { ApiRequest } from "../http/request-types.js";

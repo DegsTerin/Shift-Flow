@@ -1,3 +1,4 @@
+// en-GB: Defines the app error implementation so this project responsibility remains explicit and maintainable.
 export class AppError extends Error {
   constructor(
     message: string,

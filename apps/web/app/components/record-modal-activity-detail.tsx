@@ -1,3 +1,4 @@
+// en-GB: Renders the record modal activity detail interface so its behaviour and accessible structure stay reusable.
 import { CheckCircle2, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
 import type {

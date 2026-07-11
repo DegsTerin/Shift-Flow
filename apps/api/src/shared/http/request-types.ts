@@ -1,3 +1,4 @@
+// en-GB: Defines the request types implementation so this project responsibility remains explicit and maintainable.
 import type { Request } from "express";
 
 export type AuthenticatedUser = {

@@ -1,3 +1,4 @@
+// en-GB: Exercises application behaviour so regressions at this boundary are detected automatically.
 import express from "express";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";

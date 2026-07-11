@@ -1,3 +1,4 @@
+// en-GB: Defines the rate limit implementation so this project responsibility remains explicit and maintainable.
 import crypto from "node:crypto";
 import type { NextFunction, Response } from "express";
 import { env } from "../config/env.js";

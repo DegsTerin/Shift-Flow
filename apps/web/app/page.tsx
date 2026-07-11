@@ -1,3 +1,4 @@
+// en-GB: Orchestrates the main ShiftFlow interface while preserving state, navigation, and API behaviour.
 "use client";
 
 import {

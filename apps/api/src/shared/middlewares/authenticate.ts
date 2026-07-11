@@ -1,3 +1,4 @@
+// en-GB: Defines the authenticate implementation so this project responsibility remains explicit and maintainable.
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import crypto from "node:crypto";

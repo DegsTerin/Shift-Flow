@@ -1,3 +1,4 @@
+// en-GB: Handles application HTTP requests so transport concerns remain separate from business behaviour.
 import type { Response } from "express";
 import type { ApiRequest } from "../http/request-types.js";
 import { asyncHandler } from "../http/async-handler.js";

@@ -1,3 +1,4 @@
+// en-GB: Configures TypeScript compilation so this workspace keeps consistent strict type checking.
 {
   "compilerOptions": {
     "target": "ES2022",

@@ -1,3 +1,4 @@
+// en-GB: Renders the custom dashboard interface so its behaviour and accessible structure stay reusable.
 "use client";
 
 import {

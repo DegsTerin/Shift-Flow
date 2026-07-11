@@ -1,3 +1,4 @@
+// en-GB: Renders the charts interface so its behaviour and accessible structure stay reusable.
 "use client";
 
 import { BarChart3 } from "lucide-react";

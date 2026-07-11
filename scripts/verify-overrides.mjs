@@ -1,3 +1,4 @@
+// en-GB: Implements the verify overrides check so automated gates enforce a stable repository invariant.
 /* global console, process */
 
 import { execSync } from "node:child_process";

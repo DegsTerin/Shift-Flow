@@ -1,3 +1,4 @@
+// en-GB: Provides shared utils definitions so frontend modules use one consistent implementation.
 import type { FormEvent } from "react";
 import { apiRequest } from "./api";
 import type {

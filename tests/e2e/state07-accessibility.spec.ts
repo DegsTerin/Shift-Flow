@@ -1,3 +1,4 @@
+// en-GB: Verifies state07 accessibility spec end-to-end so release behaviour remains observable in a real browser.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";

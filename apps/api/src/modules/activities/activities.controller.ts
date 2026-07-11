@@ -1,3 +1,4 @@
+// en-GB: Handles activities HTTP requests so transport concerns remain separate from business behaviour.
 import type { Response } from "express";
 import { CrudController } from "../../shared/controllers/crud.controller.js";
 import { asyncHandler } from "../../shared/http/async-handler.js";

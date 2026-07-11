@@ -1,3 +1,4 @@
+// en-GB: Encapsulates notifications persistence so data access remains consistent and testable.
 import { BaseRepository } from "../../shared/repositories/base.repository.js";
 import { getDelegate } from "../../shared/lib/prisma.js";
 

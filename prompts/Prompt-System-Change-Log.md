@@ -39,6 +39,15 @@ Estado afetado:
 REGISTROS
 
 Data: 2026-07-11
+Versao: 1.4.41
+Tipo: manutencao documental e de qualidade pos-release
+Arquivos alterados: Codigo e configuracao editavel em apps/, prisma/schema.prisma, seeds, scripts/, tests/, configuracoes raiz, README.md, docs/development-standards.md, docs/governance-index.md, docs/source-commenting-manifest.md, Prompt-Interface-UI-UX.md e controles canonicos.
+Resumo: Expandida a documentacao en-GB de CSS para todas as linguagens e todo o codigo editavel do projeto.
+Impacto: As 157 fontes comentaveis declaram responsabilidade e finalidade; logica nao obvia deve documentar intencao em en-GB; quality passa a bloquear novos arquivos sem cobertura por npm run comments:verify. O CSS mantem 1.266 declaracoes documentadas e 17 excecoes estao manifestadas.
+Conflitos resolvidos: A regra 1.4.40 estava limitada ao CSS. JSON estrito nao aceita comentarios, arquivos gerados nao devem ser editados e migrations aplicadas nao podem mudar checksum; essas excecoes agora possuem manifesto explicito e verificacao automatica.
+Estado afetado: STATE-08 PRODUCTION_RELEASE, sem transicao de estado.
+
+Data: 2026-07-11
 Versao: 1.4.40
 Tipo: manutencao funcional pos-release
 Arquivos alterados: .prettierignore, apps/web/app/layout.tsx, apps/web/app/page.tsx, apps/web/app/components/role-management-view.tsx, apps/web/app/globals.css, docs/development-standards.md, Prompt-Interface-UI-UX.md, Prompt-Adjustments.md e controles canonicos.
