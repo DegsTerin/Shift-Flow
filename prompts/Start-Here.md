@@ -1,6 +1,6 @@
 # ShiftFlow Prompt System
 
-This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **2.0.0**.
+This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **3.0.0**.
 
 ## Golden rule
 
@@ -39,6 +39,10 @@ Also read:
 ### Audit, security, maintenance, or UI/UX
 
 Read the matching file under `playbooks/`. A diagnostic-only request does not authorise implementation. A request to execute or correct a playbook authorises only changes within its declared scope and the current state.
+
+### Conversation handoff or delegated work
+
+For a governed handoff, a new or resumed conversation, internal worker delegation, or any parallel-work decision, also read [Execution-Protocol.md](core/Execution-Protocol.md). Without the protocol's authorised isolation prerequisites, simultaneous work is read-only and all writing is sequential in the coordinating conversation.
 
 ### Exceptions
 
@@ -83,8 +87,14 @@ The active corpus contains exactly 17 Markdown files:
 - Authority is defined once in [Governance.md](core/Governance.md).
 - State identifiers and transitions are defined once in [Official-State-Machine.md](core/Official-State-Machine.md).
 - Acceptance, evidence, and completion rules are defined once in [Quality-Gates.md](core/Quality-Gates.md).
+- Conversation routing, governed handoff, delegated lanes, and safe parallel work are defined once in [Execution-Protocol.md](core/Execution-Protocol.md).
 - The current version is declared here; version history belongs in [Prompt-System-Change-Log.md](state/Prompt-System-Change-Log.md).
 - Structural changes follow semantic versioning. Authority or state-model changes are major; new compatible capabilities are minor; corrections are patches.
+
+## Governed repository adapters and sources
+
+- [AGENTS.md](../AGENTS.md) routes repository sessions into this corpus and does not replace canonical authority.
+- [Conversation-Coordination-Prompt.md](../Conversation-Coordination-Prompt.md) is the retained governed adoption source for version `3.0.0`. It is outside the 17-file active corpus, is not a second operational authority, and grants no automatic permission to change state, files, Git workflow, conversations, or external resources.
 
 ## Anti-overengineering
 

@@ -18,6 +18,14 @@ Prefer updating the documents listed here instead of creating new root-level con
 - `prompts/`: the 17 active, controlled Codex instruction artifacts.
 - `docs/history/`: closed prompt-system, phase-validation, delivery, and state-transition evidence; never current instruction authority.
 
+## Repository Instruction Routing
+
+- `AGENTS.md`: repository-level routing adapter that requires `prompts/Start-Here.md` and points governed handoff or parallel-work tasks to `prompts/core/Execution-Protocol.md`.
+- `Conversation-Coordination-Prompt.md`: retained governed source for the version 3.0.0 coordination adoption; it is not an active prompt, independent authority, or automatic task authorisation.
+- `prompts/core/Execution-Protocol.md`: single thematic authority for conversation routing, handoff, delegated lanes, ownership, isolation, and safe parallel work.
+
+The routing adapter and retained source sit outside the 17-file active prompt corpus. They must not duplicate or override canonical state, governance, gate, phase, module, or playbook authority.
+
 ## Prompt Control Files
 
 The active prompt corpus is declared by `prompts/Start-Here.md` and contains exactly 17 Markdown files organised under `core/`, `state/`, `phases/`, `modules/`, and `playbooks/`. These files are controlled process artifacts and should remain stable unless a phase, state machine, audit process, or prompt protocol explicitly changes.
@@ -37,7 +45,7 @@ When a prompt control file is still required, keep it in the active manifest and
 ## Prompt System Layout
 
 - `prompts/Start-Here.md`: entrypoint, active manifest, version, and loading rules.
-- `prompts/core/`: authority, state machine, execution protocol, and quality gates.
+- `prompts/core/`: authority, state machine, execution protocol including conversation coordination and safe parallel work, and quality gates.
 - `prompts/state/`: current state, current snapshot, rolling transition log, and prompt-system changelog.
 - `prompts/phases/`: foundation, implementation, and delivery instructions.
 - `prompts/modules/Modules.md`: canonical module catalogue and phase matrix.
@@ -45,6 +53,14 @@ When a prompt control file is still required, keep it in the active manifest and
 - `docs/history/phase-validation-history.md`: consolidated Automatic Review, Human CI, and former prompt-system audit evidence.
 - `docs/history/phase-delivery-history.md`: consolidated architecture, data-model, handoff, integration, homologation, and release evidence.
 - `docs/history/state-transitions-2026.md`: consolidated pre-2.0 state, snapshot, transition, and version history.
+
+## Version 3.0 Coordination Adoption
+
+- Added the repository `AGENTS.md` routing adapter without adding an 18th active prompt.
+- Retained `Conversation-Coordination-Prompt.md` in place as governed adoption provenance.
+- Assigned conversation coordination and safe parallel work to the existing `prompts/core/Execution-Protocol.md` authority.
+- Preserved the State Machine, authority hierarchy, 17-file active manifest, ADR process, and Human Gate boundaries.
+- Required parallel work to remain read-only unless an explicitly authorised, non-overlapping branch/worktree and mutable-resource isolation plan exists.
 
 ## Version 2.0 Legacy Mapping
 

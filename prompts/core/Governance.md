@@ -29,6 +29,7 @@ Higher authority controls lower authority. Historical evidence never overrides c
 - Do not bypass a failed critical gate.
 - Preserve unrelated worktree changes and use narrow staging.
 - Prefer an existing canonical document over another control file.
+- Stop concurrent work when ownership, baseline, or mutable-resource isolation is uncertain; never use last-write-wins.
 
 ## Tooling and post-release maintenance
 
@@ -44,6 +45,12 @@ Dependency, `package.json`, runtime-configuration, schema, or migration changes 
 
 This exception resolves the former conflict between the absolute tooling prohibition and authorised post-release maintenance. Installing or changing tooling merely for convenience remains prohibited.
 
+## Conversation coordination boundary
+
+`Execution-Protocol.md` is the single thematic authority for conversation routing, handoff, delegated lanes, and safe parallel work. Repository entrypoints may route to that protocol but must not restate it as a second authority.
+
+The coordinating conversation owns integration custody for state, snapshot, history, changelog, ADR records, gate reports, and consolidated Human Gate summaries. This custody cannot override the State Machine, accept an ADR, approve Human CI, expand scope, or infer external authority.
+
 ## Conflict resolution
 
 Classify conflicts as:
@@ -54,6 +61,7 @@ Classify conflicts as:
 - `CONFLICT-EVIDENCE`: evidence is missing, stale, or contradictory.
 - `CONFLICT-MODULE`: module work violates its phase boundary.
 - `CONFLICT-GATE`: validation results disagree or a required gate failed.
+- `CONFLICT-CONCURRENCY`: baseline, ownership, write-set, worktree, or mutable-resource isolation is unsafe or contradictory.
 - `CONFLICT-USER`: the request conflicts with a higher safety or repository constraint.
 
 Resolve by identifying the involved sources, applying the authority hierarchy, choosing the narrowest safe interpretation, and recording the impact. Stop and request direction only when the remaining choice would materially change scope or risk.
@@ -68,6 +76,7 @@ Use one of these block types:
 - `BLOCK-EVIDENCE`
 - `BLOCK-MODULE`
 - `BLOCK-GATE`
+- `BLOCK-CONCURRENCY`
 - `BLOCK-ROLLBACK`
 
 When blocked:
@@ -108,6 +117,7 @@ Do not commit when the user requested analysis only, when no file changed, or wh
 
 Any rename, merge, removal, or authority change must update:
 
+- `AGENTS.md` when repository instruction loading changes.
 - `Start-Here.md` when the active manifest changes.
 - The relevant canonical source.
 - `Prompt-System-Change-Log.md`.

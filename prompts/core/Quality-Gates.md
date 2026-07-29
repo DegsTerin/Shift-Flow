@@ -13,6 +13,7 @@ A task or phase is complete only when:
 - Critical defects and blockers are resolved.
 - Non-blocking debt and risk are recorded.
 - Current documentation is updated without duplicating history.
+- Governed handoffs and delegated work satisfy `GATE-05 MULTI_AGENT_VALIDATION` when applicable.
 - A scoped commit exists when files changed.
 
 Missing evidence means `NOT COMPLETE`, not assumed approval.
@@ -29,6 +30,34 @@ Invalid evidence includes:
 - A test result without the relevant configuration or target.
 - A screenshot without page, viewport, and expected behaviour.
 - A migration claim without schema and migration status.
+
+## GATE-05 MULTI_AGENT_VALIDATION
+
+For every governed user-visible handoff:
+
+- Conversation routing and parallel work use the exact canonical enums from `Execution-Protocol.md`.
+- Every required field contains a concrete value or `None - reason`; blank values and unresolved placeholders are invalid.
+- Exact messages, plans, and targets preserve the declared authority, positive scope, negative scope, baseline, and routing action without expansion or contradiction.
+- `SEQUENTIAL_ONLY` uses the canonical `Parallel plan: None - reason` and `Exact parallel messages: None - parallel work is not recommended` values and requires no parallel-lane evidence.
+- A state-transition recommendation composes the common handoff with the phase extension without conflicting duplicate values.
+
+When any internal or user-visible worker lane is started:
+
+- The coordinating conversation, reproducible baseline, numbered lanes, dependencies, write sets, logical artefacts, and mutable resources are explicit.
+- Worker start messages and the non-recursive, copy-ready worker return payload are complete and consistent with lane authority.
+- One active writer owns each path, logical artefact, and mutable resource; parent/child paths and cross-file contracts are checked for overlap.
+- Workers remain within lane authority and do not update state, snapshot, history, changelog, ADRs, gate reports, lifecycle, or Human Gates.
+- The coordinating conversation integrates one candidate at a time, runs local checks after each integration, and runs cross-cutting checks on the combined result.
+- Stop conditions and a sequential fallback are explicit, and no last-write-wins, automatic overwrite, or reversal of unrelated work occurred.
+- Human CI is presented only from the coordinating conversation after integration and consolidated review.
+
+A sequentially delegated worker may run only after the prior writer stops and ownership transfer is explicit. It must satisfy the worker contracts but does not require parallel branch/worktree evidence.
+
+Parallel read-only lanes may pass without branches or worktrees only when shared inputs are frozen until the lanes return and no lane can mutate a file, logical artefact, cache, output, process, runtime, port, database, index, external resource, or other state.
+
+Parallel writing additionally requires explicit owner authorisation, a tracked Git baseline, a dedicated branch and separate worktree per writer, non-overlapping write sets and logical artefacts, isolated mutable resources, and deterministic integration.
+
+Missing mode, scope, ownership, isolation, or message-consistency evidence means `BLOCKED`, not assumed approval.
 
 ## Acceptance by state
 
@@ -109,6 +138,7 @@ Automatic Review independently checks:
 - Integration correctness.
 - Security, supply chain, performance, observability, tests, and release gates.
 - Documentation, references, version, and state consistency.
+- Conversation routing, lane authority, writer exclusivity, mutable-resource isolation, and integration evidence.
 
 Required result format:
 
@@ -125,7 +155,7 @@ STATE TRANSITION: RECOMMENDATION ONLY
 
 ## Gate selection
 
-- Documentation-only: link/reference validation, formatting, consistency, and diff checks.
+- Documentation-only: link/reference validation, formatting, consistency, coordination-contract checks when applicable, and diff checks.
 - Local code change: format, lint, typecheck, targeted tests, and relevant build.
 - Database: Prisma format/validate, migration review/status, and affected tests.
 - Security: targeted security tests, secret scan, dependency audit, and auth/tenant checks.

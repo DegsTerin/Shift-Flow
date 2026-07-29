@@ -4,9 +4,9 @@
 
 - Project: ShiftFlow
 - Current state: `STATE-08 PRODUCTION_RELEASE`
-- Prompt-system version: `2.0.0`
+- Prompt-system version: `3.0.0`
 - Active prompt files: 17
-- Snapshot date: `2026-07-11`
+- Snapshot date: `2026-07-29`
 
 ## Current architecture
 
@@ -30,12 +30,16 @@
 - State authority: `../core/Official-State-Machine.md`.
 - Global constraints: `../core/Governance.md`.
 - Gates: `../core/Quality-Gates.md`.
+- Conversation coordination and safe parallel work: `../core/Execution-Protocol.md`.
+- Repository routing adapter: `../../AGENTS.md`.
+- Governed coordination-adoption source: `../../Conversation-Coordination-Prompt.md`.
 - Runtime truth for local services: `scripts/status.ps1` plus HTTP health checks.
 - Governance index: `../../docs/governance-index.md`.
 
 ## Active risks and external dependencies
 
 - Remote Git configuration and external deployment targets depend on environment information outside this repository.
+- Only the primary worktree is present and no parallel branch/worktree workflow is authorised; simultaneous work is read-only and file writing remains sequential in the coordinating conversation.
 - Local E2E and load checks require seeded data, valid runtime credentials, and available services/ports.
 - Remote environments must receive locally approved migrations through their deployment pipeline.
 - Physical-device and real-TV visual checks remain environment-dependent.
@@ -44,6 +48,7 @@
 ## Prompt-system consolidation evidence
 
 - The former 75-file active corpus was consolidated into 17 active files.
+- Version 3.0.0 adds repository routing and safe-concurrency governance without adding an 18th active prompt.
 - Full pre-consolidation audit, delivery, state, snapshot, and version material is preserved under `../../docs/history/`.
 - No project state transition resulted from the documentation reorganisation.
 - The 17-file manifest and migration map are recorded in `../Start-Here.md`, `Prompt-System-Change-Log.md`, and `../../docs/governance-index.md`.

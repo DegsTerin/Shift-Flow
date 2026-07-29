@@ -10,6 +10,17 @@ This rolling log records current prompt-system changes. Complete history through
 - Conflicts resolved
 - State impact
 
+## 2026-07-29 - Version 3.0.0
+
+- Type: major repository instruction-routing and conversation-coordination governance change.
+- Scope: repository instruction loading, the retained coordination source, execution protocol, conflict/block handling, `GATE-05 MULTI_AGENT_VALIDATION`, prompt-system audit, current evidence, and governance mapping.
+- Summary: added a minimal `AGENTS.md` routing adapter and incorporated conversation routing, governed handoff, delegated lanes, exclusive ownership, worktree isolation, worker/coordinator boundaries, stop conditions, and deterministic integration into the existing `core/Execution-Protocol.md` authority.
+- Source status: retained `Conversation-Coordination-Prompt.md` in place as governed adoption provenance outside the 17-file active corpus; it is not an independent authority or automatic authorisation.
+- Templates and gates: added complete governed-handoff, worker-start, and worker-return contracts and made `GATE-05` verify baseline, writer exclusivity, mutable-resource isolation, message completeness, sequential fallback, and consolidated integration.
+- Conflicts resolved: removed the shared-worktree writing ambiguity, distinguished user-visible conversation navigation from internal delegation, separated temporary lane ownership from canonical ownership, and required read-only parallelism whenever an authorised isolated branch/worktree workflow is absent.
+- Authority preserved: the State Machine, governance hierarchy, ADR process, Human CI, and 17-file active manifest remain unchanged; `Execution-Protocol.md` is the single thematic coordination authority.
+- State impact: `STATE-08 PRODUCTION_RELEASE` preserved; no transition.
+
 ## 2026-07-11 - Version 2.0.0
 
 - Type: major prompt-system architecture change.

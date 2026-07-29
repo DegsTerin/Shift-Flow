@@ -5,8 +5,8 @@
 - Current state: `STATE-08 PRODUCTION_RELEASE`
 - Allowed phase: `STATE-08 PRODUCTION_RELEASE`
 - Next lifecycle action: release closeout or explicitly requested post-release maintenance
-- Prompt-system version: `2.0.0`
-- Last updated: `2026-07-11`
+- Prompt-system version: `3.0.0`
+- Last updated: `2026-07-29`
 - Operational blockers: none recorded
 
 ## Valid intents
@@ -29,4 +29,5 @@
 - State rules: `../core/Official-State-Machine.md`
 - Current evidence: `Project-Snapshot.md`
 - Recent state-sensitive events: `State-Transition-Log.md`
+- Conversation coordination: `../core/Execution-Protocol.md`
 - Closed history: `../../docs/history/state-transitions-2026.md`

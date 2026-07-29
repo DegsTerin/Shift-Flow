@@ -56,6 +56,14 @@ Validate:
 - Active files use real Markdown headings and descriptive names.
 - No repeated global policy block has reappeared in phase/module/playbook files.
 - Additions and removals have an explicit migration mapping.
+- `AGENTS.md` and `Start-Here.md` route conversation coordination to the single authority in `core/Execution-Protocol.md`.
+- Conversation and parallel-work enums, non-empty handoff fields, and real-message placeholder rules are consistent with authority, positive scope, negative scope, baseline, and routing action.
+- The common handoff, worker-start contract, non-recursive worker-return payload, and phase extension compose without duplicate or contradictory values.
+- Internal environment identifiers are not presented as owner-confirmed user-visible conversation titles.
+- No plan permits concurrent writers on the same path, logical artefact, or mutable resource.
+- Stop conditions and the sequential fallback are complete, and `GATE-05` applies criteria according to `SEQUENTIAL_ONLY`, sequential delegation, parallel read-only lanes, or parallel writing.
+- Parallel work remains free of every file, logical-artefact, runtime, cache, database, external-resource, or other mutation unless the authorised Git, branch, worktree, ownership, and resource-isolation prerequisites all hold.
+- State, snapshot, history, changelog, ADR records, gate reports, integration, and Human Gates remain under coordinating-conversation custody and their canonical authorities.
 
 ## Severity
 
