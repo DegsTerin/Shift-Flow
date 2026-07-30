@@ -63,6 +63,9 @@ Validate:
 - New project-owned artefacts use `en-GB`; limited amendments preserve the existing file's language and dialect without opportunistic translation or spelling normalisation.
 - Language-policy adoption does not rename existing identifiers or contracts, rewrite history, perform bulk translation, or infer an interface locale, catalogue, microcopy, or user-visible error language.
 - Conversation and parallel-work enums, non-empty handoff fields, and real-message placeholder rules are consistent with authority, positive scope, negative scope, baseline, and routing action.
+- New and resumed conversations, governed handoffs, and worker start messages use one supported owner-facing reasoning recommendation with a concrete rationale, and the recommendation follows the selection matrix in `Execution-Protocol.md`.
+- `Máximo` remains the deepest substantially single-threaded recommendation, while `Ultra` is reserved for materially useful independent lanes and never bypasses delegation, ownership, isolation, or gate requirements.
+- Reasoning-field uniqueness is enforced per conversation-level contract; separately delimited worker messages retain their own destination-specific recommendation without being treated as duplicates in the enclosing handoff.
 - The common handoff, worker-start contract, non-recursive worker-return payload, and phase extension compose without duplicate or contradictory values.
 - Internal environment identifiers are not presented as owner-confirmed user-visible conversation titles.
 - No plan permits concurrent writers on the same path, logical artefact, or mutable resource.

@@ -1,6 +1,6 @@
 # ShiftFlow Prompt System
 
-This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **4.0.0**.
+This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **4.1.0**.
 
 ## Golden rule
 

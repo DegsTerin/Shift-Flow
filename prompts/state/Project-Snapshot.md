@@ -4,9 +4,9 @@
 
 - Project: ShiftFlow
 - Current state: `STATE-08 PRODUCTION_RELEASE`
-- Prompt-system version: `4.0.0`
+- Prompt-system version: `4.1.0`
 - Active prompt files: 17
-- Snapshot date: `2026-07-29`
+- Snapshot date: `2026-07-30`
 
 ## Current architecture
 
@@ -52,6 +52,7 @@
 - The former 75-file active corpus was consolidated into 17 active files.
 - Version 3.0.0 adds repository routing and safe-concurrency governance without adding an 18th active prompt.
 - Version 4.0.0 centralises language governance in `Governance.md`, requires `pt-BR` owner delivery with a next step and copy-ready message, and archives adoption sources without adding an 18th active prompt.
+- Version 4.1.0 adds advisory reasoning recommendations for each new or resumed conversation, governed handoff, and worker start message while preserving the existing authority, isolation, and parallel-work rules.
 - Full pre-consolidation audit, delivery, state, snapshot, and version material is preserved under `../../docs/history/`.
 - No project state transition resulted from the documentation reorganisation.
 - The 17-file manifest and migration map are recorded in `../Start-Here.md`, `Prompt-System-Change-Log.md`, and `../../docs/governance-index.md`.

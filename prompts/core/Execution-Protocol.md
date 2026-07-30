@@ -101,8 +101,45 @@ Mandatory routing rules:
 - Never invent a title, label, link, or identifier for an existing conversation.
 - A suggested title for a new conversation is non-canonical until the owner uses or confirms it.
 - If a prior title or label is not confirmed, use `START_NEW`, not `RETURN_TO_EXISTING`.
-- A new or resumed conversation must reread applicable instructions and confirm current state, baseline, authority, positive scope, and negative scope.
+- A new or resumed conversation must reread applicable instructions and confirm current state, baseline, authority, positive scope, negative scope, and its reasoning recommendation.
 - The coordinating conversation must hold the complete current decision summary before presenting `GATE-03 HUMAN_CI` or another Human Gate.
+
+## Conversation reasoning recommendation
+
+Every new or resumed user-visible conversation receives one advisory reasoning recommendation in its first owner-facing delivery. A governed handoff carries the same recommendation through its contract. Later ordinary deliveries repeat it only when the recommendation changes.
+
+Use the lowest level expected to produce a reliable result, and increase it when the work requires more planning, analysis, source reconciliation, edge-case review, or independent checking. The owner selects the available level in the Codex interface. Never claim to have selected or changed a user-visible setting without verified capability.
+
+Available levels depend on the selected model, product surface, and account eligibility. `Ultra` requires an eligible account and supported model; when available, it combines maximum reasoning with proactive delegation.
+
+Use these owner-facing labels and current Codex mappings:
+
+| Owner-facing label | Codex label or value | Recommended use |
+|---|---|---|
+| `Leve` | `Light` in supported graphical clients; `low` in CLI/configuration | Quick, well-scoped consultation, fact or path lookup, status checks, extraction, and single-file mechanical inspection with stable authority and low risk. |
+| `Médio` | `Medium` / `medium` | Balanced default for routine planning, bounded documentation, isolated tests, small stable code changes, and ordinary maintenance with clear acceptance criteria. |
+| `Alto` | `High` / `high` | Multi-step implementation, debugging, cross-file reasoning, integration against stable contracts, regression analysis, and state-sensitive planning. |
+| `Extra alto` | `Extra High` / `xhigh` | Architecture, security, migrations, release or homologation review, cross-layer changes, conflicting evidence, and difficult audit or reviewer work. |
+| `Máximo` | `Max` / `max`, when supported | The hardest substantially single-threaded problem, such as deep root-cause analysis, an irreducible design trade-off, high-risk rollback reasoning, or a critical decision where depth matters more than speed or usage. |
+| `Ultra` | `Ultra` / `ultra`, when supported | A large complex objective with at least two genuinely independent, bounded lanes where maximum reasoning and proactive subagent delegation provide material benefit, such as a broad read-heavy audit or multi-domain evidence synthesis. |
+
+Apply these rules:
+
+- `Médio` is the normal starting point; importance alone does not justify `Máximo` or `Ultra`.
+- `Máximo` and `Ultra` are not consecutive quality grades. Use `Máximo` for deepest reasoning on one tightly coupled problem and `Ultra` for meaningful decomposition across independent lanes.
+- `Ultra` does not authorise delegation, parallel writing, a new worktree, external action, broader scope, or higher-risk mutation. All authority, routing, ownership, isolation, and `GATE-05` requirements still apply.
+- If `Ultra` is recommended but unavailable, use the highest suitable supported level and request or plan delegation explicitly only when this protocol permits it.
+- If a level is unavailable for the selected model, product surface, or account, recommend the closest suitable available level and state the limitation rather than inventing support.
+- Reassess the recommendation when scope, risk, evidence quality, or parallel-work classification materially changes.
+
+The first owner-facing delivery in a new or resumed conversation uses these fields exactly once at the enclosing conversation level:
+
+```text
+Raciocínio recomendado: Leve | Médio | Alto | Extra alto | Máximo | Ultra
+Motivo do raciocínio:
+```
+
+Uniqueness is evaluated per conversation-level contract. A separately delimited worker start message has its own recommendation and rationale for its destination worker and does not count as a duplicate in the enclosing owner-visible delivery or handoff.
 
 ## Governed handoff contract
 
@@ -123,6 +160,8 @@ Ação da conversa: CONTINUE_CURRENT | START_NEW | RETURN_TO_EXISTING
 Conversa de destino:
 Título sugerido:
 Motivo da conversa:
+Raciocínio recomendado: Leve | Médio | Alto | Extra alto | Máximo | Ultra
+Motivo do raciocínio:
 Texto exato para copiar e enviar:
 Trabalho paralelo: SEQUENTIAL_ONLY | PARALLEL_OPTIONAL | PARALLEL_RECOMMENDED
 Plano paralelo:
@@ -255,6 +294,8 @@ Projeto:
 Espaço de trabalho:
 Frente de trabalho:
 Identificação da conversa:
+Raciocínio recomendado:
+Motivo do raciocínio:
 Conversa coordenadora confirmada:
 Referência inicial:
 Estado/critério/lote:

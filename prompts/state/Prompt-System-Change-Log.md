@@ -10,6 +10,16 @@ This rolling log records current prompt-system changes. Complete history through
 - Conflicts resolved
 - State impact
 
+## 2026-07-30 - Version 4.1.0
+
+- Type: compatible conversation-reasoning guidance and coordination-contract extension.
+- Scope: new and resumed conversations, governed handoffs, worker start messages, `GATE-05`, prompt-system audit, current state, and snapshot evidence.
+- Guidance: adds owner-facing recommendations for `Leve`, `Médio`, `Alto`, `Extra alto`, `Máximo`, and `Ultra`, following the current Codex principle of using the lowest level that reliably fits the task.
+- Selection boundary: distinguishes deepest substantially single-threaded work (`Máximo`) from work that materially benefits from independent subagent lanes (`Ultra`).
+- Safety: reasoning level remains advisory and dependent on model, product surface, and account eligibility; `Ultra` does not authorise delegation, parallel writing, worktrees, external action, scope expansion, or bypass of ownership, isolation, or gates.
+- Contracts and gates: requires a concrete recommendation and rationale in the first delivery of each new or resumed conversation, every governed handoff, and every worker start message, with uniqueness evaluated per conversation-level contract and matching validation in `GATE-05` and the prompt-system audit.
+- State impact: `STATE-08 PRODUCTION_RELEASE` and the 17-file active prompt corpus are preserved; no transition, ADR, Human Gate, runtime change, product-interface language change, or external action resulted.
+
 ## 2026-07-29 - Version 4.0.0
 
 - Type: major language-governance authority and owner-delivery contract change.

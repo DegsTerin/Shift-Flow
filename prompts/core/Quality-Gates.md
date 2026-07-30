@@ -47,10 +47,18 @@ Missing audience, destination, language, legacy-preservation, or interface-autho
 
 ## GATE-05 MULTI_AGENT_VALIDATION
 
+For the first owner-facing delivery in every new or resumed user-visible conversation:
+
+- Exactly one reasoning recommendation and exactly one concrete rationale are present at the enclosing conversation-delivery level.
+- The recommendation uses an owner-facing level defined by `Execution-Protocol.md`, matches the task's complexity and decomposition, and does not claim unavailable capability.
+- Later ordinary deliveries repeat these fields only when the recommendation changes.
+- Separately delimited ready-to-copy messages are evaluated independently for their destination conversations and do not count as duplicates in the enclosing delivery.
+
 For every governed user-visible handoff:
 
 - Conversation routing and parallel work use the exact canonical enums from `Execution-Protocol.md`.
 - Every required field contains a concrete value or `Nenhum - motivo`; blank values and unresolved placeholders are invalid.
+- The handoff carries exactly one current reasoning recommendation and rationale at its own contract level without contradicting the first-delivery selection; each separately delimited worker start message carries and is validated against its own recommendation for the destination worker.
 - Exact messages, plans, and targets preserve the declared authority, positive scope, negative scope, baseline, and routing action without expansion or contradiction.
 - `SEQUENTIAL_ONLY` uses the canonical `Plano paralelo: Nenhum - motivo` and `Mensagens paralelas exatas: Nenhuma - trabalho paralelo não é recomendado` values and requires no parallel-lane evidence.
 - A state-transition recommendation composes the common handoff with the phase extension without conflicting duplicate values.
@@ -59,6 +67,7 @@ For every governed user-visible handoff:
 When any internal or user-visible worker lane is started:
 
 - The coordinating conversation, reproducible baseline, numbered lanes, dependencies, write sets, logical artefacts, and mutable resources are explicit.
+- Worker start messages record a suitable reasoning recommendation and rationale; `Ultra` never substitutes for delegation authority, writer isolation, or a valid parallel plan.
 - Worker start messages and the non-recursive, copy-ready worker return payload are complete and consistent with lane authority.
 - One active writer owns each path, logical artefact, and mutable resource; parent/child paths and cross-file contracts are checked for overlap.
 - Workers remain within lane authority and do not update state, snapshot, history, changelog, ADRs, gate reports, lifecycle, or Human Gates.
@@ -72,7 +81,7 @@ Parallel read-only lanes may pass without branches or worktrees only when shared
 
 Parallel writing additionally requires explicit owner authorisation, a tracked Git baseline, a dedicated branch and separate worktree per writer, non-overlapping write sets and logical artefacts, isolated mutable resources, and deterministic integration.
 
-Missing mode, scope, ownership, isolation, or message-consistency evidence means `BLOCKED`, not assumed approval.
+Missing mode, reasoning recommendation, rationale, scope, ownership, isolation, or message-consistency evidence means `BLOCKED`, not assumed approval.
 
 ## Acceptance by state
 
