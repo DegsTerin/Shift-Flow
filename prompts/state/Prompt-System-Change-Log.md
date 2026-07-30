@@ -10,6 +10,18 @@ This rolling log records current prompt-system changes. Complete history through
 - Conflicts resolved
 - State impact
 
+## 2026-07-29 - Version 4.0.0
+
+- Type: major language-governance authority and owner-delivery contract change.
+- Scope: repository instruction routing, global governance, owner-facing delivery, handoff and worker templates, quality gates, prompt-system audit, engineering standards, source-comment enforcement boundaries, UI/UX playbook boundaries, current evidence, governance mapping, and adoption-source placement.
+- Authority: established the `Language policy` section in `core/Governance.md` as the single thematic authority; specialised standards define only mechanical application and enforcement.
+- Owner delivery: requires `pt-BR` communication, Portuguese owner-facing labels, a concrete next step, and a complete ready-to-copy message in every delivery while preserving necessary literal identifiers and enums.
+- Project artefacts: requires `en-GB` for new project-owned artefacts, preserves the established language and dialect of limited legacy amendments, and prohibits opportunistic translation, identifier renaming, contract changes, and Git-history rewriting.
+- Product boundary: interface locale, translation catalogues, microcopy, and user-visible error language remain separate product decisions and were not changed.
+- Historical preservation: moved the incorporated language-policy and conversation-coordination source texts from the repository root to `docs/history/sources/` as non-operational provenance.
+- Templates and gates: aligned governed handoffs, worker messages, phase handoffs, Automatic Review, `GATE-05`, documentation checks, Human CI, and prompt-system audit with audience-appropriate language and authority limits.
+- State impact: `STATE-08 PRODUCTION_RELEASE` and the 17-file active prompt corpus are preserved; no transition, ADR, Human Gate, Git operation, code execution, interface change, or external action resulted.
+
 ## 2026-07-29 - Version 3.0.0
 
 - Type: major repository instruction-routing and conversation-coordination governance change.

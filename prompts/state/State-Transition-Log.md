@@ -13,6 +13,16 @@ This rolling log contains recent state-sensitive decisions. Closed pre-consolida
 - State Machine decision
 - Notes
 
+## 2026-07-29 - Language governance and source relocation
+
+- Previous state: `STATE-08 PRODUCTION_RELEASE`
+- Requested state: no transition requested
+- Resulting state: `STATE-08 PRODUCTION_RELEASE`
+- Event type: major language-governance authority, owner-delivery contract, and historical-source placement change
+- Gates and evidence: exact filesystem scope, 17-file active manifest, canonical-authority mapping, relative-link validation, UTF-8/LF and whitespace checks, owner-facing template review, next-step and copy-ready-message review, legacy-preservation review, interface-language boundary review, and independent read-only semantic review
+- State Machine decision: preserve current state; language rules, documentation placement, prompts, gates, and owner communication do not create a transition
+- Notes: the canonical language authority is in `core/Governance.md`; incorporated source texts are preserved under `docs/history/sources/`; no Git operation, project-code execution, bulk translation, interface-language change, ADR decision, Human Gate approval, or external action was authorised or performed
+
 ## 2026-07-29 - Conversation coordination governance adoption
 
 - Previous state: `STATE-08 PRODUCTION_RELEASE`

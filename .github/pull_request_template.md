@@ -18,3 +18,4 @@
 - [ ] Database migrations include operational notes when applicable.
 - [ ] Logs, errors, and metrics avoid secrets and sensitive tokens.
 - [ ] Documentation was updated when setup, deployment, or API behavior changed.
+- [ ] New project-owned artifacts, owner-facing communication, and limited legacy amendments comply with the [canonical language policy](../prompts/core/Governance.md#language-policy); no interface locale was inferred or changed without separate product authority.

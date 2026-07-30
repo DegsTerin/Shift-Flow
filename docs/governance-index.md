@@ -10,7 +10,7 @@ Prefer updating the documents listed here instead of creating new root-level con
 - `SECURITY.md`: vulnerability handling and security policy.
 - `docs/architecture.md`: runtime architecture, module boundaries, observability, and security controls.
 - `docs/development-standards.md`: engineering standards, naming, checks, review, versioning, and documentation rules.
-- `docs/source-commenting-manifest.md`: en-GB source-comment policy, syntax exceptions, immutable-file rules, and automated coverage gate.
+- `docs/source-commenting-manifest.md`: source-comment coverage, placement, syntax exceptions, immutable-file rules, and automated enforcement; language selection remains in the canonical Governance policy.
 - `docs/production-runbook.md`: production operations and incident handling.
 - `docs/technical-roadmap.md`: planned technical evolution.
 - `docs/systematization-report.md`: systematization baseline, decisions, and remaining risks.
@@ -20,11 +20,13 @@ Prefer updating the documents listed here instead of creating new root-level con
 
 ## Repository Instruction Routing
 
-- `AGENTS.md`: repository-level routing adapter that requires `prompts/Start-Here.md` and points governed handoff or parallel-work tasks to `prompts/core/Execution-Protocol.md`.
-- `Conversation-Coordination-Prompt.md`: retained governed source for the version 3.0.0 coordination adoption; it is not an active prompt, independent authority, or automatic task authorisation.
+- `AGENTS.md`: repository-level routing adapter that requires `prompts/Start-Here.md` and points to the applicable canonical authorities.
+- `prompts/core/Governance.md#language-policy`: single thematic authority for owner communication and project-owned artefact language.
 - `prompts/core/Execution-Protocol.md`: single thematic authority for conversation routing, handoff, delegated lanes, ownership, isolation, and safe parallel work.
+- `docs/history/sources/language-policy.md`: preserved historical source for the version 4.0.0 language-policy adoption.
+- `docs/history/sources/conversation-coordination-prompt.md`: preserved historical source for the version 3.0.0 coordination adoption.
 
-The routing adapter and retained source sit outside the 17-file active prompt corpus. They must not duplicate or override canonical state, governance, gate, phase, module, or playbook authority.
+The routing adapter and historical sources sit outside the 17-file active prompt corpus. Historical sources are not operational instructions, independent authorities, or automatic task authorisation. They must not duplicate or override canonical state, governance, gate, phase, module, or playbook authority.
 
 ## Prompt Control Files
 
@@ -53,6 +55,17 @@ When a prompt control file is still required, keep it in the active manifest and
 - `docs/history/phase-validation-history.md`: consolidated Automatic Review, Human CI, and former prompt-system audit evidence.
 - `docs/history/phase-delivery-history.md`: consolidated architecture, data-model, handoff, integration, homologation, and release evidence.
 - `docs/history/state-transitions-2026.md`: consolidated pre-2.0 state, snapshot, transition, and version history.
+- `docs/history/sources/`: preserved source texts that have already been incorporated into canonical governance and have no operational authority.
+
+## Version 4.0 Language-Policy Adoption
+
+- Incorporated owner communication and project-owned artefact language into the existing `prompts/core/Governance.md` authority.
+- Required every owner-facing delivery to use `pt-BR`, state the next step, and provide a complete ready-to-copy message.
+- Preserved technical identifiers and external conventions without permitting avoidable English in owner communication.
+- Kept new project-owned artefacts in `en-GB` while protecting the established language and dialect of existing files.
+- Kept interface language and locale as separate product decisions.
+- Moved the language-policy and conversation-coordination adoption sources from the repository root to `docs/history/sources/`.
+- Preserved `STATE-08 PRODUCTION_RELEASE`, the 17-file active prompt corpus, ADR authority, Human Gates, and all closed history.
 
 ## Version 3.0 Coordination Adoption
 

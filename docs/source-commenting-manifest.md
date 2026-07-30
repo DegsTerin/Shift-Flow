@@ -2,6 +2,8 @@
 
 ## Policy
 
+The canonical [language policy](../prompts/core/Governance.md#language-policy) selects the language for project-owned comments. This manifest owns only comment coverage, placement, syntax and immutability exceptions, and automated enforcement; it is not a competing language authority.
+
 Every editable source and configuration file that supports comments must open with a concise `en-GB:` comment explaining its responsibility and why it exists. Non-obvious algorithms, security boundaries, business invariants, compatibility decisions, and operational side effects require local en-GB comments near the relevant code.
 
 CSS keeps the stricter rule: every declaration must have an adjacent en-GB comment explaining what the property controls and why it is required.

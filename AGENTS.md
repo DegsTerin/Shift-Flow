@@ -10,8 +10,8 @@ For a governed handoff, conversation routing, delegated lanes, or parallel-work 
 
 This file is a repository routing adapter. It does not create project state, approve a Human Gate or ADR, expand task authority, or duplicate the coordination protocol.
 
-## Governed adoption source
+## Language and owner delivery
 
-[Conversation-Coordination-Prompt.md](Conversation-Coordination-Prompt.md) is the retained governed source for the version 3.0.0 adoption. It is not an independent operational authority and does not automatically authorise file changes, development, Git workflow changes, or external actions.
+For owner communication, project-owned artefact language, and the mandatory next-step and copy-ready-message requirements, follow the canonical [language policy in prompts/core/Governance.md](prompts/core/Governance.md#language-policy).
 
-When the source and active corpus differ, apply the precedence and conflict rules in [prompts/core/Governance.md](prompts/core/Governance.md).
+Historical adoption sources are preserved under `docs/history/sources/`. They are provenance only and must not be loaded as operational instructions.

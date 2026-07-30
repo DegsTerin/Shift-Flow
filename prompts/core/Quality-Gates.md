@@ -13,6 +13,7 @@ A task or phase is complete only when:
 - Critical defects and blockers are resolved.
 - Non-blocking debt and risk are recorded.
 - Current documentation is updated without duplicating history.
+- Applicable language-policy requirements are satisfied without translating legacy content or changing interface language by inference.
 - Governed handoffs and delegated work satisfy `GATE-05 MULTI_AGENT_VALIDATION` when applicable.
 - A scoped commit exists when files changed.
 
@@ -31,15 +32,29 @@ Invalid evidence includes:
 - A screenshot without page, viewport, and expected behaviour.
 - A migration claim without schema and migration status.
 
+## Language compliance
+
+Apply the canonical language policy in `Governance.md` proportionally:
+
+- Owner-facing communication, labels, recommendations, warnings, handoffs, and ready-to-copy messages use `pt-BR`.
+- Every owner-facing delivery contains exactly one concrete `Próximo passo` and exactly one complete `Texto exato para copiar e enviar`, with no unresolved placeholder or authority expansion and with the message aligned to the destination declared by conversation routing.
+- New project-owned artefacts use `en-GB`; a limited amendment preserves the existing file's established language and dialect.
+- Mandatory external names, contracts, identifiers, and spellings remain unchanged.
+- Language review does not authorise bulk translation, identifier migration, interface-locale changes, microcopy changes, Git history rewriting, or another out-of-scope action.
+- A new persistent artefact delivered to the owner may remain in `en-GB`, but its owner-facing summary and next action use `pt-BR`.
+
+Missing audience, destination, language, legacy-preservation, or interface-authority evidence means the applicable gate is not complete.
+
 ## GATE-05 MULTI_AGENT_VALIDATION
 
 For every governed user-visible handoff:
 
 - Conversation routing and parallel work use the exact canonical enums from `Execution-Protocol.md`.
-- Every required field contains a concrete value or `None - reason`; blank values and unresolved placeholders are invalid.
+- Every required field contains a concrete value or `Nenhum - motivo`; blank values and unresolved placeholders are invalid.
 - Exact messages, plans, and targets preserve the declared authority, positive scope, negative scope, baseline, and routing action without expansion or contradiction.
-- `SEQUENTIAL_ONLY` uses the canonical `Parallel plan: None - reason` and `Exact parallel messages: None - parallel work is not recommended` values and requires no parallel-lane evidence.
+- `SEQUENTIAL_ONLY` uses the canonical `Plano paralelo: Nenhum - motivo` and `Mensagens paralelas exatas: Nenhuma - trabalho paralelo não é recomendado` values and requires no parallel-lane evidence.
 - A state-transition recommendation composes the common handoff with the phase extension without conflicting duplicate values.
+- Every owner-visible handoff and ready-to-copy worker message uses the `pt-BR` presentation defined by `Execution-Protocol.md`; the canonical continuation fields occur exactly once, and internal identifiers and canonical enums may remain unchanged.
 
 When any internal or user-visible worker lane is started:
 
@@ -124,6 +139,7 @@ Human CI validates judgement that automation cannot establish alone:
 - UX, accessibility, visual consistency, and operational usability.
 - Evidence quality and residual risk.
 - Whether a reported success matches the user's practical outcome.
+- Language-policy compliance, including owner-facing `pt-BR`, legacy preservation, and separation from interface-language decisions.
 
 Human CI may approve, approve with observation, reject, or block. It cannot change state.
 
@@ -139,23 +155,24 @@ Automatic Review independently checks:
 - Security, supply chain, performance, observability, tests, and release gates.
 - Documentation, references, version, and state consistency.
 - Conversation routing, lane authority, writer exclusivity, mutable-resource isolation, and integration evidence.
+- Audience-appropriate language, mandatory owner continuation fields, legacy-language preservation, and absence of unauthorised interface-language changes.
 
 Required result format:
 
 ```text
-STATUS: APPROVED | APPROVED_WITH_OBSERVATION | REJECTED | BLOCKED
-CRITICAL FINDINGS:
-NON-CRITICAL FINDINGS:
-TECHNICAL RISKS:
-TECHNICAL DEBT:
-EVIDENCE:
-DECISION:
-STATE TRANSITION: RECOMMENDATION ONLY
+SITUAÇÃO: APPROVED | APPROVED_WITH_OBSERVATION | REJECTED | BLOCKED
+ACHADOS CRÍTICOS:
+ACHADOS NÃO CRÍTICOS:
+RISCOS TÉCNICOS:
+DÍVIDA TÉCNICA:
+EVIDÊNCIAS:
+DECISÃO:
+TRANSIÇÃO DE ESTADO: APENAS RECOMENDAÇÃO
 ```
 
 ## Gate selection
 
-- Documentation-only: link/reference validation, formatting, consistency, coordination-contract checks when applicable, and diff checks.
+- Documentation-only: link/reference validation, formatting, consistency, applicable language-policy and coordination-contract checks, and diff checks.
 - Local code change: format, lint, typecheck, targeted tests, and relevant build.
 - Database: Prisma format/validate, migration review/status, and affected tests.
 - Security: targeted security tests, secret scan, dependency audit, and auth/tenant checks.

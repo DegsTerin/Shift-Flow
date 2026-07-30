@@ -51,6 +51,34 @@ This exception resolves the former conflict between the absolute tooling prohibi
 
 The coordinating conversation owns integration custody for state, snapshot, history, changelog, ADR records, gate reports, and consolidated Human Gate summaries. This custody cannot override the State Machine, accept an ADR, approve Human CI, expand scope, or infer external authority.
 
+## Language policy
+
+This section is the single thematic authority for owner communication and the language of project-owned artefacts. Specialised documents may define mechanical coverage, exceptions, or validation, but they must not select another language or restate this policy as a competing authority.
+
+### Owner communication
+
+- Communicate with the owner in Brazilian Portuguese (`pt-BR`).
+- Questions, explanations, progress updates, approvals, warnings, handoffs, recommendations, and ready-to-copy messages must use `pt-BR`.
+- Present owner-facing labels in `pt-BR`. A literal command, path, canonical identifier, field key, or enum may remain in English inside code formatting when technically necessary, but its surrounding explanation must use `pt-BR`.
+- Do not use avoidable English terminology in owner communication when a clear Portuguese expression exists.
+- Every delivery to the owner must include exactly one `Próximo passo` and exactly one `Texto exato para copiar e enviar`. The text must be complete, contain no unresolved placeholder, preserve the declared authority and scope, and be ready to send to the destination declared by conversation routing. When no governed handoff applies, or when the routing action is `CONTINUE_CURRENT`, that destination is the current conversation.
+
+### Project-owned artefacts
+
+- Write new source code, project-owned identifiers, comments, docstrings, code documentation, technical or public documentation, README files, API and configuration descriptions, test names and descriptions, logs, technical error descriptions, and commit messages in British English (`en-GB`).
+- Use British spelling in new project-owned prose.
+- For a limited amendment to an existing file, preserve its established language and dialect and avoid creating a mixed-language document.
+- Do not translate, rewrite, or rename existing documentation, source, identifiers, contracts, history, or evidence merely to apply this policy. A broad language migration requires separate authority and a dedicated plan. Never rewrite Git history to translate earlier commit messages.
+
+### External conventions and user interface
+
+- Preserve mandatory names and spellings imposed by programming languages, frameworks, libraries, protocols, standards, external APIs, and third-party products.
+- Treat interface language, locale, catalogues, microcopy, and user-visible errors as separate product decisions. Do not infer or change them from the conversation language, engineering language, documentation language, or the language of internal logs and technical errors.
+
+This policy defines language conventions only. It does not authorise implementation, documentation migration, lifecycle transitions, Git operations, external actions, releases, deployments, or interface-language changes.
+
+The original adoption source is preserved only as historical provenance in `../../docs/history/sources/language-policy.md`; it is not an operational authority.
+
 ## Conflict resolution
 
 Classify conflicts as:

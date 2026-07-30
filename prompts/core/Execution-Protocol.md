@@ -6,6 +6,19 @@ This document is the single thematic authority for task routing, allowed command
 
 Safety and consistency take priority over speed. Do not promise absolute absence of errors. Use preventive, detective, and stop controls so ownership overlap, stale baselines, conflicts, and unauthorised mutations are identified before integration. When evidence or isolation is uncertain, use sequential execution.
 
+## Owner-facing delivery
+
+Apply the canonical language policy in `Governance.md` to every response delivered to the owner. Owner-facing narrative, labels, recommendations, warnings, and ready-to-copy messages use `pt-BR`. Literal paths, commands, canonical identifiers, and enums may remain unchanged inside code formatting when necessary.
+
+Every owner-facing delivery must include these fields exactly once. An ordinary delivery that does not instantiate the governed handoff contract must end with:
+
+```text
+Próximo passo:
+Texto exato para copiar e enviar:
+```
+
+The governed handoff contract satisfies this obligation through its canonical fields and must not repeat them after the contract. Both values must be concrete, complete, consistent with current authority and scope, and free of unresolved placeholders. The exact text must be ready for the owner to send to the destination declared by conversation routing. When no governed handoff applies, or when the routing action is `CONTINUE_CURRENT`, that destination is the current conversation. When no further action is required, say so in `Próximo passo` and provide a safe, bounded continuation message that does not invent work or expand authority.
+
 ## Standard workflow
 
 1. Read `../Start-Here.md`, current state, and governance.
@@ -96,33 +109,33 @@ Mandatory routing rules:
 Every governed handoff includes these fields in this order:
 
 ```text
-Status:
-Completed:
-Remaining for this target:
-Next step:
-Next stage:
-Your action now:
-Authority:
-Positive scope:
-Negative scope:
-Baseline:
-Conversation action: CONTINUE_CURRENT | START_NEW | RETURN_TO_EXISTING
-Conversation target:
-Suggested title:
-Conversation reason:
-Exact next message:
-Parallel work: SEQUENTIAL_ONLY | PARALLEL_OPTIONAL | PARALLEL_RECOMMENDED
-Parallel plan:
-Exact parallel messages:
+Situação:
+Concluído:
+Restante para este objetivo:
+Próximo passo:
+Próxima etapa:
+Sua ação agora:
+Autoridade:
+Escopo positivo:
+Escopo negativo:
+Referência inicial:
+Ação da conversa: CONTINUE_CURRENT | START_NEW | RETURN_TO_EXISTING
+Conversa de destino:
+Título sugerido:
+Motivo da conversa:
+Texto exato para copiar e enviar:
+Trabalho paralelo: SEQUENTIAL_ONLY | PARALLEL_OPTIONAL | PARALLEL_RECOMMENDED
+Plano paralelo:
+Mensagens paralelas exatas:
 ```
 
-Every field in a real handoff must contain a concrete value or `None - [specific reason]`; blank fields are invalid. `Exact next message` must be complete, filled, ready to copy, and consistent with the declared authority, positive scope, negative scope, baseline, and conversation action. It must not expand authority or scope. No placeholder may remain in a real handoff. `Conversation target` must use a confirmed label for `RETURN_TO_EXISTING`. A template may show placeholders only when it is clearly labelled as a template rather than an executed handoff.
+Every field in a real handoff must contain a concrete value or `Nenhum - [motivo específico]`; blank fields are invalid. `Texto exato para copiar e enviar` must be complete, filled, ready to copy, and consistent with the declared authority, positive scope, negative scope, baseline, and conversation action. It must not expand authority or scope. No placeholder may remain in a real handoff. `Conversa de destino` must use a confirmed label for `RETURN_TO_EXISTING`. A template may show placeholders only when it is clearly labelled as a template rather than an executed handoff.
 
 When work is sequential, use:
 
 ```text
-Parallel plan: None - [specific reason]
-Exact parallel messages: None - parallel work is not recommended
+Plano paralelo: Nenhum - [motivo específico]
+Mensagens paralelas exatas: Nenhuma - trabalho paralelo não é recomendado
 ```
 
 Replace the bracketed reason in every real handoff.
@@ -235,79 +248,79 @@ The coordinating conversation must:
 
 ## Worker start-message template
 
-Every `Exact parallel messages` entry must be a complete instance of this template:
+Every `Mensagens paralelas exatas` entry must be a complete instance of this template:
 
 ```text
-Project:
-Workspace:
-Lane:
-Conversation label:
-Confirmed coordinating conversation:
-Baseline:
-State/gate/batch:
-Existing authority:
-Exclusive objective:
-Preconditions:
-Frozen dependencies:
-Exclusive permitted writes or read-only:
-Read-only inputs:
-Prohibited files and actions:
-Checks:
-Expected output:
-Stop conditions:
-Integration order:
-Return message format:
+Projeto:
+Espaço de trabalho:
+Frente de trabalho:
+Identificação da conversa:
+Conversa coordenadora confirmada:
+Referência inicial:
+Estado/critério/lote:
+Autoridade existente:
+Objetivo exclusivo:
+Pré-condições:
+Dependências congeladas:
+Escritas exclusivas permitidas ou somente leitura:
+Entradas somente leitura:
+Arquivos e ações proibidos:
+Verificações:
+Resultado esperado:
+Condições de parada:
+Ordem de integração:
+Formato da mensagem de retorno:
 ```
 
-Every real worker start message must fill every field with a concrete value or `None - reason` and must contain no unresolved placeholder. For internal delegation, `Confirmed coordinating conversation` contains the environment-issued coordinating identifier and the task authority; it must not invent a user-visible title.
+Every real worker start message must fill every field with a concrete value or `Nenhum - motivo` and must contain no unresolved placeholder. For internal delegation, `Conversa coordenadora confirmada` contains the environment-issued coordinating identifier and the task authority; it must not invent a user-visible title. Internal routing identifiers and canonical enums may remain unchanged, but every message presented or supplied to the owner must use the `pt-BR` labels and narrative above.
 
 ## Worker return-message template
 
 The coordinating conversation must define a copy-ready return contract. The completed block is itself the exact return message to the coordinator; it must not contain or reproduce a nested `Exact return message` field. It is an internal integration payload and does not replace the governed user-visible handoff contract. Unless a stricter contract is required, use:
 
 ```text
-Lane:
-Status:
-Baseline verified:
-Files and artefacts inspected:
-Files and artefacts changed:
-Checks and results:
-Delivered result:
-Limitations and residual risks:
-Stop condition triggered:
-Integration recommendation: CANDIDATE | NOT_CANDIDATE
+Frente de trabalho:
+Situação:
+Referência inicial verificada:
+Arquivos e artefatos inspecionados:
+Arquivos e artefatos alterados:
+Verificações e resultados:
+Resultado entregue:
+Limitações e riscos residuais:
+Condição de parada acionada:
+Recomendação de integração: CANDIDATE | NOT_CANDIDATE
 ```
 
-Every real return payload must fill every field, contain no unresolved placeholder, and remain within the worker's baseline and lane authority.
+Every real return payload must fill every field, contain no unresolved placeholder, and remain within the worker's baseline and lane authority. A worker return delivered directly in an owner-visible conversation is itself an owner-facing delivery and must include `Próximo passo` and `Texto exato para copiar e enviar` exactly once. A return incorporated into another owner-facing delivery must satisfy those requirements through the enclosing delivery, without duplicating the fields.
 
 ## Phase handoff template
 
 Use this extension only when recommending a state transition. Complete the governed handoff contract once, then append:
 
 ```text
-ORIGIN STATE:
-RECOMMENDED DESTINATION:
-NOT COMPLETED:
-EVIDENCE:
-FILES CHANGED:
-DECISIONS:
-DEPENDENCIES:
-RISKS AND TECHNICAL DEBT:
-BLOCKING ITEMS:
-NON-BLOCKING ITEMS:
-GATES RUN:
-GATE RESULTS:
-SNAPSHOT UPDATED:
-TRANSITION LOG UPDATED:
-RECOMMENDATION:
-STATE MACHINE DECISION: PENDING
+ESTADO DE ORIGEM:
+DESTINO RECOMENDADO:
+NÃO CONCLUÍDO:
+EVIDÊNCIAS:
+ARQUIVOS ALTERADOS:
+DECISÕES:
+DEPENDÊNCIAS:
+RISCOS E DÍVIDA TÉCNICA:
+ITENS BLOQUEANTES:
+ITENS NÃO BLOQUEANTES:
+CRITÉRIOS EXECUTADOS:
+RESULTADOS DOS CRITÉRIOS:
+RESUMO ATUALIZADO:
+REGISTRO DE TRANSIÇÃO ATUALIZADO:
+RECOMENDAÇÃO:
+DECISÃO DA MÁQUINA DE ESTADOS: PENDING
 ```
 
 Completed handoffs belong in `docs/history/phase-delivery-history.md`, not in this template.
 
 ## Output contract
 
-For implementation work, report the outcome first, then relevant files, validation, commit, risks, and remaining work. For analysis-only work, report findings and evidence without changing files. Use the governed handoff contract only when its trigger applies. Never claim success from a banner alone when runtime or external behaviour must be verified.
+For implementation work, report the outcome first, then relevant files, validation, commit, risks, and remaining work. For analysis-only work, report findings and evidence without changing files. Use the governed handoff contract only when its trigger applies. Every owner-facing delivery still includes `Próximo passo` and `Texto exato para copiar e enviar`. Never claim success from a banner alone when runtime or external behaviour must be verified.
 
 ## Prompt-system changes
 

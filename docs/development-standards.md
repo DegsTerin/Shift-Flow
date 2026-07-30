@@ -27,10 +27,9 @@
 - Build mobile-first, fluid layouts with relative units, Flexbox or Grid, intrinsic sizing, and media queries at content-driven breakpoints.
 - Ensure controls remain usable at narrow widths, content does not depend on horizontal page scrolling, and tables or boards expose an accessible overflow strategy when unavoidable.
 - Keep structure in React/HTML, presentation in CSS, and behaviour in TypeScript. Avoid editing generated HTML or embedding large style blocks in components.
-- Every editable source or configuration file that supports comments must open with a concise en-GB responsibility comment. Add local en-GB comments for non-obvious algorithms, security boundaries, business invariants, compatibility decisions, and operational side effects.
-- Every CSS declaration must have a short en-GB comment explaining what the property controls and why that declaration is needed.
+- Apply the canonical [language policy](../prompts/core/Governance.md#language-policy) to new project-owned artefacts and limited amendments.
+- Follow `docs/source-commenting-manifest.md` for opening responsibility comments, local explanatory-comment coverage, CSS declaration coverage, syntax exceptions, and immutable files.
 - Do not narrate self-evident syntax line by line. Comments must explain intent and constraints so they remain useful during maintenance.
-- Strict JSON, generated files, and immutable migrations follow the documented exceptions in `docs/source-commenting-manifest.md`.
 - Run `npm run comments:verify` to enforce source-file and CSS declaration coverage.
 - Use descriptive, component-oriented class names and preserve existing behaviour when improving semantics or layout.
 - Keep page metadata current: use an accurate title and description, and do not expose authenticated application pages for indexing unless a public SEO strategy is explicitly approved.

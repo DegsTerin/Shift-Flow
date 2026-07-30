@@ -4,16 +4,17 @@
 
 - Projeto: ShiftFlow
 - Versao de adocao: `3.0.0`
-- Status: especificacao de adocao preservada e governada; nao e uma segunda
-  autoridade operacional.
+- Status: fonte historica de adocao preservada e governada; nao e uma segunda
+  autoridade operacional nem uma instrucao de carregamento atual.
 - Autoridade tematica vigente:
-  [prompts/core/Execution-Protocol.md](prompts/core/Execution-Protocol.md).
+  [prompts/core/Execution-Protocol.md](../../../prompts/core/Execution-Protocol.md).
 - Limite de autorizacao: este arquivo nao autoriza automaticamente alteracao de
   estado, escrita em arquivos, desenvolvimento, Git, navegacao entre conversas
   ou qualquer acao externa.
 - Precedencia: em caso de divergencia, aplicar
-  [prompts/core/Governance.md](prompts/core/Governance.md) e o corpus ativo
-  carregado por [prompts/Start-Here.md](prompts/Start-Here.md).
+  [prompts/core/Governance.md](../../../prompts/core/Governance.md) e o corpus
+  ativo carregado por
+  [prompts/Start-Here.md](../../../prompts/Start-Here.md).
 
 As instrucoes de analise, aprovacao e incorporacao abaixo preservam o change
 gate que originou a versao 3.0.0. Elas nao concedem nem revogam autoridade para

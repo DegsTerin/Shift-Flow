@@ -1,6 +1,6 @@
 # ShiftFlow Prompt System
 
-This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **3.0.0**.
+This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **4.0.0**.
 
 ## Golden rule
 
@@ -85,6 +85,7 @@ The active corpus contains exactly 17 Markdown files:
 ## Authority and versioning
 
 - Authority is defined once in [Governance.md](core/Governance.md).
+- Owner communication and project-owned artefact language are defined once in the [language policy](core/Governance.md#language-policy).
 - State identifiers and transitions are defined once in [Official-State-Machine.md](core/Official-State-Machine.md).
 - Acceptance, evidence, and completion rules are defined once in [Quality-Gates.md](core/Quality-Gates.md).
 - Conversation routing, governed handoff, delegated lanes, and safe parallel work are defined once in [Execution-Protocol.md](core/Execution-Protocol.md).
@@ -94,7 +95,7 @@ The active corpus contains exactly 17 Markdown files:
 ## Governed repository adapters and sources
 
 - [AGENTS.md](../AGENTS.md) routes repository sessions into this corpus and does not replace canonical authority.
-- [Conversation-Coordination-Prompt.md](../Conversation-Coordination-Prompt.md) is the retained governed adoption source for version `3.0.0`. It is outside the 17-file active corpus, is not a second operational authority, and grants no automatic permission to change state, files, Git workflow, conversations, or external resources.
+- [Conversation coordination source](../docs/history/sources/conversation-coordination-prompt.md) and [language-policy source](../docs/history/sources/language-policy.md) are retained historical adoption provenance outside the 17-file active corpus. They are not operational instructions, do not replace canonical authority, and grant no automatic permission to change state, files, Git workflow, conversations, interface language, or external resources.
 
 ## Anti-overengineering
 

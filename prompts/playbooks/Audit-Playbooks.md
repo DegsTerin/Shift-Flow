@@ -1,6 +1,6 @@
 # Audit Playbooks
 
-Select one audit mode. An audit request authorises inspection and reporting; implementation requires explicit correction/execution authority.
+Select one audit mode. An audit request authorises inspection and reporting; implementation requires explicit correction/execution authority. Owner-facing audit communication uses `pt-BR` and includes the mandatory next step and copy-ready message from `../core/Execution-Protocol.md`. A newly persisted project report uses `en-GB` and is accompanied by a `pt-BR` owner summary.
 
 ## Mode A - Full project audit
 
@@ -57,6 +57,11 @@ Validate:
 - No repeated global policy block has reappeared in phase/module/playbook files.
 - Additions and removals have an explicit migration mapping.
 - `AGENTS.md` and `Start-Here.md` route conversation coordination to the single authority in `core/Execution-Protocol.md`.
+- `AGENTS.md` and `Start-Here.md` route language rules to the single authority in `core/Governance.md`; archived adoption sources are historical provenance only.
+- Specialised standards and playbooks reference the canonical language policy without recreating it as a competing authority.
+- Owner-facing labels, reports, handoffs, next steps, and ready-to-copy messages use `pt-BR`, while necessary literal identifiers and enums remain technically stable.
+- New project-owned artefacts use `en-GB`; limited amendments preserve the existing file's language and dialect without opportunistic translation or spelling normalisation.
+- Language-policy adoption does not rename existing identifiers or contracts, rewrite history, perform bulk translation, or infer an interface locale, catalogue, microcopy, or user-visible error language.
 - Conversation and parallel-work enums, non-empty handoff fields, and real-message placeholder rules are consistent with authority, positive scope, negative scope, baseline, and routing action.
 - The common handoff, worker-start contract, non-recursive worker-return payload, and phase extension compose without duplicate or contradictory values.
 - Internal environment identifiers are not presented as owner-confirmed user-visible conversation titles.
