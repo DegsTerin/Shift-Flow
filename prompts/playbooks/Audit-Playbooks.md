@@ -1,6 +1,6 @@
 # Audit Playbooks
 
-Select one audit mode. An audit request authorises inspection and reporting; implementation requires explicit correction/execution authority. Owner-facing audit communication uses `pt-BR` and includes the mandatory next step and copy-ready message from `../core/Execution-Protocol.md`. A newly persisted project report uses `en-GB` and is accompanied by a `pt-BR` owner summary.
+Select one audit mode. An audit request authorises inspection and reporting; implementation requires explicit correction/execution authority. Owner-facing audit communication uses `pt-BR` and applies the conditional continuation rule from `../core/Execution-Protocol.md`. A newly persisted project report uses `en-GB` and is accompanied by a `pt-BR` owner summary.
 
 ## Mode A - Full project audit
 
@@ -60,6 +60,8 @@ Validate:
 - `AGENTS.md` and `Start-Here.md` route language rules to the single authority in `core/Governance.md`; archived adoption sources are historical provenance only.
 - Specialised standards and playbooks reference the canonical language policy without recreating it as a competing authority.
 - Owner-facing labels, reports, handoffs, next steps, and ready-to-copy messages use `pt-BR`, while necessary literal identifiers and enums remain technically stable.
+- Ordinary deliveries omit continuation fields when no owner action is required, include only a concrete next action when that is sufficient, and add a ready-to-copy message only when it materially helps; governed handoffs retain both canonical fields.
+- No delivery manufactures waiting, no-authority, or no-further-action filler merely to populate a continuation template.
 - New project-owned artefacts use `en-GB`; limited amendments preserve the existing file's language and dialect without opportunistic translation or spelling normalisation.
 - Language-policy adoption does not rename existing identifiers or contracts, rewrite history, perform bulk translation, or infer an interface locale, catalogue, microcopy, or user-visible error language.
 - Conversation and parallel-work enums, non-empty handoff fields, and real-message placeholder rules are consistent with authority, positive scope, negative scope, baseline, and routing action.

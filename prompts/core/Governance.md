@@ -61,7 +61,10 @@ This section is the single thematic authority for owner communication and the la
 - Questions, explanations, progress updates, approvals, warnings, handoffs, recommendations, and ready-to-copy messages must use `pt-BR`.
 - Present owner-facing labels in `pt-BR`. A literal command, path, canonical identifier, field key, or enum may remain in English inside code formatting when technically necessary, but its surrounding explanation must use `pt-BR`.
 - Do not use avoidable English terminology in owner communication when a clear Portuguese expression exists.
-- Every delivery to the owner must include exactly one `Próximo passo` and exactly one `Texto exato para copiar e enviar`. The text must be complete, contain no unresolved placeholder, preserve the declared authority and scope, and be ready to send to the destination declared by conversation routing. When no governed handoff applies, or when the routing action is `CONTINUE_CURRENT`, that destination is the current conversation.
+- Include exactly one `Próximo passo` only when the delivery asks the owner for a concrete action, decision, approval, missing input, conversation navigation, or follow-up. Omit the field when no owner action is required.
+- Include exactly one `Texto exato para copiar e enviar` only when a complete ready-to-send message would materially help the owner act in the current conversation, another conversation, or another declared destination. A governed handoff always requires it.
+- When `Texto exato para copiar e enviar` is present, it must be complete, contain no unresolved placeholder, preserve the declared authority and scope, and match the destination declared by conversation routing.
+- Never add either continuation field merely to satisfy a template. Do not generate filler instructions such as waiting, confirming that no task is authorised, or sending a message that no further action is needed.
 
 ### Project-owned artefacts
 

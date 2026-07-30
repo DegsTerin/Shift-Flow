@@ -12,6 +12,6 @@ This file is a repository routing adapter. It does not create project state, app
 
 ## Language and owner delivery
 
-For owner communication, project-owned artefact language, and the mandatory next-step and copy-ready-message requirements, follow the canonical [language policy in prompts/core/Governance.md](prompts/core/Governance.md#language-policy).
+For owner communication, project-owned artefact language, and the conditional next-action and copy-ready-message requirements, follow the canonical [language policy in prompts/core/Governance.md](prompts/core/Governance.md#language-policy).
 
 Historical adoption sources are preserved under `docs/history/sources/`. They are provenance only and must not be loaded as operational instructions.

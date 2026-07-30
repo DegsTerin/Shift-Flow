@@ -10,14 +10,25 @@ Safety and consistency take priority over speed. Do not promise absolute absence
 
 Apply the canonical language policy in `Governance.md` to every response delivered to the owner. Owner-facing narrative, labels, recommendations, warnings, and ready-to-copy messages use `pt-BR`. Literal paths, commands, canonical identifiers, and enums may remain unchanged inside code formatting when necessary.
 
-Every owner-facing delivery must include these fields exactly once. An ordinary delivery that does not instantiate the governed handoff contract must end with:
+Use continuation fields according to the action genuinely required from the owner:
 
-```text
-Próximo passo:
-Texto exato para copiar e enviar:
-```
+- If no owner action is required and no governed handoff applies, omit both fields and end the delivery naturally.
+- If a concrete owner action is required but no ready-to-send message would add value, include only:
 
-The governed handoff contract satisfies this obligation through its canonical fields and must not repeat them after the contract. Both values must be concrete, complete, consistent with current authority and scope, and free of unresolved placeholders. The exact text must be ready for the owner to send to the destination declared by conversation routing. When no governed handoff applies, or when the routing action is `CONTINUE_CURRENT`, that destination is the current conversation. When no further action is required, say so in `Próximo passo` and provide a safe, bounded continuation message that does not invent work or expand authority.
+  ```text
+  Próximo passo:
+  ```
+
+- If the owner needs a ready-to-send message for an approval, decision, continuation, or another destination, include both fields exactly once:
+
+  ```text
+  Próximo passo:
+  Texto exato para copiar e enviar:
+  ```
+
+A governed handoff always includes both fields through its canonical contract and must not repeat them after the contract. Every included value must be concrete, complete, consistent with current authority and scope, and free of unresolved placeholders. The exact text must be ready for the owner to send to the destination declared by conversation routing. When no governed handoff applies, or when the routing action is `CONTINUE_CURRENT`, that destination is the current conversation.
+
+Never use an empty, `Nenhum`, waiting, no-authority, or no-further-action value merely to keep a continuation field present. Omit an inapplicable field instead.
 
 ## Standard workflow
 
@@ -332,7 +343,7 @@ Condição de parada acionada:
 Recomendação de integração: CANDIDATE | NOT_CANDIDATE
 ```
 
-Every real return payload must fill every field, contain no unresolved placeholder, and remain within the worker's baseline and lane authority. A worker return delivered directly in an owner-visible conversation is itself an owner-facing delivery and must include `Próximo passo` and `Texto exato para copiar e enviar` exactly once. A return incorporated into another owner-facing delivery must satisfy those requirements through the enclosing delivery, without duplicating the fields.
+Every real return payload must fill every field, contain no unresolved placeholder, and remain within the worker's baseline and lane authority. A worker return delivered directly in an owner-visible conversation follows the conditional continuation rule above: it includes only the fields justified by a concrete owner action, and a governed handoff uses the complete handoff contract. A return incorporated into another owner-facing delivery relies on the enclosing delivery to apply that rule without duplication.
 
 ## Phase handoff template
 
@@ -361,7 +372,7 @@ Completed handoffs belong in `docs/history/phase-delivery-history.md`, not in th
 
 ## Output contract
 
-For implementation work, report the outcome first, then relevant files, validation, commit, risks, and remaining work. For analysis-only work, report findings and evidence without changing files. Use the governed handoff contract only when its trigger applies. Every owner-facing delivery still includes `Próximo passo` and `Texto exato para copiar e enviar`. Never claim success from a banner alone when runtime or external behaviour must be verified.
+For implementation work, report the outcome first, then relevant files, validation, commit, risks, and remaining work. For analysis-only work, report findings and evidence without changing files. Use the governed handoff contract only when its trigger applies. Apply the conditional continuation rule to ordinary owner-facing deliveries and omit inapplicable fields rather than manufacturing a follow-up. Never claim success from a banner alone when runtime or external behaviour must be verified.
 
 ## Prompt-system changes
 

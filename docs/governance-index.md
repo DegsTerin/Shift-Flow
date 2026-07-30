@@ -57,6 +57,15 @@ When a prompt control file is still required, keep it in the active manifest and
 - `docs/history/state-transitions-2026.md`: consolidated pre-2.0 state, snapshot, transition, and version history.
 - `docs/history/sources/`: preserved source texts that have already been incorporated into canonical governance and have no operational authority.
 
+## Version 5.0 Conditional Owner Continuation
+
+- Superseded the version 4.0 unconditional continuation-field rule without changing the `pt-BR` owner-language authority.
+- Ordinary deliveries omit continuation fields when no owner action is required.
+- A concrete next action appears only when the owner must act; ready-to-copy text appears only when it materially helps that action.
+- Governed handoffs retain both canonical continuation fields because they transfer context and require owner navigation or another explicit action.
+- Filler messages about waiting, absent authority, or no further action are prohibited.
+- Preserved `STATE-08 PRODUCTION_RELEASE`, the 17-file active corpus, reasoning-level guidance, interface-language boundaries, and all closed history.
+
 ## Version 4.0 Language-Policy Adoption
 
 - Incorporated owner communication and project-owned artefact language into the existing `prompts/core/Governance.md` authority.

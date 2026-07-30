@@ -10,6 +10,16 @@ This rolling log records current prompt-system changes. Complete history through
 - Conflicts resolved
 - State impact
 
+## 2026-07-30 - Version 5.0.0
+
+- Type: major owner-continuation authority correction.
+- Scope: canonical language policy, ordinary owner delivery, governed handoffs, owner-visible worker returns, quality gates, prompt-system audit, repository routing, current evidence, and governance mapping.
+- Behaviour: removes the unconditional requirement to append `Próximo passo` and `Texto exato para copiar e enviar` to every delivery. Ordinary deliveries now omit both when no owner action is required, use only a concrete next action when sufficient, and add ready-to-copy text only when it materially helps the owner act.
+- Handoff boundary: governed handoffs continue to require both fields exactly once because they transfer context and require a concrete owner action.
+- Anti-filler rule: prohibits waiting, no-authority, and no-further-action messages created solely to populate a template.
+- Conflict resolved: owner communication no longer ends with redundant instructions when the requested work is complete and no follow-up is needed.
+- State impact: `STATE-08 PRODUCTION_RELEASE` and the 17-file active prompt corpus are preserved; no transition, ADR, Human Gate, runtime change, product-interface language change, or external action resulted.
+
 ## 2026-07-30 - Version 4.1.0
 
 - Type: compatible conversation-reasoning guidance and coordination-contract extension.

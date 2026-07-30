@@ -37,13 +37,16 @@ Invalid evidence includes:
 Apply the canonical language policy in `Governance.md` proportionally:
 
 - Owner-facing communication, labels, recommendations, warnings, handoffs, and ready-to-copy messages use `pt-BR`.
-- Every owner-facing delivery contains exactly one concrete `Próximo passo` and exactly one complete `Texto exato para copiar e enviar`, with no unresolved placeholder or authority expansion and with the message aligned to the destination declared by conversation routing.
+- An ordinary owner-facing delivery with no required owner action omits both continuation fields.
+- A delivery that requires a concrete owner action includes exactly one `Próximo passo`; it includes exactly one `Texto exato para copiar e enviar` only when a ready-to-send message materially helps that action.
+- A governed handoff includes both canonical continuation fields exactly once at its own contract level.
+- Included continuation fields are concrete, contain no unresolved placeholder or authority expansion, align with conversation routing, and never use waiting, no-authority, or no-further-action filler.
 - New project-owned artefacts use `en-GB`; a limited amendment preserves the existing file's established language and dialect.
 - Mandatory external names, contracts, identifiers, and spellings remain unchanged.
 - Language review does not authorise bulk translation, identifier migration, interface-locale changes, microcopy changes, Git history rewriting, or another out-of-scope action.
-- A new persistent artefact delivered to the owner may remain in `en-GB`, but its owner-facing summary and next action use `pt-BR`.
+- A new persistent artefact delivered to the owner may remain in `en-GB`, but its owner-facing summary and any applicable next action use `pt-BR`.
 
-Missing audience, destination, language, legacy-preservation, or interface-authority evidence means the applicable gate is not complete.
+Missing audience, destination, language, continuation-applicability, legacy-preservation, or interface-authority evidence means the applicable gate is not complete.
 
 ## GATE-05 MULTI_AGENT_VALIDATION
 
@@ -62,7 +65,7 @@ For every governed user-visible handoff:
 - Exact messages, plans, and targets preserve the declared authority, positive scope, negative scope, baseline, and routing action without expansion or contradiction.
 - `SEQUENTIAL_ONLY` uses the canonical `Plano paralelo: Nenhum - motivo` and `Mensagens paralelas exatas: Nenhuma - trabalho paralelo não é recomendado` values and requires no parallel-lane evidence.
 - A state-transition recommendation composes the common handoff with the phase extension without conflicting duplicate values.
-- Every owner-visible handoff and ready-to-copy worker message uses the `pt-BR` presentation defined by `Execution-Protocol.md`; the canonical continuation fields occur exactly once, and internal identifiers and canonical enums may remain unchanged.
+- Every owner-visible handoff and ready-to-copy worker message uses the `pt-BR` presentation defined by `Execution-Protocol.md`; governed-handoff continuation fields occur exactly once at the handoff contract level, and internal identifiers and canonical enums may remain unchanged.
 
 When any internal or user-visible worker lane is started:
 
@@ -164,7 +167,7 @@ Automatic Review independently checks:
 - Security, supply chain, performance, observability, tests, and release gates.
 - Documentation, references, version, and state consistency.
 - Conversation routing, lane authority, writer exclusivity, mutable-resource isolation, and integration evidence.
-- Audience-appropriate language, mandatory owner continuation fields, legacy-language preservation, and absence of unauthorised interface-language changes.
+- Audience-appropriate language, correct conditional use or omission of owner continuation fields, legacy-language preservation, and absence of unauthorised interface-language changes.
 
 Required result format:
 
