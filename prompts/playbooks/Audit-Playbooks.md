@@ -69,6 +69,7 @@ Validate:
 - `Máximo` remains the deepest substantially single-threaded recommendation, while `Ultra` is reserved for materially useful independent lanes and never bypasses delegation, ownership, isolation, or gate requirements.
 - Reasoning-field uniqueness is enforced per conversation-level contract; separately delimited worker messages retain their own destination-specific recommendation without being treated as duplicates in the enclosing handoff.
 - The common handoff, worker-start contract, non-recursive worker-return payload, and phase extension compose without duplicate or contradictory values.
+- Every authorised file-changing task ends with an automatic, narrowly staged local commit after validation, without waiting for a second request or carrying changes into a later task; empty commits and unauthorised remote actions remain prohibited.
 - Internal environment identifiers are not presented as owner-confirmed user-visible conversation titles.
 - No plan permits concurrent writers on the same path, logical artefact, or mutable resource.
 - Stop conditions and the sequential fallback are complete, and `GATE-05` applies criteria according to `SEQUENTIAL_ONLY`, sequential delegation, parallel read-only lanes, or parallel writing.

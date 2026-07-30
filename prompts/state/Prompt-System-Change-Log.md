@@ -10,6 +10,15 @@ This rolling log records current prompt-system changes. Complete history through
 - Conflicts resolved
 - State impact
 
+## 2026-07-30 - Version 5.0.1
+
+- Type: patch clarification of the existing repository-safe commit policy.
+- Scope: prompt entrypoint, canonical governance, execution closeout, Definition of Done, Automatic Review, prompt-system audit, current evidence, and governance mapping.
+- Behaviour: every authorised task, change, correction, or project activity that changes repository files ends with an automatic, narrowly scoped local commit after validation; no separate commit request is required, and validated changes are not carried into a later task.
+- Boundaries: analysis-only work and activities with no file changes do not create empty commits; failed or blocked validation prevents completion and commit; local-commit authority does not imply push, remote branch creation, pull request, release, deployment, or another external action.
+- Conflict resolved: removes ambiguity about whether the owner must request a commit separately after already authorising a file-changing task.
+- State impact: `STATE-08 PRODUCTION_RELEASE` and the 17-file active prompt corpus are preserved; no transition, ADR, Human Gate, runtime change, product-interface language change, push, or external action resulted.
+
 ## 2026-07-30 - Version 5.0.0
 
 - Type: major owner-continuation authority correction.

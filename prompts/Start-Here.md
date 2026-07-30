@@ -1,6 +1,6 @@
 # ShiftFlow Prompt System
 
-This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **5.0.0**.
+This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **5.0.1**.
 
 ## Golden rule
 
@@ -8,7 +8,9 @@ No prompt, gate, agent, checklist, snapshot, index, report, or log may independe
 
 ## Commit rule
 
-When an authorised task changes files, create a local commit with a clear message and closed scope after the required validation passes. Stage only files related to the task. Do not include generated, environment-specific, or unrelated changes without explicit authorisation. If no file changed, state that no commit is required.
+Every authorised task, change, correction, or project activity that changes repository files must end with an automatic local commit after the required validation passes. Do not wait for a separate commit request or defer validated changes to a later task.
+
+Stage only files related to the completed activity and keep the commit message clear and scoped. Do not include generated, environment-specific, or unrelated changes without explicit authorisation. Do not create an empty commit when no file changed. A local commit does not authorise push or another remote action.
 
 ## Current operating state
 

@@ -57,6 +57,14 @@ When a prompt control file is still required, keep it in the active manifest and
 - `docs/history/state-transitions-2026.md`: consolidated pre-2.0 state, snapshot, transition, and version history.
 - `docs/history/sources/`: preserved source texts that have already been incorporated into canonical governance and have no operational authority.
 
+## Version 5.0.1 Automatic Local Commit Completion
+
+- Clarified that authority for a repository file change includes its automatic, narrowly scoped local commit after validation.
+- No separate commit request is required, and validated changes are not deferred to another task.
+- Analysis-only work and activities with no file changes do not create empty commits; failed or blocked validation prevents completion and commit.
+- Local-commit authority does not imply push, remote branch creation, pull request, release, deployment, or another external action.
+- Preserved `STATE-08 PRODUCTION_RELEASE`, the 17-file active corpus, and all existing quality, language, reasoning, routing, and isolation boundaries.
+
 ## Version 5.0 Conditional Owner Continuation
 
 - Superseded the version 4.0 unconditional continuation-field rule without changing the `pt-BR` owner-language authority.

@@ -44,7 +44,7 @@ Never use an empty, `Nenhum`, waiting, no-authority, or no-further-action value 
 10. Integrate one delivery at a time through the coordinating conversation when delegation is used.
 11. Run proportional quality gates, including cross-lane checks after integration.
 12. Update snapshot, changelog, or transition log only when their responsibility is affected.
-13. Commit a validated file-changing task with narrow scope.
+13. Automatically commit each validated file-changing task with narrow scope before final delivery; do not wait for a separate request or carry the changes into a later activity.
 
 ## Allowed commands by state
 
@@ -372,7 +372,7 @@ Completed handoffs belong in `docs/history/phase-delivery-history.md`, not in th
 
 ## Output contract
 
-For implementation work, report the outcome first, then relevant files, validation, commit, risks, and remaining work. For analysis-only work, report findings and evidence without changing files. Use the governed handoff contract only when its trigger applies. Apply the conditional continuation rule to ordinary owner-facing deliveries and omit inapplicable fields rather than manufacturing a follow-up. Never claim success from a banner alone when runtime or external behaviour must be verified.
+For implementation work, report the outcome first, then relevant files, validation, commit, risks, and remaining work. A completed file-changing task must report its local commit identifier; that commit does not imply push or another remote action. For analysis-only work, report findings and evidence without changing files. Use the governed handoff contract only when its trigger applies. Apply the conditional continuation rule to ordinary owner-facing deliveries and omit inapplicable fields rather than manufacturing a follow-up. Never claim success from a banner alone when runtime or external behaviour must be verified.
 
 ## Prompt-system changes
 

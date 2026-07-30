@@ -15,7 +15,7 @@ A task or phase is complete only when:
 - Current documentation is updated without duplicating history.
 - Applicable language-policy requirements are satisfied without translating legacy content or changing interface language by inference.
 - Governed handoffs and delegated work satisfy `GATE-05 MULTI_AGENT_VALIDATION` when applicable.
-- A scoped commit exists when files changed.
+- Every completed authorised file-changing task has its own scoped local commit; no separate commit instruction is required.
 
 Missing evidence means `NOT COMPLETE`, not assumed approval.
 
@@ -167,6 +167,7 @@ Automatic Review independently checks:
 - Security, supply chain, performance, observability, tests, and release gates.
 - Documentation, references, version, and state consistency.
 - Conversation routing, lane authority, writer exclusivity, mutable-resource isolation, and integration evidence.
+- Task closeout, narrow staging, automatic local-commit evidence, and absence of unauthorised push or another remote action.
 - Audience-appropriate language, correct conditional use or omission of owner continuation fields, legacy-language preservation, and absence of unauthorised interface-language changes.
 
 Required result format:

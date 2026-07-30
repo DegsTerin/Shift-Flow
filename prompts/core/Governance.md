@@ -134,7 +134,9 @@ Never use destructive Git commands, edit applied migrations, erase audit history
 
 ## Commit policy
 
-After an authorised file-changing task passes validation:
+A local commit is an automatic completion step for every authorised task, change, correction, or project activity that changes repository files. Existing authority to make the file change includes authority for its narrow local commit; no separate commit request is required. Do not defer validated changes to a later task.
+
+After the file-changing activity passes validation:
 
 1. Inspect the worktree.
 2. Stage only intended files.
@@ -142,7 +144,9 @@ After an authorised file-changing task passes validation:
 4. Commit with a clear, scoped message.
 5. Report the commit identifier and remaining unrelated changes.
 
-Do not commit when the user requested analysis only, when no file changed, or while required validation is failing.
+Do not create an empty commit when the user requested analysis only or when no file changed. Do not commit while required validation is failing or the activity is blocked; such work is not complete and must be reported accordingly. A completed file-changing activity is not complete until its scoped local commit exists.
+
+Authority for a local commit does not authorise push, a remote branch, a pull request, release, deployment, or any other external action.
 
 ## Governance change policy
 
