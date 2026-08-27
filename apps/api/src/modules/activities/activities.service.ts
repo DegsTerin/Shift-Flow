@@ -3,6 +3,7 @@ import type { ApiRequest } from "../../shared/http/request-types.js";
 import { badRequest, notFound } from "../../shared/errors/app-error.js";
 import { toPagination } from "../../shared/http/pagination.js";
 import { BaseService } from "../../shared/services/base.service.js";
+import { buildAuditData } from "../../shared/services/audit-writer.js";
 import {
   activeCompanyId,
   assertClientInCompany,
@@ -158,58 +159,167 @@ export class ActivitiesService extends BaseService {
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {
     await this.assertScopedReferences(req, data);
-    const created = await super.create(req, {
-      ...data,
-      reporterId: data.reporterId ?? req.auth?.id
-    });
-    await this.history(req, String((created as { id: string }).id), "CREATED", {});
-    return created;
+    const companyId = activeCompanyId(req);
+    const clientId = data.clientId ? String(data.clientId) : "";
+    const teamId = data.teamId ? String(data.teamId) : "";
+    const reporterId = data.reporterId ? String(data.reporterId) : req.auth?.id;
+    if (!clientId || !teamId || !reporterId) {
+      throw badRequest("Activity requires an active client, team and reporter");
+    }
+    const status = data.status ? String(data.status) : undefined;
+    const changedAt = new Date();
+    return this.activitiesRepository.createWithEvidence(
+      {
+        ...data,
+        ...this.statusWriteFields(undefined, status, changedAt),
+        clientId,
+        teamId,
+        reporterId,
+        companyId,
+        createdById: req.auth?.id,
+        updatedById: req.auth?.id
+      },
+      (created) => this.activityEvidence(req, String(created.id), "CREATE", "CREATED", {}, created)
+    );
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
-    const previous = (await this.get(req, id)) as { status?: string };
-    await this.assertScopedReferences(req, data);
-    if (data.status) {
-      this.assertStatusTransition(previous.status, String(data.status));
+    const companyId = activeCompanyId(req);
+    const existing = await this.activitiesRepository.findById(id, companyId, undefined, true);
+    if (!existing) {
+      throw notFound("Activity not found");
     }
-    const updated = await super.update(req, id, data);
-    await this.history(req, id, "UPDATED", {
-      metadata: activityHistoryDelta(previous, updated)
-    });
+    const updated = await this.activitiesRepository.updateWithEvidence(
+      companyId,
+      id,
+      (previous) => {
+        const fromStatus = previous.status ? String(previous.status) : undefined;
+        const toStatus = data.status ? String(data.status) : undefined;
+        const statusChanged = Boolean(toStatus && toStatus !== fromStatus);
+        if (statusChanged && toStatus) {
+          this.assertStatusTransition(fromStatus, toStatus);
+        }
+        const mutationData = {
+          ...data,
+          ...(statusChanged ? this.statusWriteFields(fromStatus, toStatus, new Date()) : {}),
+          updatedById: req.auth?.id
+        };
+        return {
+          data: mutationData,
+          evidenceFor: (result: Record<string, unknown>) =>
+            this.activityEvidence(
+              req,
+              id,
+              "UPDATE",
+              statusChanged && toStatus === "DONE"
+                ? "CLOSED"
+                : statusChanged
+                  ? "STATUS_CHANGED"
+                  : "UPDATED",
+              {
+                ...(statusChanged ? { fromStatus, toStatus } : {}),
+                metadata: activityHistoryDelta(previous, result)
+              },
+              result
+            )
+        };
+      }
+    );
+    if (!updated) {
+      throw notFound("Activity not found");
+    }
     return updated;
   }
 
   override async remove(req: ApiRequest, id: string) {
-    const previous = await this.get(req, id);
-    const removed = await super.remove(req, id);
-    await this.history(req, id, "SOFT_DELETED", {
-      note: "Soft deleted",
-      metadata: { ...activityHistoryDelta(previous, removed), action: "SOFT_DELETE" }
-    });
+    const companyId = activeCompanyId(req);
+    const removed = await this.activitiesRepository.updateWithEvidence(
+      companyId,
+      id,
+      (previous) => ({
+        data: { deletedAt: new Date(), deletedById: req.auth?.id, updatedById: req.auth?.id },
+        evidenceFor: (result) =>
+          this.activityEvidence(
+            req,
+            id,
+            "SOFT_DELETE",
+            "SOFT_DELETED",
+            {
+              note: "Soft deleted",
+              metadata: { ...activityHistoryDelta(previous, result), action: "SOFT_DELETE" }
+            },
+            result
+          )
+      })
+    );
+    if (!removed) {
+      throw notFound("Activity not found");
+    }
     return removed;
   }
 
   async move(req: ApiRequest, id: string, status: string, note?: string) {
-    const previous = (await this.get(req, id)) as { status?: string; priority?: string };
-    this.assertStatusTransition(previous.status, status);
-    const updated = await super.update(req, id, {
-      status,
-      ...(status === "DONE" ? { completedAt: new Date() } : {}),
-      ...(status === "IN_PROGRESS" ? { startedAt: new Date() } : {}),
-      ...(status !== "DONE" ? { completedAt: null } : {})
-    });
-    await this.history(req, id, status === "DONE" ? "CLOSED" : "STATUS_CHANGED", {
-      fromStatus: previous.status,
-      toStatus: status,
-      note
-    });
+    const companyId = activeCompanyId(req);
+    const updated = await this.activitiesRepository.updateWithEvidence(
+      companyId,
+      id,
+      (previous) => {
+        const fromStatus = previous.status ? String(previous.status) : undefined;
+        if (fromStatus === status) {
+          throw badRequest("Activity is already in the requested status");
+        }
+        this.assertStatusTransition(fromStatus, status);
+        return {
+          data: {
+            status,
+            ...this.statusWriteFields(fromStatus, status, new Date()),
+            updatedById: req.auth?.id
+          },
+          evidenceFor: (result) =>
+            this.activityEvidence(
+              req,
+              id,
+              "UPDATE",
+              status === "DONE" ? "CLOSED" : "STATUS_CHANGED",
+              { fromStatus, toStatus: status, note },
+              result
+            )
+        };
+      }
+    );
+    if (!updated) {
+      throw notFound("Activity not found");
+    }
     return updated;
   }
 
   async assign(req: ApiRequest, id: string, assigneeId: string | null, note?: string) {
-    await assertUserInCompany(assigneeId, activeCompanyId(req));
-    const updated = await super.update(req, id, { assigneeId });
-    await this.history(req, id, assigneeId ? "ASSIGNED" : "UNASSIGNED", { note });
+    const companyId = activeCompanyId(req);
+    const updated = await this.activitiesRepository.updateWithEvidence(
+      companyId,
+      id,
+      (previous) => {
+        const previousAssigneeId = previous.assigneeId ? String(previous.assigneeId) : null;
+        if (previousAssigneeId === assigneeId) {
+          throw badRequest("Activity already has the requested assignee");
+        }
+        return {
+          data: { assigneeId, updatedById: req.auth?.id },
+          evidenceFor: (result) =>
+            this.activityEvidence(
+              req,
+              id,
+              "UPDATE",
+              assigneeId ? "ASSIGNED" : "UNASSIGNED",
+              { note },
+              result
+            )
+        };
+      }
+    );
+    if (!updated) {
+      throw notFound("Activity not found");
+    }
     return updated;
   }
 
@@ -218,20 +328,41 @@ export class ActivitiesService extends BaseService {
   }
 
   async reopen(req: ApiRequest, id: string, note?: string) {
-    const previous = (await this.get(req, id)) as { status?: string };
-    if (previous.status !== "DONE" && previous.status !== "CANCELLED") {
-      throw badRequest("Only completed or cancelled activities can be reopened");
+    const companyId = activeCompanyId(req);
+    const updated = await this.activitiesRepository.updateWithEvidence(
+      companyId,
+      id,
+      (previous) => {
+        const fromStatus = previous.status ? String(previous.status) : undefined;
+        if (fromStatus !== "DONE" && fromStatus !== "CANCELLED") {
+          throw badRequest("Only completed or cancelled activities can be reopened");
+        }
+        return {
+          data: {
+            status: "PENDING",
+            completedAt: null,
+            startedAt: null,
+            updatedById: req.auth?.id
+          },
+          evidenceFor: (result) =>
+            this.activityEvidence(
+              req,
+              id,
+              "UPDATE",
+              "REOPENED",
+              {
+                fromStatus,
+                toStatus: "PENDING",
+                note: note ?? "Reopened from API"
+              },
+              result
+            )
+        };
+      }
+    );
+    if (!updated) {
+      throw notFound("Activity not found");
     }
-    const updated = await super.update(req, id, {
-      status: "PENDING",
-      completedAt: null,
-      startedAt: null
-    });
-    await this.history(req, id, "REOPENED", {
-      fromStatus: previous.status,
-      toStatus: "PENDING",
-      note: note ?? "Reopened from API"
-    });
     return updated;
   }
 
@@ -490,19 +621,44 @@ export class ActivitiesService extends BaseService {
     return moved;
   }
 
-  private async history(
+  private activityEvidence(
     req: ApiRequest,
     activityId: string,
+    auditAction: string,
     type: string,
-    data: Record<string, unknown>
+    history: Record<string, unknown>,
+    after: Record<string, unknown>
   ) {
-    await this.activitiesRepository.addHistory({
-      ...data,
-      activityId,
-      type,
-      companyId: this.companyId(req),
-      actorUserId: req.auth?.id
-    });
+    const companyId = activeCompanyId(req);
+    return {
+      audit: buildAuditData(req, {
+        entityType: "Activity",
+        entityId: activityId,
+        action: auditAction,
+        after,
+        companyId,
+        activityId
+      }),
+      history: {
+        ...history,
+        activityId,
+        type,
+        companyId,
+        actorUserId: req.auth?.id
+      }
+    };
+  }
+
+  private statusWriteFields(
+    fromStatus: string | undefined,
+    toStatus: string | undefined,
+    changedAt: Date
+  ) {
+    if (!toStatus || toStatus === fromStatus) return {};
+    return {
+      ...(toStatus === "IN_PROGRESS" ? { startedAt: changedAt } : {}),
+      ...(toStatus === "DONE" ? { completedAt: changedAt } : { completedAt: null })
+    };
   }
 
   private async taskHistory(

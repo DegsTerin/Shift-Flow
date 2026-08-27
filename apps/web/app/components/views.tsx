@@ -15,6 +15,7 @@ import type {
 } from "../lib/types";
 import {
   countOf,
+  kanbanMoveCommand,
   statusColors,
   statusGroups,
   statusLabel,
@@ -518,7 +519,11 @@ export function KanbanBoard({
           className="kanban-column"
           key={group}
           onDragOver={(event) => event.preventDefault()}
-          onDrop={() => dragged && onMove(dragged, group)}
+          onDrop={() => {
+            const command = kanbanMoveCommand(activities, dragged, group);
+            setDragged(null);
+            if (command) onMove(command.id, command.status);
+          }}
         >
           <h2>{statusLabel(group, t)}</h2>
           {activities

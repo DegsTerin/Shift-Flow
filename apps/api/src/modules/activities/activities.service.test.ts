@@ -2,6 +2,22 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import type { ActivitiesRepository } from "./activities.repository.js";
+
+const scopeChecks = vi.hoisted(() => ({
+  client: vi.fn().mockResolvedValue(undefined),
+  shift: vi.fn().mockResolvedValue(undefined),
+  team: vi.fn().mockResolvedValue(undefined),
+  user: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock("../../shared/services/scope.service.js", () => ({
+  activeCompanyId: (req: ApiRequest) => req.auth?.companyId,
+  assertClientInCompany: scopeChecks.client,
+  assertShiftInCompany: scopeChecks.shift,
+  assertTeamInCompany: scopeChecks.team,
+  assertUserInCompany: scopeChecks.user
+}));
+
 import {
   ActivitiesService,
   activityHistoryDelta,
@@ -16,6 +32,50 @@ function request(query: Record<string, unknown> = {}) {
 
 function serviceWith(repository: Partial<ActivitiesRepository>) {
   return new ActivitiesService(repository as ActivitiesRepository);
+}
+
+function evidencedRepository(previous: Record<string, unknown> = {}) {
+  const captured: {
+    createData?: Record<string, unknown>;
+    mutationData?: Record<string, unknown>;
+    evidence?: { audit: Record<string, unknown>; history: Record<string, unknown> };
+  } = {};
+  const createWithEvidence = vi.fn(
+    async (
+      data: Record<string, unknown>,
+      evidenceFor: (created: Record<string, unknown>) => NonNullable<typeof captured.evidence>
+    ) => {
+      captured.createData = data;
+      const created = { id: "activity-1", status: "PENDING", ...data };
+      captured.evidence = evidenceFor(created);
+      return created;
+    }
+  );
+  const updateWithEvidence = vi.fn(
+    async (
+      _companyId: string,
+      _id: string,
+      planFor: (record: Record<string, unknown>) => {
+        data: Record<string, unknown>;
+        evidenceFor: (updated: Record<string, unknown>) => NonNullable<typeof captured.evidence>;
+      }
+    ) => {
+      const current = { id: "activity-1", status: "PENDING", ...previous };
+      const plan = planFor(current);
+      captured.mutationData = plan.data;
+      const updated = { ...current, ...plan.data };
+      captured.evidence = plan.evidenceFor(updated);
+      return updated;
+    }
+  );
+  return {
+    captured,
+    repository: {
+      findById: vi.fn().mockResolvedValue({ id: "activity-1", status: "PENDING", ...previous }),
+      createWithEvidence,
+      updateWithEvidence
+    } as Partial<ActivitiesRepository>
+  };
 }
 
 describe("ActivitiesService", () => {
@@ -100,6 +160,262 @@ describe("ActivitiesService", () => {
       "DONE",
       "Closed after owner verification"
     );
+  });
+
+  it("creates the activity and both evidence records through one aggregate command", async () => {
+    const { captured, repository } = evidencedRepository();
+    const service = serviceWith(repository);
+
+    await service.create(request(), {
+      clientId: "client-1",
+      teamId: "team-1",
+      title: "Incident",
+      status: "IN_PROGRESS"
+    });
+
+    expect(captured.createData).toEqual(
+      expect.objectContaining({
+        companyId,
+        reporterId: "user-1",
+        createdById: "user-1",
+        updatedById: "user-1",
+        status: "IN_PROGRESS",
+        startedAt: expect.any(Date),
+        completedAt: null
+      })
+    );
+    expect(captured.evidence).toEqual(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          entityType: "Activity",
+          entityId: "activity-1",
+          action: "CREATE",
+          activityId: "activity-1"
+        }),
+        history: expect.objectContaining({
+          activityId: "activity-1",
+          type: "CREATED",
+          actorUserId: "user-1"
+        })
+      })
+    );
+  });
+
+  it("normalises a generic status update into closed lifecycle evidence", async () => {
+    const { captured, repository } = evidencedRepository({ title: "Before" });
+    const service = serviceWith(repository);
+
+    await service.update(request(), "activity-1", { title: "After", status: "DONE" });
+
+    expect(captured.mutationData).toEqual(
+      expect.objectContaining({
+        title: "After",
+        status: "DONE",
+        completedAt: expect.any(Date),
+        updatedById: "user-1"
+      })
+    );
+    expect(captured.evidence).toEqual(
+      expect.objectContaining({
+        audit: expect.objectContaining({ action: "UPDATE" }),
+        history: expect.objectContaining({
+          type: "CLOSED",
+          fromStatus: "PENDING",
+          toStatus: "DONE",
+          metadata: expect.objectContaining({
+            before: expect.objectContaining({ title: "Before", status: "PENDING" }),
+            after: expect.objectContaining({ title: "After", status: "DONE" })
+          })
+        })
+      })
+    );
+  });
+
+  it("keeps unchanged modal lifecycle fields stable during an ordinary edit", async () => {
+    vi.clearAllMocks();
+    const { captured, repository } = evidencedRepository({
+      title: "Before",
+      status: "PENDING",
+      assigneeId: "assignee-1",
+      startedAt: null,
+      completedAt: null
+    });
+    const service = serviceWith(repository);
+
+    await service.update(request(), "activity-1", {
+      title: "After",
+      status: "PENDING",
+      assigneeId: "assignee-1"
+    });
+
+    expect(captured.mutationData).toEqual(
+      expect.objectContaining({
+        title: "After",
+        status: "PENDING",
+        assigneeId: "assignee-1",
+        updatedById: "user-1"
+      })
+    );
+    expect(captured.mutationData).not.toHaveProperty("startedAt");
+    expect(captured.mutationData).not.toHaveProperty("completedAt");
+    expect(captured.evidence?.history).toEqual(
+      expect.objectContaining({
+        type: "UPDATED",
+        metadata: expect.objectContaining({
+          before: expect.objectContaining({ title: "Before" }),
+          after: expect.objectContaining({ title: "After" })
+        })
+      })
+    );
+    const metadata = captured.evidence?.history.metadata as {
+      before: Record<string, unknown>;
+      after: Record<string, unknown>;
+    };
+    expect(metadata.before).not.toHaveProperty("status");
+    expect(metadata.after).not.toHaveProperty("status");
+    expect(metadata.before).not.toHaveProperty("assigneeId");
+    expect(metadata.after).not.toHaveProperty("assigneeId");
+    expect(scopeChecks.client).not.toHaveBeenCalled();
+    expect(scopeChecks.team).not.toHaveBeenCalled();
+    expect(scopeChecks.shift).not.toHaveBeenCalled();
+    expect(scopeChecks.user).not.toHaveBeenCalled();
+  });
+
+  it("preserves not-found precedence before validating update references", async () => {
+    vi.clearAllMocks();
+    const findById = vi.fn().mockResolvedValue(null);
+    const updateWithEvidence = vi.fn();
+    const service = serviceWith({ findById, updateWithEvidence });
+
+    await expect(
+      service.update(request(), "missing-activity", {
+        clientId: "missing-client",
+        teamId: "missing-team"
+      })
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(findById).toHaveBeenCalledWith("missing-activity", companyId, undefined, true);
+    expect(scopeChecks.client).not.toHaveBeenCalled();
+    expect(scopeChecks.team).not.toHaveBeenCalled();
+    expect(scopeChecks.shift).not.toHaveBeenCalled();
+    expect(scopeChecks.user).not.toHaveBeenCalled();
+    expect(updateWithEvidence).not.toHaveBeenCalled();
+  });
+
+  it("soft-deletes with audit and history evidence in the aggregate plan", async () => {
+    const { captured, repository } = evidencedRepository({ title: "Incident" });
+    const service = serviceWith(repository);
+
+    await service.remove(request(), "activity-1");
+
+    expect(captured.mutationData).toEqual(
+      expect.objectContaining({
+        deletedAt: expect.any(Date),
+        deletedById: "user-1",
+        updatedById: "user-1"
+      })
+    );
+    expect(captured.evidence).toEqual(
+      expect.objectContaining({
+        audit: expect.objectContaining({ action: "SOFT_DELETE" }),
+        history: expect.objectContaining({
+          type: "SOFT_DELETED",
+          note: "Soft deleted",
+          metadata: expect.objectContaining({ action: "SOFT_DELETE" })
+        })
+      })
+    );
+  });
+
+  it("moves and assigns through evidenced aggregate plans", async () => {
+    const moved = evidencedRepository();
+    const moveService = serviceWith(moved.repository);
+
+    await moveService.move(request(), "activity-1", "IN_PROGRESS", "Started by operator");
+
+    expect(moved.captured.mutationData).toEqual(
+      expect.objectContaining({
+        status: "IN_PROGRESS",
+        startedAt: expect.any(Date),
+        completedAt: null
+      })
+    );
+    expect(moved.captured.evidence?.history).toEqual(
+      expect.objectContaining({
+        type: "STATUS_CHANGED",
+        fromStatus: "PENDING",
+        toStatus: "IN_PROGRESS",
+        note: "Started by operator"
+      })
+    );
+
+    const assigned = evidencedRepository();
+    const assignService = serviceWith(assigned.repository);
+    await assignService.assign(request(), "activity-1", "assignee-1", "Owner selected");
+
+    expect(assigned.captured.mutationData).toEqual(
+      expect.objectContaining({ assigneeId: "assignee-1", updatedById: "user-1" })
+    );
+    expect(assigned.captured.evidence?.history).toEqual(
+      expect.objectContaining({ type: "ASSIGNED", note: "Owner selected" })
+    );
+  });
+
+  it("rejects a repeated assignee command before planning mutation evidence", async () => {
+    vi.clearAllMocks();
+    const repeated = evidencedRepository({ assigneeId: "assignee-1" });
+    const service = serviceWith(repeated.repository);
+
+    await expect(
+      service.assign(request(), "activity-1", "assignee-1", "Duplicate assignment")
+    ).rejects.toThrow("Activity already has the requested assignee");
+
+    expect(repeated.captured.mutationData).toBeUndefined();
+    expect(repeated.captured.evidence).toBeUndefined();
+    expect(scopeChecks.user).not.toHaveBeenCalled();
+  });
+
+  it("rejects a repeated status command before planning mutation evidence", async () => {
+    const repeated = evidencedRepository({ status: "IN_PROGRESS" });
+    const service = serviceWith(repeated.repository);
+
+    await expect(service.move(request(), "activity-1", "IN_PROGRESS")).rejects.toThrow(
+      "Activity is already in the requested status"
+    );
+
+    expect(repeated.captured.mutationData).toBeUndefined();
+    expect(repeated.captured.evidence).toBeUndefined();
+  });
+
+  it("reopens only from terminal state inside the aggregate plan", async () => {
+    const reopened = evidencedRepository({ status: "DONE", completedAt: new Date() });
+    const service = serviceWith(reopened.repository);
+
+    await service.reopen(request(), "activity-1", "Reopened after review");
+
+    expect(reopened.captured.mutationData).toEqual(
+      expect.objectContaining({
+        status: "PENDING",
+        completedAt: null,
+        startedAt: null,
+        updatedById: "user-1"
+      })
+    );
+    expect(reopened.captured.evidence?.history).toEqual(
+      expect.objectContaining({
+        type: "REOPENED",
+        fromStatus: "DONE",
+        toStatus: "PENDING",
+        note: "Reopened after review"
+      })
+    );
+
+    const invalid = evidencedRepository({ status: "IN_PROGRESS" });
+    await expect(serviceWith(invalid.repository).reopen(request(), "activity-1")).rejects.toThrow(
+      "Only completed or cancelled activities can be reopened"
+    );
+    expect(invalid.captured.mutationData).toBeUndefined();
+    expect(invalid.captured.evidence).toBeUndefined();
   });
 });
 

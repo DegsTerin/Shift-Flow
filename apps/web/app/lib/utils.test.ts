@@ -1,12 +1,36 @@
-// en-GB: Preserves role update payload semantics when immutable controls are omitted by the browser.
+// en-GB: Verifies Kanban decisions and role payload semantics at the browser boundary.
 import { describe, expect, it } from "vitest";
 import {
+  kanbanMoveCommand,
   productAssignableRoles,
   roleUpdatePayload,
   userPayload,
   userRoleId,
   userRoleOptions
 } from "./utils";
+
+describe("kanbanMoveCommand", () => {
+  const activities = [
+    { id: "activity-1", title: "Incident", status: "PENDING" },
+    { id: "activity-2", title: "Request", status: "IN_PROGRESS" }
+  ];
+
+  it("does not emit a move when a card is dropped in its current status", () => {
+    expect(kanbanMoveCommand(activities, "activity-1", "PENDING")).toBeNull();
+  });
+
+  it("emits exactly one command for a genuine status change", () => {
+    expect(kanbanMoveCommand(activities, "activity-1", "IN_PROGRESS")).toEqual({
+      id: "activity-1",
+      status: "IN_PROGRESS"
+    });
+  });
+
+  it("does not emit a move for an absent or unknown dragged card", () => {
+    expect(kanbanMoveCommand(activities, null, "DONE")).toBeNull();
+    expect(kanbanMoveCommand(activities, "missing", "DONE")).toBeNull();
+  });
+});
 
 describe("roleUpdatePayload", () => {
   it("does not invent a company scope when the scope control is absent", () => {

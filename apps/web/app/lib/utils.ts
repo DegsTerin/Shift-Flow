@@ -47,6 +47,17 @@ export const statusColors: Record<string, string> = {
   CANCELLED: "#a85656"
 };
 
+export function kanbanMoveCommand(
+  activities: ActivityItem[],
+  draggedId: string | null,
+  targetStatus: string
+) {
+  if (!draggedId) return null;
+  const activity = activities.find((item) => item.id === draggedId);
+  if (!activity || activity.status === targetStatus) return null;
+  return { id: draggedId, status: targetStatus };
+}
+
 export function countOf(item: { _count?: { _all?: number } }) {
   return item._count?._all ?? 0;
 }
