@@ -16,7 +16,7 @@ A task or phase is complete only when:
 - `PLANS.md` is synchronised when the work is broad or multi-step and remains
   non-authoritative.
 - Applicable language-policy requirements are satisfied without translating legacy content or changing interface language by inference.
-- Governed handoffs and delegated work satisfy `GATE-05 MULTI_AGENT_VALIDATION` when applicable.
+- Governed handoffs use the compact canonical structure and delegated work satisfies `GATE-05 MULTI_AGENT_VALIDATION` when applicable.
 - Every completed authorised file-changing task has its own scoped local commit; no separate commit instruction is required.
 
 Missing evidence means `NOT COMPLETE`, not assumed approval.
@@ -62,8 +62,9 @@ Apply the canonical language policy in `Governance.md` proportionally:
 - Owner-facing communication, labels, recommendations, warnings, handoffs, and ready-to-copy messages use `pt-BR`.
 - An ordinary owner-facing delivery with no required owner action omits both continuation fields.
 - A delivery that requires a concrete owner action includes exactly one `Próximo passo`; it includes exactly one `Texto exato para copiar e enviar` only when a ready-to-send message materially helps that action.
-- A governed handoff includes both canonical continuation fields exactly once at its own contract level.
-- Included continuation fields are concrete, contain no unresolved placeholder or authority expansion, align with conversation routing, and never use waiting, no-authority, or no-further-action filler.
+- A governed handoff uses exactly one compact result summary followed by the uninterrupted five-field sequence `Conversa recomendada` -> `Título sugerido para copiar` -> `Raciocínio recomendado` -> `Paralelismo` -> `Texto para copiar e enviar`.
+- The governed handoff's title and payload labels are level-three Markdown headings. Populated values use an immediately following fenced `text` block; absent values use the exact inline sentinels from `Execution-Protocol.md`.
+- Handoff values are concrete, contain no unresolved placeholder or authority expansion, align with conversation routing, and never use waiting, no-authority, no-further-action, title, or parallel-plan filler.
 - New project-owned artefacts use `en-GB`; a limited amendment preserves the existing file's established language and dialect.
 - Mandatory external names, contracts, identifiers, and spellings remain unchanged.
 - Language review does not authorise bulk translation, identifier migration, interface-locale changes, microcopy changes, Git history rewriting, or another out-of-scope action.
@@ -78,17 +79,24 @@ For the first owner-facing delivery in every new or resumed user-visible convers
 - Exactly one reasoning recommendation and exactly one concrete rationale are present at the enclosing conversation-delivery level.
 - The recommendation uses an owner-facing level defined by `Execution-Protocol.md`, matches the task's complexity and decomposition, and does not claim unavailable capability.
 - Later ordinary deliveries repeat these fields only when the recommendation changes.
+- When the first delivery is itself a governed handoff, its compact `Raciocínio recomendado` value contains the level, rationale, and fallback and no separate `Motivo do raciocínio` field interrupts or duplicates the handoff sequence.
 - Separately delimited ready-to-copy messages are evaluated independently for their destination conversations and do not count as duplicates in the enclosing delivery.
 
 For every governed user-visible handoff:
 
 - Conversation routing and parallel work use the exact canonical enums from `Execution-Protocol.md`.
-- Every required field contains a concrete value or `Nenhum - motivo`; blank values and unresolved placeholders are invalid.
-- The handoff carries exactly one current reasoning recommendation and rationale at its own contract level without contradicting the first-delivery selection; each separately delimited worker start message carries and is validated against its own recommendation for the destination worker.
-- Exact messages, plans, and targets preserve the declared authority, positive scope, negative scope, baseline, and routing action without expansion or contradiction.
-- `SEQUENTIAL_ONLY` uses the canonical `Plano paralelo: Nenhum - motivo` and `Mensagens paralelas exatas: Nenhuma - trabalho paralelo não é recomendado` values and requires no parallel-lane evidence.
+- `Solicitação`, `Próximo trabalho recomendado`, `Estado/critério`, and `Sua ação agora` form one compact result summary before the routing sequence. It distinguishes completed work, named pending work, untested behaviour, and blocked validation; the next work, owner, authority or entry condition, and immediate owner action are concrete and mutually coherent with the handoff trigger.
+- The routing sequence is consecutive and ordered exactly as `Conversa recomendada`, `Título sugerido para copiar`, `Raciocínio recomendado`, `Paralelismo`, and `Texto para copiar e enviar`; no explanation, plan, message, or extension interrupts it.
+- `Conversa recomendada` combines route, the `conversa atual`, `nova conversa`, or confirmed `conversa existente` target, and reason. `RETURN_TO_EXISTING` uses only an owner-supplied or owner-confirmed title or label.
+- `START_NEW` uses a separately copyable suggested non-canonical title. `CONTINUE_CURRENT` and `RETURN_TO_EXISTING` use exactly `### Título sugerido para copiar: nenhum título é necessário` on one unfenced line.
+- The handoff carries exactly one current reasoning recommendation, rationale, and explicit fallback at its own contract level without contradicting the first-delivery selection; each separately delimited worker start message carries and is validated against its own recommendation for the destination worker.
+- A populated title or payload uses a fenced `text` block as the next content block after its heading; only Markdown's separating blank line may intervene.
+- A required payload is complete and preserves the declared destination, authority, positive scope, negative scope, baseline, checks, expected result, and stop condition without expansion or contradiction. An absent payload uses exactly `### Texto para copiar e enviar: nenhum texto é necessário` on one unfenced line and is valid only when the handoff still has a legitimate trigger, concrete next work, and concrete owner action but no copy-ready message adds value.
+- Blank values and unresolved placeholders are invalid in a real handoff. Canonical absence values are permitted only under the conditions defined by `Execution-Protocol.md`.
+- `SEQUENTIAL_ONLY` ends the compact contract after `Texto para copiar e enviar` and creates no parallel-plan or lane-message fields.
+- `PARALLEL_OPTIONAL` and `PARALLEL_RECOMMENDED` place `Plano paralelo` and `Mensagens para as frentes` only after the complete compact sequence and payload.
 - A state-transition recommendation composes the common handoff with the phase extension without conflicting duplicate values.
-- Every owner-visible handoff and ready-to-copy worker message uses the `pt-BR` presentation defined by `Execution-Protocol.md`; governed-handoff continuation fields occur exactly once at the handoff contract level, and internal identifiers and canonical enums may remain unchanged.
+- Every owner-visible handoff and ready-to-copy worker message uses the `pt-BR` presentation defined by `Execution-Protocol.md`; the compact handoff occurs exactly once at its own contract level, and internal identifiers and canonical enums may remain unchanged.
 
 When any internal or user-visible worker lane is started:
 

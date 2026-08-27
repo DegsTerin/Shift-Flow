@@ -60,11 +60,15 @@ Validate:
 - `AGENTS.md` and `Start-Here.md` route language rules to the single authority in `core/Governance.md`; archived adoption sources are historical provenance only.
 - Specialised standards and playbooks reference the canonical language policy without recreating it as a competing authority.
 - Owner-facing labels, reports, handoffs, next steps, and ready-to-copy messages use `pt-BR`, while necessary literal identifiers and enums remain technically stable.
-- Ordinary deliveries omit continuation fields when no owner action is required, include only a concrete next action when that is sufficient, and add a ready-to-copy message only when it materially helps; governed handoffs retain both canonical fields.
+- Ordinary deliveries omit continuation fields when no owner action is required, include only a concrete next action when that is sufficient, and add a ready-to-copy message only when it materially helps.
+- Governed handoffs contain one compact result summary followed by the uninterrupted sequence `Conversa recomendada` -> `Título sugerido para copiar` -> `Raciocínio recomendado` -> `Paralelismo` -> `Texto para copiar e enviar`.
+- The result summary distinguishes completed, pending, untested, and validation-blocked work and keeps its concrete next work and owner action coherent with a legitimate handoff trigger.
+- Governed handoff titles and payloads use level-three Markdown headings, fenced `text` blocks when populated, and the exact unfenced inline sentinels when absent.
+- `SEQUENTIAL_ONLY` creates no artificial parallel plan or lane-message fields; conditional parallel plans and messages appear only after the complete main sequence.
 - No delivery manufactures waiting, no-authority, or no-further-action filler merely to populate a continuation template.
 - New project-owned artefacts use `en-GB`; limited amendments preserve the existing file's language and dialect without opportunistic translation or spelling normalisation.
 - Language-policy adoption does not rename existing identifiers or contracts, rewrite history, perform bulk translation, or infer an interface locale, catalogue, microcopy, or user-visible error language.
-- Conversation and parallel-work enums, non-empty handoff fields, and real-message placeholder rules are consistent with authority, positive scope, negative scope, baseline, and routing action.
+- Conversation and parallel-work enums, result-summary coherence, canonical absence values, non-empty handoff fields, and real-message placeholder rules are consistent with authority, positive scope, negative scope, baseline, and routing action.
 - New and resumed conversations, governed handoffs, and worker start messages use one supported owner-facing reasoning recommendation with a concrete rationale, and the recommendation follows the selection matrix in `Execution-Protocol.md`.
 - `Máximo` remains the deepest substantially single-threaded recommendation, while `Ultra` is reserved for materially useful independent lanes and never bypasses delegation, ownership, isolation, or gate requirements.
 - Reasoning-field uniqueness is enforced per conversation-level contract; separately delimited worker messages retain their own destination-specific recommendation without being treated as duplicates in the enclosing handoff.

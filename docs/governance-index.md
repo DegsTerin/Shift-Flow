@@ -67,6 +67,23 @@ When a prompt control file is still required, keep it in the active manifest and
 - `docs/history/state-transitions-2026.md`: consolidated pre-2.0 state, snapshot, transition, and version history.
 - `docs/history/sources/`: preserved source texts that have already been incorporated into canonical governance and have no operational authority.
 
+## Version 6.0 Governed Hand-Off Structure
+
+- Replaced the extended governed hand-off routing contract with a compact
+  result summary and the uninterrupted sequence `Conversa recomendada`,
+  `Título sugerido para copiar`, `Raciocínio recomendado`, `Paralelismo` and
+  `Texto para copiar e enviar`.
+- Standardised the title and payload as level-three Markdown headings with
+  fenced `text` content when populated and exact inline absence sentinels.
+- Kept parallel plans and lane messages conditional and after the complete
+  main sequence; `SEQUENTIAL_ONLY` produces no artificial empty fields.
+- Preserved version 5.0 conditional ordinary-delivery triggers, worker and
+  isolation controls, lifecycle authority, `STATE-08 PRODUCTION_RELEASE` and
+  the 17-file prompt corpus.
+- Adapted only the reusable RAG-Challenge presentation and field structure; no
+  Stage 0/1/2, provider, corpus, rights, deployment, projection or digest
+  identity was imported.
+
 ## Version 5.1 Governed Development Workflow
 
 - Added `PLANS.md` as non-authoritative executable planning and evidence for

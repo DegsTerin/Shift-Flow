@@ -2,6 +2,86 @@
 
 # ShiftFlow executable development plan
 
+## Governed hand-off structural alignment — 2026-08-27
+
+### Control record
+
+| Field          | Value                                                                                                                                                                                                                                                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan ID        | `PLAN-HANDOFF-STRUCTURE-20260827-01`                                                                                                                                                                                                                                                                                                |
+| Status         | `COMPLETED`                                                                                                                                                                                                                                                                                                                         |
+| Baseline       | `main@cee6d101b9358acd2ecd601dbec8d9d52b57fe06`, tree `d89cdb61cc376d7a4e5bfd3959f4180b788ae0cb`; four pre-existing modified files under `apps/api/src/modules/activities/` and three subsequently observed files under `apps/web/app/` are preserved outside this plan                                                             |
+| Authority      | Owner request to use the same governed hand-off structure as RAG-Challenge                                                                                                                                                                                                                                                          |
+| Current state  | `STATE-08 PRODUCTION_RELEASE`; this prompt-system change does not authorise or record a lifecycle transition                                                                                                                                                                                                                        |
+| Positive scope | Governed hand-off field structure, presentation, routing semantics, quality checks, audit checks, prompt-system version, current evidence, governance index, plan evidence, proportional documentation validation and one narrowly staged local commit                                                                              |
+| Negative scope | Ordinary-delivery trigger changes; RAG-Challenge Stage 0/1/2, corpus, provider, rights, deployment or public-projection identities; a new prompt or JSON projection; functional code; the existing Activities and Web work; schema; migrations; dependencies; runtime; database; network; Human Gate; push; deployment; publication |
+| Parallel work  | Three frozen-input read-only comparisons are permitted; every ShiftFlow edit, validation, staging and commit remains sequential in this coordinating worktree                                                                                                                                                                       |
+
+### Objective
+
+Replace the ShiftFlow governed hand-off's extended routing contract with the
+compact RAG-Challenge structure while preserving ShiftFlow's conditional
+handoff trigger, authority model, worker controls, lifecycle extension and
+17-file prompt corpus.
+
+### Source-to-target decisions
+
+| RAG-Challenge contract element                                                                     | ShiftFlow disposition                                                                                |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Compact result summary before routing                                                              | `ADOPT`, using `Solicitação`, `Próximo trabalho recomendado`, `Estado/critério` and `Sua ação agora` |
+| `Conversa recomendada` -> copy-ready title -> reasoning -> parallelism -> copy-ready payload       | `ADOPT`, as one uninterrupted five-field sequence                                                    |
+| Level-three title and payload headings, fenced populated values and exact inline absence sentinels | `ADOPT`                                                                                              |
+| Conditional parallel plan and lane messages after the main payload                                 | `ADOPT`, preserving ShiftFlow's existing ownership and isolation rules                               |
+| Required closing hand-off for every RAG-Challenge request                                          | `DO_NOT_ADOPT`; ShiftFlow version 5.0 conditional ordinary-delivery semantics remain current         |
+| Stage 0/1/2 instruction and public projection enforcement                                          | `DO_NOT_ADOPT`; these are RAG-Challenge-specific controls outside this request                       |
+
+### Acceptance criteria
+
+1. Governed handoffs use one compact result summary followed by the exact
+   uninterrupted five-field sequence.
+2. `START_NEW` has a separately copyable non-canonical title; the other routes
+   use the exact title absence sentinel.
+3. A required payload is complete and fenced as `text`; an absent payload uses
+   the exact inline sentinel.
+4. Reasoning combines the level, justification and explicit fallback, while
+   parallelism retains the three existing canonical enums.
+5. `SEQUENTIAL_ONLY` creates no artificial plan or lane-message fields;
+   conditional parallel material follows the complete main sequence.
+6. Ordinary delivery triggers, worker envelopes, state-transition extension,
+   authority boundaries and the 17-file prompt corpus remain intact.
+7. Version, current state, snapshot, changelog, governance index, quality gates
+   and prompt-system audit agree on version `6.0.0`.
+8. Documentation formatting, local links, manifest, canonical order,
+   sentinels, enums and diff hygiene pass; an independent read-only review
+   finds no unresolved material contradiction.
+9. The validated documentation change is committed locally without staging or
+   altering the separately observed Activities or Web work.
+
+### Execution plan
+
+1. `COMPLETED` — verify both repository baselines and compare the current
+   RAG-Challenge public hand-off contract with ShiftFlow authorities.
+2. `COMPLETED` — define the minimum source-to-target mapping and exclude
+   RAG-specific identities and enforcement.
+3. `COMPLETED` — update the canonical protocol, language policy, gates,
+   audit checks, version, current evidence and governance mapping.
+4. `COMPLETED` — run proportional documentation and prompt-system validation.
+5. `COMPLETED` — obtain independent read-only semantic review and correct every
+   verified finding sequentially.
+6. `COMPLETED` — stage only the plan and governance documents, check the staged
+   diff and create the required local commit without push or remote action.
+
+### Validation evidence
+
+| Check                             | Result                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Baseline and ownership            | `PASS`: RAG-Challenge public contract sources were read-only; ShiftFlow began at `main@cee6d101` with four Activities files owned elsewhere, and the owner later confirmed temporary external ownership of those files plus three Web files while this plan exclusively owns the governance documents                            |
+| Initial custom document validator | `FAIL`: the task-local validator incorrectly joined an already prefixed `prompts/` path as `prompts/prompts/...`; this was a validation-script path-normalisation defect, not a repository finding                                                                                                                               |
+| Corrected prompt-system validator | `PASS`: exact 17-file corpus, version `6.0.0`, `STATE-08`, 29 local Markdown links across 20 control documents, canonical hand-off order, owner-facing target values, headings, fences and absence sentinels passed                                                                                                              |
+| Formatting and diff hygiene       | `PASS`: targeted Prettier check and scoped `git diff --check` passed for all ten plan/governance documents                                                                                                                                                                                                                       |
+| Independent semantic review       | Initial reviews returned `NOT_CANDIDATE` and identified missing result distinctions, conditional-trigger and first-delivery ambiguities, presentation adjacency, non-Portuguese owner-facing values and unnecessary RAG identities. After focused corrections, three successor reviews returned `CANDIDATE` with P0-P3 all zero. |
+| Scoped local commit               | `PASS`: the candidate set contains only these ten documents; the seven separately owned API/Web files retain their confirmed hashes and remain unstaged; the commit containing this evidence is the required automatic local closeout, with no push or remote action                                                             |
+
 ## Whole-project audit and corrective systematisation — 2026-08-27
 
 ### Control record

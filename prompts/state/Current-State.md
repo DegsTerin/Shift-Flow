@@ -5,7 +5,7 @@
 - Current state: `STATE-08 PRODUCTION_RELEASE`
 - Allowed phase: `STATE-08 PRODUCTION_RELEASE`
 - Next lifecycle action: release closeout or explicitly requested post-release maintenance
-- Prompt-system version: `5.1.0`
+- Prompt-system version: `6.0.0`
 - Last updated: `2026-08-27`
 - Operational blockers: unresolved post-release product and operational audit
   findings remain outside the development-workflow adoption; `PLANS.md`

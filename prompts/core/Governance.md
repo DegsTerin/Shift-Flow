@@ -61,10 +61,12 @@ This section is the single thematic authority for owner communication and the la
 - Questions, explanations, progress updates, approvals, warnings, handoffs, recommendations, and ready-to-copy messages must use `pt-BR`.
 - Present owner-facing labels in `pt-BR`. A literal command, path, canonical identifier, field key, or enum may remain in English inside code formatting when technically necessary, but its surrounding explanation must use `pt-BR`.
 - Do not use avoidable English terminology in owner communication when a clear Portuguese expression exists.
-- Include exactly one `Próximo passo` only when the delivery asks the owner for a concrete action, decision, approval, missing input, conversation navigation, or follow-up. Omit the field when no owner action is required.
-- Include exactly one `Texto exato para copiar e enviar` only when a complete ready-to-send message would materially help the owner act in the current conversation, another conversation, or another declared destination. A governed handoff always requires it.
-- When `Texto exato para copiar e enviar` is present, it must be complete, contain no unresolved placeholder, preserve the declared authority and scope, and match the destination declared by conversation routing.
-- Never add either continuation field merely to satisfy a template. Do not generate filler instructions such as waiting, confirming that no task is authorised, or sending a message that no further action is needed.
+- Include exactly one `Próximo passo` only when an ordinary delivery asks the owner for a concrete action, decision, approval, missing input, conversation navigation, or follow-up. Omit the field when no owner action is required.
+- Include exactly one `Texto exato para copiar e enviar` in an ordinary delivery only when a complete ready-to-send message would materially help the owner act.
+- Every governed handoff uses the compact result summary and uninterrupted five-field routing sequence defined by `Execution-Protocol.md`. It states exactly one directly related next work item and does not import a generic backlog item merely to fill the field.
+- Present the governed handoff's `Título sugerido para copiar` and `Texto para copiar e enviar` as the level-three Markdown headings required by `Execution-Protocol.md`. A populated value is a complete fenced `text` block; an absent value uses its exact inline sentinel.
+- Every copy-ready message must be complete, contain no unresolved placeholder, preserve the declared authority, scope, baseline, and destination, and avoid secrets or unavailable evidence.
+- Never add an ordinary continuation field or a governed handoff merely to satisfy a template. Do not generate filler instructions such as waiting, confirming that no task is authorised, or sending a message that no further action is needed.
 
 ### Project-owned artefacts
 

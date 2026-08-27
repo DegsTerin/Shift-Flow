@@ -4,7 +4,7 @@
 
 - Project: ShiftFlow
 - Current state: `STATE-08 PRODUCTION_RELEASE`
-- Prompt-system version: `5.1.0`
+- Prompt-system version: `6.0.0`
 - Active prompt files: 17
 - Snapshot date: `2026-08-27`
 
@@ -71,6 +71,11 @@
 - Version 5.1.0 adopts an executable-plan and development-loop capability with
   `Doctor`, `Setup`, `Quick`, `Full` and `PlanOnly`, while preserving the
   17-file corpus, `STATE-08` and separate runtime/lifecycle evidence.
+- Version 6.0.0 replaces only the governed hand-off's extended routing contract
+  with the compact RAG-Challenge structure: a result summary followed by the
+  uninterrupted conversation, copy-ready title, reasoning, parallelism and
+  copy-ready payload sequence. Ordinary-delivery triggers, worker controls,
+  lifecycle authority and the 17-file corpus remain unchanged.
 - Full pre-consolidation audit, delivery, state, snapshot, and version material is preserved under `../../docs/history/`.
 - No project state transition resulted from the documentation reorganisation.
 - The 17-file manifest and migration map are recorded in `../Start-Here.md`, `Prompt-System-Change-Log.md`, and `../../docs/governance-index.md`.

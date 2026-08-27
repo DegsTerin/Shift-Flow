@@ -10,6 +10,32 @@ This rolling log records current prompt-system changes. Complete history through
 - Conflicts resolved
 - State impact
 
+## 2026-08-27 - Version 6.0.0
+
+- Type: major governed hand-off structure and presentation change.
+- Scope: executable plan, prompt entrypoint version, canonical language policy,
+  execution protocol, quality gates, prompt-system audit, current state,
+  snapshot evidence and governance mapping.
+- Structure: replaces the former extended routing contract with a compact
+  result summary followed by the uninterrupted sequence `Conversa recomendada`
+  -> `Título sugerido para copiar` -> `Raciocínio recomendado` ->
+  `Paralelismo` -> `Texto para copiar e enviar`.
+- Presentation: copy-ready title and payload labels are level-three Markdown
+  headings; populated values use fenced `text` blocks and absent values use
+  exact inline sentinels. Sequential work no longer creates artificial
+  parallel-plan or lane-message fields.
+- Source comparison: the structure was verified read-only against the current
+  public RAG-Challenge hand-off contract. That source remains external
+  provenance; ShiftFlow does not adopt its contract identity, Stage 0/1/2,
+  provider, corpus, rights, deployment, projection or digest identities.
+- Boundary preserved: ordinary ShiftFlow deliveries retain the conditional
+  continuation semantics introduced in version 5.0.0; worker envelopes,
+  isolation, state-transition extensions, authority and lifecycle rules remain
+  unchanged.
+- State impact: `STATE-08 PRODUCTION_RELEASE` and the 17-file active corpus are
+  preserved. No product behaviour, state transition, ADR, Human Gate, runtime,
+  database, network, deployment, publication or remote Git action results.
+
 ## 2026-08-27 - Version 5.1.0
 
 - Type: compatible governed-development workflow capability.

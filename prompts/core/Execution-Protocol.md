@@ -26,7 +26,7 @@ Use continuation fields according to the action genuinely required from the owne
   Texto exato para copiar e enviar:
   ```
 
-A governed handoff always includes both fields through its canonical contract and must not repeat them after the contract. Every included value must be concrete, complete, consistent with current authority and scope, and free of unresolved placeholders. The exact text must be ready for the owner to send to the destination declared by conversation routing. When no governed handoff applies, or when the routing action is `CONTINUE_CURRENT`, that destination is the current conversation.
+A governed handoff uses its complete compact contract instead of the ordinary continuation fields and must not repeat either structure afterwards. Every included value must be concrete, complete, consistent with current authority and scope, and free of unresolved placeholders. The copy-ready text must be ready for the owner to send to the target declared by conversation routing.
 
 Never use an empty, `Nenhum`, waiting, no-authority, or no-further-action value merely to keep a continuation field present. Omit an inapplicable field instead.
 
@@ -164,7 +164,7 @@ Mandatory routing rules:
 
 ## Conversation reasoning recommendation
 
-Every new or resumed user-visible conversation receives one advisory reasoning recommendation in its first owner-facing delivery. A governed handoff carries the same recommendation through its contract. Later ordinary deliveries repeat it only when the recommendation changes.
+Every new or resumed user-visible conversation receives one advisory reasoning recommendation in its first owner-facing delivery. A governed handoff carries a current recommendation for its destination through the compact contract. Later ordinary deliveries repeat the first-delivery fields only when the recommendation changes.
 
 Use the lowest level expected to produce a reliable result, and increase it when the work requires more planning, analysis, source reconciliation, edge-case review, or independent checking. The owner selects the available level in the Codex interface. Never claim to have selected or changed a user-visible setting without verified capability.
 
@@ -189,57 +189,88 @@ Apply these rules:
 - If `Ultra` is recommended but unavailable, use the highest suitable supported level and request or plan delegation explicitly only when this protocol permits it.
 - If a level is unavailable for the selected model, product surface, or account, recommend the closest suitable available level and state the limitation rather than inventing support.
 - Reassess the recommendation when scope, risk, evidence quality, or parallel-work classification materially changes.
+- Every governed handoff states an explicit fallback. Use `Médio` when `Leve` is unavailable; `Alto` when `Médio` is unavailable; `Médio` with additional checks when `Alto` is unavailable; `Alto` with independent review when `Extra alto` is unavailable; `Extra alto` with independent review when `Máximo` is unavailable; and `Máximo` in the coordinator with governed decomposition when `Ultra` is unavailable.
 
-The first owner-facing delivery in a new or resumed conversation uses these fields exactly once at the enclosing conversation level:
+An ordinary first owner-facing delivery in a new or resumed conversation uses these fields exactly once at the enclosing conversation level:
 
 ```text
 Raciocínio recomendado: Leve | Médio | Alto | Extra alto | Máximo | Ultra
 Motivo do raciocínio:
 ```
 
-Uniqueness is evaluated per conversation-level contract. A separately delimited worker start message has its own recommendation and rationale for its destination worker and does not count as a duplicate in the enclosing owner-visible delivery or handoff.
+When that first delivery is itself a governed handoff, its single compact `Raciocínio recomendado` field satisfies the recommendation, rationale, and fallback requirement; do not add a separate `Motivo do raciocínio` field that would interrupt or duplicate the handoff contract. Uniqueness is evaluated per conversation-level contract. A separately delimited worker start message has its own recommendation and rationale for its destination worker and does not count as a duplicate in the enclosing owner-visible delivery or handoff.
 
 ## Governed handoff contract
 
-Every governed handoff includes these fields in this order:
+Every governed handoff starts with this compact result summary in `pt-BR`:
 
 ```text
-Situação:
-Concluído:
-Restante para este objetivo:
-Próximo passo:
-Próxima etapa:
-Sua ação agora:
-Autoridade:
-Escopo positivo:
-Escopo negativo:
-Referência inicial:
-Ação da conversa: CONTINUE_CURRENT | START_NEW | RETURN_TO_EXISTING
-Conversa de destino:
-Título sugerido:
-Motivo da conversa:
-Raciocínio recomendado: Leve | Médio | Alto | Extra alto | Máximo | Ultra
-Motivo do raciocínio:
-Texto exato para copiar e enviar:
-Trabalho paralelo: SEQUENTIAL_ONLY | PARALLEL_OPTIONAL | PARALLEL_RECOMMENDED
-Plano paralelo:
-Mensagens paralelas exatas:
+Solicitação: concluída | parcial | bloqueada — resultado concreto; pendências com nome e quantidade, ou 0; comportamento não testado; validação bloqueada
+Próximo trabalho recomendado: uma ação concreta e priorizada; responsável; autoridade ou condição de entrada
+Estado/critério: posição atual; próximo estado ou critério e condição de entrada, ou sem mudança
+Sua ação agora: ação imediata exata para executar o roteamento ou habilitar o próximo trabalho
 ```
 
-Every field in a real handoff must contain a concrete value or `Nenhum - [motivo específico]`; blank fields are invalid. `Texto exato para copiar e enviar` must be complete, filled, ready to copy, and consistent with the declared authority, positive scope, negative scope, baseline, and conversation action. It must not expand authority or scope. No placeholder may remain in a real handoff. `Conversa de destino` must use a confirmed label for `RETURN_TO_EXISTING`. A template may show placeholders only when it is clearly labelled as a template rather than an executed handoff.
+`Solicitação` distinguishes completed work, named pending work, untested behaviour, and blocked validation without implying evidence that does not exist. `Próximo trabalho recomendado` contains exactly one action directly related to the request. For a partial or blocked request, it is the first pending item or the objective unblocking condition. For a completed request, it identifies the directly related later deliverable that caused the handoff. Because a governed handoff has a routing trigger, both the next work and `Sua ação agora` are concrete; do not use absence values or import an unrelated backlog item.
 
-When work is sequential, use:
+Immediately after the result summary, every route uses this uninterrupted five-field sequence:
+
+1. `Conversa recomendada: <ROUTE> — <TARGET> — <MOTIVO>`
+2. `Título sugerido para copiar`
+3. `Raciocínio recomendado: <NÍVEL> — <JUSTIFICATIVA>. Alternativa: <FALLBACK>`
+4. `Paralelismo: <CLASSIFICAÇÃO> — <MOTIVO>`
+5. `Texto para copiar e enviar`
+
+Accepted values are:
+
+- `<ROUTE>`: `CONTINUE_CURRENT`, `START_NEW`, or `RETURN_TO_EXISTING`.
+- `<TARGET>`: `conversa atual`, `nova conversa`, or `conversa existente — <título-ou-label-confirmado>`.
+- `<NÍVEL>`: `Leve`, `Médio`, `Alto`, `Extra alto`, `Máximo`, or `Ultra`.
+- `<CLASSIFICAÇÃO>`: `SEQUENTIAL_ONLY`, `PARALLEL_OPTIONAL`, or `PARALLEL_RECOMMENDED`.
+
+No field, plan, explanation, or extension may split the five-field sequence. For `START_NEW`, present the proposed non-canonical title as a separately copyable field:
+
+````markdown
+### Título sugerido para copiar:
 
 ```text
-Plano paralelo: Nenhum - [motivo específico]
-Mensagens paralelas exatas: Nenhuma - trabalho paralelo não é recomendado
+ShiftFlow — <STATE-OU-GATE> — <OBJETIVO-CURTO>
+```
+````
+
+The fenced value is the next content block after the heading. Only Markdown's separating blank line may appear between them; no explanation, field, or other content may intervene.
+
+For `CONTINUE_CURRENT` and `RETURN_TO_EXISTING`, use exactly this unfenced one-line value:
+
+```markdown
+### Título sugerido para copiar: nenhum título é necessário
 ```
 
-Replace the bracketed reason in every real handoff.
+When the owner must continue, start, return, respond, confirm, decide, authorise, or send something, present the complete `pt-BR` payload immediately below the level-three heading:
+
+````markdown
+### Texto para copiar e enviar:
+
+```text
+<MENSAGEM COMPLETA E PRONTA PARA COPIAR>
+```
+````
+
+As with the title, the fenced payload is the next content block after the heading, with no intervening content other than Markdown's separating blank line.
+
+The payload carries the destination, applicable authority, positive scope, negative scope, baseline, checks, expected result, and stop condition needed for safe continuity. It must not expand authority or scope, expose a secret, or rely on context omitted from the destination. The absence sentinel is valid only when the routing trigger, concrete next work, and concrete owner action remain present but a copy-ready message would add no value. In that case, use exactly this unfenced one-line value:
+
+```markdown
+### Texto para copiar e enviar: nenhum texto é necessário
+```
+
+The `###` marker is presentation only and remains outside copyable content. A real handoff contains no blank value or unresolved placeholder. `RETURN_TO_EXISTING` uses only a title or label supplied or confirmed by the owner. Templates may retain placeholders only when they are clearly identified as templates rather than executed handoffs.
+
+For `SEQUENTIAL_ONLY`, the compact sequence ends after `Texto para copiar e enviar`; do not manufacture parallel-plan or lane-message fields. Only for `PARALLEL_OPTIONAL` or `PARALLEL_RECOMMENDED`, append `Plano paralelo` and `Mensagens para as frentes` after the complete five-field sequence and payload.
 
 ## Parallel-work classification
 
-Conversation routing and parallel-work classification are independent. Every governed handoff uses exactly one parallel-work value:
+Conversation routing and parallel-work classification are independent. Every governed handoff uses exactly one `Paralelismo` value:
 
 - `SEQUENTIAL_ONLY`: tasks, files, logical artefacts, or mutable resources depend on each other; a contract is unstable; a Human Gate or other owner decision is pending; isolation is insufficient; or conflict risk exists.
 - `PARALLEL_OPTIONAL`: tasks are independent, but the expected gain is small or coordination cost may exceed the benefit.
@@ -345,7 +376,7 @@ The coordinating conversation must:
 
 ## Worker start-message template
 
-Every `Mensagens paralelas exatas` entry must be a complete instance of this template:
+Every `Mensagens para as frentes` entry must be a complete instance of this template:
 
 ```text
 Projeto:
@@ -419,7 +450,7 @@ Completed handoffs belong in `docs/history/phase-delivery-history.md`, not in th
 
 ## Output contract
 
-For implementation work, report the outcome first, then relevant files, validation, commit, risks, and remaining work. A completed file-changing task must report its local commit identifier; that commit does not imply push or another remote action. For analysis-only work, report findings and evidence without changing files. Use the governed handoff contract only when its trigger applies. Apply the conditional continuation rule to ordinary owner-facing deliveries and omit inapplicable fields rather than manufacturing a follow-up. Never claim success from a banner alone when runtime or external behaviour must be verified.
+For implementation work, report the outcome first, then relevant files, validation, commit, risks, and remaining work. A completed file-changing task must report its local commit identifier; that commit does not imply push or another remote action. For analysis-only work, report findings and evidence without changing files. Use the compact governed handoff exactly once only when its routing trigger applies; ordinary owner-facing deliveries retain the conditional continuation rule and omit inapplicable fields rather than manufacturing a follow-up. Never claim success from a banner alone when runtime or external behaviour must be verified.
 
 ## Prompt-system changes
 
