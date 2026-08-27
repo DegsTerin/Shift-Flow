@@ -8,6 +8,7 @@ const persistence = vi.hoisted(() => ({
   activityFindFirst: vi.fn(),
   activityCreate: vi.fn(),
   activityUpdate: vi.fn(),
+  taskColumnCreateMany: vi.fn(),
   auditCreate: vi.fn(),
   historyCreate: vi.fn(),
   lockActivity: vi.fn(),
@@ -57,6 +58,7 @@ describe("ActivitiesRepository", () => {
     persistence.activityFindFirst.mockResolvedValue({ id: "activity-1", status: "PENDING" });
     persistence.activityCreate.mockResolvedValue({ id: "activity-1", status: "PENDING" });
     persistence.activityUpdate.mockResolvedValue({ id: "activity-1", status: "DONE" });
+    persistence.taskColumnCreateMany.mockResolvedValue({ count: 4 });
     persistence.auditCreate.mockResolvedValue(undefined);
     persistence.historyCreate.mockResolvedValue(undefined);
     persistence.lockActivity.mockResolvedValue([{ id: "activity-1" }]);
@@ -69,6 +71,7 @@ describe("ActivitiesRepository", () => {
             create: persistence.activityCreate,
             update: persistence.activityUpdate
           },
+          activityTaskColumn: { createMany: persistence.taskColumnCreateMany },
           auditLog: { create: persistence.auditCreate },
           activityHistory: { create: persistence.historyCreate }
         })
@@ -104,12 +107,54 @@ describe("ActivitiesRepository", () => {
     expect(persistence.historyCreate).toHaveBeenCalledWith({
       data: { activityId: "activity-1", type: "CREATED" }
     });
+    expect(persistence.taskColumnCreateMany).not.toHaveBeenCalled();
     expect(persistence.getDelegate).not.toHaveBeenCalled();
     expect(persistence.activityCreate.mock.invocationCallOrder[0]).toBeLessThan(
       persistence.auditCreate.mock.invocationCallOrder[0]
     );
     expect(persistence.auditCreate.mock.invocationCallOrder[0]).toBeLessThan(
       persistence.historyCreate.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("provisions default task columns in the activity creation transaction", async () => {
+    const repository = new ActivitiesRepository();
+
+    await repository.createWithEvidence(
+      validCreateData,
+      () => ({
+        audit: { entityId: "activity-1", action: "CREATE" },
+        history: { activityId: "activity-1", type: "CREATED" }
+      }),
+      [
+        { name: "To do", color: "#64748b", position: 0 },
+        { name: "Done", color: "#16a34a", position: 1 }
+      ]
+    );
+
+    expect(persistence.taskColumnCreateMany).toHaveBeenCalledWith({
+      data: [
+        {
+          name: "To do",
+          color: "#64748b",
+          position: 0,
+          companyId: "company-1",
+          activityId: "activity-1"
+        },
+        {
+          name: "Done",
+          color: "#16a34a",
+          position: 1,
+          companyId: "company-1",
+          activityId: "activity-1"
+        }
+      ]
+    });
+    expect(persistence.activityCreate.mock.invocationCallOrder[0]).toBeLessThan(
+      persistence.taskColumnCreateMany.mock.invocationCallOrder[0]
+    );
+    expect(persistence.taskColumnCreateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      persistence.auditCreate.mock.invocationCallOrder[0]
     );
   });
 

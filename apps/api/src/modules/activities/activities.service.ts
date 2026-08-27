@@ -11,6 +11,7 @@ import {
   assertTeamInCompany,
   assertUserInCompany
 } from "../../shared/services/scope.service.js";
+import { ActivityTaskBoardRepository } from "./activity-task-board.repository.js";
 import { ActivitiesRepository } from "./activities.repository.js";
 
 const publicUserSelect = {
@@ -57,10 +58,6 @@ const defaultTaskColumns = [
   { name: "Revisao", color: "#f59e0b", position: 2 },
   { name: "Concluido", color: "#16a34a", position: 3 }
 ];
-
-const taskInclude = {
-  assignee: { select: publicUserSelect }
-};
 
 const activitySnapshotFields = [
   "id",
@@ -129,10 +126,15 @@ export function activityHistoryDelta(before: unknown, after: unknown) {
 
 export class ActivitiesService extends BaseService {
   private readonly activitiesRepository: ActivitiesRepository;
+  private readonly taskBoardRepository: ActivityTaskBoardRepository;
 
-  constructor(repository = new ActivitiesRepository()) {
+  constructor(
+    repository = new ActivitiesRepository(),
+    taskBoardRepository = new ActivityTaskBoardRepository()
+  ) {
     super(repository, "Activity", { userStamps: true });
     this.activitiesRepository = repository;
+    this.taskBoardRepository = taskBoardRepository;
   }
 
   override async list(req: ApiRequest) {
@@ -179,7 +181,8 @@ export class ActivitiesService extends BaseService {
         createdById: req.auth?.id,
         updatedById: req.auth?.id
       },
-      (created) => this.activityEvidence(req, String(created.id), "CREATE", "CREATED", {}, created)
+      (created) => this.activityEvidence(req, String(created.id), "CREATE", "CREATED", {}, created),
+      defaultTaskColumns
     );
   }
 
@@ -371,52 +374,11 @@ export class ActivitiesService extends BaseService {
   }
 
   async taskBoard(req: ApiRequest, activityId: string) {
-    await this.get(req, activityId);
-    await this.ensureTaskColumns(req, activityId);
-    const companyId = this.companyId(req);
-    const columns = await (
-      await this.activitiesRepository.taskColumns()
-    ).findMany({
-      where: { companyId, activityId, deletedAt: null },
-      orderBy: { position: "asc" },
-      include: {
-        tasks: {
-          where: { deletedAt: null, archivedAt: null },
-          orderBy: { position: "asc" },
-          include: taskInclude
-        }
-      }
-    });
-    const history = await (
-      await this.activitiesRepository.taskHistory()
-    ).findMany({
-      where: { companyId, activityId },
-      orderBy: { createdAt: "desc" },
-      take: 40,
-      include: { actor: { select: publicUserSelect } }
-    });
-    return { columns, history };
+    return this.taskBoardRepository.read(this.taskBoardContext(req, activityId));
   }
 
   async createTaskColumn(req: ApiRequest, activityId: string, data: Record<string, unknown>) {
-    await this.get(req, activityId);
-    const companyId = this.companyId(req);
-    const position =
-      typeof data.position === "number"
-        ? data.position
-        : (
-            await (
-              await this.activitiesRepository.taskColumns()
-            ).findMany({
-              where: { companyId, activityId, deletedAt: null }
-            })
-          ).length;
-    const created = await (
-      await this.activitiesRepository.taskColumns()
-    ).create({
-      data: { ...data, activityId, companyId, position }
-    });
-    return created;
+    return this.taskBoardRepository.createColumn(this.taskBoardContext(req, activityId), data);
   }
 
   async updateTaskColumn(
@@ -425,90 +387,26 @@ export class ActivitiesService extends BaseService {
     columnId: string,
     data: Record<string, unknown>
   ) {
-    await this.assertTaskColumn(req, activityId, columnId);
-    return (await this.activitiesRepository.taskColumns()).update({
-      where: { id: columnId },
+    return this.taskBoardRepository.updateColumn(
+      this.taskBoardContext(req, activityId),
+      columnId,
       data
-    });
+    );
   }
 
   async deleteTaskColumn(req: ApiRequest, activityId: string, columnId: string) {
-    const column = await this.assertTaskColumn(req, activityId, columnId);
-    const taskCount = (
-      await (
-        await this.activitiesRepository.tasks()
-      ).findMany({
-        where: { columnId, deletedAt: null, archivedAt: null }
-      })
-    ).length;
-    if (taskCount > 0) {
-      throw badRequest("Task columns with active tasks cannot be deleted");
-    }
-    return (await this.activitiesRepository.taskColumns()).update({
-      where: { id: (column as { id: string }).id },
-      data: { deletedAt: new Date() }
-    });
+    return this.taskBoardRepository.deleteColumn(this.taskBoardContext(req, activityId), columnId);
   }
 
   async reorderTaskColumns(req: ApiRequest, activityId: string, columnIds: string[]) {
-    await this.get(req, activityId);
-    const companyId = this.companyId(req);
-    const columns = await (
-      await this.activitiesRepository.taskColumns()
-    ).findMany({
-      where: { companyId, activityId, deletedAt: null }
-    });
-    const existingIds = new Set(columns.map((column) => column.id));
-    if (columnIds.some((columnId) => !existingIds.has(columnId))) {
-      throw badRequest("Column order contains invalid columns");
-    }
-    await Promise.all(
-      columnIds.map((columnId, position) =>
-        (async () =>
-          (await this.activitiesRepository.taskColumns()).update({
-            where: { id: columnId },
-            data: { position }
-          }))()
-      )
+    return this.taskBoardRepository.reorderColumns(
+      this.taskBoardContext(req, activityId),
+      columnIds
     );
-    return this.taskBoard(req, activityId);
   }
 
   async createTask(req: ApiRequest, activityId: string, data: Record<string, unknown>) {
-    await this.assertTaskColumn(req, activityId, String(data.columnId));
-    await assertUserInCompany(
-      data.assigneeId ? String(data.assigneeId) : undefined,
-      activeCompanyId(req)
-    );
-    const companyId = this.companyId(req);
-    const position =
-      typeof data.position === "number"
-        ? data.position
-        : (
-            await (
-              await this.activitiesRepository.tasks()
-            ).findMany({
-              where: {
-                companyId,
-                activityId,
-                columnId: String(data.columnId),
-                deletedAt: null,
-                archivedAt: null
-              }
-            })
-          ).length;
-    const created = await (
-      await this.activitiesRepository.tasks()
-    ).create({
-      data: { ...data, activityId, companyId, position }
-    });
-    await this.taskHistory(req, activityId, "CREATED", {
-      taskId: String((created as { id: string }).id),
-      toColumnId: String(data.columnId),
-      toPosition: position,
-      metadata: { after: created }
-    });
-    return created;
+    return this.taskBoardRepository.createTask(this.taskBoardContext(req, activityId), data);
   }
 
   async updateTask(
@@ -517,53 +415,27 @@ export class ActivitiesService extends BaseService {
     taskId: string,
     data: Record<string, unknown>
   ) {
-    await this.assertTask(req, activityId, taskId);
-    if (data.columnId) {
-      await this.assertTaskColumn(req, activityId, String(data.columnId));
-    }
-    await assertUserInCompany(
-      data.assigneeId ? String(data.assigneeId) : undefined,
-      activeCompanyId(req)
-    );
-    const updated = await (
-      await this.activitiesRepository.tasks()
-    ).update({
-      where: { id: taskId },
-      data
-    });
-    await this.taskHistory(req, activityId, "UPDATED", {
+    return this.taskBoardRepository.updateTask(
+      this.taskBoardContext(req, activityId),
       taskId,
-      metadata: { after: updated }
-    });
-    return updated;
+      data
+    );
   }
 
   async deleteTask(req: ApiRequest, activityId: string, taskId: string) {
-    await this.assertTask(req, activityId, taskId);
-    const deleted = await (
-      await this.activitiesRepository.tasks()
-    ).update({
-      where: { id: taskId },
-      data: { deletedAt: new Date() }
-    });
-    await this.taskHistory(req, activityId, "DELETED", { taskId, metadata: { after: deleted } });
-    return deleted;
+    return this.taskBoardRepository.deleteTask(this.taskBoardContext(req, activityId), taskId);
   }
 
   async archiveTask(req: ApiRequest, activityId: string, taskId: string) {
-    const task = await this.assertTask(req, activityId, taskId);
-    const nextArchivedAt = (task as { archivedAt?: Date | null }).archivedAt ? null : new Date();
-    const archived = await (
-      await this.activitiesRepository.tasks()
-    ).update({
-      where: { id: taskId },
-      data: { archivedAt: nextArchivedAt }
-    });
-    await this.taskHistory(req, activityId, nextArchivedAt ? "ARCHIVED" : "RESTORED", {
+    return this.taskBoardRepository.archiveTask(this.taskBoardContext(req, activityId), taskId);
+  }
+
+  async restoreTask(req: ApiRequest, activityId: string, taskId: string, columnId?: string) {
+    return this.taskBoardRepository.restoreTask(
+      this.taskBoardContext(req, activityId),
       taskId,
-      metadata: { after: archived }
-    });
-    return archived;
+      columnId
+    );
   }
 
   async moveTask(
@@ -574,51 +446,13 @@ export class ActivitiesService extends BaseService {
     position: number,
     note?: string
   ) {
-    const previous = await this.assertTask(req, activityId, taskId);
-    const targetColumn = await this.assertTaskColumn(req, activityId, columnId);
-    const companyId = this.companyId(req);
-    const siblings = await (
-      await this.activitiesRepository.tasks()
-    ).findMany({
-      where: {
-        companyId,
-        activityId,
-        columnId,
-        deletedAt: null,
-        archivedAt: null,
-        NOT: { id: taskId }
-      },
-      orderBy: { position: "asc" }
-    });
-    const boundedPosition = Math.max(0, Math.min(position, siblings.length));
-    await Promise.all(
-      siblings.map((task, index) =>
-        (async () =>
-          (await this.activitiesRepository.tasks()).update({
-            where: { id: task.id },
-            data: { position: index >= boundedPosition ? index + 1 : index }
-          }))()
-      )
-    );
-    const moved = await (
-      await this.activitiesRepository.tasks()
-    ).update({
-      where: { id: taskId },
-      data: {
-        columnId,
-        position: boundedPosition,
-        completedAt: this.isDoneColumn(targetColumn.name) ? new Date() : null
-      }
-    });
-    await this.taskHistory(req, activityId, "MOVED", {
+    return this.taskBoardRepository.moveTask(
+      this.taskBoardContext(req, activityId),
       taskId,
-      fromColumnId: (previous as { columnId: string }).columnId,
-      toColumnId: columnId,
-      fromPosition: (previous as { position: number }).position,
-      toPosition: boundedPosition,
+      columnId,
+      position,
       note
-    });
-    return moved;
+    );
   }
 
   private activityEvidence(
@@ -661,68 +495,12 @@ export class ActivitiesService extends BaseService {
     };
   }
 
-  private async taskHistory(
-    req: ApiRequest,
-    activityId: string,
-    type: string,
-    data: Record<string, unknown>
-  ) {
-    await (
-      await this.activitiesRepository.taskHistory()
-    ).create({
-      data: {
-        ...data,
-        activityId,
-        type,
-        companyId: this.companyId(req),
-        actorUserId: req.auth?.id
-      }
-    });
-  }
-
-  private async ensureTaskColumns(req: ApiRequest, activityId: string) {
-    const companyId = this.companyId(req);
-    const columns = await (
-      await this.activitiesRepository.taskColumns()
-    ).findMany({
-      where: { companyId, activityId, deletedAt: null }
-    });
-    if (columns.length) return;
-    await (
-      await this.activitiesRepository.taskColumns()
-    ).createMany({
-      data: defaultTaskColumns.map((column) => ({ ...column, activityId, companyId }))
-    });
-  }
-
-  private async assertTaskColumn(req: ApiRequest, activityId: string, columnId: string) {
-    await this.get(req, activityId);
-    const column = await (
-      await this.activitiesRepository.taskColumns()
-    ).findFirst({
-      where: { id: columnId, activityId, companyId: this.companyId(req), deletedAt: null }
-    });
-    if (!column) {
-      throw badRequest("Task column does not belong to this activity");
-    }
-    return column;
-  }
-
-  private async assertTask(req: ApiRequest, activityId: string, taskId: string) {
-    await this.get(req, activityId);
-    const task = await (
-      await this.activitiesRepository.tasks()
-    ).findFirst({
-      where: { id: taskId, activityId, companyId: this.companyId(req), deletedAt: null }
-    });
-    if (!task) {
-      throw badRequest("Task does not belong to this activity");
-    }
-    return task;
-  }
-
-  private isDoneColumn(columnName: string | undefined) {
-    return ["concluido", "concluído", "done"].includes((columnName ?? "").toLowerCase());
+  private taskBoardContext(req: ApiRequest, activityId: string) {
+    return {
+      companyId: activeCompanyId(req),
+      activityId,
+      actorUserId: req.auth?.id
+    };
   }
 
   private async assertScopedReferences(req: ApiRequest, data: Record<string, unknown>) {

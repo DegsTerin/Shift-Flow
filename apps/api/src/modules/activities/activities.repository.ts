@@ -22,6 +22,9 @@ type AuditDelegate = {
 type ActivityTransaction = {
   $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
   activity: ActivityDelegate;
+  activityTaskColumn: {
+    createMany(args: unknown): Promise<unknown>;
+  };
   activityHistory: HistoryDelegate;
   auditLog: AuditDelegate;
 };
@@ -43,6 +46,12 @@ export type ActivityCreateData = Record<string, unknown> & {
   reporterId: string;
 };
 
+export type ActivityTaskColumnSeed = {
+  name: string;
+  color: string;
+  position: number;
+};
+
 const activityReferenceFields = [
   "clientId",
   "teamId",
@@ -50,28 +59,6 @@ const activityReferenceFields = [
   "assigneeId",
   "reporterId"
 ] as const;
-
-type BoardColumnDelegate = {
-  findMany(args: unknown): Promise<Array<{ id: string; name?: string; position: number }>>;
-  findFirst(args: unknown): Promise<{ id: string; name?: string; position: number } | null>;
-  create(args: unknown): Promise<unknown>;
-  createMany(args: unknown): Promise<unknown>;
-  update(args: unknown): Promise<unknown>;
-  updateMany(args: unknown): Promise<unknown>;
-};
-
-type TaskDelegate = {
-  findMany(args: unknown): Promise<Array<{ id: string; columnId: string; position: number }>>;
-  findFirst(args: unknown): Promise<{
-    id: string;
-    columnId: string;
-    position: number;
-    archivedAt?: Date | null;
-  } | null>;
-  create(args: unknown): Promise<unknown>;
-  update(args: unknown): Promise<unknown>;
-  updateMany(args: unknown): Promise<unknown>;
-};
 
 const publicUserSelect = {
   id: true,
@@ -111,7 +98,8 @@ export class ActivitiesRepository extends BaseRepository {
 
   async createWithEvidence(
     data: ActivityCreateData,
-    evidenceFor: (created: Record<string, unknown>) => ActivityMutationEvidence
+    evidenceFor: (created: Record<string, unknown>) => ActivityMutationEvidence,
+    taskColumns: ActivityTaskColumnSeed[] = []
   ) {
     const prisma = (await getPrisma()) as {
       $transaction<T>(callback: (tx: ActivityTransaction) => Promise<T>): Promise<T>;
@@ -119,6 +107,15 @@ export class ActivitiesRepository extends BaseRepository {
     return prisma.$transaction(async (tx) => {
       await this.lockActivityReferences(tx, data.companyId, data);
       const created = await tx.activity.create({ data });
+      if (taskColumns.length) {
+        await tx.activityTaskColumn.createMany({
+          data: taskColumns.map((column) => ({
+            ...column,
+            companyId: data.companyId,
+            activityId: String(created.id)
+          }))
+        });
+      }
       const evidence = evidenceFor(created);
       await tx.auditLog.create({ data: evidence.audit });
       await tx.activityHistory.create({ data: evidence.history });
@@ -223,17 +220,5 @@ export class ActivitiesRepository extends BaseRepository {
         throw forbidden("User does not belong to the active company");
       }
     }
-  }
-
-  async taskColumns() {
-    return getDelegate<BoardColumnDelegate>("activityTaskColumn");
-  }
-
-  async tasks() {
-    return getDelegate<TaskDelegate>("activityTask");
-  }
-
-  async taskHistory() {
-    return getDelegate<HistoryDelegate>("activityTaskHistory");
   }
 }

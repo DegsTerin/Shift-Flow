@@ -241,6 +241,8 @@ export type ActivityTaskHistoryItem = {
 };
 export type ActivityTaskBoard = {
   columns: ActivityTaskColumn[];
+  archivedTasks?: ActivityTaskItem[];
+  archivedTasksTruncated?: boolean;
   history?: ActivityTaskHistoryItem[];
 };
 export type Filters = {

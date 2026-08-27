@@ -109,6 +109,18 @@ export const ActivitiesController = {
       )
     );
   }),
+  restoreTask: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(
+      ok(
+        await service.restoreTask(
+          req,
+          uuidParam(req.params.id, "id"),
+          uuidParam(req.params.taskId, "taskId"),
+          req.body.columnId
+        )
+      )
+    );
+  }),
   moveTask: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(
       ok(

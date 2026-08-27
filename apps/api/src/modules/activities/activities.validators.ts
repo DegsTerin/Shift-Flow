@@ -71,31 +71,69 @@ export const assignActivitySchema = z.object({
   note: z.string().max(5000).optional()
 });
 
-export const activityTaskColumnSchema = z.object({
+const taskBoardUuidSchema = z
+  .string()
+  .uuid()
+  .transform((value) => value.toLowerCase());
+
+const taskColumnContentSchema = z.object({
   name: z.string().min(2).max(120),
-  color: z.string().max(16).optional(),
-  position: z.number().int().min(0).optional()
+  color: z.string().max(16).optional()
 });
 
-export const reorderTaskColumnsSchema = z.object({
-  columnIds: z.array(z.string().uuid()).min(1).max(100)
-});
+export const activityTaskColumnSchema = taskColumnContentSchema
+  .extend({ position: z.number().int().min(0).optional() })
+  .strict();
 
-export const activityTaskSchema = z.object({
-  columnId: z.string().uuid(),
-  assigneeId: z.string().uuid().nullable().optional(),
+export const updateActivityTaskColumnSchema = taskColumnContentSchema
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, "At least one column field is required");
+
+export const reorderTaskColumnsSchema = z
+  .object({
+    columnIds: z
+      .array(taskBoardUuidSchema)
+      .min(1)
+      .max(100)
+      .refine((ids) => new Set(ids).size === ids.length, "Column identifiers must be unique")
+  })
+  .strict();
+
+const taskContentSchema = z.object({
+  assigneeId: taskBoardUuidSchema.nullable().optional(),
   title: z.string().min(2).max(220),
-  description: z.string().max(10000).optional(),
+  description: z.string().max(10000).nullable().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
   labels: z.array(z.string().min(1).max(60)).max(12).optional(),
-  attachmentIds: z.array(z.string().uuid()).max(20).optional(),
-  position: z.number().int().min(0).optional(),
-  dueAt: z.coerce.date().nullable().optional(),
-  completedAt: z.coerce.date().nullable().optional()
+  attachmentIds: z
+    .array(taskBoardUuidSchema)
+    .max(20)
+    .refine((ids) => new Set(ids).size === ids.length, "Attachment identifiers must be unique")
+    .optional(),
+  dueAt: z.coerce.date().nullable().optional()
 });
 
+export const activityTaskSchema = taskContentSchema
+  .extend({
+    columnId: taskBoardUuidSchema,
+    position: z.number().int().min(0).optional()
+  })
+  .strict();
+
+export const updateActivityTaskSchema = taskContentSchema
+  .extend({ columnId: taskBoardUuidSchema.optional() })
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, "At least one task field is required");
+
 export const moveActivityTaskSchema = z.object({
-  columnId: z.string().uuid(),
+  columnId: taskBoardUuidSchema,
   position: z.number().int().min(0),
   note: z.string().max(5000).optional()
 });
+
+export const restoreActivityTaskSchema = z
+  .object({ columnId: taskBoardUuidSchema.optional() })
+  .strict()
+  .default({});

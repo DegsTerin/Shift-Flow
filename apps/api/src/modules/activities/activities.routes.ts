@@ -13,7 +13,10 @@ import {
   activityTaskSchema,
   moveActivitySchema,
   moveActivityTaskSchema,
-  reorderTaskColumnsSchema
+  reorderTaskColumnsSchema,
+  restoreActivityTaskSchema,
+  updateActivityTaskColumnSchema,
+  updateActivityTaskSchema
 } from "./activities.validators.js";
 
 export const activityRoutes = Router();
@@ -51,7 +54,7 @@ activityRoutes.post(
 activityRoutes.patch(
   "/:id/task-board/columns/:columnId",
   requirePermission("activities", "write"),
-  validate("body", activityTaskColumnSchema.partial()),
+  validate("body", updateActivityTaskColumnSchema),
   ActivitiesController.updateTaskColumn
 );
 activityRoutes.delete(
@@ -74,7 +77,7 @@ activityRoutes.post(
 activityRoutes.patch(
   "/:id/task-board/tasks/:taskId",
   requirePermission("activities", "write"),
-  validate("body", activityTaskSchema.partial()),
+  validate("body", updateActivityTaskSchema),
   ActivitiesController.updateTask
 );
 activityRoutes.delete(
@@ -86,6 +89,12 @@ activityRoutes.post(
   "/:id/task-board/tasks/:taskId/archive",
   requirePermission("activities", "write"),
   ActivitiesController.archiveTask
+);
+activityRoutes.post(
+  "/:id/task-board/tasks/:taskId/restore",
+  requirePermission("activities", "write"),
+  validate("body", restoreActivityTaskSchema),
+  ActivitiesController.restoreTask
 );
 activityRoutes.post(
   "/:id/task-board/tasks/:taskId/move",

@@ -1,6 +1,6 @@
 // en-GB: Renders the record modal task board interface so its behaviour and accessible structure stay reusable.
 import { Archive, ChevronLeft, ChevronRight, Plus, Save, Trash2 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type DragEvent, type FormEvent } from "react";
 import { apiRequest } from "../lib/api";
 import type {
   ActivityTaskBoard,
@@ -48,7 +48,8 @@ export function InternalTaskBoard({
   async function createColumn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     await apiRequest(`/api/activities/${activityId}/task-board/columns`, token, {
       method: "POST",
       body: JSON.stringify({
@@ -56,14 +57,15 @@ export function InternalTaskBoard({
         color: String(form.get("color") || "#64748b")
       })
     });
-    event.currentTarget.reset();
+    formElement.reset();
     await loadBoard();
   }
 
   async function createTask(event: FormEvent<HTMLFormElement>, columnId: string) {
     event.preventDefault();
     if (!token) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     await apiRequest(`/api/activities/${activityId}/task-board/tasks`, token, {
       method: "POST",
       body: JSON.stringify({
@@ -71,7 +73,7 @@ export function InternalTaskBoard({
         title: String(form.get("title") ?? ""),
         assigneeId: String(form.get("assigneeId") || "") || undefined,
         priority: String(form.get("priority") || "MEDIUM"),
-        dueAt: String(form.get("dueAt") || "") || undefined,
+        dueAt: taskDueAtPayload(String(form.get("dueAt") || ""), undefined, undefined),
         labels: String(form.get("labels") || "")
           .split(",")
           .map((item) => item.trim())
@@ -79,7 +81,7 @@ export function InternalTaskBoard({
         attachmentIds: form.getAll("attachmentIds").map(String).filter(Boolean)
       })
     });
-    event.currentTarget.reset();
+    formElement.reset();
     await loadBoard();
   }
 
@@ -89,7 +91,6 @@ export function InternalTaskBoard({
       method: "POST",
       body: JSON.stringify({ columnId, position, note: "Movido no Kanban interno" })
     });
-    setDraggedTaskId(null);
     await loadBoard();
   }
 
@@ -102,19 +103,30 @@ export function InternalTaskBoard({
     await loadBoard();
   }
 
-  async function updateTask(taskId: string, event: FormEvent<HTMLFormElement>) {
+  async function restoreTask(taskId: string, event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
     const form = new FormData(event.currentTarget);
-    await apiRequest(`/api/activities/${activityId}/task-board/tasks/${taskId}`, token, {
+    await apiRequest(`/api/activities/${activityId}/task-board/tasks/${taskId}/restore`, token, {
+      method: "POST",
+      body: JSON.stringify({ columnId: String(form.get("columnId") || "") || undefined })
+    });
+    await loadBoard();
+  }
+
+  async function updateTask(task: ActivityTaskItem, event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) return;
+    const form = new FormData(event.currentTarget);
+    await apiRequest(`/api/activities/${activityId}/task-board/tasks/${task.id}`, token, {
       method: "PATCH",
       body: JSON.stringify({
         columnId: String(form.get("columnId") || ""),
         title: String(form.get("title") ?? ""),
-        description: String(form.get("description") || "") || undefined,
+        description: String(form.get("description") || "") || null,
         assigneeId: String(form.get("assigneeId") || "") || null,
         priority: String(form.get("priority") || "MEDIUM"),
-        dueAt: String(form.get("dueAt") || "") || null,
+        dueAt: taskDueAtPayload(String(form.get("dueAt") || ""), task.dueAt, null),
         labels: String(form.get("labels") || "")
           .split(",")
           .map((item) => item.trim())
@@ -161,11 +173,16 @@ export function InternalTaskBoard({
     const nextIds = [...ids];
     const [moved] = nextIds.splice(index, 1);
     nextIds.splice(nextIndex, 0, moved);
-    await apiRequest(`/api/activities/${activityId}/task-board/columns/reorder`, token, {
-      method: "POST",
-      body: JSON.stringify({ columnIds: nextIds })
-    });
-    await loadBoard();
+    setBoard(
+      await apiRequest<ActivityTaskBoard>(
+        `/api/activities/${activityId}/task-board/columns/reorder`,
+        token,
+        {
+          method: "POST",
+          body: JSON.stringify({ columnIds: nextIds })
+        }
+      )
+    );
   }
 
   return (
@@ -187,10 +204,17 @@ export function InternalTaskBoard({
             className="internal-kanban-column"
             key={column.id}
             onDragOver={(event) => event.preventDefault()}
-            onDrop={() =>
-              draggedTaskId
-                ? void moveTask(draggedTaskId, column.id, column.tasks?.length ?? 0)
-                : undefined
+            onDrop={(event) =>
+              handleInternalTaskDrop(
+                event,
+                board,
+                draggedTaskId,
+                column.id,
+                column.tasks?.length ?? 0,
+                false,
+                () => setDraggedTaskId(null),
+                (plan) => void moveTask(plan.taskId, plan.columnId, plan.position)
+              )
             }
           >
             <div className="internal-column-header">
@@ -242,9 +266,21 @@ export function InternalTaskBoard({
                 busy={busy}
                 onArchive={() => void archiveTask(task.id)}
                 onDelete={() => void deleteTask(task.id)}
-                onUpdate={(event) => void updateTask(task.id, event)}
+                onUpdate={(event) => void updateTask(task, event)}
                 onDragStart={() => setDraggedTaskId(task.id)}
-                onDropBefore={() => draggedTaskId && void moveTask(draggedTaskId, column.id, index)}
+                onDragEnd={() => setDraggedTaskId(null)}
+                onDropBefore={(event) =>
+                  handleInternalTaskDrop(
+                    event,
+                    board,
+                    draggedTaskId,
+                    column.id,
+                    index,
+                    true,
+                    () => setDraggedTaskId(null),
+                    (plan) => void moveTask(plan.taskId, plan.columnId, plan.position)
+                  )
+                }
               />
             ))}
             <form
@@ -287,6 +323,63 @@ export function InternalTaskBoard({
           </section>
         ))}
       </div>
+      {(board.archivedTasks ?? []).length ? (
+        <section className="internal-history">
+          <div className="panel-header">
+            <h3>Tarefas arquivadas</h3>
+            <span>{board.archivedTasks?.length ?? 0}</span>
+          </div>
+          <div className="timeline">
+            {board.archivedTasks?.map((task) => (
+              <div key={task.id}>
+                <strong>{task.title}</strong>
+                <span>
+                  {board.columns.find((column) => column.id === task.columnId)?.name ?? "Coluna"}
+                </span>
+                <form
+                  className="internal-task-actions"
+                  onSubmit={(event) => void restoreTask(task.id, event)}
+                >
+                  <select
+                    aria-label={`Coluna para restaurar ${task.title}`}
+                    name="columnId"
+                    defaultValue={
+                      board.columns.some((column) => column.id === task.columnId)
+                        ? task.columnId
+                        : (board.columns[0]?.id ?? "")
+                    }
+                  >
+                    {board.columns.map((column) => (
+                      <option key={column.id} value={column.id}>
+                        {column.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="compact-button"
+                    disabled={busy || !token || !board.columns.length}
+                    type="submit"
+                  >
+                    Restaurar
+                  </button>
+                  <button
+                    className="icon-button static"
+                    disabled={busy || !token}
+                    type="button"
+                    title="Excluir tarefa arquivada"
+                    onClick={() => void deleteTask(task.id)}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </form>
+              </div>
+            ))}
+            {board.archivedTasksTruncated ? (
+              <p>Exibindo as 100 tarefas arquivadas mais recentes.</p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
       <section className="internal-history">
         <div className="panel-header">
           <h3>Historico do Kanban interno</h3>
@@ -322,6 +415,7 @@ function InternalTaskCard({
   attachments,
   busy,
   onDragStart,
+  onDragEnd,
   onDropBefore,
   onUpdate,
   onDelete,
@@ -333,7 +427,8 @@ function InternalTaskCard({
   attachments: AttachmentItem[];
   busy: boolean;
   onDragStart: () => void;
-  onDropBefore: () => void;
+  onDragEnd: () => void;
+  onDropBefore: (event: DragEvent<HTMLDivElement>) => void;
   onUpdate: (event: FormEvent<HTMLFormElement>) => void;
   onDelete: () => void;
   onArchive: () => void;
@@ -346,6 +441,7 @@ function InternalTaskCard({
       className="internal-task-card"
       draggable
       onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDropBefore}
     >
@@ -447,6 +543,59 @@ function InternalTaskCard({
       )}
     </div>
   );
+}
+
+type InternalTaskDropPlan = { taskId: string; columnId: string; position: number };
+
+export function planInternalTaskDrop(
+  board: ActivityTaskBoard,
+  taskId: string | null,
+  columnId: string,
+  requestedPosition: number
+): InternalTaskDropPlan | null {
+  if (!taskId) return null;
+  const sourceColumn = board.columns.find((column) =>
+    (column.tasks ?? []).some((task) => task.id === taskId)
+  );
+  const targetColumn = board.columns.find((column) => column.id === columnId);
+  if (!sourceColumn || !targetColumn) return null;
+  const sourcePosition = (sourceColumn.tasks ?? []).findIndex((task) => task.id === taskId);
+  const sameColumn = sourceColumn.id === columnId;
+  const targetLength = Math.max(0, (targetColumn.tasks?.length ?? 0) - (sameColumn ? 1 : 0));
+  const adjustedPosition =
+    sameColumn && sourcePosition < requestedPosition ? requestedPosition - 1 : requestedPosition;
+  const position = Math.max(0, Math.min(adjustedPosition, targetLength));
+  if (sameColumn && position === sourcePosition) return null;
+  return { taskId, columnId, position };
+}
+
+export function handleInternalTaskDrop(
+  event: Pick<DragEvent<HTMLDivElement>, "preventDefault" | "stopPropagation">,
+  board: ActivityTaskBoard,
+  taskId: string | null,
+  columnId: string,
+  requestedPosition: number,
+  stopPropagation: boolean,
+  clearDrag: () => void,
+  move: (plan: InternalTaskDropPlan) => void
+) {
+  event.preventDefault();
+  if (stopPropagation) event.stopPropagation();
+  const plan = planInternalTaskDrop(board, taskId, columnId, requestedPosition);
+  clearDrag();
+  if (plan) move(plan);
+  return plan;
+}
+
+export function taskDueAtPayload(
+  value: string,
+  previousValue: string | null | undefined,
+  emptyValue: null | undefined
+) {
+  if (!value) return emptyValue;
+  if (previousValue && toDateTimeLocalValue(previousValue) === value) return previousValue;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
 function toDateTimeLocalValue(value?: string | null) {

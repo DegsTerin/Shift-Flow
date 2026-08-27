@@ -1,6 +1,7 @@
 // en-GB: Exercises activity query and evidence shaping without a database runtime.
 import { describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import type { ActivityTaskBoardRepository } from "./activity-task-board.repository.js";
 import type { ActivitiesRepository } from "./activities.repository.js";
 
 const scopeChecks = vi.hoisted(() => ({
@@ -30,22 +31,31 @@ function request(query: Record<string, unknown> = {}) {
   return { query, auth: { id: "user-1", email: "owner@example.com", companyId } } as ApiRequest;
 }
 
-function serviceWith(repository: Partial<ActivitiesRepository>) {
-  return new ActivitiesService(repository as ActivitiesRepository);
+function serviceWith(
+  repository: Partial<ActivitiesRepository>,
+  taskBoardRepository?: Partial<ActivityTaskBoardRepository>
+) {
+  return new ActivitiesService(
+    repository as ActivitiesRepository,
+    taskBoardRepository as ActivityTaskBoardRepository
+  );
 }
 
 function evidencedRepository(previous: Record<string, unknown> = {}) {
   const captured: {
     createData?: Record<string, unknown>;
+    taskColumns?: Array<{ name: string; color: string; position: number }>;
     mutationData?: Record<string, unknown>;
     evidence?: { audit: Record<string, unknown>; history: Record<string, unknown> };
   } = {};
   const createWithEvidence = vi.fn(
     async (
       data: Record<string, unknown>,
-      evidenceFor: (created: Record<string, unknown>) => NonNullable<typeof captured.evidence>
+      evidenceFor: (created: Record<string, unknown>) => NonNullable<typeof captured.evidence>,
+      taskColumns: Array<{ name: string; color: string; position: number }> = []
     ) => {
       captured.createData = data;
+      captured.taskColumns = taskColumns;
       const created = { id: "activity-1", status: "PENDING", ...data };
       captured.evidence = evidenceFor(created);
       return created;
@@ -148,6 +158,37 @@ describe("ActivitiesService", () => {
     );
   });
 
+  it("keeps a legacy empty task board read-only", async () => {
+    const read = vi.fn().mockResolvedValue({ columns: [], archivedTasks: [], history: [] });
+    const service = serviceWith({}, { read });
+
+    await expect(service.taskBoard(request(), "activity-1")).resolves.toEqual({
+      columns: [],
+      archivedTasks: [],
+      history: []
+    });
+
+    expect(read).toHaveBeenCalledWith({
+      companyId,
+      activityId: "activity-1",
+      actorUserId: "user-1"
+    });
+  });
+
+  it("returns the transactional reorder result without a post-commit board read", async () => {
+    const reordered = { columns: [{ id: "column-2" }, { id: "column-1" }], history: [] };
+    const reorderColumns = vi.fn().mockResolvedValue(reordered);
+    const read = vi.fn().mockRejectedValue(new Error("unexpected reread"));
+    const service = serviceWith({}, { reorderColumns, read });
+
+    await expect(
+      service.reorderTaskColumns(request(), "activity-1", ["column-2", "column-1"])
+    ).resolves.toBe(reordered);
+
+    expect(reorderColumns).toHaveBeenCalledOnce();
+    expect(read).not.toHaveBeenCalled();
+  });
+
   it("propagates a validated close note to the lifecycle command", async () => {
     const service = serviceWith({} as Partial<ActivitiesRepository>);
     const move = vi.spyOn(service, "move").mockResolvedValue({ id: "activity-1" });
@@ -199,6 +240,12 @@ describe("ActivitiesService", () => {
         })
       })
     );
+    expect(captured.taskColumns).toEqual([
+      { name: "A Fazer", color: "#64748b", position: 0 },
+      { name: "Em Andamento", color: "#0ea5e9", position: 1 },
+      { name: "Revisao", color: "#f59e0b", position: 2 },
+      { name: "Concluido", color: "#16a34a", position: 3 }
+    ]);
   });
 
   it("normalises a generic status update into closed lifecycle evidence", async () => {
