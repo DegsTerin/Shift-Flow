@@ -1,6 +1,6 @@
 # ShiftFlow Prompt System
 
-This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **5.0.1**.
+This is the single entrypoint for the controlled instruction corpus. The active prompt-system version is **5.1.0**.
 
 ## Golden rule
 
@@ -27,6 +27,11 @@ Stage only files related to the completed activity and keep the commit message c
 2. Read [Current-State.md](state/Current-State.md).
 3. Read [Governance.md](core/Governance.md).
 4. Select only the phase, module, or playbook relevant to the request.
+
+For broad or multi-step implementation, also read the newest active record in
+[`PLANS.md`](../PLANS.md). It is executable planning evidence outside the
+17-file prompt corpus; it cannot create authority, change state or waive a
+gate.
 
 ### Phase execution
 
@@ -97,6 +102,8 @@ The active corpus contains exactly 17 Markdown files:
 ## Governed repository adapters and sources
 
 - [AGENTS.md](../AGENTS.md) routes repository sessions into this corpus and does not replace canonical authority.
+- [`PLANS.md`](../PLANS.md) records the current executable plan, baseline, scope, increments, evidence and blockers for broad work without joining the active prompt corpus or granting authority.
+- [Project setup and development workflow](../docs/PROJECT-SETUP.md) documents the executable `Doctor`, `Setup`, `Quick`, `Full` and `PlanOnly` contract implemented under `../eng/`.
 - [Conversation coordination source](../docs/history/sources/conversation-coordination-prompt.md) and [language-policy source](../docs/history/sources/language-policy.md) are retained historical adoption provenance outside the 17-file active corpus. They are not operational instructions, do not replace canonical authority, and grant no automatic permission to change state, files, Git workflow, conversations, interface language, or external resources.
 
 ## Anti-overengineering

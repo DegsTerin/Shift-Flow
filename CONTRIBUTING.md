@@ -2,18 +2,25 @@
 
 ## Development Flow
 
-1. Create a scoped branch from `main`.
-2. Keep changes limited to one business or technical concern.
-3. Run local quality gates before opening a pull request.
-4. Include migration, security, and operational notes when relevant.
+1. Run `npm run dev:doctor` and use `npm run dev:setup` when dependencies are
+   not prepared.
+2. Create a scoped branch from `main`.
+3. Keep changes limited to one business or technical concern and keep
+   `PLANS.md` synchronised for broad or multi-step work.
+4. Use `npm run dev:quick` during implementation and run `npm run dev:full`
+   before opening a pull request.
+5. Include migration, security, and operational notes when relevant.
 
 ## Local Checks
 
-```bash
-npm run quality
-npm run test:unit
-npm run build
+```powershell
+npm run dev:quick
+npm run dev:full
 ```
+
+`dev:quick` is `NON_GATE` feedback. Only `dev:full` is the canonical core
+repository gate. Runtime checks remain separate because they mutate a database
+or use a browser. See [Project Setup and Development Workflow](docs/PROJECT-SETUP.md).
 
 Use Playwright checks for user-facing flows:
 

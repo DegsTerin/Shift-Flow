@@ -38,11 +38,16 @@
 
 Before merging:
 
-```bash
-npm run quality
-npm run test:unit
-npm run build
+```powershell
+npm run dev:full
 ```
+
+During implementation, `npm run dev:quick` provides `NON_GATE` feedback. The
+canonical `Full` gate includes workflow policy, dependency audit, quality,
+unit tests, build and candidate diff hygiene. Its offline mode reports
+registry-backed audit coverage as `NOT_RUN` and exits non-zero as
+`INCOMPLETE_NON_GATE` rather than converting that omission into a pass. Remote
+core lanes validate both supported Node.js majors before runtime gates.
 
 For release candidates:
 
@@ -87,6 +92,11 @@ Update docs when changing:
 ## Governance Files
 
 - `.github/pull_request_template.md` defines required validation and risk review.
+- `PLANS.md` records the active executable plan and evidence for broad or
+  multi-step work without granting authority or changing project state.
+- `eng/development.ps1` and `eng/ci.ps1` define the local/remote development
+  loop and canonical runtime-credential-free core gate; `eng/build.ps1`
+  preserves tracked Next.js metadata around the raw application build.
 - `.github/CODEOWNERS` is present as a commented template until real GitHub owners are known.
 - `SECURITY.md` defines the vulnerability handling policy.
 - `docs/adr/` stores architecture decision records.

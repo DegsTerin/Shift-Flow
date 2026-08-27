@@ -10,30 +10,63 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-gates-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  release-gates:
+  core-gate:
+    name: Core gate (Node.js ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+
+    steps:
+      - name: Checkout complete candidate history
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Canonical core gate
+        run: pwsh -NoProfile -File eng/ci.ps1 -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
+
+  runtime-gates:
+    name: Disposable runtime gates (Node.js 22)
+    needs: core-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     services:
       postgres:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: shiftflow
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'ci-postgres-password' }}
-          POSTGRES_DB: shiftflow
+          POSTGRES_PASSWORD: ci-postgres-password
+          POSTGRES_DB: shiftflow_ci
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U shiftflow -d shiftflow"
+          --health-cmd "pg_isready -U shiftflow -d shiftflow_ci"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL || format('postgresql://shiftflow:{0}@localhost:5432/shiftflow?schema=public', secrets.POSTGRES_PASSWORD || 'ci-postgres-password') }}
-      E2E_EMAIL: ${{ secrets.E2E_EMAIL || 'integration.admin@shiftflow.local' }}
-      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD || 'Integration#Password123' }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-release-gates-jwt-secret-minimum-32-chars' }}
+      DATABASE_URL: postgresql://shiftflow:ci-postgres-password@localhost:5432/shiftflow_ci?schema=public
+      E2E_EMAIL: integration.admin@shiftflow.local
       API_PORT: 3001
       NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
       PLAYWRIGHT_CHROME_EXECUTABLE_PATH: bundled
@@ -49,15 +82,26 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Generate ephemeral runtime credentials
+        shell: pwsh
+        run: |
+          $nonce = [System.Convert]::ToHexString(
+            [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
+          $e2ePassword = "Ci!aA1-$nonce"
+          $jwtSecret = [System.Convert]::ToBase64String(
+            [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "E2E_PASSWORD=$e2ePassword"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "JWT_SECRET=$jwtSecret"
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Validate Prisma schema
-        run: npm run prisma:validate
-
-      - name: Deploy approved migrations
+      - name: Deploy approved migrations to disposable CI database
         run: npx prisma migrate deploy
 
       - name: Seed integration data
@@ -65,24 +109,6 @@ jobs:
 
       - name: Seed homologation data
         run: npm run homologation:seed
-
-      - name: Audit dependencies
-        run: npm run security:audit
-
-      - name: Scan secrets
-        run: npm run security:secrets
-
-      - name: Validate production config
-        run: npm run security:production-config
-
-      - name: Quality gates
-        run: npm run quality
-
-      - name: Unit tests
-        run: npm run test:unit
-
-      - name: Build
-        run: npm run build
 
       - name: Playwright E2E
         run: npx playwright test

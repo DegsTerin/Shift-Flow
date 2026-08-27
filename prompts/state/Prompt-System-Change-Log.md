@@ -10,6 +10,35 @@ This rolling log records current prompt-system changes. Complete history through
 - Conflicts resolved
 - State impact
 
+## 2026-08-27 - Version 5.1.0
+
+- Type: compatible governed-development workflow capability.
+- Scope: prompt entrypoint, execution protocol, quality gates, security/access
+  playbook, current state, snapshot evidence, governance mapping, executable
+  plan, developer entry point and shared local/remote core gate.
+- Behaviour: adopts the iterative
+  `Audit -> Prioritise -> Correct -> Test -> Integrate -> Measure -> Document -> Retrospect`
+  loop, requires a synchronised non-authoritative `PLANS.md` for broad work,
+  and defines deterministic `Doctor`, `Setup`, `Quick`, `Full` and `PlanOnly`
+  contracts.
+- Gate boundary: `Quick` is explicitly `NON_GATE`; `Full` delegates once to the
+  runtime-credential-free core gate, while database, seed, E2E, load, browser,
+  deployment, Human Gate and lifecycle evidence remain separate. Offline
+  registry checks are `NOT_RUN` and terminate as `INCOMPLETE_NON_GATE`, never
+  inferred passes. Remote core lanes cover Node.js 22 and 24 before the
+  separate disposable runtime job, whose credentials are generated per run.
+- Supply-chain impact: stable direct dependencies were updated within existing
+  major versions and a focused `deepmerge-ts` 8.0.0 override was added with
+  Prisma and project regression validation to clear the canonical online audit.
+- Conflict resolved: converts the existing governance semantics into one
+  executable, policy-tested development flow without introducing a second
+  authority or copying RAG-specific provider, corpus, state or deployment
+  identities.
+- State impact: `STATE-08 PRODUCTION_RELEASE` and the 17-file active prompt
+  corpus are preserved. The batch contains no intentional product-feature
+  implementation, state transition, ADR acceptance or Human Gate; no local
+  database mutation, deployment, push or remote action occurred.
+
 ## 2026-07-30 - Version 5.0.1
 
 - Type: patch clarification of the existing repository-safe commit policy.

@@ -4,9 +4,9 @@
 
 - Project: ShiftFlow
 - Current state: `STATE-08 PRODUCTION_RELEASE`
-- Prompt-system version: `5.0.1`
+- Prompt-system version: `5.1.0`
 - Active prompt files: 17
-- Snapshot date: `2026-07-30`
+- Snapshot date: `2026-08-27`
 
 ## Current architecture
 
@@ -23,6 +23,9 @@
 - Internal activity task boards and immutable operational history.
 - Responsive web interface, i18n, light/dark themes, and TV-oriented views where implemented.
 - Release, E2E, accessibility, load, security, source-comment, and quality scripts documented by the repository.
+- One executable development entry point provides read-only diagnosis, locked
+  setup, `NON_GATE` quick feedback, deterministic plans and a canonical
+  runtime-credential-free core gate shared with GitHub Actions.
 
 ## Current controls
 
@@ -36,6 +39,9 @@
 - Historical governance-adoption sources: `../../docs/history/sources/`.
 - Runtime truth for local services: `scripts/status.ps1` plus HTTP health checks.
 - Governance index: `../../docs/governance-index.md`.
+- Executable plan: `../../PLANS.md`, which records active work and evidence but
+  has no authority to change state or gates.
+- Development contract: `../../docs/PROJECT-SETUP.md` and `../../eng/`.
 
 ## Active risks and external dependencies
 
@@ -46,6 +52,13 @@
 - Remote environments must receive locally approved migrations through their deployment pipeline.
 - Physical-device and real-TV visual checks remain environment-dependent.
 - Attachment storage and distributed rate limiting require production infrastructure choices when scaling beyond the current deployment model.
+- Previously reported authentication, tenant-scope, response-shaping and
+  operational defects remain separate post-release maintenance risks; this
+  process adoption does not claim their remediation.
+- `deepmerge-ts` is pinned to patched version `8.0.0` through a focused npm
+  override because Prisma 7.10 still pins the vulnerable 7.x line. Keep the
+  override regression-tested and remove it when Prisma adopts a patched
+  compatible dependency.
 
 ## Prompt-system consolidation evidence
 
@@ -55,6 +68,9 @@
 - Version 4.1.0 adds advisory reasoning recommendations for each new or resumed conversation, governed handoff, and worker start message while preserving the existing authority, isolation, and parallel-work rules.
 - Version 5.0.0 replaces unconditional continuation fields with action-based delivery: ordinary responses omit inapplicable fields, while governed handoffs preserve their complete contract.
 - Version 5.0.1 clarifies that every authorised file-changing activity ends with an automatic scoped local commit after validation, without a second request or implied remote action.
+- Version 5.1.0 adopts an executable-plan and development-loop capability with
+  `Doctor`, `Setup`, `Quick`, `Full` and `PlanOnly`, while preserving the
+  17-file corpus, `STATE-08` and separate runtime/lifecycle evidence.
 - Full pre-consolidation audit, delivery, state, snapshot, and version material is preserved under `../../docs/history/`.
 - No project state transition resulted from the documentation reorganisation.
 - The 17-file manifest and migration map are recorded in `../Start-Here.md`, `Prompt-System-Change-Log.md`, and `../../docs/governance-index.md`.

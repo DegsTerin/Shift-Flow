@@ -17,10 +17,38 @@ apps/
   api/        Express API organized by modules and shared infrastructure.
   web/        Next.js application.
 docs/         Architecture, operations, governance, and delivery documentation.
+eng/          Reproducible development entry point, canonical core gate, and policy tests.
 prisma/       Schema, migrations, and seed scripts.
+PLANS.md      Non-authoritative executable plan and current implementation evidence.
 scripts/      Maintenance and quality scripts.
 tests/e2e/    Playwright end-to-end, accessibility, and load checks.
 ```
+
+## Development Workflow
+
+Use the single development entry point before starting the runtime:
+
+```powershell
+./eng/development.ps1 Doctor
+./eng/development.ps1 Setup
+./eng/development.ps1 Quick
+```
+
+`Doctor` is read-only. `Setup` performs a locked npm restore and Prisma client
+generation without migrations or seeds. `Quick` is explicitly `NON_GATE` and
+provides fast quality, unit-test and build feedback. Run the canonical core
+gate with:
+
+```powershell
+./eng/development.ps1 Full
+```
+
+Use `-PlanOnly` to inspect any exact plan without executing it, and `-Offline`
+with `Setup` or `Full` when registry access is unavailable. An offline
+dependency audit is reported as `NOT_RUN`; `Full -Offline` finishes non-zero as
+`INCOMPLETE_NON_GATE`, not as a pass. See
+[Project Setup and Development Workflow](docs/PROJECT-SETUP.md) for the
+toolchain, credential boundary and gate interpretation.
 
 ## Local Setup
 
@@ -36,10 +64,14 @@ Stop everything:
 npm stop
 ```
 
-1. Install dependencies:
+The development workflow prepares dependencies. The remaining steps configure
+an explicit local runtime and are outside the runtime-credential-free core gate.
+
+1. If the workflow was not used, install dependencies and generate the client:
 
 ```bash
 npm ci
+npm run prisma:generate
 ```
 
 2. Copy `.env.example` to `.env` and set local infrastructure secrets. `POSTGRES_PASSWORD` must match the password embedded in `DATABASE_URL`. Do not store end-user passwords in `.env`.
@@ -50,11 +82,10 @@ npm ci
 docker compose up -d postgres
 ```
 
-4. Apply migrations and generate Prisma client:
+4. Apply migrations:
 
 ```bash
 npx prisma migrate deploy
-npm run prisma:generate
 ```
 
 5. Seed local data when needed:
@@ -100,16 +131,16 @@ Use `-Attach` with `start.ps1` or `restart.ps1` only when you want the script to
 
 Use `-Wait` with `start.ps1` or `restart.ps1` only when you want the script to wait until Web and API respond.
 
-The integration seed requires `E2E_EMAIL` and `E2E_PASSWORD` at runtime, hashes the password with bcrypt before storage, and does not print credentials in logs. Provide these values only through a local shell or CI secret for the seed command; do not commit them to `.env` or `.env.example`. New or changed user passwords must be at least 12 characters and include lowercase, uppercase, numeric, and symbol characters.
+The integration seed requires `E2E_EMAIL` and `E2E_PASSWORD` at runtime, hashes the password with bcrypt before storage, and does not print credentials in logs. Provide these values only through a local shell, per-run CI generation, or, only when unavoidable, a CI secret for a persistent external test identity; do not commit them to `.env` or `.env.example`. New or changed user passwords must be at least 12 characters and include lowercase, uppercase, numeric, and symbol characters.
 
 ## Quality Gates
 
-Run the standard local gate before opening a pull request:
+Run fast feedback while developing, then the canonical core gate before
+opening a pull request:
 
-```bash
-npm run quality
-npm run test:unit
-npm run build
+```powershell
+npm run dev:quick
+npm run dev:full
 ```
 
 Additional checks:
@@ -140,6 +171,7 @@ npm run clean:artifacts
 - [Security](SECURITY.md)
 - [Architecture](docs/architecture.md)
 - [Development Standards](docs/development-standards.md)
+- [Project Setup and Development Workflow](docs/PROJECT-SETUP.md)
 - [Source Commenting Manifest](docs/source-commenting-manifest.md)
 - [Governance Index](docs/governance-index.md)
 - [Production Runbook](docs/production-runbook.md)

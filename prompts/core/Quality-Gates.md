@@ -13,6 +13,8 @@ A task or phase is complete only when:
 - Critical defects and blockers are resolved.
 - Non-blocking debt and risk are recorded.
 - Current documentation is updated without duplicating history.
+- `PLANS.md` is synchronised when the work is broad or multi-step and remains
+  non-authoritative.
 - Applicable language-policy requirements are satisfied without translating legacy content or changing interface language by inference.
 - Governed handoffs and delegated work satisfy `GATE-05 MULTI_AGENT_VALIDATION` when applicable.
 - Every completed authorised file-changing task has its own scoped local commit; no separate commit instruction is required.
@@ -31,6 +33,27 @@ Invalid evidence includes:
 - A test result without the relevant configuration or target.
 - A screenshot without page, viewport, and expected behaviour.
 - A migration claim without schema and migration status.
+
+## Executable development gates
+
+The checked-in workflow has two deliberately different feedback levels:
+
+- `eng/development.ps1 Quick` is `NON_GATE`. It checks prepared dependencies,
+  quality, unit tests, build and diff hygiene for rapid development feedback.
+  It excludes the online dependency audit and every database, seed, E2E, load,
+  browser, runtime and deployment operation.
+- `eng/development.ps1 Full` delegates exactly once to the canonical
+  runtime-credential-free core gate in `eng/ci.ps1`. The gate enforces its own workflow
+  policy, locked preparation, online dependency audit, quality, unit tests,
+  build and diff hygiene.
+
+`Full -Offline` may be used for diagnostic coverage when registry access is
+unavailable, but its dependency audit result is `NOT_RUN` and the command must
+finish non-zero as `INCOMPLETE_NON_GATE`; it cannot be mistaken for the online
+core gate. A passing core gate is not runtime, release, Human CI, Human Gate,
+deployment or lifecycle evidence. Each supported remote toolchain lane must
+call the same core gate once and inspect the candidate range before a separate
+disposable runtime job may run migrations, seeds, Playwright or load checks.
 
 ## Language compliance
 
@@ -186,7 +209,8 @@ TRANSIÇÃO DE ESTADO: APENAS RECOMENDAÇÃO
 ## Gate selection
 
 - Documentation-only: link/reference validation, formatting, consistency, applicable language-policy and coordination-contract checks, and diff checks.
-- Local code change: format, lint, typecheck, targeted tests, and relevant build.
+- Local code change: `Quick` for iterative feedback, targeted regression tests,
+  and the online canonical `Full` core gate before completion.
 - Database: Prisma format/validate, migration review/status, and affected tests.
 - Security: targeted security tests, secret scan, dependency audit, and auth/tenant checks.
 - UI: targeted tests, accessibility, responsive/visual inspection, and build.

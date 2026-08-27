@@ -8,7 +8,7 @@ const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 const packageLock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
 const expectedOverrides = {
-  "@hono/node-server": "1.19.13",
+  "deepmerge-ts": "8.0.0",
   postcss: "$postcss"
 };
 
@@ -31,32 +31,38 @@ for (const [packageName, expectedVersion] of Object.entries(expectedOverrides)) 
   }
 }
 
-const honoLock = packageLock.packages?.["node_modules/@hono/node-server"]?.version;
-if (honoLock !== expectedOverrides["@hono/node-server"]) {
-  fail(`@hono/node-server lockfile version mismatch: expected 1.19.13, got ${honoLock}`);
-}
-
 const rootPostcss = packageJson.devDependencies?.postcss?.replace(/^[^\d]*/, "");
 const postcssLock = packageLock.packages?.["node_modules/postcss"]?.version;
 if (postcssLock !== rootPostcss) {
   fail(`postcss lockfile version mismatch: expected ${rootPostcss}, got ${postcssLock}`);
 }
 
-const honoExplain = npmExplain("@hono/node-server");
-if (!honoExplain.includes("@hono/node-server@1.19.13 overridden")) {
-  fail("@hono/node-server override is not active in npm explain output.");
+const deepmergeLock = packageLock.packages?.["node_modules/deepmerge-ts"]?.version;
+if (deepmergeLock !== expectedOverrides["deepmerge-ts"]) {
+  fail(
+    `deepmerge-ts lockfile version mismatch: expected ${expectedOverrides["deepmerge-ts"]}, got ${deepmergeLock}`
+  );
+}
+
+const deepmergeExplain = npmExplain("deepmerge-ts");
+if (!deepmergeExplain.includes("deepmerge-ts@8.0.0 overridden")) {
+  fail("deepmerge-ts security override is not active in npm explain output.");
 }
 
 const postcssExplain = npmExplain("postcss");
-if (!postcssExplain.includes("postcss@8.5.15")) {
-  fail("postcss 8.5.15 is not active in npm explain output.");
+if (!postcssExplain.includes(`postcss@${rootPostcss}`)) {
+  fail(`postcss ${rootPostcss} is not active in npm explain output.`);
 }
 
-if (!postcssExplain.includes("next@16.2.9")) {
+if (!postcssExplain.includes(`next@${packageLock.packages?.["node_modules/next"]?.version}`)) {
   fail("postcss override no longer references Next; review whether the override is still needed.");
 }
 
-if (!postcssExplain.includes("@tailwindcss/postcss@4.3.1")) {
+if (
+  !postcssExplain.includes(
+    `@tailwindcss/postcss@${packageLock.packages?.["node_modules/@tailwindcss/postcss"]?.version}`
+  )
+) {
   fail(
     "postcss override no longer references Tailwind; review whether the override is still needed."
   );
@@ -72,7 +78,7 @@ console.log(
       status: "ok",
       overrides: expectedOverrides,
       resolved: {
-        "@hono/node-server": honoLock,
+        "deepmerge-ts": deepmergeLock,
         postcss: postcssLock
       }
     },

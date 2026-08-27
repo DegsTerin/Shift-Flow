@@ -29,7 +29,9 @@ Validate:
 
 - Never commit real passwords, tokens, private keys, secret-bearing URLs, or usable fallback credentials.
 - Passwords are hashed with an approved adaptive algorithm and never logged.
-- Runtime/test credentials come from local environment or CI secrets.
+- Runtime/test credentials come from the local environment, per-run ephemeral
+  CI generation, or CI secrets when a persistent external test identity is
+  unavoidable. Disposable CI prefers generated per-run values.
 - Seeds remain deterministic without embedding end-user credentials in versioned files.
 - Documentation and historical evidence use redacted placeholders.
 - Rotation is required when exposure may have occurred; deletion from the worktree alone is not sufficient.

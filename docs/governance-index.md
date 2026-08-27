@@ -6,10 +6,14 @@ Prefer updating the documents listed here instead of creating new root-level con
 ## Canonical Documents
 
 - `README.md`: onboarding, local setup, platform control, and quality gates.
+- `PLANS.md`: current executable plan, baseline, scope, increments and evidence
+  for broad work; never authority, state or a gate decision.
 - `CONTRIBUTING.md`: contribution flow and review expectations.
 - `SECURITY.md`: vulnerability handling and security policy.
 - `docs/architecture.md`: runtime architecture, module boundaries, observability, and security controls.
 - `docs/development-standards.md`: engineering standards, naming, checks, review, versioning, and documentation rules.
+- `docs/PROJECT-SETUP.md`: supported toolchain and the executable
+  `Doctor`, `Setup`, `Quick`, `Full` and `PlanOnly` development contract.
 - `docs/source-commenting-manifest.md`: source-comment coverage, placement, syntax exceptions, immutable-file rules, and automated enforcement; language selection remains in the canonical Governance policy.
 - `docs/production-runbook.md`: production operations and incident handling.
 - `docs/technical-roadmap.md`: planned technical evolution.
@@ -23,6 +27,11 @@ Prefer updating the documents listed here instead of creating new root-level con
 - `AGENTS.md`: repository-level routing adapter that requires `prompts/Start-Here.md` and points to the applicable canonical authorities.
 - `prompts/core/Governance.md#language-policy`: single thematic authority for owner communication and project-owned artefact language.
 - `prompts/core/Execution-Protocol.md`: single thematic authority for conversation routing, handoff, delegated lanes, ownership, isolation, and safe parallel work.
+- `eng/development.ps1`, `eng/ci.ps1`, `eng/build.ps1`, and
+  `eng/test-development-workflow.ps1`: executable development entry point,
+  canonical runtime-credential-free core gate, metadata-preserving build
+  wrapper and anti-drift policy test; these implement the canonical protocol
+  but do not create authority.
 - `docs/history/sources/language-policy.md`: preserved historical source for the version 4.0.0 language-policy adoption.
 - `docs/history/sources/conversation-coordination-prompt.md`: preserved historical source for the version 3.0.0 coordination adoption.
 
@@ -56,6 +65,21 @@ When a prompt control file is still required, keep it in the active manifest and
 - `docs/history/phase-delivery-history.md`: consolidated architecture, data-model, handoff, integration, homologation, and release evidence.
 - `docs/history/state-transitions-2026.md`: consolidated pre-2.0 state, snapshot, transition, and version history.
 - `docs/history/sources/`: preserved source texts that have already been incorporated into canonical governance and have no operational authority.
+
+## Version 5.1 Governed Development Workflow
+
+- Added `PLANS.md` as non-authoritative executable planning and evidence for
+  broad or multi-step work without changing the 17-file active prompt corpus.
+- Adopted the iterative audit, prioritisation, root-cause correction,
+  regression, integration, measurement, documentation and retrospective loop.
+- Added deterministic `Doctor`, `Setup`, `Quick`, `Full` and `PlanOnly`
+  contracts with one runtime-credential-free core gate shared by local and remote CI.
+- Added fail-closed worktree/index/candidate diff checks, Node.js 22/24 core
+  lanes and per-run credentials for the separate disposable runtime job.
+- Kept `Quick` explicitly `NON_GATE` and kept database, seed, runtime, E2E,
+  load, browser, deployment, Human Gate and lifecycle evidence separate.
+- Preserved `STATE-08 PRODUCTION_RELEASE`, existing authority, conditional
+  owner delivery, writer isolation and automatic local-commit policy.
 
 ## Version 5.0.1 Automatic Local Commit Completion
 

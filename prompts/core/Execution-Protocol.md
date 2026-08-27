@@ -37,14 +37,61 @@ Never use an empty, `Nenhum`, waiting, no-authority, or no-further-action value 
 3. Confirm the request is allowed by the current state or post-release policy.
 4. Load one relevant phase file and only the required module or playbook.
 5. Inspect current code, evidence, Git/worktree condition, and known concurrent activity before changing files.
-6. Establish a reproducible baseline and confirm positive scope, negative scope, and authority.
+6. Establish a reproducible baseline and confirm positive scope, negative scope, and authority; create or reconcile the active `../../PLANS.md` record for broad or multi-step implementation.
 7. When a governed handoff or delegation is required, classify conversation routing and parallel work independently.
 8. Resolve conflicts, ownership overlap, isolation failures, or blocks before implementation.
 9. Execute the smallest complete authorised change.
 10. Integrate one delivery at a time through the coordinating conversation when delegation is used.
 11. Run proportional quality gates, including cross-lane checks after integration.
-12. Update snapshot, changelog, or transition log only when their responsibility is affected.
+12. Synchronise the executable plan and update snapshot, changelog, or transition log only when their responsibility is affected.
 13. Automatically commit each validated file-changing task with narrow scope before final delivery; do not wait for a separate request or carry the changes into a later activity.
+
+## Executable planning and development loop
+
+Broad, cross-layer, uncertain, or multi-step implementation must keep the
+newest active record in `../../PLANS.md` synchronised. The record identifies at
+least the objective, authority, exact baseline, positive and negative scope,
+acceptance criteria, ordered increments, dependencies, risks, validation
+evidence, blockers, integration status and remaining work. It is execution
+evidence, not a prompt, state source, ADR, gate result or authority grant. When
+it conflicts with the active corpus or factual repository state, stop, report
+the conflict and correct the plan before continuing.
+
+Use this iterative cycle for development and maintenance:
+
+1. **Audit** the applicable instructions, documentation, code, tests, Git
+   state, protected artefacts and negative scope read-only before material
+   mutation.
+2. **Prioritise** security and integrity, functional blockers, recurring root
+   causes, the critical path, regressions, productivity and then optional
+   refinements.
+3. **Correct** the smallest coherent root cause within the authorised scope.
+4. **Test** focally after each increment and add regression coverage when the
+   risk is executable.
+5. **Integrate** one inspected delivery at a time, preserving other work and
+   shared-resource boundaries.
+6. **Measure** the practical outcome and distinguish observed, inferred,
+   blocked and untested results.
+7. **Document** current behaviour, evidence, limitations and the active plan
+   without rewriting protected history.
+8. **Retrospect** on recurring failure or manual effort and improve the
+   smallest owning control rather than adding duplicate process.
+
+The executable repository entry point is `../../eng/development.ps1`:
+
+- `Doctor` is read-only diagnosis.
+- `Setup` performs locked dependency preparation and Prisma client generation
+  without migration, seed or database connection.
+- `Quick` is explicitly `NON_GATE` fast feedback and cannot be presented as a
+  canonical pass.
+- `Full` delegates exactly once to `../../eng/ci.ps1`, the runtime-credential-free core
+  repository gate shared with remote CI.
+- `PlanOnly` prints the deterministic plan without executing it.
+
+Database migration, seed, runtime, E2E, load, browser, deployment, Human Gate
+and lifecycle evidence remain separate even when the core `Full` gate passes.
+An offline `NOT_RUN` result never becomes a pass by inference; `Full -Offline`
+must finish mechanically as `INCOMPLETE_NON_GATE`.
 
 ## Allowed commands by state
 
