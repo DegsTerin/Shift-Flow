@@ -54,18 +54,20 @@ function redact(value: unknown): unknown {
   );
 }
 
+export function buildAuditData(req: ApiRequest, input: AuditInput) {
+  const { before, after, ...rest } = input;
+  return {
+    ...rest,
+    ...(before !== undefined ? { before: redact(before) } : {}),
+    ...(after !== undefined ? { after: redact(after) } : {}),
+    actorUserId: req.auth?.id,
+    requestId: req.context?.requestId,
+    ipAddress: req.context?.ipAddress,
+    userAgent: req.context?.userAgent
+  };
+}
+
 export async function writeAudit(req: ApiRequest, input: AuditInput) {
   const auditLog = await getDelegate<AuditDelegate>("auditLog");
-  const { before, after, ...rest } = input;
-  await auditLog.create({
-    data: {
-      ...rest,
-      ...(before !== undefined ? { before: redact(before) } : {}),
-      ...(after !== undefined ? { after: redact(after) } : {}),
-      actorUserId: req.auth?.id,
-      requestId: req.context?.requestId,
-      ipAddress: req.context?.ipAddress,
-      userAgent: req.context?.userAgent
-    }
-  });
+  await auditLog.create({ data: buildAuditData(req, input) });
 }

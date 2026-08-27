@@ -88,15 +88,17 @@ export function SelectInput({
   name,
   value,
   options,
-  disabled = false
+  disabled = false,
+  required = false
 }: {
   name: string;
   value: string;
   options: string[][];
   disabled?: boolean;
+  required?: boolean;
 }) {
   return (
-    <select name={name} defaultValue={value} disabled={disabled}>
+    <select name={name} defaultValue={value} disabled={disabled} required={required}>
       {options.map(([id, text]) => (
         <option key={id} value={id}>
           {text}

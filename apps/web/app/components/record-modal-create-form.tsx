@@ -75,8 +75,12 @@ export function CreateForm({
           Perfil
           <SelectInput
             name="roleId"
-            value={roles.find((role) => role.name === "Operador")?.id ?? roles[0]?.id ?? ""}
-            options={roles.map((role) => [role.id ?? "", role.name ?? "-"])}
+            value=""
+            options={[
+              ["", "Selecione um perfil de empresa"],
+              ...roles.map((role) => [role.id ?? "", role.name ?? "-"])
+            ]}
+            required
           />
         </label>
         <label>

@@ -1,6 +1,8 @@
 // en-GB: Exercises comments behaviour so regressions at this boundary are detected automatically.
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import { RbacService } from "../rbac/rbac.service.js";
+import type { CommentsRepository } from "./comments.repository.js";
 import { CommentsService } from "./comments.service.js";
 
 vi.mock("../../shared/services/audit-writer.js", () => ({
@@ -23,6 +25,11 @@ function makeRequest(permissions: string[] = []): ApiRequest {
 
 function serviceWithRepository(authorId: string) {
   const repository = {
+    findMutationContext: vi.fn().mockResolvedValue({
+      id: "comment-1",
+      authorId,
+      activity: { clientId: "client-1", teamId: "team-1" }
+    }),
     findById: vi.fn().mockResolvedValue({
       id: "comment-1",
       companyId: "company-1",
@@ -45,14 +52,18 @@ function serviceWithRepository(authorId: string) {
       deletedAt: new Date()
     })
   };
-  const service = new CommentsService();
-  (service as unknown as { repository: typeof repository }).repository = repository;
+  const service = new CommentsService(repository as unknown as CommentsRepository);
   return { service, repository };
 }
 
 describe("CommentsService", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("allows the comment author to edit and stamps editedAt", async () => {
     const { service, repository } = serviceWithRepository("user-1");
+    const permissionCheck = vi.spyOn(RbacService, "hasPermission").mockResolvedValue(true);
 
     await service.update(makeRequest(), "comment-1", { body: "Updated comment" });
 
@@ -64,13 +75,26 @@ describe("CommentsService", () => {
       }),
       "company-1"
     );
+    expect(permissionCheck).toHaveBeenCalledWith(expect.objectContaining({ id: "user-1" }), {
+      resource: "comments",
+      action: "write",
+      tenant: {
+        companyId: "company-1",
+        clientId: "client-1",
+        teamId: "team-1"
+      }
+    });
+    expect(permissionCheck).toHaveBeenCalledOnce();
   });
 
-  it("blocks edits from users who are not the author or moderators", async () => {
+  it("does not trust a stale moderation claim when current RBAC denies it", async () => {
     const { service, repository } = serviceWithRepository("user-2");
+    vi.spyOn(RbacService, "hasPermission").mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
     await expect(
-      service.update(makeRequest(), "comment-1", { body: "Updated comment" })
+      service.update(makeRequest(["comments:moderate"]), "comment-1", {
+        body: "Updated comment"
+      })
     ).rejects.toMatchObject({
       statusCode: 403,
       code: "FORBIDDEN"
@@ -78,11 +102,43 @@ describe("CommentsService", () => {
     expect(repository.update).not.toHaveBeenCalled();
   });
 
-  it("allows moderators to remove comments from other users", async () => {
-    const { service, repository } = serviceWithRepository("user-2");
+  it("denies an author whose current scoped write authority is absent", async () => {
+    const { service, repository } = serviceWithRepository("user-1");
+    vi.spyOn(RbacService, "hasPermission").mockResolvedValue(false);
 
-    await service.remove(makeRequest(["comments:moderate"]), "comment-1");
+    await expect(
+      service.update(makeRequest(["comments:write"]), "comment-1", {
+        body: "Updated comment"
+      })
+    ).rejects.toMatchObject({ statusCode: 403, code: "FORBIDDEN" });
+
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("allows current scoped moderators to remove comments from other users", async () => {
+    const { service, repository } = serviceWithRepository("user-2");
+    const permissionCheck = vi.spyOn(RbacService, "hasPermission").mockResolvedValue(true);
+
+    await service.remove(makeRequest(), "comment-1");
 
     expect(repository.softDelete).toHaveBeenCalledWith("comment-1", undefined, "company-1");
+    expect(permissionCheck).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: "user-1" }), {
+      resource: "comments",
+      action: "delete",
+      tenant: {
+        companyId: "company-1",
+        clientId: "client-1",
+        teamId: "team-1"
+      }
+    });
+    expect(permissionCheck).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "user-1" }), {
+      resource: "comments",
+      action: "moderate",
+      tenant: {
+        companyId: "company-1",
+        clientId: "client-1",
+        teamId: "team-1"
+      }
+    });
   });
 });

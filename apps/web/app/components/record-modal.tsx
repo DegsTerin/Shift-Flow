@@ -25,7 +25,8 @@ import {
   recordPayload,
   shiftStatuses,
   userOptionLabel,
-  userRoleId
+  userRoleId,
+  userRoleOptions
 } from "../lib/utils";
 import { SelectInput } from "./controls";
 import { ActivityDetail } from "./record-modal-activity-detail";
@@ -438,9 +439,9 @@ function UserDetail({
         Perfil
         <SelectInput
           name="roleId"
-          value={userRoleId(user) || roles[0]?.id || ""}
+          value={userRoleId(user)}
           disabled={!editing}
-          options={roles.map((role) => [role.id ?? "", role.name ?? "-"])}
+          options={userRoleOptions(user, roles)}
         />
       </label>
       <label>

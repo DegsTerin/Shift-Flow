@@ -25,8 +25,7 @@ export const RbacController = {
             req.auth,
             req.tenant,
             param(req.params.roleId, "roleId"),
-            req.body.permissionId,
-            req.body.companyId ?? req.tenant?.companyId
+            req.body.permissionId
           )
         )
       );

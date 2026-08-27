@@ -17,10 +17,5 @@ commentRoutes.post(
   CommentsController.create
 );
 commentRoutes.get("/:id", requirePermission("comments", "read"), CommentsController.get);
-commentRoutes.patch(
-  "/:id",
-  requirePermission("comments", "write"),
-  validate("body", updateCommentSchema),
-  CommentsController.update
-);
-commentRoutes.delete("/:id", requirePermission("comments", "delete"), CommentsController.remove);
+commentRoutes.patch("/:id", validate("body", updateCommentSchema), CommentsController.update);
+commentRoutes.delete("/:id", CommentsController.remove);

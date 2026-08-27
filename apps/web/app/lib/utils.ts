@@ -10,6 +10,7 @@ import type {
   TeamRef,
   Texts,
   UserRef,
+  RoleRef,
   View
 } from "./types";
 
@@ -138,6 +139,7 @@ export function activityPayload(form: FormData) {
 
 export function userPayload(form: FormData, includePassword = false) {
   const password = String(form.get("password") || "");
+  const roleId = String(form.get("roleId") || "");
   return {
     email: String(form.get("email") ?? ""),
     displayName: String(form.get("displayName") ?? ""),
@@ -145,8 +147,19 @@ export function userPayload(form: FormData, includePassword = false) {
     status: String(form.get("status") || "ACTIVE"),
     preferredLocale: String(form.get("preferredLocale") || "PT_BR"),
     preferredTheme: String(form.get("preferredTheme") || "SYSTEM"),
-    roleId: String(form.get("roleId") || "") || undefined,
+    ...(roleId ? { roleId } : {}),
     ...(includePassword || password ? { password } : {})
+  };
+}
+
+export function roleUpdatePayload(form: FormData) {
+  const scope = form.get("scope");
+  return {
+    name: String(form.get("name") ?? ""),
+    ...(scope === null ? {} : { scope: String(scope) }),
+    color: String(form.get("color") || "#0f766e"),
+    isActive: form.get("isActive") === "on",
+    description: String(form.get("description") || "") || undefined
   };
 }
 
@@ -159,11 +172,43 @@ export function clientPayload(form: FormData) {
 }
 
 export function userRoleName(user: UserRef) {
-  return user.roleAssignments?.[0]?.role?.name ?? "-";
+  return editableCompanyAssignment(user)?.role?.name ?? "-";
 }
 
 export function userRoleId(user: UserRef) {
-  return user.roleAssignments?.[0]?.roleId ?? user.roleAssignments?.[0]?.role?.id ?? "";
+  const assignment = editableCompanyAssignment(user);
+  return assignment?.roleId ?? assignment?.role?.id ?? "";
+}
+
+export function productAssignableRoles(roles: RoleRef[]) {
+  return roles.filter(
+    (role) => role.scope === "COMPANY" && role.isActive === true && !role.deletedAt
+  );
+}
+
+export function userRoleOptions(user: UserRef, roles: RoleRef[]) {
+  const options = roles.map((role) => [role.id ?? "", role.name ?? "-"]);
+  const assignment = editableCompanyAssignment(user);
+  const currentId = assignment?.roleId ?? assignment?.role?.id ?? "";
+  if (!currentId) {
+    return [["", "Sem perfil de empresa"], ...options];
+  }
+  if (!options.some(([id]) => id === currentId)) {
+    options.unshift([currentId, `${assignment?.role?.name ?? "Perfil atual"} (atual)`]);
+  }
+  return options;
+}
+
+function editableCompanyAssignment(user: UserRef) {
+  return user.roleAssignments?.find(
+    (assignment) =>
+      assignment.role?.scope === "COMPANY" &&
+      assignment.role.isActive === true &&
+      !assignment.role.deletedAt &&
+      !assignment.clientId &&
+      !assignment.teamId &&
+      assignment.endsAt === null
+  );
 }
 
 export function hasPermission(permissions: string[] | undefined, resource: string, action: string) {

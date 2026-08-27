@@ -21,6 +21,7 @@ type RoleDelegate = {
     name?: string;
     description?: string | null;
     scope?: string;
+    companyId?: string | null;
     color?: string | null;
     isSystem?: boolean;
     isActive?: boolean;
@@ -33,6 +34,10 @@ type PermissionDelegate = {
 };
 
 type UserCompanyDelegate = {
+  findFirst(args: unknown): Promise<unknown | null>;
+};
+
+type ScopedResourceDelegate = {
   findFirst(args: unknown): Promise<unknown | null>;
 };
 
@@ -60,18 +65,52 @@ export class RbacRepository {
     return getDelegate<UserCompanyDelegate>("userCompany");
   }
 
-  async findAssignmentsForUser(userId: string, companyId?: string) {
+  async findAssignmentsForUser(userId: string, companyId: string) {
+    const now = new Date();
     return (await this.assignments()).findMany({
       where: {
         userId,
-        ...(companyId ? { companyId } : {}),
+        companyId,
         deletedAt: null,
-        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
+        startsAt: { lte: now },
+        OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+        AND: [
+          {
+            OR: [{ clientId: null }, { client: { status: "ACTIVE", deletedAt: null } }]
+          },
+          {
+            OR: [{ teamId: null }, { team: { deletedAt: null } }]
+          }
+        ],
+        company: { status: "ACTIVE", deletedAt: null },
+        user: {
+          status: "ACTIVE",
+          deletedAt: null,
+          companies: {
+            some: {
+              companyId,
+              deletedAt: null,
+              company: { status: "ACTIVE", deletedAt: null }
+            }
+          }
+        },
+        role: {
+          isActive: true,
+          deletedAt: null,
+          OR: [{ companyId }, { companyId: null }]
+        }
       },
       include: {
         role: {
           include: {
             permissions: {
+              where: {
+                OR: [{ companyId }, { companyId: null }],
+                permission: {
+                  deletedAt: null,
+                  OR: [{ companyId }, { companyId: null }]
+                }
+              },
               include: { permission: true }
             }
           }
@@ -114,12 +153,14 @@ export class RbacRepository {
   }
 
   async countActiveAssignments(roleId: string, companyId: string) {
+    const now = new Date();
     return (await this.assignments()).count({
       where: {
         roleId,
         companyId,
         deletedAt: null,
-        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
+        startsAt: { lte: now },
+        OR: [{ endsAt: null }, { endsAt: { gt: now } }]
       }
     });
   }
@@ -165,7 +206,25 @@ export class RbacRepository {
 
   async findUserCompany(userId: string, companyId: string) {
     return (await this.userCompanies()).findFirst({
-      where: { userId, companyId, deletedAt: null }
+      where: {
+        userId,
+        companyId,
+        deletedAt: null,
+        user: { status: "ACTIVE", deletedAt: null },
+        company: { status: "ACTIVE", deletedAt: null }
+      }
+    });
+  }
+
+  async findClient(clientId: string, companyId: string) {
+    return (await getDelegate<ScopedResourceDelegate>("client")).findFirst({
+      where: { id: clientId, companyId, status: "ACTIVE", deletedAt: null }
+    });
+  }
+
+  async findTeam(teamId: string, companyId: string) {
+    return (await getDelegate<ScopedResourceDelegate>("team")).findFirst({
+      where: { id: teamId, companyId, deletedAt: null }
     });
   }
 }

@@ -50,7 +50,14 @@ import type {
   UserRef,
   View
 } from "./lib/types";
-import { emptyFilters, hasPermission, matchesSearch, userRoleName } from "./lib/utils";
+import {
+  emptyFilters,
+  hasPermission,
+  matchesSearch,
+  productAssignableRoles,
+  roleUpdatePayload,
+  userRoleName
+} from "./lib/utils";
 
 function parseStoredJson(value: string | null) {
   if (!value) return null;
@@ -418,13 +425,7 @@ export default function Page() {
     try {
       await apiRequest(`/api/rbac/roles/${roleId}`, token, {
         method: "PATCH",
-        body: JSON.stringify({
-          name: String(form.get("name") ?? ""),
-          scope: String(form.get("scope") || "COMPANY"),
-          color: String(form.get("color") || "#0f766e"),
-          isActive: form.get("isActive") === "on",
-          description: String(form.get("description") || "") || undefined
-        })
+        body: JSON.stringify(roleUpdatePayload(form))
       });
       await loadData();
     } catch (cause) {
@@ -816,7 +817,7 @@ export default function Page() {
           users={users}
           teams={teams}
           shifts={shifts}
-          roles={roles}
+          roles={productAssignableRoles(roles)}
           onClose={() => setModal(null)}
           onReload={loadData}
         />

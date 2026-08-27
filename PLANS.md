@@ -91,7 +91,7 @@ finding.
    acceptance criteria, correction order and validation envelope in this plan.
 4. `COMPLETED` — harden platform lifecycle scripts, destructive-seed preflight and
    secret scanning; add side-effect-free regressions and reconcile operational docs.
-5. `PENDING` — correct RBAC/tenant/session/recipient boundaries and add security
+5. `IN_PROGRESS` — correct RBAC/tenant/session/recipient boundaries and add security
    regressions before any lower-priority refactoring.
 6. `PENDING` — correct response shaping, validation, pagination, activity evidence
    growth, lifecycle bypasses and safe query/performance defects without schema drift.
@@ -111,9 +111,10 @@ finding.
 
 ### Increment evidence
 
-| Increment                                                                             | Disposition                | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Operational safety, destructive-seed guard, secret scanner and runbook reconciliation | `COMPLETED_CORE_GATE_PASS` | Side-effect-free platform workflow passed in Windows PowerShell 5.1 and PowerShell 7; focused scanner/seed tests passed; secret scan inspected 225 Git-candidate files without values; `dev:quick` and the online canonical `dev:full` gate passed with zero npm vulnerabilities, 9 test files, 40 tests and production builds; independent review reached `CANDIDATE` after all P1/P2 findings were corrected. Docker, application services, ports, seed and database were not invoked. |
+| Increment                                                                                   | Disposition                | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Operational safety, destructive-seed guard, secret scanner and runbook reconciliation       | `COMPLETED_CORE_GATE_PASS` | Side-effect-free platform workflow passed in Windows PowerShell 5.1 and PowerShell 7; focused scanner/seed tests passed; secret scan inspected 225 Git-candidate files without values; `dev:quick` and the online canonical `dev:full` gate passed with zero npm vulnerabilities, 9 test files, 40 tests and production builds; independent review reached `CANDIDATE` after all P1/P2 findings were corrected. Docker, application services, ports, seed and database were not invoked.                                                                                                                           |
+| Tenant RBAC, resource-aware comments, recipient notifications and simple user-role boundary | `COMPLETED_CORE_GATE_PASS` | Three independent read-only reviews reached `CANDIDATE` after all verified P1/P2 successors were corrected. Eleven focused files with 61 tests passed; the full non-gate Quick loop and the canonical online core gate passed formatting, source-comment and platform policies, lint, type checking, Prisma generation and validation, dependency overrides, production configuration, a redacted scan of 235 Git-candidate files, 19 unit-test files with 98 tests, both production builds and `npm audit` with zero vulnerabilities. Docker, application services, ports, database and browser were not invoked. |
 
 ### Deferred-by-authority or decision boundary
 
@@ -123,6 +124,20 @@ finding.
   hierarchy, timezone semantics, attachment storage, full report/notification
   product surfaces and production deployment topology require explicit product
   or architecture decisions; corrective code must not invent them.
+- Resource-aware authorisation remains required for routes that do not yet
+  derive client or team scope from the persisted resource. Until that successor
+  exists, limited assignments fail closed when the required scope is absent;
+  client-selected headers are not accepted as proof of resource ownership.
+- The current user editor models one permanent, unscoped company role and
+  cannot safely create, display or edit multiple client/team/time-bounded
+  assignments. Existing limited, future, expired and time-bounded assignments
+  are preserved when the permanent company role changes. Those
+  assignment-management journeys remain API-only and not frontend-homologated
+  until an explicit product contract is approved. The product role-management
+  interface therefore creates and mutates only company-scoped profiles;
+  existing system and limited profiles remain read-only there. The implemented
+  permission-subset delegation rule is a fail-closed security floor, not final
+  approval of the deferred product hierarchy.
 - Pixel Perfect approval requires an authorised reference baseline. Runtime
   screenshots can establish internal consistency and defects, but not equivalence
   to an absent design source.

@@ -20,33 +20,88 @@ type Assignment = {
   clientId?: string | null;
   teamId?: string | null;
   role?: {
+    companyId?: string | null;
+    scope?: string;
+    isActive?: boolean;
     permissions?: Array<{
-      permission?: { resource?: string; action?: string };
+      permission?: {
+        companyId?: string | null;
+        resource?: string;
+        action?: string;
+      };
     }>;
   };
 };
 
 const superAdminPermission = "*:*";
-const roleInclude = {
-  permissions: {
-    include: { permission: true },
-    orderBy: { createdAt: "asc" }
-  },
-  _count: {
-    select: {
-      assignments: {
-        where: {
-          deletedAt: null,
-          OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
+const mutableRoleFields = ["name", "description", "color", "scope", "isActive"] as const;
+const mutablePermissionFields = ["resource", "action", "description"] as const;
+
+function pickAllowedFields(data: Record<string, unknown>, fields: readonly string[]) {
+  return Object.fromEntries(
+    fields
+      .filter((field) => Object.prototype.hasOwnProperty.call(data, field))
+      .map((field) => [field, data[field]])
+  );
+}
+
+function roleInclude(now = new Date()) {
+  return {
+    permissions: {
+      include: { permission: true },
+      orderBy: { createdAt: "asc" }
+    },
+    _count: {
+      select: {
+        assignments: {
+          where: {
+            deletedAt: null,
+            startsAt: { lte: now },
+            OR: [{ endsAt: null }, { endsAt: { gt: now } }]
+          }
         }
       }
     }
+  };
+}
+
+export function assignmentGrantsPermission(
+  assignment: Assignment,
+  rule: PermissionRule,
+  companyId: string
+) {
+  if (assignment.companyId !== companyId || !assignment.role) {
+    return false;
   }
-};
+  if (assignment.role.companyId && assignment.role.companyId !== companyId) {
+    return false;
+  }
+
+  const clientScopeMatches = assignment.clientId
+    ? assignment.clientId === rule.tenant?.clientId
+    : assignment.role.scope !== "CLIENT";
+  const teamScopeMatches = assignment.teamId
+    ? assignment.teamId === rule.tenant?.teamId
+    : assignment.role.scope !== "TEAM";
+  if (!clientScopeMatches || !teamScopeMatches || assignment.role.isActive === false) {
+    return false;
+  }
+
+  const required = `${rule.resource}:${rule.action}`;
+  const permissions =
+    assignment.role.permissions
+      ?.filter((item) => !item.permission?.companyId || item.permission.companyId === companyId)
+      .map((item) => `${item.permission?.resource}:${item.permission?.action}`) ?? [];
+  return permissions.includes(required) || permissions.includes(superAdminPermission);
+}
 
 class RolesService extends BaseService {
   constructor(private readonly rbacRepository: RbacRepository) {
     super(rbacRepository.roles, "Role", { userStamps: false });
+  }
+
+  override async create(req: ApiRequest, data: Record<string, unknown>) {
+    return super.create(req, pickAllowedFields(data, mutableRoleFields));
   }
 
   override async list(req: ApiRequest, filters: Record<string, unknown> = {}) {
@@ -58,7 +113,7 @@ class RolesService extends BaseService {
         where,
         ...toSkipTake(pagination),
         orderBy: { updatedAt: "desc" },
-        include: roleInclude
+        include: roleInclude()
       }),
       this.repository.count(where)
     ]);
@@ -67,7 +122,7 @@ class RolesService extends BaseService {
   }
 
   override async get(req: ApiRequest, id: string) {
-    const item = await this.repository.findById(id, this.requireCompanyId(req), roleInclude);
+    const item = await this.repository.findById(id, this.requireCompanyId(req), roleInclude());
     if (!item) {
       throw notFound("Role not found");
     }
@@ -105,7 +160,13 @@ class RolesService extends BaseService {
     if (role.isSystem) {
       throw badRequest("System profiles cannot be edited");
     }
-    return super.update(req, id, data);
+    if (data.scope && data.scope !== role.scope) {
+      const assignmentCount = await this.rbacRepository.countActiveAssignments(id, companyId);
+      if (assignmentCount > 0) {
+        throw badRequest("Profile scope cannot change while active assignments exist");
+      }
+    }
+    return super.update(req, id, pickAllowedFields(data, mutableRoleFields));
   }
 
   async duplicate(req: ApiRequest, id: string) {
@@ -117,45 +178,45 @@ class RolesService extends BaseService {
     if (!role) {
       throw notFound("Role not found");
     }
+    if (role.isSystem) {
+      throw badRequest("System profiles cannot be duplicated");
+    }
     return this.rbacRepository.duplicateRole(id, companyId, `${role.name ?? "Perfil"} - copia`);
+  }
+}
+
+class PermissionsService extends BaseService {
+  constructor(repository: RbacRepository) {
+    super(repository.permissions, "Permission", { userStamps: false });
+  }
+
+  override async create(req: ApiRequest, data: Record<string, unknown>) {
+    return super.create(req, pickAllowedFields(data, mutablePermissionFields));
   }
 }
 
 export class RbacService {
   private static repository = new RbacRepository();
   static roles = new RolesService(RbacService.repository);
-  static permissions = new BaseService(RbacService.repository.permissions, "Permission", {
-    userStamps: false
-  });
+  static permissions = new PermissionsService(RbacService.repository);
 
   static async hasPermission(user: AuthenticatedUser, rule: PermissionRule) {
-    const required = `${rule.resource}:${rule.action}`;
     if (rule.tenant?.companyId && rule.tenant.companyId !== user.companyId) {
       return false;
     }
     const companyId = rule.tenant?.companyId ?? user.companyId;
+    if (!companyId) {
+      return false;
+    }
 
     const assignments = (await RbacService.repository.findAssignmentsForUser(
       user.id,
       companyId
     )) as Assignment[];
 
-    return assignments.some((assignment) => {
-      const scoped =
-        (!rule.tenant?.clientId || assignment.clientId === rule.tenant.clientId) &&
-        (!rule.tenant?.teamId || assignment.teamId === rule.tenant.teamId);
-      const permissions =
-        assignment.role?.permissions?.map(
-          (item) => `${item.permission?.resource}:${item.permission?.action}`
-        ) ?? [];
-
-      return (
-        scoped &&
-        assignment.role &&
-        (assignment.role as { isActive?: boolean }).isActive !== false &&
-        (permissions.includes(required) || permissions.includes(superAdminPermission))
-      );
-    });
+    return assignments.some((assignment) =>
+      assignmentGrantsPermission(assignment, rule, companyId)
+    );
   }
 
   private static effectiveCompany(user: AuthenticatedUser | undefined, tenant?: TenantContext) {
@@ -179,13 +240,10 @@ export class RbacService {
     data: Record<string, unknown>
   ) {
     const companyId = RbacService.effectiveCompany(actor, tenant);
-    if (String(data.companyId) !== companyId) {
-      throw forbidden("Cannot assign roles outside the active company");
-    }
 
     const role = await RbacService.repository.findRole(String(data.roleId), companyId);
-    if (!role) {
-      throw badRequest("Role does not belong to the active company");
+    if (!role || role.isActive !== true) {
+      throw badRequest("Role is not active in the current company");
     }
 
     const userCompany = await RbacService.repository.findUserCompany(
@@ -196,20 +254,50 @@ export class RbacService {
       throw badRequest("User is not linked to the active company");
     }
 
-    return RbacService.repository.assignRole(data);
+    const clientId = data.clientId ? String(data.clientId) : undefined;
+    const teamId = data.teamId ? String(data.teamId) : undefined;
+    if (role.scope === "CLIENT" && !clientId) {
+      throw badRequest("Client-scoped roles require a client");
+    }
+    if (role.scope === "TEAM" && !teamId) {
+      throw badRequest("Team-scoped roles require a team");
+    }
+
+    const [client, team] = await Promise.all([
+      clientId ? RbacService.repository.findClient(clientId, companyId) : undefined,
+      teamId ? RbacService.repository.findTeam(teamId, companyId) : undefined
+    ]);
+    if (clientId && !client) {
+      throw badRequest("Client does not belong to the active company");
+    }
+    if (teamId && !team) {
+      throw badRequest("Team does not belong to the active company");
+    }
+
+    const startsAt = data.startsAt instanceof Date ? data.startsAt : new Date();
+    const endsAt = data.endsAt instanceof Date ? data.endsAt : undefined;
+    if (endsAt && endsAt <= startsAt) {
+      throw badRequest("endsAt must be later than startsAt");
+    }
+
+    return RbacService.repository.assignRole({
+      companyId,
+      userId: String(data.userId),
+      roleId: String(data.roleId),
+      ...(clientId ? { clientId } : {}),
+      ...(teamId ? { teamId } : {}),
+      ...(data.startsAt instanceof Date ? { startsAt } : {}),
+      ...(endsAt ? { endsAt } : {})
+    });
   }
 
   static async assignPermission(
     actor: AuthenticatedUser | undefined,
     tenant: TenantContext | undefined,
     roleId: string,
-    permissionId: string,
-    requestedCompanyId?: string
+    permissionId: string
   ) {
     const companyId = RbacService.effectiveCompany(actor, tenant);
-    if (requestedCompanyId && requestedCompanyId !== companyId) {
-      throw forbidden("Cannot assign permissions outside the active company");
-    }
 
     const [role, permission] = await Promise.all([
       RbacService.repository.findRole(roleId, companyId),
@@ -217,6 +305,9 @@ export class RbacService {
     ]);
     if (!role) {
       throw badRequest("Role does not belong to the active company");
+    }
+    if (role.isSystem) {
+      throw badRequest("System profile permissions cannot be changed");
     }
     if (!permission) {
       throw badRequest("Permission is not available in the active company");
@@ -235,6 +326,9 @@ export class RbacService {
     const role = await RbacService.repository.findRole(roleId, companyId);
     if (!role) {
       throw badRequest("Role does not belong to the active company");
+    }
+    if (role.isSystem) {
+      throw badRequest("System profile permissions cannot be changed");
     }
     return RbacService.repository.removePermission(roleId, permissionId, companyId);
   }

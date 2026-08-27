@@ -125,10 +125,18 @@ export type RoleRef = {
   scope?: string;
   isSystem?: boolean;
   isActive?: boolean;
+  deletedAt?: string | null;
   permissions?: RolePermissionRef[];
   _count?: { assignments?: number };
 };
-export type UserRoleAssignmentRef = { roleId?: string; role?: RoleRef };
+export type UserRoleAssignmentRef = {
+  roleId?: string;
+  clientId?: string | null;
+  teamId?: string | null;
+  startsAt?: string;
+  endsAt?: string | null;
+  role?: RoleRef;
+};
 export type UserRef = {
   id?: string;
   displayName?: string;

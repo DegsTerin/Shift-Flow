@@ -9,6 +9,16 @@ function permissionLabel(permission: PermissionRef) {
   return `${permission.resource ?? "-"}:${permission.action ?? "-"}`;
 }
 
+export function canDuplicateRole(role: RoleRef | undefined, busy: boolean) {
+  return !busy && canManageProductRole(role);
+}
+
+export const productCreatableRoleScopes = ["COMPANY"] as const;
+
+export function canManageProductRole(role: RoleRef | undefined) {
+  return Boolean(role?.id) && role?.isSystem !== true && role?.scope === "COMPANY";
+}
+
 export function RoleManagementView({
   t,
   roles,
@@ -80,11 +90,17 @@ export function RoleManagementView({
             </label>
             <label>
               Escopo
-              <select name="scope" defaultValue="COMPANY">
-                <option value="COMPANY">Empresa</option>
-                <option value="TEAM">Equipe</option>
-                <option value="CLIENT">Cliente</option>
+              <input name="scope" type="hidden" value="COMPANY" />
+              <select aria-describedby="create-role-scope-note" value="COMPANY" disabled>
+                {productCreatableRoleScopes.map((scope) => (
+                  <option key={scope} value={scope}>
+                    Empresa
+                  </option>
+                ))}
               </select>
+              <small id="create-role-scope-note">
+                Escopos por cliente ou equipe ainda nao estao homologados nesta interface.
+              </small>
             </label>
             <label>
               Descricao
@@ -162,28 +178,32 @@ export function RoleManagementView({
                     <input
                       name="name"
                       defaultValue={selectedRole.name ?? ""}
-                      disabled={selectedRole.isSystem}
+                      disabled={!canManageProductRole(selectedRole)}
                       required
                     />
                   </label>
                   <label>
                     Escopo
                     <select
+                      aria-describedby="edit-role-scope-note"
                       name="scope"
                       defaultValue={selectedRole.scope ?? "COMPANY"}
-                      disabled={selectedRole.isSystem}
+                      disabled
                     >
                       <option value="COMPANY">Empresa</option>
                       <option value="TEAM">Equipe</option>
                       <option value="CLIENT">Cliente</option>
                     </select>
+                    <small id="edit-role-scope-note">
+                      O escopo e somente leitura nesta interface.
+                    </small>
                   </label>
                   <label>
                     Descricao
                     <textarea
                       name="description"
                       defaultValue={selectedRole.description ?? ""}
-                      disabled={selectedRole.isSystem}
+                      disabled={!canManageProductRole(selectedRole)}
                     />
                   </label>
                   <label>
@@ -192,7 +212,7 @@ export function RoleManagementView({
                       name="color"
                       type="color"
                       defaultValue={selectedRole.color ?? "#0f766e"}
-                      disabled={selectedRole.isSystem}
+                      disabled={!canManageProductRole(selectedRole)}
                     />
                   </label>
                   <label className="toggle-label">
@@ -200,20 +220,20 @@ export function RoleManagementView({
                       name="isActive"
                       type="checkbox"
                       defaultChecked={selectedRole.isActive !== false}
-                      disabled={selectedRole.isSystem}
+                      disabled={!canManageProductRole(selectedRole)}
                     />
                     Ativo
                   </label>
                   <button
                     className="primary-button"
-                    disabled={busy || selectedRole.isSystem || !effectiveRoleId}
+                    disabled={busy || !canManageProductRole(selectedRole)}
                     type="submit"
                   >
                     {t.save}
                   </button>
                   <button
                     className="compact-button"
-                    disabled={busy || !effectiveRoleId}
+                    disabled={!canDuplicateRole(selectedRole, busy)}
                     type="button"
                     onClick={() => onDuplicateRole(effectiveRoleId)}
                   >
@@ -225,7 +245,7 @@ export function RoleManagementView({
                     disabled={
                       busy ||
                       !effectiveRoleId ||
-                      selectedRole.isSystem ||
+                      !canManageProductRole(selectedRole) ||
                       Boolean(selectedRole._count?.assignments)
                     }
                     type="button"
@@ -243,10 +263,7 @@ export function RoleManagementView({
                   <select
                     value={effectivePermissionId}
                     disabled={
-                      busy ||
-                      selectedRole.isSystem ||
-                      !effectiveRoleId ||
-                      !availablePermissions.length
+                      busy || !canManageProductRole(selectedRole) || !availablePermissions.length
                     }
                     onChange={(event) => setSelectedPermissionId(event.target.value)}
                   >
@@ -261,9 +278,7 @@ export function RoleManagementView({
                   </select>
                   <button
                     className="primary-button"
-                    disabled={
-                      busy || selectedRole.isSystem || !effectiveRoleId || !effectivePermissionId
-                    }
+                    disabled={busy || !canManageProductRole(selectedRole) || !effectivePermissionId}
                     type="button"
                     onClick={() => onAssignPermission(effectiveRoleId, effectivePermissionId)}
                   >
@@ -290,7 +305,9 @@ export function RoleManagementView({
                               <small>{item.permission?.description ?? "-"}</small>
                               <button
                                 className="danger-button"
-                                disabled={busy || selectedRole.isSystem || !permissionId}
+                                disabled={
+                                  busy || !canManageProductRole(selectedRole) || !permissionId
+                                }
                                 type="button"
                                 onClick={() => onRemovePermission(effectiveRoleId, permissionId)}
                               >

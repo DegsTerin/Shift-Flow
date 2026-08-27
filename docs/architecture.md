@@ -33,7 +33,31 @@ The API exposes the board through nested activity routes under `/api/activities/
 
 ## RBAC Profile Management
 
-Profiles are represented by `Role` records and remain enforced by backend RBAC checks. Role management supports profile color, active/inactive state, permission assignment, duplication, and guarded deletion. Roles with active user assignments cannot be deleted; inactive roles are ignored by permission checks.
+Profiles are represented by `Role` records and remain enforced by backend RBAC
+checks. Role management supports profile colour, active/inactive state,
+permission assignment, duplication and guarded deletion. Tenant and system
+identity fields are derived by the server and are not mutable through public
+profile or permission contracts. System profiles cannot be edited, duplicated,
+deleted or have their permissions changed through ordinary tenant endpoints.
+Global scope remains reserved for controlled system/bootstrap records. A
+profile with active assignments cannot change scope without first resolving
+those assignments.
+Roles with active user assignments cannot be deleted; assignments that have not
+started, have expired, belong to an inactive tenant lifecycle or reference an
+inactive role do not grant permissions.
+
+The current product interface creates and mutates company-scoped profiles only.
+System profiles and existing client- or team-scoped profiles are read-only in
+that interface. Limited profiles remain API-level capabilities that are not
+product-homologated until routes can derive trustworthy resource context and a
+dedicated assignment editor can model limited and time-bounded assignments.
+The simple user editor changes only a current, permanent and unscoped company
+assignment. Existing limited, future, expired and time-bounded assignments are
+preserved. User creation requires an explicit profile choice. Delegation is
+preflighted against current company-wide `users:write` authority and cannot
+grant permissions that the actor does not currently hold; this is a security
+floor rather than the final product hierarchy. Missing resource context
+continues to fail closed.
 
 ## API Module Pattern
 
@@ -70,8 +94,18 @@ The API emits structured JSON logs. Each request gets a `requestId`, returned as
 ## Security Controls
 
 - Authentication uses JWT access tokens and refresh-token rotation.
-- Authorization is enforced by RBAC middleware and module services; inactive roles do not grant permissions.
-- Tenant context is explicit through request headers and service scope checks.
+- Authorization is enforced by RBAC middleware and module services. A client or
+  team limit recorded on an assignment requires matching resource context;
+  omitted context fails closed rather than widening access.
+- Company selection is explicit through the request header and must match the
+  authenticated company. Client, team and shift context is never trusted from
+  caller-controlled headers; resource-aware services derive it from persisted
+  records.
+- Comment moderation resolves current scoped RBAC authority from the persisted
+  activity context instead of trusting access-token permission claims.
+- Notification reads, counts, read state and deletion are recipient-scoped by
+  default; a company-wide administrative surface would require a separate
+  explicit contract.
 - Rate limiting is configurable through `API_RATE_LIMIT_WINDOW_MS` and `API_RATE_LIMIT_MAX`.
 - Production startup requires explicit CORS origin and JWT secrets.
 

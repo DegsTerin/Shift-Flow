@@ -1,7 +1,8 @@
 // en-GB: Implements comments rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../../shared/http/request-types.js";
-import { forbidden } from "../../shared/errors/app-error.js";
+import { forbidden, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
+import { RbacService } from "../rbac/rbac.service.js";
 import {
   activeCompanyId,
   assertActivityInCompany,
@@ -10,8 +11,8 @@ import {
 import { CommentsRepository } from "./comments.repository.js";
 
 export class CommentsService extends BaseService {
-  constructor() {
-    super(new CommentsRepository(), "Comment", {
+  constructor(private readonly commentsRepository = new CommentsRepository()) {
+    super(commentsRepository, "Comment", {
       userStamps: false,
       orderBy: { createdAt: "desc" }
     });
@@ -27,21 +28,52 @@ export class CommentsService extends BaseService {
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
-    await this.assertCanMutate(req, id);
+    await this.assertCanMutate(req, id, "write");
     return super.update(req, id, { ...data, editedAt: new Date() });
   }
 
   override async remove(req: ApiRequest, id: string) {
-    await this.assertCanMutate(req, id);
+    await this.assertCanMutate(req, id, "delete");
     return super.remove(req, id);
   }
 
-  private async assertCanMutate(req: ApiRequest, id: string) {
-    const comment = (await this.get(req, id)) as { authorId?: string | null };
-    const permissions = req.auth?.permissions ?? [];
-    const canModerate = permissions.includes("*:*") || permissions.includes("comments:moderate");
+  private async assertCanMutate(req: ApiRequest, id: string, action: "write" | "delete") {
+    const companyId = activeCompanyId(req);
+    const comment = (await this.commentsRepository.findMutationContext(id, companyId)) as {
+      authorId?: string | null;
+      activity?: { clientId?: string | null; teamId?: string | null };
+    } | null;
+    if (!comment) {
+      throw notFound("Comment not found");
+    }
+    const tenant = {
+      companyId,
+      clientId: comment.activity?.clientId ?? undefined,
+      teamId: comment.activity?.teamId ?? undefined
+    };
+    const hasMutationPermission = req.auth
+      ? await RbacService.hasPermission(req.auth, {
+          resource: "comments",
+          action,
+          tenant
+        })
+      : false;
+    if (!hasMutationPermission) {
+      throw forbidden(`comments:${action} is required for the comment resource`);
+    }
+    if (comment.authorId === req.auth?.id) {
+      return;
+    }
 
-    if (!canModerate && comment.authorId !== req.auth?.id) {
+    const canModerate = req.auth
+      ? await RbacService.hasPermission(req.auth, {
+          resource: "comments",
+          action: "moderate",
+          tenant
+        })
+      : false;
+
+    if (!canModerate) {
       throw forbidden("Only the comment author or a moderator can change this comment");
     }
   }
