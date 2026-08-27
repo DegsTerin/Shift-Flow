@@ -5,6 +5,7 @@ import { getDelegate } from "../../shared/lib/prisma.js";
 import { toPagination, toSkipTake } from "../../shared/http/pagination.js";
 import { badRequest, forbidden, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
+import { writeAudit } from "../../shared/services/audit-writer.js";
 import { validatePasswordPolicy } from "../../shared/security/password-policy.js";
 import { UsersRepository } from "./users.repository.js";
 
@@ -53,8 +54,8 @@ type UserRoleAssignmentDelegate = {
 };
 
 export class UsersService extends BaseService {
-  constructor() {
-    super(new UsersRepository(), "User", {
+  constructor(private readonly usersRepository = new UsersRepository()) {
+    super(usersRepository, "User", {
       hasCompanyScope: false,
       userStamps: false,
       orderBy: { updatedAt: "desc" }
@@ -131,10 +132,16 @@ export class UsersService extends BaseService {
     if (data.password) {
       const { password, ...rest } = data;
       validatePasswordPolicy(String(password));
-      updated = await super.update(req, id, {
+      updated = await this.usersRepository.updatePasswordAndRevoke(id, {
         ...rest,
-        passwordHash: await bcrypt.hash(String(password), 12),
-        passwordChangedAt: new Date()
+        passwordHash: await bcrypt.hash(String(password), 12)
+      });
+      await writeAudit(req, {
+        entityType: "User",
+        entityId: id,
+        action: "UPDATE",
+        after: updated,
+        companyId: this.companyId(req)
       });
     } else {
       updated = await super.update(req, id, data);

@@ -1,6 +1,8 @@
 // en-GB: Guards the simple user editor against invalid or destructive limited-role assignment changes.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import bcrypt from "bcryptjs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import type { UsersRepository } from "./users.repository.js";
 
 const delegates = vi.hoisted(() => ({
   userFindFirst: vi.fn(),
@@ -46,16 +48,20 @@ function request(): ApiRequest {
 }
 
 function serviceWithRepository() {
-  const service = new UsersService();
   const repository = {
     create: vi.fn().mockResolvedValue({ id: "user-a" }),
-    update: vi.fn().mockResolvedValue({ id: "user-a" })
+    update: vi.fn().mockResolvedValue({ id: "user-a" }),
+    updatePasswordAndRevoke: vi.fn().mockResolvedValue({ id: "user-a" })
   };
-  (service as unknown as { repository: typeof repository }).repository = repository;
+  const service = new UsersService(repository as unknown as UsersRepository);
   return { service, repository };
 }
 
 describe("UsersService product role assignment", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     delegates.userFindFirst.mockResolvedValue({ id: "user-a" });
@@ -240,6 +246,22 @@ describe("UsersService product role assignment", () => {
     expect(repository.create).not.toHaveBeenCalled();
     expect(delegates.userCompanyUpsert).not.toHaveBeenCalled();
     expect(delegates.assignmentCreate).not.toHaveBeenCalled();
+  });
+
+  it("changes the credential version and revokes refresh sessions through one repository operation", async () => {
+    const { service, repository } = serviceWithRepository();
+    vi.spyOn(bcrypt, "hash").mockImplementation(async () => "new-password-hash");
+
+    await service.update(request(), "user-a", {
+      displayName: "Updated user",
+      password: "CorrectHorseBattery1!"
+    });
+
+    expect(repository.updatePasswordAndRevoke).toHaveBeenCalledWith("user-a", {
+      displayName: "Updated user",
+      passwordHash: "new-password-hash"
+    });
+    expect(repository.update).not.toHaveBeenCalled();
   });
 
   it("queries only current unscoped company authority for delegation", async () => {

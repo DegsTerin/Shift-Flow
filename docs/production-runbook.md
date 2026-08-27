@@ -39,6 +39,16 @@ Candidate validation currently uses:
 
 Production values must not be committed to Git. Store database credentials and JWT/CORS values in the target platform secret manager.
 
+`CORS_ORIGIN` and `NEXT_PUBLIC_API_BASE_URL` must be canonical HTTPS origins
+with the same hostname, although their ports may differ. They must not contain
+credentials, paths, query strings, fragments or a trailing slash.
+Authentication uses a host-scoped
+HttpOnly refresh cookie plus a readable double-submit CSRF cookie. A split-host
+topology such as `app.example.com` and `api.example.com` cannot satisfy that
+contract and is rejected by the frontend before a request is sent. Use a reverse
+proxy or equivalent routing so Web and API share the public hostname; do not
+weaken the cookie or origin checks to accommodate a split host.
+
 ## Release Gates
 
 Run the canonical runtime-credential-free core gate before preparing a runtime
@@ -66,8 +76,10 @@ not be pointed at an existing local or production database by inference.
 5. Start the compiled API with `npm start` and the compiled Web application with
    `npm run start:web`, or use equivalent target-specific supervisors. These
    commands do not migrate or seed.
-6. Validate `/health`, `/ready`, login, dashboard, Kanban, dark mode, EN-GB
-   labels, accessibility and the approved performance gate.
+6. Confirm that the Web and API public URLs are canonical HTTPS origins sharing
+   one hostname, then validate
+   `/health`, `/ready`, login, refresh, logout, dashboard, Kanban, dark mode,
+   EN-GB labels, accessibility and the approved performance gate.
 7. Confirm JSON logs include `requestId`, API responses include
    `x-rate-limit-*` headers and no credential or personal data is present in
    operational output.

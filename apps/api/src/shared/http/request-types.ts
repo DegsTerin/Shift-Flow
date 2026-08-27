@@ -6,6 +6,7 @@ export type AuthenticatedUser = {
   email: string;
   companyId?: string;
   permissions?: string[];
+  credentialVersion?: number;
 };
 
 export type RequestContext = {

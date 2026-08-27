@@ -7,6 +7,7 @@ import { AuthService } from "./auth.service.js";
 import { errorHandler } from "../../shared/middlewares/error-handler.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { logger } from "../../shared/observability/logger.js";
+import * as authenticateMiddleware from "../../shared/middlewares/authenticate.js";
 
 function cookieHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value.join("; ") : (value ?? "");
@@ -66,6 +67,30 @@ describe("AuthController", () => {
     expect(cookies).toContain("shiftflow_csrf=");
     expect(cookies).toContain("Expires=Thu, 01 Jan 1970 00:00:00 GMT");
     expect(cookies).toContain("SameSite=Lax");
+  });
+
+  it("still revokes the refresh token when durable access-token revocation fails", async () => {
+    vi.spyOn(logger, "error").mockImplementation(() => undefined);
+    vi.spyOn(authenticateMiddleware, "revokeAccessToken").mockRejectedValue(
+      new AppError("Unable to persist access revocation", 503, "REVOCATION_UNAVAILABLE")
+    );
+    const logout = vi.spyOn(AuthService.prototype, "logout").mockResolvedValue({ loggedOut: true });
+
+    const app = express();
+    app.use(express.json());
+    app.post("/api/auth/logout", AuthController.logout);
+    app.use(errorHandler);
+
+    const response = await request(app)
+      .post("/api/auth/logout")
+      .set("Authorization", "Bearer signed-access-token")
+      .set("Cookie", "shiftflow_refresh=refresh-token; shiftflow_csrf=test-csrf")
+      .set("x-csrf-token", "test-csrf")
+      .send({});
+
+    expect(response.status).toBe(503);
+    expect(logout).toHaveBeenCalledWith("refresh-token");
+    expect(response.headers["set-cookie"]).toBeDefined();
   });
 
   it("rejects cookie-backed refresh without a matching CSRF token", async () => {

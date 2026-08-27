@@ -14,11 +14,35 @@ type DbUser = {
   passwordHash: string;
   displayName: string;
   status: string;
-  companies?: Array<{ companyId: string; isDefault?: boolean }>;
+  deletedAt?: Date | null;
+  passwordChangedAt?: Date | null;
+  companies?: Array<{
+    companyId: string;
+    isDefault?: boolean;
+    deletedAt?: Date | null;
+    company?: { status?: string; deletedAt?: Date | null };
+  }>;
   roleAssignments?: Array<{
+    companyId?: string;
+    clientId?: string | null;
+    teamId?: string | null;
+    startsAt?: Date;
+    endsAt?: Date | null;
+    deletedAt?: Date | null;
+    company?: { status?: string; deletedAt?: Date | null };
     role?: {
+      companyId?: string | null;
+      scope?: string;
+      isActive?: boolean;
+      deletedAt?: Date | null;
       permissions?: Array<{
-        permission?: { resource?: string; action?: string };
+        companyId?: string | null;
+        permission?: {
+          companyId?: string | null;
+          resource?: string;
+          action?: string;
+          deletedAt?: Date | null;
+        };
       }>;
     };
   }>;
@@ -30,6 +54,7 @@ type DbRefreshToken = {
   companyId?: string | null;
   expiresAt: Date;
   revokedAt?: Date | null;
+  createdAt: Date;
   user?: DbUser;
 };
 
@@ -37,6 +62,8 @@ type DbLoginAttempt = {
   failedCount: number;
   lockedUntil?: Date | null;
 };
+
+const unavailablePrincipalHash = "$2b$12$2sfkfoyzJU1PG2MrSc47RuF7z.ieyVDzKzMHRJCQkYBZirsBtuN9q";
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -49,13 +76,53 @@ function hashIdentifier(value: string | undefined) {
     .digest("hex");
 }
 
-function permissionsFrom(user: DbUser) {
+function isActiveMembership(user: DbUser, companyId: string) {
+  return Boolean(
+    user.companies?.some(
+      (membership) =>
+        membership.companyId === companyId &&
+        membership.deletedAt == null &&
+        membership.company?.status === "ACTIVE" &&
+        membership.company.deletedAt == null
+    )
+  );
+}
+
+function permissionsFrom(user: DbUser, companyId: string, now = new Date()) {
   return Array.from(
     new Set(
       user.roleAssignments
-        ?.flatMap((assignment) => assignment.role?.permissions ?? [])
+        ?.filter(
+          (assignment) =>
+            assignment.companyId === companyId &&
+            assignment.clientId == null &&
+            assignment.teamId == null &&
+            assignment.deletedAt == null &&
+            assignment.startsAt instanceof Date &&
+            assignment.startsAt <= now &&
+            (assignment.endsAt == null ||
+              (assignment.endsAt instanceof Date && assignment.endsAt > now)) &&
+            assignment.company?.status === "ACTIVE" &&
+            assignment.company.deletedAt == null &&
+            assignment.role?.scope === "COMPANY" &&
+            assignment.role.isActive === true &&
+            assignment.role.deletedAt == null &&
+            (assignment.role.companyId == null || assignment.role.companyId === companyId)
+        )
+        .flatMap((assignment) => assignment.role?.permissions ?? [])
+        .filter(
+          (rolePermission) =>
+            (rolePermission.companyId == null || rolePermission.companyId === companyId) &&
+            rolePermission.permission?.deletedAt == null &&
+            (rolePermission.permission?.companyId == null ||
+              rolePermission.permission.companyId === companyId)
+        )
         .map((rolePermission) => rolePermission.permission)
         .filter(Boolean)
+        .filter(
+          (permission) =>
+            typeof permission?.resource === "string" && typeof permission.action === "string"
+        )
         .map((permission) => `${permission?.resource}:${permission?.action}`) ?? []
     )
   );
@@ -63,17 +130,26 @@ function permissionsFrom(user: DbUser) {
 
 function resolveCompany(user: DbUser, requestedCompanyId?: string) {
   if (requestedCompanyId) {
-    const allowed = user.companies?.some((company) => company.companyId === requestedCompanyId);
-    if (!allowed) {
+    if (!isActiveMembership(user, requestedCompanyId)) {
       throw forbidden("User is not linked to requested company");
     }
     return requestedCompanyId;
   }
 
-  return (
-    user.companies?.find((company) => company.isDefault)?.companyId ??
-    user.companies?.[0]?.companyId
+  const activeMemberships = user.companies?.filter((membership) =>
+    isActiveMembership(user, membership.companyId)
   );
+  const companyId =
+    activeMemberships?.find((membership) => membership.isDefault)?.companyId ??
+    activeMemberships?.[0]?.companyId;
+  if (!companyId) {
+    throw forbidden("User has no active company membership");
+  }
+  return companyId;
+}
+
+function credentialVersion(user: DbUser) {
+  return user.passwordChangedAt?.getTime() ?? 0;
 }
 
 export class AuthService {
@@ -97,34 +173,47 @@ export class AuthService {
 
     const user = (await this.repository.findUserByEmail(input.email)) as DbUser | null;
     if (!user || user.status !== "ACTIVE") {
-      await this.recordFailedLogin(req, emailHash, ipHash, attempt, "UNKNOWN_OR_INACTIVE_USER");
+      await bcrypt.compare(input.password, unavailablePrincipalHash);
+      await this.recordFailedLogin(req, emailHash, ipHash, "UNKNOWN_OR_INACTIVE_USER");
       throw unauthorized("Invalid credentials");
     }
 
     const validPassword = await bcrypt.compare(input.password, user.passwordHash);
     if (!validPassword) {
-      await this.recordFailedLogin(req, emailHash, ipHash, attempt, "INVALID_PASSWORD", user.id);
+      await this.recordFailedLogin(req, emailHash, ipHash, "INVALID_PASSWORD", user.id);
       throw unauthorized("Invalid credentials");
     }
 
+    const companyId = resolveCompany(user, input.companyId);
     const authUser: AuthenticatedUser = {
       id: user.id,
       email: user.email,
-      companyId: resolveCompany(user, input.companyId),
-      permissions: permissionsFrom(user)
+      companyId,
+      credentialVersion: credentialVersion(user)
     };
+    authUser.permissions = permissionsFrom(user, companyId);
     const accessToken = signAccessToken(authUser);
     const refreshToken = crypto.randomBytes(48).toString("base64url");
     const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
 
-    await this.repository.createRefreshToken({
-      userId: user.id,
-      companyId: authUser.companyId,
-      tokenHash: hashToken(refreshToken),
-      userAgent: req.context?.userAgent,
-      ipAddress: req.context?.ipAddress,
-      expiresAt
-    });
+    const created = await this.repository.createRefreshToken(
+      {
+        userId: user.id,
+        companyId,
+        tokenHash: hashToken(refreshToken),
+        userAgent: req.context?.userAgent,
+        ipAddress: req.context?.ipAddress,
+        expiresAt
+      },
+      {
+        userId: user.id,
+        companyId,
+        passwordChangedAt: user.passwordChangedAt ?? null
+      }
+    );
+    if (!created) {
+      throw unauthorized("Invalid credentials");
+    }
     await this.repository.updateLastLogin(user.id);
     await this.repository.recordSuccessfulLogin(emailHash);
     await this.repository.writeAuthAudit({
@@ -145,7 +234,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
-        companyId: authUser.companyId,
+        companyId,
         permissions: authUser.permissions
       }
     };
@@ -159,7 +248,11 @@ export class AuthService {
       hashToken(refreshToken)
     )) as DbRefreshToken | null;
 
-    if (!stored || stored.expiresAt.getTime() <= Date.now() || !stored.user) {
+    if (!stored || !stored.user) {
+      throw unauthorized("Invalid refresh token");
+    }
+
+    if (stored.expiresAt.getTime() <= Date.now()) {
       throw unauthorized("Invalid refresh token");
     }
 
@@ -169,23 +262,51 @@ export class AuthService {
     }
 
     const user = stored.user;
+    if (
+      user.status !== "ACTIVE" ||
+      user.deletedAt != null ||
+      !stored.companyId ||
+      !isActiveMembership(user, stored.companyId) ||
+      (user.passwordChangedAt &&
+        (!(stored.createdAt instanceof Date) || stored.createdAt < user.passwordChangedAt))
+    ) {
+      await this.repository.revokeActiveRefreshTokensForUser(stored.userId, stored.companyId);
+      throw unauthorized("Invalid refresh token");
+    }
+
+    const companyId = stored.companyId;
     const authUser: AuthenticatedUser = {
       id: user.id,
       email: user.email,
-      permissions: permissionsFrom(user),
-      companyId: resolveCompany(user, stored.companyId ?? undefined)
+      companyId,
+      credentialVersion: credentialVersion(user)
     };
+    authUser.permissions = permissionsFrom(user, companyId);
     const nextRefreshToken = crypto.randomBytes(48).toString("base64url");
     const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
 
-    await this.repository.rotateRefreshToken(stored.id, {
-      userId: user.id,
-      companyId: authUser.companyId,
-      tokenHash: hashToken(nextRefreshToken),
-      userAgent: req.context?.userAgent,
-      ipAddress: req.context?.ipAddress,
-      expiresAt
-    });
+    const rotated = await this.repository.rotateRefreshToken(
+      stored.id,
+      {
+        userId: user.id,
+        companyId,
+        tokenHash: hashToken(nextRefreshToken),
+        userAgent: req.context?.userAgent,
+        ipAddress: req.context?.ipAddress,
+        expiresAt
+      },
+      {
+        userId: user.id,
+        companyId,
+        passwordChangedAt: user.passwordChangedAt ?? null
+      }
+    );
+    if (rotated !== "ROTATED") {
+      if (["REUSED", "SESSION_STALE", "CONFLICT"].includes(rotated)) {
+        await this.repository.revokeActiveRefreshTokensForUser(stored.userId, stored.companyId);
+      }
+      throw unauthorized("Invalid refresh token");
+    }
 
     return {
       accessToken: signAccessToken(authUser),
@@ -210,8 +331,11 @@ export class AuthService {
       hashToken(refreshToken)
     )) as DbRefreshToken | null;
 
-    if (stored && !stored.revokedAt) {
-      await this.repository.revokeRefreshToken(stored.id);
+    if (stored && stored.expiresAt.getTime() > Date.now()) {
+      const revoked = !stored.revokedAt && (await this.repository.revokeRefreshToken(stored.id));
+      if (!revoked) {
+        await this.repository.revokeActiveRefreshTokensForUser(stored.userId, stored.companyId);
+      }
     }
 
     return { loggedOut: true };
@@ -221,23 +345,18 @@ export class AuthService {
     req: ApiRequest,
     emailHash: string,
     ipHash: string,
-    attempt: DbLoginAttempt | null,
     reason: string,
     userId?: string
   ) {
-    const failedCount = (attempt?.failedCount ?? 0) + 1;
-    const lockedUntil =
-      failedCount >= env.AUTH_LOCKOUT_MAX_ATTEMPTS
-        ? new Date(Date.now() + env.AUTH_LOCKOUT_WINDOW_MS)
-        : undefined;
-
-    await this.repository.recordFailedLogin({
+    const outcome = (await this.repository.recordFailedLogin({
       emailHash,
-      failedCount,
-      lockedUntil,
+      maxAttempts: env.AUTH_LOCKOUT_MAX_ATTEMPTS,
+      lockoutWindowMs: env.AUTH_LOCKOUT_WINDOW_MS,
       ipHash,
       userAgent: req.context?.userAgent
-    });
+    })) as DbLoginAttempt;
+    const failedCount = outcome.failedCount;
+    const lockedUntil = outcome.lockedUntil ?? undefined;
     await this.repository.writeAuthAudit({
       action: lockedUntil ? "LOGIN_LOCKED" : "LOGIN_FAILED",
       emailHash,

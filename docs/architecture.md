@@ -27,7 +27,10 @@ The API exposes the board through nested activity routes under `/api/activities/
 - Activities are operational dossiers with client, system/service, responsibility, status, priority, lifecycle timestamps, comments, attachments, task boards, audit, and chronological history.
 - Operational and audit history is append-only; mutable records use soft delete where deletion must not erase historical evidence.
 - Roles, permissions, memberships, and assignments are company-aware. Inactive roles and memberships do not grant access.
-- Refresh sessions retain company context and support rotation/revocation.
+- Refresh sessions retain an active company context and are consumed through a
+  conditional single-use rotation. User, company, membership and credential
+  lifecycle state is revalidated before a successor is issued. Route
+  authorisation independently queries current RBAC assignments.
 - Teams and clients use active-record uniqueness rules where names or codes may be reused after logical deletion; user e-mail uniqueness follows the authentication contract.
 - Migrations are forward-only. Applied migration files remain immutable and remote environments receive approved migrations through deployment pipelines.
 
@@ -93,7 +96,38 @@ The API emits structured JSON logs. Each request gets a `requestId`, returned as
 
 ## Security Controls
 
-- Authentication uses JWT access tokens and refresh-token rotation.
+- Authentication uses short-lived JWT access tokens and hashed refresh tokens.
+  Refresh rotation atomically consumes the current token before creating one
+  successor; a concurrent loser fails closed and revokes active refresh tokens
+  for that user and company. Session-family isolation would require a separately
+  authorised data-model change, so this response is deliberately broader today.
+- Every authenticated API request checks persistent access-token revocation and
+  the current active user, company and membership. The access token carries the
+  exact millisecond password credential version, so a password change invalidates
+  existing access and refresh tokens without relying on second-resolution JWT
+  issue time. Password persistence and refresh-token revocation share one
+  transaction; login and rotation lock that user row and revalidate the exact
+  credential version before issuing a token. Logout keeps an immediate
+  process-local deny entry but reports a failure if durable revocation cannot be
+  recorded, rather than claiming a cross-instance revocation that did not occur.
+- Login failure counts use atomic database increments, reset after the configured
+  attempt window and establish the lock from the persisted count rather than a
+  stale application read.
+- The frontend performs at most one shared refresh for concurrent `401`
+  responses in one page and uses the browser-wide Web Locks API to serialise
+  refresh-cookie consumption across tabs when that API is available. It retries
+  each protected request once and never refreshes auth endpoints recursively.
+  A refresh cannot change the current user/company identity, and responses that
+  complete across a login/logout generation boundary are rejected. A failed
+  refresh or logout intent clears all in-memory tenant data; a refresh completing
+  after logout cannot reinstall the session.
+- The refresh and CSRF cookies are host scoped. Web and API may use different
+  ports but must share the same protocol and public hostname so the Web
+  application can read the double-submit CSRF cookie. Production requires
+  canonical HTTPS origins. The client rejects protocol/hostname incompatibility
+  and non-HTTPS production requests before sending them. The production
+  configuration gate additionally rejects non-canonical origins, credentials,
+  paths, query strings and fragments.
 - Authorization is enforced by RBAC middleware and module services. A client or
   team limit recorded on an assignment requires matching resource context;
   omitted context fails closed rather than widening access.

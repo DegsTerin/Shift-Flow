@@ -28,7 +28,16 @@ import {
   SettingsView,
   TeamDashboard
 } from "./components/views";
-import { apiRequest, queryString } from "./lib/api";
+import {
+  apiRequest,
+  captureApiSessionEpoch,
+  clearApiSession,
+  queryString,
+  restoreApiSession,
+  settleApiSessionOperation,
+  setApiSession,
+  subscribeApiSession
+} from "./lib/api";
 import { messages } from "./lib/i18n";
 import { defaultDashboardLayouts, menu, type DashboardLayoutKey } from "./lib/page-config";
 import type {
@@ -68,6 +77,25 @@ function parseStoredJson(value: string | null) {
   }
 }
 
+const emptyDashboardSummary: DashboardSummary = {
+  total: 0,
+  pending: 0,
+  inProgress: 0,
+  done: 0,
+  critical: 0,
+  slaAtRisk: 0,
+  overdue: 0,
+  averageResolutionHours: 0
+};
+
+const emptyDashboardCharts: DashboardCharts = {
+  byTeam: [],
+  byClient: [],
+  byStatus: [],
+  byPriority: [],
+  byShift: []
+};
+
 export default function Page() {
   const [locale, setLocale] = useState<Locale>("pt-BR");
   const [theme, setTheme] = useState<Theme>("light");
@@ -82,23 +110,8 @@ export default function Page() {
   const [monitorMode, setMonitorMode] = useState(false);
   const [dragged, setDragged] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
-  const [summary, setSummary] = useState<DashboardSummary>({
-    total: 0,
-    pending: 0,
-    inProgress: 0,
-    done: 0,
-    critical: 0,
-    slaAtRisk: 0,
-    overdue: 0,
-    averageResolutionHours: 0
-  });
-  const [charts, setCharts] = useState<DashboardCharts>({
-    byTeam: [],
-    byClient: [],
-    byStatus: [],
-    byPriority: [],
-    byShift: []
-  });
+  const [summary, setSummary] = useState<DashboardSummary>(emptyDashboardSummary);
+  const [charts, setCharts] = useState<DashboardCharts>(emptyDashboardCharts);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [dashboardLayouts, setDashboardLayouts] =
     useState<Record<DashboardLayoutKey, DashboardConfiguration>>(defaultDashboardLayouts);
@@ -110,6 +123,7 @@ export default function Page() {
   const [rbacPermissions, setRbacPermissions] = useState<PermissionRef[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = messages[locale];
   const token = session?.accessToken;
@@ -146,6 +160,36 @@ export default function Page() {
   const visibleShifts = useMemo(
     () => shifts.filter((item) => matchesSearch(item, search)),
     [shifts, search]
+  );
+
+  const resetTenantState = useCallback(() => {
+    setSummary(emptyDashboardSummary);
+    setCharts(emptyDashboardCharts);
+    setActivities([]);
+    setDashboardLayouts(defaultDashboardLayouts);
+    setClients([]);
+    setUsers([]);
+    setTeams([]);
+    setShifts([]);
+    setRoles([]);
+    setRbacPermissions([]);
+    setUnread(0);
+    setModal(null);
+    setDragged(null);
+    setFilters(emptyFilters);
+    setSearch("");
+    setView("dashboard");
+  }, []);
+
+  useEffect(
+    () =>
+      subscribeApiSession((nextSession) => {
+        setSession(nextSession);
+        if (!nextSession) {
+          resetTenantState();
+        }
+      }),
+    [resetTenantState]
   );
 
   const loadData = useCallback(async () => {
@@ -217,12 +261,8 @@ export default function Page() {
     if (storedTheme === "light" || storedTheme === "dark") setTheme(storedTheme);
     if (storedNavCollapsed === "true" || storedNavCollapsed === "false")
       setNavCollapsed(storedNavCollapsed === "true");
-    void apiRequest<LoginResponse>("/api/auth/refresh", undefined, {
-      method: "POST",
-      body: JSON.stringify({})
-    })
-      .then(setSession)
-      .catch(() => undefined)
+    void restoreApiSession()
+      .catch(() => clearApiSession())
       .finally(() => setRestoringSession(false));
   }, []);
 
@@ -261,6 +301,7 @@ export default function Page() {
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loggingOut) return;
     const form = new FormData(event.currentTarget);
     setError(null);
     setLoading(true);
@@ -272,7 +313,7 @@ export default function Page() {
           password: String(form.get("password") ?? "")
         })
       });
-      setSession(nextSession);
+      setApiSession(nextSession);
     } catch (cause) {
       setError(`${t.loginFailed}: ${cause instanceof Error ? cause.message : t.apiOffline}`);
     } finally {
@@ -282,19 +323,25 @@ export default function Page() {
 
   async function moveActivity(id: string, status: string) {
     if (!token) return;
+    const operationEpoch = captureApiSessionEpoch();
+    if (operationEpoch === null) return;
     const previous = activities;
     setActivities((items) => items.map((item) => (item.id === id ? { ...item, status } : item)));
     setDragged(null);
-    try {
-      await apiRequest<ActivityItem>(`/api/activities/${id}/move`, token, {
+    await settleApiSessionOperation(
+      operationEpoch,
+      apiRequest<ActivityItem>(`/api/activities/${id}/move`, token, {
         method: "POST",
         body: JSON.stringify({ status, note: "Moved from integrated Kanban" })
-      });
-      await loadData();
-    } catch (cause) {
-      setActivities(previous);
-      setError(cause instanceof Error ? cause.message : t.apiOffline);
-    }
+      }),
+      {
+        onSuccess: loadData,
+        onFailure: (cause) => {
+          setActivities(previous);
+          setError(cause instanceof Error ? cause.message : t.apiOffline);
+        }
+      }
+    );
   }
 
   const saveDashboardLayout = useCallback(
@@ -328,22 +375,21 @@ export default function Page() {
   );
 
   async function logout() {
+    if (loggingOut) return;
+    const logoutToken = token;
     setError(null);
     setLoading(true);
+    setLoggingOut(true);
+    clearApiSession();
     try {
-      await apiRequest("/api/auth/logout", token, { method: "POST", body: JSON.stringify({}) });
-      setSession(null);
-      setModal(null);
-      setActivities([]);
-      setUsers([]);
-      setTeams([]);
-      setShifts([]);
-      setRoles([]);
-      setRbacPermissions([]);
-      setUnread(0);
+      await apiRequest("/api/auth/logout", logoutToken, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t.apiOffline);
     } finally {
+      setLoggingOut(false);
       setLoading(false);
     }
   }
@@ -353,19 +399,24 @@ export default function Page() {
       setModal({ mode: "detail", entity, record });
       return;
     }
-    try {
-      const id =
-        typeof record === "object" && record && "id" in record
-          ? String((record as { id?: string }).id)
-          : "";
-      setModal({
-        mode: "detail",
-        entity: "activities",
-        record: await apiRequest<ActivityItem>(`/api/activities/${id}`, token)
-      });
-    } catch {
-      setModal({ mode: "detail", entity, record });
-    }
+    const operationEpoch = captureApiSessionEpoch();
+    if (operationEpoch === null) return;
+    const id =
+      typeof record === "object" && record && "id" in record
+        ? String((record as { id?: string }).id)
+        : "";
+    await settleApiSessionOperation(
+      operationEpoch,
+      apiRequest<ActivityItem>(`/api/activities/${id}`, token),
+      {
+        onSuccess: (detail) => {
+          setModal({ mode: "detail", entity: "activities", record: detail });
+        },
+        onFailure: () => {
+          setModal({ mode: "detail", entity, record });
+        }
+      }
+    );
   }
 
   function toggleNavigation() {
@@ -536,9 +587,13 @@ export default function Page() {
               <input autoComplete="current-password" name="password" type="password" required />
             </label>
             {error ? <p className="guard-note">{error}</p> : null}
-            <button className="primary-button" disabled={!hydrated || loading} type="submit">
+            <button
+              className="primary-button"
+              disabled={!hydrated || loading || loggingOut}
+              type="submit"
+            >
               <LockKeyhole size={18} />
-              {loading ? t.loading : t.signIn}
+              {loading || loggingOut ? t.loading : t.signIn}
             </button>
           </form>
           <div className="auth-actions">

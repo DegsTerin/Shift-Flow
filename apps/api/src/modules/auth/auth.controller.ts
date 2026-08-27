@@ -141,8 +141,16 @@ export const AuthController = {
   logout: asyncHandler(async (req: ApiRequest, res: Response) => {
     try {
       assertCookieCsrf(req);
-      await revokeAccessToken(bearerAccessToken(req), req);
+      let accessRevocationError: unknown;
+      try {
+        await revokeAccessToken(bearerAccessToken(req), req);
+      } catch (error) {
+        accessRevocationError = error;
+      }
       const result = await service.logout(cookieRefreshToken(req));
+      if (accessRevocationError) {
+        throw accessRevocationError;
+      }
       res.json(ok(result));
     } finally {
       clearRefreshCookie(res);
