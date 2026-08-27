@@ -104,18 +104,27 @@ npm run dev:web
 
 ## Platform Control
 
-Use these scripts to manage the local platform:
+Use these scripts to manage the local development platform:
 
 ```bash
-npm run start
-npm run stop
-npm run restart
-npm run status
+npm run platform:start
+npm run platform:stop
+npm run platform:restart
+npm run platform:status
 ```
 
-`npm run start`, `npm run stop`, `npm run restart`, and `npm run status` release the terminal when the action finishes. Start and restart do not wait for health checks unless you pass `-Wait`.
+The platform commands release the terminal when the action finishes. Start and restart do not wait for readiness unless you pass `-Wait`; with that switch, API `/ready` and Web must respond successfully or the partial launch is stopped and the command fails.
 
-Logs and PID state are written under `dist/runtime`.
+Logs and ownership-bound PID state are written under `dist/runtime`. Start, stop,
+restart and cleanup share an exclusive repository operation lock. Stop acts only
+on processes whose repository root, PID start time, process name and encoded
+launch command match that state. Cleanup refuses to run while the managed
+runtime, an unverifiable recorded process, a ShiftFlow port listener or a
+reparse point is present. An occupied port is reported as a conflict and is
+never authority to terminate an unrelated process. Readiness is accepted only
+when each listener belongs to the corresponding managed process tree and the
+API identifies itself as `shiftflow-api`. Stopping ShiftFlow does not close
+Docker Desktop.
 
 PowerShell options are available directly:
 
@@ -133,6 +142,10 @@ Use `-Wait` with `start.ps1` or `restart.ps1` only when you want the script to w
 
 The integration seed requires `E2E_EMAIL` and `E2E_PASSWORD` at runtime, hashes the password with bcrypt before storage, and does not print credentials in logs. Provide these values only through a local shell, per-run CI generation, or, only when unavoidable, a CI secret for a persistent external test identity; do not commit them to `.env` or `.env.example`. New or changed user passwords must be at least 12 characters and include lowercase, uppercase, numeric, and symbol characters.
 
+The realistic seed deletes all data in its target. It therefore accepts only a loopback PostgreSQL database named `shiftflow` or `shiftflow_<purpose>`, rejects `NODE_ENV=production`, requires a runtime password, and requires the explicit per-shell confirmation `SHIFTFLOW_DESTRUCTIVE_SEED_CONFIRMATION=DELETE_CONFIRMED_LOCAL_SHIFTFLOW_DATA`. The confirmation and password must never be committed. Use a disposable database only.
+
+`npm start` is reserved for the compiled API (`dist/api/server.js`). After `npm run build`, run the Web production artefact separately with `npm run start:web`. Neither production command applies migrations or seeds; deployment orchestration remains environment-specific.
+
 ## Quality Gates
 
 Run fast feedback while developing, then the canonical core gate before
@@ -147,6 +160,7 @@ Additional checks:
 
 ```bash
 npm run comments:verify
+npm run platform:workflow:test
 npm run test:e2e
 npm run test:a11y
 npm run test:load

@@ -17,6 +17,7 @@ Prefer updating the documents listed here instead of creating new root-level con
 - `docs/source-commenting-manifest.md`: source-comment coverage, placement, syntax exceptions, immutable-file rules, and automated enforcement; language selection remains in the canonical Governance policy.
 - `docs/production-runbook.md`: production operations and incident handling.
 - `docs/technical-roadmap.md`: planned technical evolution.
+- `docs/attachment-storage-strategy.md`: approved boundary and remaining infrastructure decisions for attachment persistence.
 - `docs/systematization-report.md`: systematization baseline, decisions, and remaining risks.
 - `docs/adr/`: architecture decision records.
 - `prompts/`: the 17 active, controlled Codex instruction artifacts.

@@ -2,6 +2,7 @@
 param(
   [switch]$SkipInstall,
   [switch]$SkipSeed,
+  [switch]$KeepDatabase,
   [switch]$OpenBrowser,
   [switch]$Attach,
   [switch]$Wait
@@ -9,28 +10,34 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $stopScript = Join-Path $PSScriptRoot "stop.ps1"
 $startScript = Join-Path $PSScriptRoot "start.ps1"
+. (Join-Path $PSScriptRoot "platform-common.ps1")
 
 Write-Host "Restarting ShiftFlow..."
 
-& $stopScript
-
-$startArgs = @()
+$startArgs = @{}
 if ($SkipInstall) {
-  $startArgs += "-SkipInstall"
+  $startArgs.SkipInstall = $true
 }
 if ($SkipSeed) {
-  $startArgs += "-SkipSeed"
+  $startArgs.SkipSeed = $true
 }
 if ($OpenBrowser) {
-  $startArgs += "-OpenBrowser"
+  $startArgs.OpenBrowser = $true
 }
 if ($Attach) {
-  $startArgs += "-Attach"
+  $startArgs.Attach = $true
 }
 if ($Wait) {
-  $startArgs += "-Wait"
+  $startArgs.Wait = $true
 }
 
-& $startScript @startArgs
+$operationLock = Enter-PlatformOperationLock -RepositoryRoot $root.Path
+try {
+  & $stopScript -KeepDatabase:$KeepDatabase
+  & $startScript @startArgs
+} finally {
+  Exit-PlatformOperationLock -Lease $operationLock
+}

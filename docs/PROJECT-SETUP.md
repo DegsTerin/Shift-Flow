@@ -110,7 +110,38 @@ The policy contract itself can be checked without builds or network access:
 
 ```powershell
 npm run dev:workflow:test
+npm run platform:workflow:test
 ```
+
+The platform workflow test does not start services, touch application ports or
+invoke Docker. It checks fail-closed process ownership, shared operation locking,
+listener-to-process binding, local-only Docker endpoints, restart composition
+and cleanup boundaries, including descendant reparse points.
+
+## Local platform and destructive data boundary
+
+The Windows platform scripts under `scripts/` are development orchestration,
+not production startup. Use `npm run platform:start`, `platform:stop`,
+`platform:restart` and `platform:status`. Passing `-Wait` to the PowerShell start
+or restart script makes readiness mandatory and rolls back a partial process
+launch on failure. PID, start time, process name, repository root and launch
+command must all match before stop can terminate a process. Mutating platform
+commands share one repository lock. Cleanup performs a complete preflight and
+refuses to remove generated trees while runtime ownership, relevant listeners
+or reparse points are present. The active Docker context must resolve to an
+explicitly local endpoint. Readiness also requires the API and Web listeners to
+belong to their recorded managed process trees.
+
+`npm start` runs only the compiled API and `npm run start:web` runs the compiled
+Next.js application. Build, migration and seed remain separate operations.
+
+`seed:realistic` and `db:reset:realistic` are destructive. They reject
+production, remote hosts, non-ShiftFlow database names, absent runtime passwords
+and absent explicit confirmation. Run them only against a newly provisioned
+loopback disposable database and provide
+`SHIFTFLOW_DESTRUCTIVE_SEED_CONFIRMATION=DELETE_CONFIRMED_LOCAL_SHIFTFLOW_DATA`
+in that process environment. The confirmation is not durable authority and must
+not be placed in a committed environment file.
 
 ## Executable plan
 

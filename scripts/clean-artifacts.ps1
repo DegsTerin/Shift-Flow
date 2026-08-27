@@ -2,63 +2,85 @@
 $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$rootPattern = [regex]::Escape($root.Path)
 $targets = @(
   (Join-Path $root "apps/web/.next"),
   (Join-Path $root "dist")
 )
 
-function Stop-ArtifactUsers {
-  $patterns = @(
-    "playwright\\test\\cli\.js test-server",
-    "node_modules\\@playwright\\test\\cli\.js test-server",
-    "tsx.*watch apps/api/src/server\.ts",
-    "tsx.*apps/api/src/server\.ts",
-    "next.*dev apps/web",
-    "apps\\web\\.next\\"
-  )
+. (Join-Path $PSScriptRoot "platform-common.ps1")
 
-  function Test-ArtifactUserCommand {
-    param([string]$CommandLine)
-
-    foreach ($pattern in $patterns) {
-      if ($CommandLine -match $pattern) {
-        return $true
-      }
+function Assert-PlatformInactiveForCleanup {
+  $pidFile = Join-Path $root 'dist/runtime/shiftflow-pids.json'
+  if (Test-Path -LiteralPath $pidFile) {
+    try {
+      $state = Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json
+    } catch {
+      throw "Runtime ownership state could not be verified at $pidFile. Run npm run platform:stop before cleaning."
     }
 
-    return $false
+    if ($state.PSObject.Properties.Name -notcontains 'root' -or
+        $state.PSObject.Properties.Name -notcontains 'processes') {
+      throw "Runtime ownership state is incomplete at $pidFile. Run npm run platform:stop before cleaning."
+    }
+    $recordedProcesses = @($state.processes)
+    if ($recordedProcesses.Count -eq 0) {
+      throw "Runtime ownership state has no verifiable processes at $pidFile. Run npm run platform:stop before cleaning."
+    }
+    $stateRoot = Get-CanonicalPath -Path ([string]$state.root)
+    if (-not $stateRoot.Equals($root.Path, [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw "Runtime state belongs to a different repository: $stateRoot"
+    }
+
+    foreach ($entry in $recordedProcesses) {
+      $requiredProperties = @('root', 'pid', 'processName', 'startTimeUtc', 'encodedCommandHash')
+      if ($requiredProperties.Where({ $entry.PSObject.Properties.Name -notcontains $_ }).Count -gt 0) {
+        throw "Runtime ownership state contains an incomplete process entry. Cleanup was not started."
+      }
+      $snapshot = Get-ManagedProcessSnapshot -ProcessId ([int]$entry.pid)
+      if (-not $snapshot) {
+        continue
+      }
+      if (Test-ManagedProcessOwnership -Entry $entry -RepositoryRoot $root.Path -Snapshot $snapshot) {
+        throw "ShiftFlow is still running with PID $($entry.pid). Run npm run platform:stop before cleaning."
+      }
+      throw "PID $($entry.pid) is active but runtime ownership cannot be verified. Cleanup was not started."
+    }
   }
 
-  Get-CimInstance Win32_Process |
-    Where-Object {
-      $commandLine = $_.CommandLine
-      ($_.Name -eq "node.exe" -or $_.Name -eq "cmd.exe") -and
-      (
-        ($commandLine -match $rootPattern -and (Test-ArtifactUserCommand -CommandLine $commandLine)) -or
-        ($commandLine -match "tsx watch apps/api/src/server\.ts") -or
-        ($commandLine -match "next dev apps/web")
-      )
-    } |
-    ForEach-Object {
-      Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-      Write-Host "Stopped artifact user PID $($_.ProcessId)"
-    }
+  $listeners = Get-PortListeners -Ports @(3000, 3001)
+  if ($listeners.Count -gt 0) {
+    $details = $listeners |
+      ForEach-Object { "port $($_.Port) (PID $($_.ProcessId), $($_.ProcessName))" }
+    throw "Required ShiftFlow ports are active: $($details -join '; '). Cleanup was not started."
+  }
 }
 
-Stop-ArtifactUsers
+function Invoke-ArtifactCleanup {
+  Assert-PlatformInactiveForCleanup
 
-foreach ($target in $targets) {
-  $resolved = Resolve-Path -LiteralPath $target -ErrorAction SilentlyContinue
-  if (-not $resolved) {
-    continue
+  $existingTargets = @(
+    foreach ($target in $targets) {
+      $item = Get-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
+      if ($item) {
+        $item
+      }
+    }
+  )
+
+  foreach ($item in $existingTargets) {
+    Assert-NoReparsePointsInTree -Path $item.FullName -RepositoryRoot $root.Path
   }
 
-  $path = $resolved.Path
-  if (-not $path.StartsWith($root.Path, [StringComparison]::OrdinalIgnoreCase)) {
-    throw "Refusing to remove outside workspace: $path"
+  foreach ($item in $existingTargets) {
+    $path = Get-CanonicalPath -Path $item.FullName
+    Remove-Item -LiteralPath $path -Recurse -Force
+    Write-Host "Removed $path"
   }
+}
 
-  Remove-Item -LiteralPath $path -Recurse -Force
-  Write-Host "Removed $path"
+$operationLock = Enter-PlatformOperationLock -RepositoryRoot $root.Path
+try {
+  Invoke-ArtifactCleanup
+} finally {
+  Exit-PlatformOperationLock -Lease $operationLock
 }

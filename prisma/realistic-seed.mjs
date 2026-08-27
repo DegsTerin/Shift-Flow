@@ -1,29 +1,34 @@
 // en-GB: Creates controlled realistic seed data so local validation uses a repeatable database state.
 /* global console, process */
 
-import "dotenv/config";
-import { randomBytes } from "node:crypto";
+import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { assertSafeDestructiveSeed } from "./seed-safety.mjs";
+
+const explicitDestructiveConfirmation = process.env.SHIFTFLOW_DESTRUCTIVE_SEED_CONFIRMATION;
+dotenv.config();
 
 const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL is required to run the realistic seed.");
-}
-
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString })
-});
 
 const now = new Date();
 const timezone = "America/Sao_Paulo";
 const seedPassword = process.env.REALISTIC_SEED_PASSWORD ?? process.env.E2E_PASSWORD;
-const generatedPassword = seedPassword ? null : `Sf-${randomBytes(12).toString("base64url")}!8a`;
 const adminEmail =
   process.env.REALISTIC_SEED_EMAIL ?? process.env.E2E_EMAIL ?? "admin.operacoes@shiftflow.local";
-const password = seedPassword ?? generatedPassword;
+const password = seedPassword;
+
+assertSafeDestructiveSeed({
+  databaseUrl: connectionString,
+  nodeEnv: process.env.NODE_ENV,
+  confirmation: explicitDestructiveConfirmation,
+  password
+});
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString })
+});
 
 function bcryptRounds() {
   const rounds = Number(process.env.SEED_BCRYPT_ROUNDS ?? 12);
@@ -1321,8 +1326,7 @@ async function main() {
         message: "Banco limpo e populado com dados realistas em portugues.",
         login: {
           email: adminEmail,
-          passwordSource: generatedPassword ? "generated-runtime" : "environment",
-          password: generatedPassword ?? "(definida por REALISTIC_SEED_PASSWORD ou E2E_PASSWORD)"
+          passwordSource: "environment"
         },
         companyId: company.id,
         counts

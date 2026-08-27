@@ -1,11 +1,13 @@
 # en-GB: Excludes generated and local-only artefacts so commits contain intentional source changes.
 node_modules
-# Keep environment variables out of version control
-.env
+# Keep local environment variants out of version control while preserving the safe template
+.env*
+!.env.example
 
 /generated/prisma
 .next
 apps/web/.next
 dist
+.shiftflow
 coverage
 *.tsbuildinfo

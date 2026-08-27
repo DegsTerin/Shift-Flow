@@ -10,67 +10,61 @@ $runtimeDir = Join-Path $root "dist/runtime"
 $pidFile = Join-Path $runtimeDir "shiftflow-pids.json"
 
 . (Join-Path $PSScriptRoot "docker-desktop.ps1")
+. (Join-Path $PSScriptRoot "platform-common.ps1")
 
+function Invoke-PlatformStop {
 Set-Location $root
 
-function Stop-ProcessTree {
-  param(
-    [int]$ProcessId
-  )
-
-  $children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $ProcessId" -ErrorAction SilentlyContinue
-  foreach ($child in $children) {
-    Stop-ProcessTree -ProcessId $child.ProcessId
-  }
-
-  $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-  if ($process) {
-    Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
-  }
-}
-
-function Stop-ShiftFlowPorts {
-  foreach ($port in @(3000, 3001)) {
-    $processIds = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue |
-      Where-Object { $_.OwningProcess -gt 0 } |
-      Select-Object -ExpandProperty OwningProcess -Unique
-    foreach ($processId in $processIds) {
-      $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-      if ($process) {
-        Write-Host "Stopping PID $($process.Id) on port $port"
-        Stop-ProcessTree -ProcessId $process.Id
-      }
-    }
-  }
-}
+$managedProcessDisposition = 'unknown'
+$databaseDisposition = if ($KeepDatabase) { 'kept' } else { 'unverified' }
 
 if (Test-Path $pidFile) {
-  $state = Get-Content -Path $pidFile -Raw | ConvertFrom-Json
+  $state = Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json
+  $stateRoot = Get-CanonicalPath -Path ([string]$state.root)
+  if (-not $stateRoot.Equals($root.Path, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Runtime state belongs to a different repository: $stateRoot"
+  }
 
   foreach ($entry in $state.processes) {
-    $process = Get-Process -Id $entry.pid -ErrorAction SilentlyContinue
-    if ($process) {
-      Write-Host "Stopping $($entry.name) with PID $($entry.pid)"
-      Stop-ProcessTree -ProcessId $entry.pid
-    } else {
+    $snapshot = Get-ManagedProcessSnapshot -ProcessId ([int]$entry.pid)
+    if (-not $snapshot) {
       Write-Host "$($entry.name) with PID $($entry.pid) is not running"
+      continue
+    }
+    if (Test-ManagedProcessOwnership -Entry $entry -RepositoryRoot $root.Path -Snapshot $snapshot) {
+      Write-Host "Stopping $($entry.name) with PID $($entry.pid)"
+      Stop-VerifiedProcessTree -ProcessId ([int]$entry.pid)
+    } else {
+      throw "Refusing to stop PID $($entry.pid): runtime ownership could not be verified."
     }
   }
 
-  Remove-Item -Path $pidFile -Force
+  Remove-Item -LiteralPath $pidFile -Force
+  $managedProcessDisposition = 'stopped'
 } else {
-  Write-Warning "PID file not found at $pidFile. Attempting to stop common ShiftFlow dev ports."
+  Write-Warning "PID file not found at $pidFile. No process will be stopped without ownership evidence."
 }
-
-Stop-ShiftFlowPorts
 
 if (-not $KeepDatabase) {
-  Write-Host "Starting Docker Desktop if needed"
-  Start-DockerDesktopMinimized
-  Write-Host "Stopping PostgreSQL container"
-  docker compose stop --timeout 5 postgres
-  Stop-DockerDesktop
+  Assert-LocalDockerEnvironment
+  if (Test-DockerDaemon) {
+    Write-Host "Stopping the ShiftFlow PostgreSQL Compose service"
+    Invoke-ShiftFlowCompose `
+      -RepositoryRoot $root.Path `
+      -Arguments @('stop', '--timeout', '5', 'postgres')
+    $databaseDisposition = 'stopped'
+  } else {
+    Write-Host "Docker daemon is unavailable; the PostgreSQL service state was not changed or verified."
+  }
 }
 
-Write-Host "ShiftFlow stopped."
-exit 0
+Write-Host "ShiftFlow managed process disposition: $managedProcessDisposition"
+Write-Host "ShiftFlow PostgreSQL disposition: $databaseDisposition"
+}
+
+$operationLock = Enter-PlatformOperationLock -RepositoryRoot $root.Path
+try {
+  Invoke-PlatformStop
+} finally {
+  Exit-PlatformOperationLock -Lease $operationLock
+}

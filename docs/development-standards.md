@@ -97,6 +97,6 @@ Update docs when changing:
 - `eng/development.ps1` and `eng/ci.ps1` define the local/remote development
   loop and canonical runtime-credential-free core gate; `eng/build.ps1`
   preserves tracked Next.js metadata around the raw application build.
-- `.github/CODEOWNERS` is present as a commented template until real GitHub owners are known.
+- `.github/CODEOWNERS` contains the active repository ownership rules for the current owner handle.
 - `SECURITY.md` defines the vulnerability handling policy.
 - `docs/adr/` stores architecture decision records.
