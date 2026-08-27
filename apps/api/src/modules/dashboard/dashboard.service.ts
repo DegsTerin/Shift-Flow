@@ -5,9 +5,10 @@ import { activeCompanyId, assertTeamInCompany } from "../../shared/services/scop
 import type {
   DashboardConfigurationDto,
   DashboardTypeDto,
-  DashboardWidgetDto
+  DashboardWidgetDto,
+  DashboardWidgetTypeDto
 } from "./dashboard.dto.js";
-import { DashboardRepository } from "./dashboard.repository.js";
+import { DashboardRepository, type DashboardConfigurationContext } from "./dashboard.repository.js";
 
 const mainDashboardWidgets: DashboardWidgetDto[] = [
   {
@@ -301,10 +302,13 @@ export class DashboardService {
     return row?._count?._all ?? 0;
   }
 
-  private where(req: ApiRequest) {
+  private where(
+    req: ApiRequest,
+    checkedAt: Date,
+    slaRiskUntil = new Date(checkedAt.getTime() + 60 * 60 * 1000)
+  ) {
     const query = req.query as Record<string, unknown>;
     const search = query.search ? String(query.search).trim() : "";
-    const now = new Date();
     const uuidSearch =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(search);
     return {
@@ -317,14 +321,17 @@ export class DashboardService {
       ...(query.status ? { status: query.status } : {}),
       ...(query.shiftId ? { shiftId: query.shiftId } : {}),
       ...(query.attention === "OVERDUE"
-        ? { AND: [{ status: { notIn: ["DONE", "CANCELLED"] }, slaDueAt: { lt: now } }] }
+        ? { AND: [{ status: { notIn: ["DONE", "CANCELLED"] }, slaDueAt: { lt: checkedAt } }] }
         : {}),
       ...(query.attention === "SLA_RISK"
         ? {
             AND: [
               {
                 status: { notIn: ["DONE", "CANCELLED"] },
-                slaDueAt: { gte: now, lte: new Date(now.getTime() + 60 * 60 * 1000) }
+                slaDueAt: {
+                  gte: checkedAt,
+                  lte: slaRiskUntil
+                }
               }
             ]
           }
@@ -361,29 +368,28 @@ export class DashboardService {
   }
 
   async summary(req: ApiRequest) {
-    const where = this.where(req);
-    const now = new Date();
-    const [total, byStatus, byPriority, slaAtRisk, overdue, completedActivities] =
-      await Promise.all([
-        this.repository.count(where),
-        this.repository.groupBy("status", where),
-        this.repository.groupBy("priority", where),
-        this.repository.count(
-          withConditions(
-            where,
-            { status: { notIn: ["DONE", "CANCELLED"] } },
-            { slaDueAt: { gt: now, lte: new Date(now.getTime() + 60 * 60 * 1000) } }
-          )
-        ),
-        this.repository.count(
-          withConditions(
-            where,
-            { status: { notIn: ["DONE", "CANCELLED"] } },
-            { slaDueAt: { lt: now } }
-          )
-        ),
-        this.repository.completedForAverage(where)
-      ]);
+    const checkedAt = new Date();
+    const slaRiskUntil = new Date(checkedAt.getTime() + 60 * 60 * 1000);
+    const where = this.where(req, checkedAt, slaRiskUntil);
+    const snapshot = await this.repository.summarySnapshot(
+      where,
+      withConditions(
+        where,
+        { status: { notIn: ["DONE", "CANCELLED"] } },
+        {
+          slaDueAt: {
+            gte: checkedAt,
+            lte: slaRiskUntil
+          }
+        }
+      ),
+      withConditions(
+        where,
+        { status: { notIn: ["DONE", "CANCELLED"] } },
+        { slaDueAt: { lt: checkedAt } }
+      )
+    );
+    const { total, byStatus, byPriority, slaAtRisk, overdue, completedActivities } = snapshot;
     const pending = this.countFromGroup(byStatus, "status", "PENDING");
     const inProgress = this.countFromGroup(byStatus, "status", "IN_PROGRESS");
     const done = this.countFromGroup(byStatus, "status", "DONE");
@@ -404,20 +410,13 @@ export class DashboardService {
   }
 
   async charts(req: ApiRequest) {
-    const where = this.where(req);
-    const [byTeam, byClient, byStatus, byPriority, byShift] = await Promise.all([
-      this.repository.groupBy("teamId", where),
-      this.repository.groupBy("clientId", where),
-      this.repository.groupBy("status", where),
-      this.repository.groupBy("priority", where),
-      this.repository.groupBy("shiftId", where)
-    ]);
-
-    return { byTeam, byClient, byStatus, byPriority, byShift };
+    const checkedAt = new Date();
+    return this.repository.chartsSnapshot(this.where(req, checkedAt));
   }
 
   async operationalList(req: ApiRequest) {
-    return this.repository.operationalList(this.where(req));
+    const checkedAt = new Date();
+    return this.repository.operationalList(this.where(req, checkedAt));
   }
 
   async configuration(req: ApiRequest, dashboardType: DashboardTypeDto, teamId?: string) {
@@ -428,46 +427,38 @@ export class DashboardService {
     const where = { companyId, userId, dashboardType, teamId: teamId ?? null, deletedAt: null };
     const existing = await this.repository.findConfiguration(where);
     if (existing) return this.serializeConfiguration(existing);
-    return this.createDefaultConfiguration(companyId, userId, dashboardType, teamId ?? null);
+    return this.defaultConfiguration(dashboardType, teamId ?? null);
   }
 
-  async saveConfiguration(req: ApiRequest, data: DashboardConfigurationDto) {
+  async saveConfiguration(
+    req: ApiRequest,
+    dashboardType: DashboardTypeDto,
+    data: DashboardConfigurationDto
+  ) {
+    if (dashboardType !== data.dashboardType) {
+      throw badRequest("Dashboard type in the path must match the request body");
+    }
     const companyId = activeCompanyId(req);
     const userId = req.auth?.id;
     if (!userId) throw new Error("Authenticated user is required");
-    await assertTeamInCompany(data.teamId, companyId);
-    const where = {
+    const context: DashboardConfigurationContext = {
       companyId,
       userId,
-      dashboardType: data.dashboardType,
-      teamId: data.teamId ?? null,
-      deletedAt: null
+      dashboardType,
+      teamId: data.teamId ?? null
     };
-    this.assertKnownWidgets(data.dashboardType, data.widgets);
-    const existing =
-      (await this.repository.findConfiguration(where)) ??
-      (await this.repository.createConfiguration({
-        companyId,
-        userId,
-        dashboardType: data.dashboardType,
-        teamId: data.teamId ?? null,
+    const widgets = this.normaliseWidgets(data.widgets);
+    this.assertKnownWidgets(dashboardType, widgets);
+    const updated = await this.repository.writeConfiguration(
+      context,
+      {
         gridColumns: data.gridColumns,
         gridGap: data.gridGap,
         isDefault: Boolean(data.isDefault),
         metadata: data.metadata ?? {}
-      }));
-    const id = String(existing.id);
-    await this.repository.replaceWidgets(
-      id,
-      companyId,
-      data.widgets.map((widget, index) => this.toWidgetRecord(widget, companyId, id, index))
+      },
+      widgets.map((widget, index) => this.toWidgetRecord(widget, index))
     );
-    const updated = await this.repository.updateConfiguration(id, {
-      gridColumns: data.gridColumns,
-      gridGap: data.gridGap,
-      isDefault: Boolean(data.isDefault),
-      metadata: data.metadata ?? {}
-    });
     return this.serializeConfiguration(updated);
   }
 
@@ -475,55 +466,54 @@ export class DashboardService {
     const companyId = activeCompanyId(req);
     const userId = req.auth?.id;
     if (!userId) throw new Error("Authenticated user is required");
-    await assertTeamInCompany(teamId, companyId);
-    const current = await this.configuration(req, dashboardType, teamId);
-    const widgets = this.defaultWidgets(dashboardType);
-    await this.repository.replaceWidgets(
-      String(current.id),
+    const context: DashboardConfigurationContext = {
       companyId,
-      widgets.map((widget, index) =>
-        this.toWidgetRecord(widget, companyId, String(current.id), index)
-      )
+      userId,
+      dashboardType,
+      teamId: teamId ?? null
+    };
+    const widgets = this.defaultWidgets(dashboardType);
+    const updated = await this.repository.writeConfiguration(
+      context,
+      { gridColumns: 12, gridGap: 16, isDefault: true, metadata: {} },
+      widgets.map((widget, index) => this.toWidgetRecord(widget, index))
     );
-    const updated = await this.repository.updateConfiguration(String(current.id), {
-      gridColumns: 12,
-      gridGap: 16,
-      isDefault: true,
-      metadata: {}
-    });
     return this.serializeConfiguration(updated);
   }
 
-  private async createDefaultConfiguration(
-    companyId: string,
-    userId: string,
+  private defaultConfiguration(
     dashboardType: DashboardTypeDto,
     teamId: string | null
-  ) {
-    const widgets = this.defaultWidgets(dashboardType);
-    const created = await this.repository.createConfiguration({
-      companyId,
-      userId,
+  ): DashboardConfigurationDto {
+    return {
       dashboardType,
       teamId,
       gridColumns: 12,
       gridGap: 16,
       isDefault: true,
-      metadata: {}
-    });
-    await this.repository.replaceWidgets(
-      String(created.id),
-      companyId,
-      widgets.map((widget, index) =>
-        this.toWidgetRecord(widget, companyId, String(created.id), index)
-      )
-    );
-    const updated = await this.repository.updateConfiguration(String(created.id), {});
-    return this.serializeConfiguration(updated);
+      metadata: {},
+      widgets: this.defaultWidgets(dashboardType).map((widget) => ({
+        ...widget,
+        description: widget.description ?? null,
+        refreshIntervalMs: widget.refreshIntervalMs ?? 60000,
+        settings: { ...(widget.settings ?? {}), key: widget.key },
+        metadata: widget.metadata ?? {}
+      }))
+    };
   }
 
   private defaultWidgets(dashboardType: DashboardTypeDto) {
     return dashboardType === "TEAM" ? teamDashboardWidgets : mainDashboardWidgets;
+  }
+
+  private normaliseWidgets(widgets: DashboardWidgetDto[]) {
+    return widgets
+      .map((widget, inputOrder) => ({ widget, inputOrder }))
+      .sort(
+        (left, right) =>
+          left.widget.order - right.widget.order || left.inputOrder - right.inputOrder
+      )
+      .map(({ widget }, order) => ({ ...widget, order }));
   }
 
   private assertKnownWidgets(dashboardType: DashboardTypeDto, widgets: DashboardWidgetDto[]) {
@@ -545,7 +535,8 @@ export class DashboardService {
       .map((item) => {
         const record = item as { createdAt?: Date; completedAt?: Date | null };
         if (!record.createdAt || !record.completedAt) return null;
-        return Math.max(0, record.completedAt.getTime() - record.createdAt.getTime()) / 3600000;
+        const duration = record.completedAt.getTime() - record.createdAt.getTime();
+        return duration >= 0 ? duration / 3600000 : null;
       })
       .filter((item): item is number => typeof item === "number");
     if (!durations.length) return 0;
@@ -554,16 +545,10 @@ export class DashboardService {
     );
   }
 
-  private toWidgetRecord(
-    widget: DashboardWidgetDto,
-    companyId: string,
-    dashboardConfigId?: string,
-    fallbackOrder = 0
-  ) {
+  private toWidgetRecord(widget: DashboardWidgetDto, fallbackOrder = 0) {
     const settings = { ...(widget.settings ?? {}), key: widget.key };
     return {
-      ...(dashboardConfigId ? { dashboardConfigId } : {}),
-      companyId,
+      ...(widget.id ? { id: widget.id } : {}),
       widgetType: widget.widgetType,
       title: widget.title,
       description: widget.description ?? null,
@@ -584,6 +569,9 @@ export class DashboardService {
     record: Record<string, unknown>
   ): DashboardConfigurationDto & { id: string } {
     const widgets = Array.isArray(record.widgets) ? record.widgets : [];
+    const serialisedWidgets = widgets.map((item) =>
+      this.serializeWidget(item as Record<string, unknown>)
+    );
     return {
       id: String(record.id),
       dashboardType: record.dashboardType as DashboardTypeDto,
@@ -592,7 +580,7 @@ export class DashboardService {
       gridGap: Number(record.gridGap ?? 16),
       isDefault: Boolean(record.isDefault),
       metadata: (record.metadata as Record<string, unknown> | null) ?? {},
-      widgets: widgets.map((item) => this.serializeWidget(item as Record<string, unknown>))
+      widgets: this.normaliseWidgets(serialisedWidgets)
     };
   }
 
@@ -601,7 +589,7 @@ export class DashboardService {
     return {
       id: String(record.id),
       key: String(settings.key ?? record.id),
-      widgetType: String(record.widgetType),
+      widgetType: String(record.widgetType) as DashboardWidgetTypeDto,
       title: String(record.title),
       description: (record.description as string | null | undefined) ?? null,
       gridColumn: Number(record.gridColumn ?? 1),

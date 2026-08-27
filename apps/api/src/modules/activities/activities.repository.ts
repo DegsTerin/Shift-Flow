@@ -1,6 +1,6 @@
 // en-GB: Encapsulates activities persistence so data access remains consistent and testable.
 import { BaseRepository } from "../../shared/repositories/base.repository.js";
-import { getDelegate, getPrisma } from "../../shared/lib/prisma.js";
+import { getPrisma } from "../../shared/lib/prisma.js";
 import { toSkipTake, type Pagination } from "../../shared/http/pagination.js";
 import { forbidden, notFound } from "../../shared/errors/app-error.js";
 
@@ -10,6 +10,8 @@ type HistoryDelegate = {
 };
 
 type ActivityDelegate = {
+  findMany(args: unknown): Promise<unknown[]>;
+  count(args: unknown): Promise<number>;
   findFirst(args: unknown): Promise<Record<string, unknown> | null>;
   create(args: unknown): Promise<Record<string, unknown>>;
   update(args: unknown): Promise<Record<string, unknown>>;
@@ -74,26 +76,33 @@ export class ActivitiesRepository extends BaseRepository {
   }
 
   async filteredList(where: Record<string, unknown>, pagination: Pagination) {
-    const delegate = await getDelegate<{
-      findMany(args: unknown): Promise<unknown[]>;
-      count(args: unknown): Promise<number>;
-    }>("activity");
-    const [items, total] = await Promise.all([
-      delegate.findMany({
-        where,
-        ...toSkipTake(pagination),
-        orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
-        include: {
-          client: true,
-          team: true,
-          shift: true,
-          assignee: { select: publicUserSelect },
-          reporter: { select: publicUserSelect }
-        }
-      }),
-      delegate.count({ where })
-    ]);
-    return { items, total, ...pagination };
+    const prisma = (await getPrisma()) as {
+      $transaction<T>(
+        callback: (tx: ActivityTransaction) => Promise<T>,
+        options?: { isolationLevel?: "RepeatableRead" }
+      ): Promise<T>;
+    };
+    return prisma.$transaction(
+      async (tx) => {
+        const [items, total] = await Promise.all([
+          tx.activity.findMany({
+            where,
+            ...toSkipTake(pagination),
+            orderBy: [{ priority: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
+            include: {
+              client: true,
+              team: true,
+              shift: true,
+              assignee: { select: publicUserSelect },
+              reporter: { select: publicUserSelect }
+            }
+          }),
+          tx.activity.count({ where })
+        ]);
+        return { items, total, ...pagination };
+      },
+      { isolationLevel: "RepeatableRead" }
+    );
   }
 
   async createWithEvidence(

@@ -23,7 +23,8 @@ export const DashboardController = {
     res.json(ok(await service.configuration(req, params.dashboardType, query.teamId)));
   }),
   saveConfiguration: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(await service.saveConfiguration(req, req.body)));
+    const params = req.params as { dashboardType: "MAIN" | "TEAM" | "EXECUTIVE" };
+    res.json(ok(await service.saveConfiguration(req, params.dashboardType, req.body)));
   }),
   resetConfiguration: asyncHandler(async (req: ApiRequest, res: Response) => {
     const params = req.params as { dashboardType: "MAIN" | "TEAM" | "EXECUTIVE" };

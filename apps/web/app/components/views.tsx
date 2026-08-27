@@ -114,15 +114,16 @@ function withMainTeamSummary(layout: DashboardConfiguration): DashboardConfigura
   };
 }
 
-function withRequiredWidgets(
+export function withRequiredWidgets(
   layout: DashboardConfiguration,
   definitions: DashboardWidgetDefinition[]
 ): DashboardConfiguration {
   const existingKeys = new Set(layout.widgets.map((widget) => widget.key));
+  const nextOrder = Math.max(-1, ...layout.widgets.map((widget) => widget.order)) + 1;
   const missingWidgets = definitions
     .filter((definition) => !existingKeys.has(definition.key))
     .map((definition, index) => {
-      const order = layout.widgets.length + index;
+      const order = nextOrder + index;
       return {
         key: definition.key,
         widgetType: definition.widgetType,

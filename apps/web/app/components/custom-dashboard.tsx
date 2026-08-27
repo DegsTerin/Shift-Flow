@@ -18,7 +18,13 @@ import {
   X
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { captureApiSessionEpoch, isApiSessionEpochCurrent } from "../lib/api";
+import { createSerialOperationQueue } from "../lib/serial-operation-queue";
 import type { DashboardConfiguration, DashboardWidget, Texts } from "../lib/types";
+
+export function canSynchroniseDashboardConfig(editing: boolean, saving: boolean) {
+  return !editing && !saving;
+}
 
 export type DashboardWidgetDefinition = {
   key: string;
@@ -83,15 +89,25 @@ export function CustomizableDashboard({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const saveRequestId = useRef(0);
+  const mounted = useRef(true);
+  const enqueuePersistence = useRef(createSerialOperationQueue()).current;
   const definitionMap = useMemo(
     () => new Map(definitions.map((definition) => [definition.key, definition])),
     [definitions]
   );
 
   useEffect(() => {
+    if (!canSynchroniseDashboardConfig(editing, saving)) return;
     setDraft(config);
-    if (!editing) setSnapshot(config);
-  }, [config, editing]);
+    setSnapshot(config);
+  }, [config, editing, saving]);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     function openCustomization() {
@@ -105,23 +121,25 @@ export function CustomizableDashboard({
 
   async function persist(next: DashboardConfiguration, rollback = draft) {
     const requestId = saveRequestId.current + 1;
+    const sessionEpoch = captureApiSessionEpoch();
+    const isCurrent = () => mounted.current && isApiSessionEpochCurrent(sessionEpoch);
     saveRequestId.current = requestId;
     setDraft(next);
     setSaving(true);
     setSaveError(null);
     try {
-      const saved = await onSave(next);
-      if (requestId !== saveRequestId.current) return;
+      const saved = await enqueuePersistence(() => onSave(next), isCurrent);
+      if (!isCurrent() || requestId !== saveRequestId.current) return;
       if (saved) {
         setDraft(saved);
         setSnapshot(saved);
       }
     } catch (cause) {
-      if (requestId !== saveRequestId.current) return;
+      if (!isCurrent() || requestId !== saveRequestId.current) return;
       setDraft(rollback);
       setSaveError(cause instanceof Error ? cause.message : t.dashboardSaveFailed);
     } finally {
-      if (requestId === saveRequestId.current) {
+      if (mounted.current && requestId === saveRequestId.current) {
         setSaving(false);
       }
     }
@@ -197,21 +215,23 @@ export function CustomizableDashboard({
 
   async function reset() {
     const requestId = saveRequestId.current + 1;
+    const sessionEpoch = captureApiSessionEpoch();
+    const isCurrent = () => mounted.current && isApiSessionEpochCurrent(sessionEpoch);
     saveRequestId.current = requestId;
     setSaving(true);
     try {
-      const resetConfig = await onReset();
-      if (requestId !== saveRequestId.current) return;
+      const resetConfig = await enqueuePersistence(onReset, isCurrent);
+      if (!isCurrent() || requestId !== saveRequestId.current) return;
       if (resetConfig) {
         setDraft(resetConfig);
         setSnapshot(resetConfig);
       }
       setSaveError(null);
     } catch (cause) {
-      if (requestId !== saveRequestId.current) return;
+      if (!isCurrent() || requestId !== saveRequestId.current) return;
       setSaveError(cause instanceof Error ? cause.message : t.dashboardSaveFailed);
     } finally {
-      if (requestId === saveRequestId.current) {
+      if (mounted.current && requestId === saveRequestId.current) {
         setSaving(false);
       }
     }

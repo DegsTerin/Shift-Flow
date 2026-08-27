@@ -67,6 +67,8 @@ describe("ActivitiesRepository", () => {
         callback({
           $queryRawUnsafe: persistence.lockActivity,
           activity: {
+            findMany: persistence.findMany,
+            count: persistence.count,
             findFirst: persistence.activityFindFirst,
             create: persistence.activityCreate,
             update: persistence.activityUpdate
@@ -89,6 +91,14 @@ describe("ActivitiesRepository", () => {
     );
     expect(persistence.count).toHaveBeenCalledWith({ where });
     expect(result).toEqual({ items: [], total: 135, page: 3, pageSize: 20 });
+    expect(persistence.transaction).toHaveBeenCalledOnce();
+    expect(persistence.transaction.mock.calls[0][1]).toEqual({ isolationLevel: "RepeatableRead" });
+    expect(persistence.getDelegate).not.toHaveBeenCalled();
+    expect(persistence.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ priority: "desc" }, { updatedAt: "desc" }, { id: "desc" }]
+      })
+    );
   });
 
   it("creates the activity, audit and history through one transaction client", async () => {

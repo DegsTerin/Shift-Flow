@@ -6,14 +6,30 @@ export type DashboardFiltersDto = {
   priority?: string;
   status?: string;
   shiftId?: string;
+  search?: string;
+  attention?: "OVERDUE" | "CRITICAL" | "SLA_RISK";
+  from?: Date;
+  to?: Date;
 };
 
 export type DashboardTypeDto = "MAIN" | "TEAM" | "EXECUTIVE";
 
+export type DashboardWidgetTypeDto =
+  | "SUMMARY_CARD"
+  | "BAR_CHART"
+  | "LINE_CHART"
+  | "PIE_CHART"
+  | "TABLE"
+  | "LIST"
+  | "INDICATOR"
+  | "CALENDAR"
+  | "RECENT_ACTIVITIES"
+  | "CUSTOM";
+
 export type DashboardWidgetDto = {
   id?: string;
   key: string;
-  widgetType: string;
+  widgetType: DashboardWidgetTypeDto;
   title: string;
   description?: string | null;
   gridColumn: number;

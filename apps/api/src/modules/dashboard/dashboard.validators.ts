@@ -71,12 +71,26 @@ const dashboardWidgetSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional()
 });
 
-export const dashboardConfigurationSchema = z.object({
-  dashboardType: z.enum(["MAIN", "TEAM", "EXECUTIVE"]),
-  teamId: z.string().uuid().nullable().optional(),
-  gridColumns: z.number().int().min(1).max(12).default(12),
-  gridGap: z.number().int().min(0).max(48).default(16),
-  isDefault: z.boolean().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  widgets: z.array(dashboardWidgetSchema).max(60)
-});
+export const dashboardConfigurationSchema = z
+  .object({
+    dashboardType: z.enum(["MAIN", "TEAM", "EXECUTIVE"]),
+    teamId: z.string().uuid().nullable().optional(),
+    gridColumns: z.number().int().min(1).max(12).default(12),
+    gridGap: z.number().int().min(0).max(48).default(16),
+    isDefault: z.boolean().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    widgets: z.array(dashboardWidgetSchema).max(60)
+  })
+  .superRefine((value, context) => {
+    const keys = new Set<string>();
+    value.widgets.forEach((widget, index) => {
+      if (keys.has(widget.key)) {
+        context.addIssue({
+          code: "custom",
+          path: ["widgets", index, "key"],
+          message: "Dashboard widget keys must be unique"
+        });
+      }
+      keys.add(widget.key);
+    });
+  });
