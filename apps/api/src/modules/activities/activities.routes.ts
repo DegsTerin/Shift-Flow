@@ -5,6 +5,8 @@ import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
 import { ActivitiesController } from "./activities.controller.js";
 import {
+  activityFilterSchema,
+  activityNoteSchema,
   activitySchema,
   assignActivitySchema,
   activityTaskColumnSchema,
@@ -17,8 +19,18 @@ import {
 export const activityRoutes = Router();
 
 activityRoutes.use(authenticate);
-activityRoutes.get("/", requirePermission("activities", "read"), ActivitiesController.list);
-activityRoutes.get("/kanban", requirePermission("activities", "read"), ActivitiesController.kanban);
+activityRoutes.get(
+  "/",
+  requirePermission("activities", "read"),
+  validate("query", activityFilterSchema),
+  ActivitiesController.list
+);
+activityRoutes.get(
+  "/kanban",
+  requirePermission("activities", "read"),
+  validate("query", activityFilterSchema),
+  ActivitiesController.kanban
+);
 activityRoutes.post(
   "/",
   requirePermission("activities", "write"),
@@ -108,10 +120,12 @@ activityRoutes.post(
 activityRoutes.post(
   "/:id/close",
   requirePermission("activities", "write"),
+  validate("body", activityNoteSchema),
   ActivitiesController.close
 );
 activityRoutes.post(
   "/:id/reopen",
   requirePermission("activities", "write"),
+  validate("body", activityNoteSchema),
   ActivitiesController.reopen
 );

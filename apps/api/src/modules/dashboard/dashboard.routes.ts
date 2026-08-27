@@ -17,19 +17,19 @@ dashboardRoutes.use(authenticate);
 dashboardRoutes.get(
   "/summary",
   requirePermission("dashboard", "read"),
-  validate("query", dashboardFilterSchema.partial()),
+  validate("query", dashboardFilterSchema),
   DashboardController.summary
 );
 dashboardRoutes.get(
   "/charts",
   requirePermission("dashboard", "read"),
-  validate("query", dashboardFilterSchema.partial()),
+  validate("query", dashboardFilterSchema),
   DashboardController.charts
 );
 dashboardRoutes.get(
   "/operational-list",
   requirePermission("dashboard", "read"),
-  validate("query", dashboardFilterSchema.partial()),
+  validate("query", dashboardFilterSchema),
   DashboardController.operationalList
 );
 dashboardRoutes.get(

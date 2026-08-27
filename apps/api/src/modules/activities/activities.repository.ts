@@ -1,6 +1,7 @@
 // en-GB: Encapsulates activities persistence so data access remains consistent and testable.
 import { BaseRepository } from "../../shared/repositories/base.repository.js";
 import { getDelegate } from "../../shared/lib/prisma.js";
+import { toSkipTake, type Pagination } from "../../shared/http/pagination.js";
 
 type HistoryDelegate = {
   findMany(args: unknown): Promise<unknown[]>;
@@ -42,7 +43,7 @@ export class ActivitiesRepository extends BaseRepository {
     super("activity");
   }
 
-  async filteredList(where: Record<string, unknown>) {
+  async filteredList(where: Record<string, unknown>, pagination: Pagination) {
     const delegate = await getDelegate<{
       findMany(args: unknown): Promise<unknown[]>;
       count(args: unknown): Promise<number>;
@@ -50,7 +51,7 @@ export class ActivitiesRepository extends BaseRepository {
     const [items, total] = await Promise.all([
       delegate.findMany({
         where,
-        take: 100,
+        ...toSkipTake(pagination),
         orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
         include: {
           client: true,
@@ -62,7 +63,7 @@ export class ActivitiesRepository extends BaseRepository {
       }),
       delegate.count({ where })
     ]);
-    return { items, total, page: 1, pageSize: 100 };
+    return { items, total, ...pagination };
   }
 
   async addHistory(data: Record<string, unknown>) {

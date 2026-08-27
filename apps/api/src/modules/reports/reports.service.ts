@@ -13,8 +13,7 @@ import { ReportsRepository } from "./reports.repository.js";
 export class ReportsService extends BaseService {
   private readonly reportsRepository: ReportsRepository;
 
-  constructor() {
-    const repository = new ReportsRepository();
+  constructor(repository = new ReportsRepository()) {
     super(repository, "ShiftReport", {
       userStamps: false,
       orderBy: { createdAt: "desc" }
@@ -53,8 +52,12 @@ export class ReportsService extends BaseService {
       ...(query.from || query.to
         ? {
             createdAt: {
-              ...(query.from ? { gte: new Date(String(query.from)) } : {}),
-              ...(query.to ? { lte: new Date(String(query.to)) } : {})
+              ...(query.from
+                ? { gte: query.from instanceof Date ? query.from : new Date(String(query.from)) }
+                : {}),
+              ...(query.to
+                ? { lte: query.to instanceof Date ? query.to : new Date(String(query.to)) }
+                : {})
             }
           }
         : {})

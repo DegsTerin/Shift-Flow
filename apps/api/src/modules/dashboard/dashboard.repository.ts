@@ -65,11 +65,11 @@ export class DashboardRepository {
   }
 
   async completedForAverage(where: Record<string, unknown>) {
+    const existing = Array.isArray(where.AND) ? where.AND : [];
     return (await this.activities()).findMany({
       where: {
         ...where,
-        status: "DONE",
-        completedAt: { not: null }
+        AND: [...existing, { status: "DONE" }, { completedAt: { not: null } }]
       },
       select: { createdAt: true, completedAt: true },
       take: 500

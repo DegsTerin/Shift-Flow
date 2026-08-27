@@ -285,6 +285,11 @@ const allowedWidgetKeysByDashboardType: Record<DashboardTypeDto, Set<string>> = 
   EXECUTIVE: new Set(mainDashboardWidgets.map((widget) => widget.key))
 };
 
+function withConditions(where: Record<string, unknown>, ...conditions: Record<string, unknown>[]) {
+  const existing = Array.isArray(where.AND) ? where.AND : [];
+  return { ...where, AND: [...existing, ...conditions] };
+}
+
 export class DashboardService {
   constructor(private readonly repository = new DashboardRepository()) {}
 
@@ -311,21 +316,29 @@ export class DashboardService {
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.shiftId ? { shiftId: query.shiftId } : {}),
-      ...(query.attention === "CRITICAL" ? { priority: "CRITICAL" } : {}),
       ...(query.attention === "OVERDUE"
-        ? { status: { notIn: ["DONE", "CANCELLED"] }, slaDueAt: { lt: now } }
+        ? { AND: [{ status: { notIn: ["DONE", "CANCELLED"] }, slaDueAt: { lt: now } }] }
         : {}),
       ...(query.attention === "SLA_RISK"
         ? {
-            status: { notIn: ["DONE", "CANCELLED"] },
-            slaDueAt: { gte: now, lte: new Date(now.getTime() + 60 * 60 * 1000) }
+            AND: [
+              {
+                status: { notIn: ["DONE", "CANCELLED"] },
+                slaDueAt: { gte: now, lte: new Date(now.getTime() + 60 * 60 * 1000) }
+              }
+            ]
           }
         : {}),
+      ...(query.attention === "CRITICAL" ? { AND: [{ priority: "CRITICAL" }] } : {}),
       ...(query.from || query.to
         ? {
             createdAt: {
-              ...(query.from ? { gte: new Date(String(query.from)) } : {}),
-              ...(query.to ? { lte: new Date(String(query.to)) } : {})
+              ...(query.from
+                ? { gte: query.from instanceof Date ? query.from : new Date(String(query.from)) }
+                : {}),
+              ...(query.to
+                ? { lte: query.to instanceof Date ? query.to : new Date(String(query.to)) }
+                : {})
             }
           }
         : {}),
@@ -355,16 +368,20 @@ export class DashboardService {
         this.repository.count(where),
         this.repository.groupBy("status", where),
         this.repository.groupBy("priority", where),
-        this.repository.count({
-          ...where,
-          status: { notIn: ["DONE", "CANCELLED"] },
-          slaDueAt: { lte: new Date(now.getTime() + 60 * 60 * 1000) }
-        }),
-        this.repository.count({
-          ...where,
-          status: { notIn: ["DONE", "CANCELLED"] },
-          slaDueAt: { lt: now }
-        }),
+        this.repository.count(
+          withConditions(
+            where,
+            { status: { notIn: ["DONE", "CANCELLED"] } },
+            { slaDueAt: { gt: now, lte: new Date(now.getTime() + 60 * 60 * 1000) } }
+          )
+        ),
+        this.repository.count(
+          withConditions(
+            where,
+            { status: { notIn: ["DONE", "CANCELLED"] } },
+            { slaDueAt: { lt: now } }
+          )
+        ),
         this.repository.completedForAverage(where)
       ]);
     const pending = this.countFromGroup(byStatus, "status", "PENDING");

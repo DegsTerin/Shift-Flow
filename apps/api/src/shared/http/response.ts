@@ -8,6 +8,9 @@ function isRedactedResponseKey(key: string) {
 }
 
 function sanitizeResponse(value: unknown): unknown {
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
   if (Array.isArray(value)) {
     return value.map(sanitizeResponse);
   }
@@ -23,7 +26,7 @@ function sanitizeResponse(value: unknown): unknown {
 }
 
 export function ok<T>(data: T, meta?: unknown) {
-  return { data: sanitizeResponse(data) as T, meta };
+  return { data: sanitizeResponse(data) as T, meta: sanitizeResponse(meta) };
 }
 
 export function created<T>(data: T) {

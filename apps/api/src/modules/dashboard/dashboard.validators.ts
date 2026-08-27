@@ -1,28 +1,38 @@
 // en-GB: Validates dashboard input so malformed data cannot cross the module boundary.
 import { z } from "zod";
 
-export const dashboardFilterSchema = z.object({
-  teamId: z.string().uuid().optional(),
-  assigneeId: z.string().uuid().optional(),
-  clientId: z.string().uuid().optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
-  status: z
-    .enum([
-      "PENDING",
-      "IN_PROGRESS",
-      "WAITING_CUSTOMER",
-      "WAITING_THIRD_PARTY",
-      "MONITORING",
-      "DONE",
-      "CANCELLED"
-    ])
-    .optional(),
-  shiftId: z.string().uuid().optional(),
-  search: z.string().max(200).optional(),
-  attention: z.enum(["OVERDUE", "CRITICAL", "SLA_RISK"]).optional(),
-  from: z.coerce.date().optional(),
-  to: z.coerce.date().optional()
-});
+export const dashboardFilterSchema = z
+  .object({
+    teamId: z.string().uuid().optional(),
+    assigneeId: z.string().uuid().optional(),
+    clientId: z.string().uuid().optional(),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+    status: z
+      .enum([
+        "PENDING",
+        "IN_PROGRESS",
+        "WAITING_CUSTOMER",
+        "WAITING_THIRD_PARTY",
+        "MONITORING",
+        "DONE",
+        "CANCELLED"
+      ])
+      .optional(),
+    shiftId: z.string().uuid().optional(),
+    search: z.string().trim().max(200).optional(),
+    attention: z.enum(["OVERDUE", "CRITICAL", "SLA_RISK"]).optional(),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional()
+  })
+  .superRefine((value, context) => {
+    if (value.from && value.to && value.to < value.from) {
+      context.addIssue({
+        code: "custom",
+        path: ["to"],
+        message: "to must not be earlier than from"
+      });
+    }
+  });
 
 export const dashboardTypeParamSchema = z.object({
   dashboardType: z.enum(["MAIN", "TEAM", "EXECUTIVE"])

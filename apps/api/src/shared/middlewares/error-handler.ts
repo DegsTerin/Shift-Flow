@@ -1,5 +1,6 @@
 // en-GB: Defines the error handler implementation so this project responsibility remains explicit and maintainable.
 import type { NextFunction, Request, Response } from "express";
+import { ZodError } from "zod";
 import { AppError, conflict } from "../errors/app-error.js";
 import { env } from "../config/env.js";
 import type { ApiRequest } from "../http/request-types.js";
@@ -17,6 +18,28 @@ export function notFoundHandler(req: Request, res: Response) {
 export function errorHandler(error: unknown, req: Request, res: Response, _next: NextFunction) {
   void _next;
   const apiReq = req as ApiRequest;
+
+  if (error instanceof ZodError) {
+    res.status(400).json({
+      error: {
+        code: "BAD_REQUEST",
+        message: "Validation failed",
+        details: env.NODE_ENV === "production" ? undefined : error.flatten()
+      }
+    });
+    return;
+  }
+
+  if (isBodyParserError(error)) {
+    const payloadTooLarge = error.type === "entity.too.large" || error.status === 413;
+    res.status(payloadTooLarge ? 413 : 400).json({
+      error: {
+        code: payloadTooLarge ? "PAYLOAD_TOO_LARGE" : "BAD_REQUEST",
+        message: payloadTooLarge ? "Request body exceeds the allowed size" : "Malformed JSON body"
+      }
+    });
+    return;
+  }
 
   if (error instanceof AppError) {
     if (error.statusCode >= 500) {
@@ -82,4 +105,14 @@ function isPrismaUniqueConstraintError(
     "code" in error &&
     (error as { code?: unknown }).code === "P2002"
   );
+}
+
+function isBodyParserError(
+  error: unknown
+): error is { status?: number; type: "entity.parse.failed" | "entity.too.large" } {
+  if (typeof error !== "object" || error === null || !("type" in error)) {
+    return false;
+  }
+  const type = (error as { type?: unknown }).type;
+  return type === "entity.parse.failed" || type === "entity.too.large";
 }

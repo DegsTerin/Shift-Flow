@@ -1,6 +1,7 @@
 // en-GB: Implements activities rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../../shared/http/request-types.js";
-import { badRequest } from "../../shared/errors/app-error.js";
+import { badRequest, notFound } from "../../shared/errors/app-error.js";
+import { toPagination } from "../../shared/http/pagination.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import {
   activeCompanyId,
@@ -19,6 +20,14 @@ const publicUserSelect = {
   status: true
 };
 
+const publicAttachmentSelect = {
+  id: true,
+  fileName: true,
+  mimeType: true,
+  byteSize: true,
+  createdAt: true
+};
+
 const activityInclude = {
   client: true,
   team: true,
@@ -28,9 +37,13 @@ const activityInclude = {
   comments: {
     where: { deletedAt: null },
     orderBy: { createdAt: "desc" },
-    include: { author: { select: publicUserSelect }, attachments: true }
+    include: { author: { select: publicUserSelect } }
   },
-  attachments: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
+  attachments: {
+    where: { deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: publicAttachmentSelect
+  },
   history: {
     orderBy: { createdAt: "desc" },
     include: { actor: { select: publicUserSelect } }
@@ -48,17 +61,86 @@ const taskInclude = {
   assignee: { select: publicUserSelect }
 };
 
+const activitySnapshotFields = [
+  "id",
+  "companyId",
+  "clientId",
+  "teamId",
+  "shiftId",
+  "assigneeId",
+  "reporterId",
+  "title",
+  "description",
+  "requested",
+  "performed",
+  "inProgressDetail",
+  "pendingDetail",
+  "finalizationDetail",
+  "observations",
+  "systemName",
+  "serviceName",
+  "status",
+  "priority",
+  "slaDueAt",
+  "startedAt",
+  "completedAt",
+  "createdAt",
+  "updatedAt",
+  "deletedAt",
+  "createdById",
+  "updatedById",
+  "deletedById"
+] as const;
+
+function historyScalar(value: unknown): unknown {
+  if (typeof value === "bigint") return value.toString();
+  if (value instanceof Date) return value.toISOString();
+  return value;
+}
+
+export function activityHistorySnapshot(value: unknown) {
+  const record =
+    typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  return Object.fromEntries(
+    activitySnapshotFields
+      .filter((field) => Object.hasOwn(record, field))
+      .map((field) => [field, historyScalar(record[field])])
+  );
+}
+
+export function activityHistoryDelta(before: unknown, after: unknown) {
+  const beforeSnapshot = activityHistorySnapshot(before);
+  const afterSnapshot = activityHistorySnapshot(after);
+  const changedFields = new Set(
+    [...Object.keys(beforeSnapshot), ...Object.keys(afterSnapshot)].filter(
+      (field) => JSON.stringify(beforeSnapshot[field]) !== JSON.stringify(afterSnapshot[field])
+    )
+  );
+  return {
+    before: Object.fromEntries(
+      Object.entries(beforeSnapshot).filter(([field]) => changedFields.has(field))
+    ),
+    after: Object.fromEntries(
+      Object.entries(afterSnapshot).filter(([field]) => changedFields.has(field))
+    )
+  };
+}
+
 export class ActivitiesService extends BaseService {
   private readonly activitiesRepository: ActivitiesRepository;
 
-  constructor() {
-    const repository = new ActivitiesRepository();
+  constructor(repository = new ActivitiesRepository()) {
     super(repository, "Activity", { userStamps: true });
     this.activitiesRepository = repository;
   }
 
   override async list(req: ApiRequest) {
-    return this.activitiesRepository.filteredList(this.activityWhere(req));
+    const query = req.query as Record<string, unknown>;
+    const pagination = toPagination({
+      ...query,
+      pageSize: query.pageSize ?? 100
+    });
+    return this.activitiesRepository.filteredList(this.activityWhere(req), pagination);
   }
 
   override async get(req: ApiRequest, id: string) {
@@ -69,7 +151,7 @@ export class ActivitiesService extends BaseService {
       true
     );
     if (!item) {
-      return super.get(req, id);
+      throw notFound("Activity not found");
     }
     return item;
   }
@@ -92,7 +174,7 @@ export class ActivitiesService extends BaseService {
     }
     const updated = await super.update(req, id, data);
     await this.history(req, id, "UPDATED", {
-      metadata: { before: previous, after: updated }
+      metadata: activityHistoryDelta(previous, updated)
     });
     return updated;
   }
@@ -102,7 +184,7 @@ export class ActivitiesService extends BaseService {
     const removed = await super.remove(req, id);
     await this.history(req, id, "SOFT_DELETED", {
       note: "Soft deleted",
-      metadata: { before: previous, after: removed, action: "SOFT_DELETE" }
+      metadata: { ...activityHistoryDelta(previous, removed), action: "SOFT_DELETE" }
     });
     return removed;
   }
@@ -131,8 +213,8 @@ export class ActivitiesService extends BaseService {
     return updated;
   }
 
-  async close(req: ApiRequest, id: string) {
-    return this.move(req, id, "DONE", "Closed from API");
+  async close(req: ApiRequest, id: string, note?: string) {
+    return this.move(req, id, "DONE", note ?? "Closed from API");
   }
 
   async reopen(req: ApiRequest, id: string, note?: string) {
@@ -534,7 +616,7 @@ export class ActivitiesService extends BaseService {
     const uuidSearch =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(search);
     return {
-      companyId: this.companyId(req),
+      companyId: activeCompanyId(req),
       deletedAt: null,
       ...(query.clientId ? { clientId: String(query.clientId) } : {}),
       ...(query.teamId ? { teamId: String(query.teamId) } : {}),
@@ -542,21 +624,29 @@ export class ActivitiesService extends BaseService {
       ...(query.assigneeId ? { assigneeId: String(query.assigneeId) } : {}),
       ...(query.priority ? { priority: String(query.priority) } : {}),
       ...(query.status ? { status: String(query.status) } : {}),
-      ...(query.attention === "CRITICAL" ? { priority: "CRITICAL" } : {}),
       ...(query.attention === "OVERDUE"
-        ? { status: { notIn: ["DONE", "CANCELLED"] }, slaDueAt: { lt: now } }
+        ? { AND: [{ status: { notIn: ["DONE", "CANCELLED"] }, slaDueAt: { lt: now } }] }
         : {}),
       ...(query.attention === "SLA_RISK"
         ? {
-            status: { notIn: ["DONE", "CANCELLED"] },
-            slaDueAt: { gte: now, lte: new Date(now.getTime() + 60 * 60 * 1000) }
+            AND: [
+              {
+                status: { notIn: ["DONE", "CANCELLED"] },
+                slaDueAt: { gte: now, lte: new Date(now.getTime() + 60 * 60 * 1000) }
+              }
+            ]
           }
         : {}),
+      ...(query.attention === "CRITICAL" ? { AND: [{ priority: "CRITICAL" }] } : {}),
       ...(query.from || query.to
         ? {
             createdAt: {
-              ...(query.from ? { gte: new Date(String(query.from)) } : {}),
-              ...(query.to ? { lte: new Date(String(query.to)) } : {})
+              ...(query.from
+                ? { gte: query.from instanceof Date ? query.from : new Date(String(query.from)) }
+                : {}),
+              ...(query.to
+                ? { lte: query.to instanceof Date ? query.to : new Date(String(query.to)) }
+                : {})
             }
           }
         : {}),

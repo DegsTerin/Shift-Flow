@@ -137,4 +137,50 @@ describe("ShiftFlow API", () => {
       message: "Ja existe um registro com estes dados."
     });
   });
+
+  it("classifies malformed JSON as a client error", async () => {
+    const response = await request(app)
+      .post("/api/auth/logout")
+      .set("Content-Type", "application/json")
+      .send("{");
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toEqual({
+      code: "BAD_REQUEST",
+      message: "Malformed JSON body"
+    });
+  });
+
+  it("classifies an oversized JSON body without routing it as an internal failure", async () => {
+    const response = await request(app)
+      .post("/api/auth/logout")
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify({ value: "x".repeat(1024 * 1024) }));
+
+    expect(response.status).toBe(413);
+    expect(response.body.error).toEqual({
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Request body exceeds the allowed size"
+    });
+  });
+
+  it("classifies an uncaught Zod validation error as a client error", async () => {
+    const validationApp = express();
+    validationApp.get("/zod", (_req, _res, next) => {
+      try {
+        z.object({ id: z.string().uuid() }).parse({ id: "invalid" });
+      } catch (error) {
+        next(error);
+      }
+    });
+    validationApp.use(errorHandler);
+
+    const response = await request(validationApp).get("/zod");
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Validation failed"
+    });
+  });
 });

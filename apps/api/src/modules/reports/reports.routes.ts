@@ -12,7 +12,7 @@ reportRoutes.use(authenticate);
 reportRoutes.get(
   "/activities",
   requirePermission("reports", "read"),
-  validate("query", reportFilterSchema.partial()),
+  validate("query", reportFilterSchema),
   ReportsController.activitySummary
 );
 reportRoutes.get("/shifts", requirePermission("reports", "read"), ReportsController.list);

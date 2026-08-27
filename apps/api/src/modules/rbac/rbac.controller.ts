@@ -3,7 +3,7 @@ import type { Response } from "express";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { CrudController } from "../../shared/controllers/crud.controller.js";
 import { asyncHandler } from "../../shared/http/async-handler.js";
-import { param } from "../../shared/http/params.js";
+import { uuidParam } from "../../shared/http/params.js";
 import { created, ok } from "../../shared/http/response.js";
 import { RbacService } from "./rbac.service.js";
 
@@ -24,7 +24,7 @@ export const RbacController = {
           await RbacService.assignPermission(
             req.auth,
             req.tenant,
-            param(req.params.roleId, "roleId"),
+            uuidParam(req.params.roleId, "roleId"),
             req.body.permissionId
           )
         )
@@ -36,8 +36,8 @@ export const RbacController = {
         await RbacService.removePermission(
           req.auth,
           req.tenant,
-          param(req.params.roleId, "roleId"),
-          param(req.params.permissionId, "permissionId")
+          uuidParam(req.params.roleId, "roleId"),
+          uuidParam(req.params.permissionId, "permissionId")
         )
       )
     );
@@ -45,7 +45,7 @@ export const RbacController = {
   duplicateRole: asyncHandler(async (req: ApiRequest, res: Response) => {
     res
       .status(201)
-      .json(created(await RbacService.roles.duplicate(req, param(req.params.id, "id"))));
+      .json(created(await RbacService.roles.duplicate(req, uuidParam(req.params.id, "id"))));
   }),
   check: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(

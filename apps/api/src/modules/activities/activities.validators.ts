@@ -1,6 +1,16 @@
 // en-GB: Validates activities input so malformed data cannot cross the module boundary.
 import { z } from "zod";
 
+const activityStatusSchema = z.enum([
+  "PENDING",
+  "IN_PROGRESS",
+  "WAITING_CUSTOMER",
+  "WAITING_THIRD_PARTY",
+  "MONITORING",
+  "DONE",
+  "CANCELLED"
+]);
+
 export const activitySchema = z.object({
   clientId: z.string().uuid(),
   teamId: z.string().uuid(),
@@ -17,33 +27,44 @@ export const activitySchema = z.object({
   observations: z.string().max(10000).optional(),
   systemName: z.string().max(120).optional(),
   serviceName: z.string().max(120).optional(),
-  status: z
-    .enum([
-      "PENDING",
-      "IN_PROGRESS",
-      "WAITING_CUSTOMER",
-      "WAITING_THIRD_PARTY",
-      "MONITORING",
-      "DONE",
-      "CANCELLED"
-    ])
-    .optional(),
+  status: activityStatusSchema.optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
   slaDueAt: z.coerce.date().optional()
 });
 
 export const moveActivitySchema = z.object({
-  status: z.enum([
-    "PENDING",
-    "IN_PROGRESS",
-    "WAITING_CUSTOMER",
-    "WAITING_THIRD_PARTY",
-    "MONITORING",
-    "DONE",
-    "CANCELLED"
-  ]),
+  status: activityStatusSchema,
   note: z.string().max(5000).optional()
 });
+
+export const activityNoteSchema = z
+  .object({
+    note: z.string().max(5000).optional()
+  })
+  .default({});
+
+export const activityFilterSchema = z
+  .object({
+    clientId: z.string().uuid().optional(),
+    teamId: z.string().uuid().optional(),
+    shiftId: z.string().uuid().optional(),
+    assigneeId: z.string().uuid().optional(),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+    status: activityStatusSchema.optional(),
+    attention: z.enum(["OVERDUE", "CRITICAL", "SLA_RISK"]).optional(),
+    search: z.string().trim().max(200).optional(),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional()
+  })
+  .superRefine((value, context) => {
+    if (value.from && value.to && value.to < value.from) {
+      context.addIssue({
+        code: "custom",
+        path: ["to"],
+        message: "to must not be earlier than from"
+      });
+    }
+  });
 
 export const assignActivitySchema = z.object({
   assigneeId: z.string().uuid().nullable(),
@@ -57,7 +78,7 @@ export const activityTaskColumnSchema = z.object({
 });
 
 export const reorderTaskColumnsSchema = z.object({
-  columnIds: z.array(z.string().uuid()).min(1)
+  columnIds: z.array(z.string().uuid()).min(1).max(100)
 });
 
 export const activityTaskSchema = z.object({

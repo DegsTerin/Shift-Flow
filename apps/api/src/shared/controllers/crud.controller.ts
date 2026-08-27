@@ -2,7 +2,7 @@
 import type { Response } from "express";
 import type { ApiRequest } from "../http/request-types.js";
 import { asyncHandler } from "../http/async-handler.js";
-import { param } from "../http/params.js";
+import { uuidParam } from "../http/params.js";
 import { created, ok } from "../http/response.js";
 import type { BaseService } from "../services/base.service.js";
 
@@ -14,7 +14,7 @@ export class CrudController {
   });
 
   get = asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(await this.service.get(req, param(req.params.id, "id"))));
+    res.json(ok(await this.service.get(req, uuidParam(req.params.id, "id"))));
   });
 
   create = asyncHandler(async (req: ApiRequest, res: Response) => {
@@ -22,10 +22,10 @@ export class CrudController {
   });
 
   update = asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(await this.service.update(req, param(req.params.id, "id"), req.body)));
+    res.json(ok(await this.service.update(req, uuidParam(req.params.id, "id"), req.body)));
   });
 
   remove = asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(await this.service.remove(req, param(req.params.id, "id"))));
+    res.json(ok(await this.service.remove(req, uuidParam(req.params.id, "id"))));
   });
 }
