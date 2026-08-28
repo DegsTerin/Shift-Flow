@@ -6,11 +6,11 @@
 - Allowed phase: `STATE-08 PRODUCTION_RELEASE`
 - Next lifecycle action: release closeout or explicitly requested post-release maintenance
 - Prompt-system version: `6.0.0`
-- Last updated: `2026-08-27`
-- Operational blockers: unresolved post-release product and operational audit
-  findings remain outside the development-workflow adoption; `PLANS.md`
-  records their current boundary and no release-readiness inference is allowed
-  from the workflow gate alone
+- Last updated: `2026-08-28`
+- Operational blockers: no blocker remains for the locally authorised corrective
+  audit. Deferred product, architecture, migration, physical-device and
+  production-environment evidence remains bounded in `PLANS.md`; local runtime
+  and quality gates do not approve production or change lifecycle state.
 
 ## Valid intents
 

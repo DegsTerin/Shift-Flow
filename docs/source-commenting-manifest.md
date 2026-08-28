@@ -39,4 +39,4 @@ TypeScript configuration files use JSONC through the TypeScript toolchain and th
 
 ## Enforcement
 
-Run `npm run comments:verify`. The gate checks every tracked, comment-capable source file, validates the documented exceptions, and confirms declaration-level coverage in `apps/web/app/globals.css`.
+Run `npm run comments:verify`. The gate checks every present tracked or untracked Git-candidate that supports comments, skips deleted paths, validates the documented exceptions, and confirms declaration-level coverage in `apps/web/app/globals.css`.

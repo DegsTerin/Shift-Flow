@@ -89,7 +89,7 @@ handoff trigger, authority model, worker controls, lifecycle extension and
 | Field            | Value                                                                                                                                                                                                                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Plan ID          | `PLAN-WHOLE-PROJECT-AUDIT-20260827-01`                                                                                                                                                                                                                                                                       |
-| Status           | `IN_PROGRESS`                                                                                                                                                                                                                                                                                                |
+| Status           | `COMPLETED` on `2026-08-28`; no lifecycle transition, Human Gate, deployment or remote action is implied                                                                                                                                                                                                     |
 | Baseline         | `main@4191ee6a5c87d157f933671333253ce3b4605e72`, tree `40a440d2d05b1b07cbadedf8c8a07b1945646cac`, clean before all audit lanes and reverified unchanged before integration                                                                                                                                   |
 | Authority        | Owner request for an extremely detailed whole-project audit followed by organisation, cleanup and optimisation                                                                                                                                                                                               |
 | Current state    | `STATE-08 PRODUCTION_RELEASE`; this corrective maintenance does not itself authorise a lifecycle transition                                                                                                                                                                                                  |
@@ -97,6 +97,7 @@ handoff trigger, authority model, worker controls, lifecycle extension and
 | Positive scope   | Read-only whole-project audit; root-cause corrections for confirmed security, tenant, session, data-shaping, API-contract, operational-safety, frontend-integrity, accessibility, performance, test, documentation and governance defects; proportional validation; local commits                            |
 | Negative scope   | Product redesign; invented requirements; applied-migration edits; unapproved schema changes; local `.env` access; mutation of an existing database; deployment; publication; remote Git actions; secrets; Human Gate or lifecycle approval; removal of dependencies or artefacts without demonstrated safety |
 | Parallel work    | Three frozen-input read-only audit lanes were reconciled; every write, validation, staging and commit is sequential in the coordinating worktree                                                                                                                                                             |
+| Implementation   | Local commit `7e7fcdb5a0a75d1fbda3d9528d86f76f20f7a92e` (`fix(audit): complete corrective systematisation`), produced from the frozen 105-path candidate with manifest SHA-256 `086a2623d94573b793e4406d87c31df7d11cdc00425c302436c7b3953bc9f478`                                                            |
 
 ### Objective
 
@@ -175,17 +176,18 @@ finding.
    regressions before any lower-priority refactoring.
 6. `COMPLETED` — correct response shaping, validation, pagination, activity evidence
    growth, lifecycle bypasses and safe query/performance defects without schema drift.
-7. `IN_PROGRESS` — correct frontend session/request lifecycle, capability guards,
+7. `COMPLETED` — correct frontend session/request lifecycle, capability guards,
    detail truthfulness, Kanban integrity and accessibility in focused slices.
-8. `PENDING` — remove only demonstrably dead residue, reduce duplicated maintenance
+8. `COMPLETED` — remove only demonstrably dead residue, reduce duplicated maintenance
    structures and reconcile tests, CI, documentation and current-state evidence.
-9. `PENDING` — run focused tests after every slice, then Quick and the canonical
+9. `COMPLETED` — run focused tests after every slice, then Quick and the canonical
    online core gate; preserve the first factual failure and correct only by a
    separately evidenced successor run.
-10. `PENDING` — use a newly provisioned disposable database and isolated ports for
-    applicable E2E, accessibility and performance checks; perform browser visual
-    review across representative viewports without touching existing local data.
-11. `PENDING` — obtain independent read-only review of the final candidate, resolve
+10. `COMPLETED` — use a newly provisioned disposable database and isolated ports for
+    applicable E2E, axe accessibility and performance checks across the configured
+    desktop/mobile viewports without touching existing local data. Physical-device
+    and Pixel Perfect review remains explicitly deferred below.
+11. `COMPLETED` — obtain independent read-only review of the final candidate, resolve
     verified findings sequentially, close this plan with exact evidence and create
     narrow local commits. No remote publication is authorised.
 
@@ -200,58 +202,64 @@ finding.
 | Activity aggregate atomicity, reference locks and main-Kanban drop compatibility            | `COMPLETED_CORE_GATE_PASS` | Activity create, update, soft-delete, move, assign and reopen now mutate the Activity and write AuditLog plus ActivityHistory through one repository-owned explicit transaction. Updates lock and re-read the tenant-scoped active Activity before planning; create locks every active reference, while updates acquire deterministic `FOR SHARE` locks only for references present and actually changed. Invalid new references fail before aggregate writes, historical inactive references do not block unrelated lifecycle work, and repeated state/assignee commands create no evidence. Generic status updates apply lifecycle timestamps under the lock. The main Kanban clears drag state and emits no move for a same-column drop; its real component handler has a 0/1-call regression. Four focused files with 43 tests, the complete 36-file/230-test unit suite, lint, type checking and diff hygiene passed. Three independent read-only review rounds correctly returned `NOT_CANDIDATE`; the final successors converged on `CANDIDATE` with no P0-P3 finding. The non-gate Quick loop and canonical online Full gate then passed repository/toolchain/lockfile preflight, workflow policies, a clean installation of 427 packages, Prisma generation and validation, `npm audit` with zero vulnerabilities, formatting, source-comment and platform policies, lint, type checking, dependency overrides, production configuration, a redacted scan of 253 Git-candidate files, all 36 unit-test files with 230 tests and both production builds. A direct `eng/ci.ps1 -SkipInstall` successor repeated the canonical core checks successfully. Real PostgreSQL rollback, lock waiting/concurrency/deadlock behaviour and browser drag-and-drop remain unvalidated and are reserved for the disposable-runtime step. No service, port, browser, database, seed or local credential was used.                                                                                                                                                                                                                                                                                                                                          |
 | Internal task-board transactions, ordering, lifecycle and Web compatibility                 | `COMPLETED_CORE_GATE_PASS` | Every task-board command now locks the active tenant Activity first and owns column/task positioning plus task-history evidence in one explicit transaction. New Activities provision four default columns inside Activity creation; GET is read-only and returns a lock-consistent snapshot, while legacy Activities without columns remain factually empty until a write-authorised user creates one. Reorder requires a complete canonical UUID permutation and returns the complete post-write board from the same transaction; the Web consumes it without a second GET. Create, edit, move, delete, archive and explicit restore normalise positions, validate changed memberships and attachments under lock, reject lifecycle bypasses and preserve no-op evidence rules. Archived tasks are recoverable into an explicit active destination, bounded to the 100 newest records with a truncation flag, and prevent unsafe column deletion until restored or deleted. The Web fixes duplicate/drop-before movement, clears drag state before dispatch, preserves exact unchanged due instants, emits changed local times as ISO, permits description clearing and safely captures form elements before awaits. Six focused test files with 74 tests, the complete 38-file/268-test unit suite, type checking, lint and diff hygiene passed. Repeated independent read-only reviews correctly returned `NOT_CANDIDATE` while defects remained; the final three successors converged on `CANDIDATE` with P0-P3 zero. The non-gate Quick loop and canonical online Full gate passed repository/toolchain/lockfile preflight, development and platform workflow policies, a clean installation of 427 packages, Prisma generation and validation, `npm audit` with zero vulnerabilities, formatting, source-comment policy, lint, type checking, dependency overrides, production configuration, a redacted scan of 256 Git-candidate files, all 38 unit-test files with 268 tests and both production builds. Real PostgreSQL rollback, lock waiting/deadlock behaviour, `ANY(uuid[])` binding and browser interaction remain reserved for the disposable-runtime step. No service, port, browser, database, seed or local credential was used. |
 | Dashboard snapshots, atomic configuration, deterministic metrics and queued Web persistence | `COMPLETED_CORE_GATE_PASS` | Dashboard summary and charts now use endpoint-local repeatable-read snapshots with one captured clock, gap-free overdue/SLA-risk boundaries, stable grouping and a deterministic recent-completion sample that excludes negative durations. Activity list items and total share one repeatable-read snapshot and a total order. Configuration GET is read-only and returns a virtual default; save/reset lock the current membership, optional team and nullable-team configuration identity, reconcile durable widget keys and complete configuration plus widget writes in one transaction. Path/body dashboard types must agree, duplicate active configurations and foreign widget IDs fail closed, and widget order is normalised compatibly. Web persistence is serial, cumulative across intermediate parent responses and guarded before invocation and after resolution by the authenticated session epoch. Seven focused files with 44 tests, the complete 40-file/292-test unit suite, type checking, lint, formatting and diff hygiene passed. Three final independent read-only reviews reached `CANDIDATE` with P0-P3 zero after two test-power findings were corrected. The preserved intermediate failures were a 1/41 focused test exposing a separately constructed SLA boundary and a targeted plan-format check; each direct successor passed after the narrow correction. The non-gate Quick loop and canonical online Full gate passed repository/toolchain/lockfile preflight, development and platform workflow policies, a clean installation of 427 packages, Prisma generation and validation, `npm audit` with zero vulnerabilities, formatting, source-comment policy, lint, type checking, dependency overrides, production configuration, a redacted scan of 259 Git-candidate files, all 40 unit-test files with 292 tests and both production builds. Physical PostgreSQL isolation, rollback, lock and nullable-team concurrency remain reserved for the disposable-runtime step; no schema, migration, service, port, browser, database, seed or local credential was used.                                                                                                                                       |
+| Tenant-safe administration, RBAC lock ordering and paginated reference APIs                 | `COMPLETED_RUNTIME_PASS`   | User identity, membership, permanent-role normalisation, audit evidence and refresh-session revocation now share one transaction with deterministic locks. Role mutation and assignment both lock and revalidate the live tenant Role; conflicting assignment/removal orders fail closed. Client, shift, team, user, role and permission references expose bounded stable pagination. The dedicated fail-closed PostgreSQL command executed 7 real tests covering two-company shared-user isolation, rollback, duplicate-role normalisation and both Role/assignment lock orders.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Tenant-aware Web lifecycle, truthful controls and accessibility                             | `COMPLETED_RUNTIME_PASS`   | Remote selectors preserve requested pages, debounce only changed searches and reject stale session-epoch results. Dashboard persistence is serial and cumulative; custom layouts preserve explicit removal of the main widget. Activity detail, task-board lifecycle, history labels, pending operations, errors, pagination and role/user controls now have focused regressions. First/last task movement controls and existing-role removal options are truthful, modal semantics are keyboard-safe and transient dark-theme contrast no longer fails axe. The final browser envelope passed 11 release E2E cases with 3 expected project skips across Desktop Chrome and Pixel 5 profiles.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Cleanup, fail-closed workflow and final integrated evidence                                 | `COMPLETED_LOCAL_PASS`     | Nine unused DTO residues were removed, shared dead helpers were reduced, source-comment verification now covers present tracked and untracked Git candidates, homologation volume/reference scope is bounded, and the dedicated PostgreSQL command cannot green-skip when its opt-in is absent. CI runs that regression after migrations with per-run credentials. Three independent final successor reviews converged on `CANDIDATE` with P0/P1/P2 zero. The successor `Quick` (`NON_GATE`) and canonical `Full` passed 60 files/514 tests, 222 source files, 1,311 CSS declarations, lint, type checking, Prisma validation/generation, override and production-config checks, secret scanning of 281 candidates, clean installation of 427 packages, `npm audit` with zero vulnerabilities and both builds. Implementation is commit `7e7fcdb5a0a75d1fbda3d9528d86f76f20f7a92e`; no push or remote action occurred.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
-### Open verified findings in the current step
+### Closed findings and final evidence
 
-- Central Activity commands now compose Activity, AuditLog and ActivityHistory
-  in one explicit transaction, with tenant-scoped Activity locking and
-  delta-only reference locks. Physical rollback and concurrent lock behaviour
-  remain unverified without a disposable PostgreSQL target. Filtered list
-  `items` and `total` now share one repeatable-read snapshot, but physical
-  isolation remains unverified until that disposable-runtime step.
-- Dashboard endpoint reads now use endpoint-local repeatable-read snapshots,
-  and configuration reads no longer provision defaults. Save/reset are one
-  repository-owned transaction with deterministic identity locks, including
-  nullable `teamId`; the recent completed-duration sample is deterministic and
-  excludes negative durations. Physical isolation, rollback and concurrent
-  lock behaviour remain unverified without a disposable PostgreSQL target.
-- Dashboard summary, charts and operational-list calls remain separate HTTP
-  snapshots, so the composed page is eventually consistent across endpoints.
-  A bundled read model or explicit `asOf` contract would require a product/API
-  decision rather than an implicit corrective change.
-- Internal task-board correctness is now enforced by a parent-Activity lock and
-  repository-owned transactions. Physical rollback, lock waiting/deadlock and
-  UUID-array binding remain unverified without disposable PostgreSQL. Legacy
-  Activities without columns are returned honestly as empty; no database
-  backfill was authorised. Completion classification still depends on canonical
-  column names because a durable column type would require a schema decision.
-- Archived task display is deliberately limited to the 100 newest records and
-  reports truncation; historical pagination and batch positional performance
-  remain future product/performance work rather than silently unbounded reads.
-- The web client does not yet consume server pagination end to end, limit its
-  activity search to 200 characters or prevent an inverted date interval before
-  sending the request. The larger request-race, capability and accessibility
-  findings remain assigned to step 7; browser evidence for main-Kanban
-  drag-and-drop is still pending.
-- The dashboard page still replaces its operational list with the general
-  activity result, lacks end-to-end pagination and capability-aware controls,
-  and can present chart labels whose semantics do not match the underlying
-  aggregation. Save/Cancel interaction semantics and unused layout fields also
-  remain frontend/product work for step 7 rather than hidden in this data slice.
+- The final frozen candidate contained 105 paths: 96 present files and 9 proven
+  unused DTO deletions. Its logical manifest SHA-256 was
+  `086a2623d94573b793e4406d87c31df7d11cdc00425c302436c7b3953bc9f478`.
+- Real PostgreSQL evidence used only freshly generated databases named
+  `shiftflow_runtime_<24 lowercase hexadecimal characters>` on loopback port
+  55432, ephemeral credentials and exact-name/label Docker cleanup. The final
+  run `c2eda231b83b7f125a36ec9a` passed 12 migrations, 7 PostgreSQL regressions,
+  integration and 120-record homologation seeds, 11 release E2E cases with 3
+  expected skips, and 3 repeated load cases with 3 expected mobile skips. The
+  exact disposable container was removed and ports 3000, 3001 and 55432 were
+  verified free; no existing database, `.env`, service or credential was used.
+- The preserved runtime chain remained factual and sequential: provider
+  injection, deterministic rollback time, overdue fixture timing, accented
+  navigation, shell selector, cleanup ordering, transient dark-theme contrast
+  and Prisma relation fan-out each failed in earlier runs and passed only after
+  a narrow successor. Run `9af22a2bee699228c89a59ed` was the first clean
+  relation-join successor. During final closure, run
+  `4146e26338ec70dc286b5fc8` exposed an incorrect `NODE_ENV=test` harness, run
+  `53f4baf189c27ef7b7f893fb` exposed a non-existent system Chrome path and run
+  `4e634c129b0c3643bb0da1c2` stopped in preflight before mutation because of a
+  path-encoding error; only the corrected final run above is recorded as PASS.
+- The first final `Quick` stopped at formatting after Next.js generated current
+  TypeScript metadata. The generated `root-params.d.ts` import was retained,
+  the diagnostic-only `.next/dev/dev/types` path was removed, and the separately
+  executed successor passed. `Full` then passed once, including the clean install,
+  zero-vulnerability audit, 60-file/514-test suite and both production builds.
+- Independent backend, frontend and cross-cutting successor reviews all returned
+  `CANDIDATE` with no P0, P1 or P2 finding after the final Role-assignment lock
+  revalidation, remote-selector page, custom dashboard, task movement,
+  existing-role and fail-closed PostgreSQL corrections.
 
 ### Deferred-by-authority or decision boundary
 
 - Database constraints, composite relations, partial unique indexes and any new
   migration remain recommendations until separately justified and authorised.
+- The dedicated PostgreSQL suite proves the user/global-identity and RBAC lock
+  cases in its contract. E2E exercises Activity, dashboard and task-board flows,
+  but direct concurrency/deadlock stress for every aggregate and browser pointer
+  drag-and-drop remain future focused evidence rather than inferred coverage.
+- Dashboard summary, charts and operational-list calls remain separate HTTP
+  snapshots, so the composed page is eventually consistent across endpoints.
+  A bundled read model or explicit `asOf` contract requires a product/API decision.
 - Refresh tokens do not yet carry a session-family identifier. Reuse, a lost
   refresh CAS or a concurrent logout therefore revokes every active refresh
   token for the user in that company. This is the current fail-closed response;
   narrower device/session revocation requires an authorised schema design and
   migration.
-- Identity-global versus tenant-local user administration, RBAC delegation
-  hierarchy, timezone semantics, attachment storage, full report/notification
-  product surfaces and production deployment topology require explicit product
-  or architecture decisions; corrective code must not invent them.
+- Multi-assignment administration, final RBAC delegation hierarchy, timezone
+  semantics, attachment storage, full report/notification product surfaces and
+  production deployment topology require explicit product or architecture
+  decisions; corrective code must not invent them. The global user identity and
+  tenant membership mutation boundary itself is now enforced transactionally.
 - Resource-aware authorisation remains required for routes that do not yet
   derive client or team scope from the persisted resource. Until that successor
   exists, limited assignments fail closed when the required scope is absent;
@@ -266,9 +274,16 @@ finding.
   existing system and limited profiles remain read-only there. The implemented
   permission-subset delegation rule is a fail-closed security floor, not final
   approval of the deferred product hierarchy.
+- Legacy Activities without task columns remain truthfully empty until an
+  authorised write provisions them. No backfill was authorised, and durable
+  completion classification requires a future column-type schema decision.
 - Pixel Perfect approval requires an authorised reference baseline. Runtime
   screenshots can establish internal consistency and defects, but not equivalence
   to an absent design source.
+- Prisma `relationJoins` remains a preview feature. It removes the observed
+  single-transaction relation fan-out and passed the disposable runtime suite,
+  but future Prisma upgrades must revalidate or replace it before the preview
+  flag is removed.
 - History scanning, SBOM generation, distributed rate limiting and immutable
   production artefacts may require new tools or infrastructure. Local controls
   must fail truthfully until those capabilities exist.

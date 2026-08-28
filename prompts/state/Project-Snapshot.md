@@ -6,7 +6,7 @@
 - Current state: `STATE-08 PRODUCTION_RELEASE`
 - Prompt-system version: `6.0.0`
 - Active prompt files: 17
-- Snapshot date: `2026-08-27`
+- Snapshot date: `2026-08-28`
 
 ## Current architecture
 
@@ -26,6 +26,11 @@
 - One executable development entry point provides read-only diagnosis, locked
   setup, `NON_GATE` quick feedback, deterministic plans and a canonical
   runtime-credential-free core gate shared with GitHub Actions.
+- The whole-project corrective audit is locally complete at implementation
+  commit `7e7fcdb5a0a75d1fbda3d9528d86f76f20f7a92e`. Tenant/global identity and RBAC
+  mutation boundaries, transactional activity/task-board/dashboard evidence,
+  remote-reference pagination, session-epoch UI guards, accessibility and
+  runtime-test isolation have focused regression coverage.
 
 ## Current controls
 
@@ -48,13 +53,19 @@
 - Remote Git configuration and external deployment targets depend on environment information outside this repository.
 - Only the primary worktree is present and no parallel branch/worktree workflow is authorised; simultaneous work is read-only and file writing remains sequential in the coordinating conversation.
 - Language governance does not determine or change interface locale, translation catalogues, microcopy, or user-visible error language.
-- Local E2E and load checks require seeded data, valid runtime credentials, and available services/ports.
+- Local E2E and load checks require a freshly provisioned disposable database,
+  ephemeral runtime credentials, an available local Chrome executable and free
+  isolated ports; they must not reuse developer data or services.
 - Remote environments must receive locally approved migrations through their deployment pipeline.
 - Physical-device and real-TV visual checks remain environment-dependent.
 - Attachment storage and distributed rate limiting require production infrastructure choices when scaling beyond the current deployment model.
-- Previously reported authentication, tenant-scope, response-shaping and
-  operational defects remain separate post-release maintenance risks; this
-  process adoption does not claim their remediation.
+- The corrective audit's local gates and disposable PostgreSQL/browser envelope
+  passed, but that evidence is not production approval, deployment evidence, a
+  Human Gate decision or a lifecycle transition.
+- Prisma `relationJoins` preview support is enabled for the filtered Activity
+  graph so one PostgreSQL query replaces relation fan-out on a single
+  transaction connection. It must remain regression-tested and be reassessed
+  when Prisma changes or stabilises the feature.
 - `deepmerge-ts` is pinned to patched version `8.0.0` through a focused npm
   override because Prisma 7.10 still pins the vulnerable 7.x line. Keep the
   override regression-tested and remove it when Prisma adopts a patched
