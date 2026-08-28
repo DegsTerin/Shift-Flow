@@ -2,6 +2,109 @@
 
 # ShiftFlow executable development plan
 
+## Public repository and Render demonstration release — 2026-08-28
+
+### Control record
+
+| Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan ID        | `PLAN-PUBLIC-DEMO-RELEASE-20260828-01`                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Status         | `LOCAL_CANDIDATE_PASS`; first `Full` stopped at the recorded lint finding and the corrected complete `Full` passed; no GitHub repository, remote push, Render resource or deployment exists yet                                                                                                                                                                                                                                                                                                   |
+| Baseline       | Clean `main@177a4d002dd8857f5755847684c0009c78c6f52c`; prompt-system `6.0.0`; no Git remote                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Authority      | Owner request to publish only the system sources, prepare a professional en-GB README with a real product GIF, then publish through GitHub CLI and deploy through Render CLI                                                                                                                                                                                                                                                                                                                      |
+| Current state  | `STATE-08 PRODUCTION_RELEASE`; authorised release preparation plus target-specific demonstration hosting maintenance; no lifecycle transition                                                                                                                                                                                                                                                                                                                                                     |
+| Positive scope | Git ignore hygiene; factual public README; synthetic-data product walkthrough GIF; one same-origin Render entry point for the incumbent Express and Next.js applications; focused regression coverage; local canonical gates; public `DegsTerin/Shift-Flow` repository; free Render demonstration service and PostgreSQL in Virginia; approved migrations; controlled demonstration seed; GitHub Actions, public health and authenticated-flow evidence; factual documentation and scoped commits |
+| Negative scope | Local `.env` values, credentials, personal or production data, generated output, open-source licensing, schema or migration-file changes, new product functionality, ASP.NET Core/Redis/Nginx production promotion, paid Render resources, custom domain, production approval, destructive seed against existing data, Human Gate approval or lifecycle transition                                                                                                                                |
+
+### Acceptance criteria
+
+- Git tracks intentional source, tests, configuration and documentation only;
+  local environments, dependencies, generated output, IDE state, logs and
+  operating-system metadata remain excluded.
+- The README uses the public `Shift-Flow` name, concise professional en-GB,
+  correct executable commands, honest architecture and release status, and a
+  working relative link to an optimised GIF captured from the real local UI
+  with synthetic data.
+- The Render entry point serves Web and API paths from one HTTPS origin, binds
+  to the platform port on `0.0.0.0`, exposes the existing health/readiness
+  routes, shuts down cleanly and has focused request-routing regression tests.
+- Focused checks, secret scanning, diff hygiene and a complete online canonical
+  `Full` gate pass before publication.
+- GitHub contains the exact approved commit, the `Release gates` workflow
+  succeeds for that commit, and no ignored local material is published.
+- Render CLI creates only free demonstration resources, migrations and the
+  synthetic demo seed are applied to a newly created database without printing
+  credentials, the approved commit deploys successfully, and public health,
+  readiness and one authenticated user flow are observed.
+
+### Ordered execution
+
+1. Reconcile authorities, Git state, inventory, existing documentation,
+   deployment constraints and local CLI authentication read-only.
+2. Implement ignore hygiene, the same-origin Render entry point and focused
+   regression coverage.
+3. Start the governed local platform, capture a non-mutating product walkthrough
+   with synthetic data, encode the GIF and stop the platform.
+4. Rewrite the README and target-specific release documentation, then run
+   focused and canonical local gates and create scoped local commits.
+5. Create and push the public GitHub repository with GitHub CLI, then require
+   the remote workflow for the exact commit to pass.
+6. Create a new free Render PostgreSQL database, apply approved migrations and
+   controlled synthetic demo data, create the free same-origin service, deploy
+   the approved commit and run public smoke checks.
+7. Synchronise factual evidence and residual limitations without claiming
+   production readiness or promotion of the separate strangler topology.
+
+### Current evidence and boundaries
+
+- The initial repository contains 338 tracked files, zero ordinary untracked
+  files and 31,664 ignored local files. The real `.env` is ignored and was not
+  read. No tracked private-key, environment, database, dump, backup, log or
+  media filename was found; the canonical secret scanner remains required on
+  the final candidate.
+- GitHub CLI `2.98.0` is authenticated with the required repository/workflow
+  scopes. The selected account has no existing Shift-Flow repository.
+- Render CLI `2.25.0` was installed from the official release after its
+  published SHA-256 was verified. Its existing credential is valid, exactly one
+  workspace exists and no Shift-Flow resource currently exists.
+- The Render target is a cost-free public demonstration, not a production
+  environment. Its database expires under the provider's current free-tier
+  policy, the service may spin down while idle, client-IP attribution remains
+  conservative with proxy trust disabled, and future schema releases require a
+  separately controlled migration action.
+- The ASP.NET Core/Redis/Nginx migration profile remains local disposable
+  evidence. This release uses the incumbent Express fallback for every API
+  route and does not promote or weaken the separately governed migration edge.
+- Docker Desktop could not start because its own stale
+  `sailor-ingest.sock` was inaccessible. No factory reset, image/volume
+  deletion or unrelated process termination was used. The local GIF therefore
+  uses the real Web interface with explicitly synthetic, immutable API
+  interception and is labelled as product presentation rather than backend or
+  production evidence.
+- The walkthrough GIF contains 31 frames at `1093x720`, runs for 10.95 seconds
+  and is 5,873,145 bytes. Dashboard, notifications, Kanban, activity detail,
+  internal task board and TV mode were visually inspected before the browser
+  interception and viewport were restored and the local Web process stopped.
+- Render routing syntax, ten focused routing regressions, target-specific
+  production configuration and formatting passed. `npm run build:render`
+  produced both applications, and a local production-shaped entry-point smoke
+  returned Web `200`, liveness `200` and the expected readiness `503` against a
+  deliberately unavailable database.
+- The first online `Full` execution stopped at ESLint after dependency audit,
+  formatting, source-comment and workflow-policy passes because the new Render
+  entry point had not declared the Node.js `console`, `process` and `URL`
+  globals. No commit, remote or provider resource existed. The correction is
+  limited to an ESLint global directive and an explicit `node:url` import;
+  focused ESLint and syntax checks then passed. A new complete `Full` execution
+  was required and the first failure remains part of the release evidence.
+- The corrected complete online `Full` execution passed: npm and .NET reported
+  zero vulnerable dependencies; formatting, source comments, workflow policy,
+  lint, type checking, Prisma validation/generation, override policy,
+  production configuration and secret scanning passed; 63 files with 542 Node
+  tests passed; Express and Next.js production builds passed; and all 19 .NET
+  tests passed with zero build warnings or errors. Publication remains pending
+  the scoped local commit.
+
 ## In-app notification centre — 2026-08-28
 
 ### Control record

@@ -1,8 +1,29 @@
 # en-GB: Excludes generated and local-only artefacts so commits contain intentional source changes.
 node_modules
-# Keep local environment variants out of version control while preserving the safe template
+
+# Keep local environment variants out of version control while preserving committed contracts.
 .env*
+*.env
+*.env.*
 !.env.example
+!eng/workflow.env
+
+# Exclude local IDE and operating-system metadata.
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Exclude local diagnostic logs.
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 /generated/prisma
 .next

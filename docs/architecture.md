@@ -13,9 +13,28 @@ ShiftFlow uses a modular monorepo layout. Product surfaces live under `apps/`, i
 - `prisma`: PostgreSQL schema, migrations, and deterministic seed scripts.
 - `infra/nginx`: same-origin edge that promotes only an explicit route
   allowlist to ASP.NET Core and sends all other traffic to Express or Next.js.
+- `infra/render`: native Node.js demonstration entry point that serves the
+  incumbent Express and Next.js applications from one provider-assigned HTTPS
+  origin.
 - Redis: distributed cache/session infrastructure, dependency readiness and
   fail-closed rate-limit state for migrated business traffic.
 - `tests/e2e`: Playwright tests for homologation, accessibility, and load-oriented flows.
+
+## Public Demonstration Runtime
+
+The public Render demonstration is intentionally narrower than the controlled
+strangler profile. A single Node.js listener routes `/api`, `/health` and
+`/ready` to the compiled Express application and sends every other request to
+the production Next.js handler. Managed PostgreSQL is its only runtime
+dependency. This preserves the host-scoped refresh cookie, readable CSRF cookie
+and canonical-origin checks without introducing a split Web/API hostname.
+
+The demonstration does not run ASP.NET Core, Redis or Nginx and therefore does
+not provide deployment evidence for the migrated Audit slice. Those components
+remain governed by the disposable local/CI migration profile until a separate
+production topology is approved. Prisma remains the only migration owner in
+both shapes, and the application start command never applies migrations or
+seeds.
 
 ## Incremental Backend Migration
 

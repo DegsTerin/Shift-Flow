@@ -22,6 +22,40 @@ production deployment definition: it exposes loopback HTTP, uses local volumes
 and does not select Azure, AWS, a managed PostgreSQL/Redis service, a TLS
 termination design or a platform key repository.
 
+## Public Render Demonstration
+
+The authorised public demonstration uses a free Render native Node.js Web
+service and a new free Render PostgreSQL database in Virginia. It is a
+demonstration target, not the production environment described by this
+runbook. The Web and incumbent Express API share the provider-assigned HTTPS
+hostname through `infra/render/server.mjs`; the ASP.NET Core, Redis and Nginx
+migration profile is not promoted.
+
+The demonstration build and start commands are:
+
+```text
+npm ci --ignore-scripts --no-audit --no-fund && npm run build:render
+npm run start:render
+```
+
+The service binds `0.0.0.0:$PORT`. `/health` is the liveness path and `/ready`
+is the PostgreSQL-backed readiness path. Render owns public TLS termination;
+`CORS_ORIGIN` and `NEXT_PUBLIC_API_BASE_URL` must both contain the exact
+provider-assigned HTTPS origin. Proxy trust remains disabled because the
+demonstration does not depend on provider-forwarded client identity; this means
+client-IP attribution and IP-keyed throttling are intentionally conservative.
+
+Approved Prisma migrations are applied as an explicit release action before
+service promotion. A controlled, non-destructive integration/homologation seed
+may populate only the new demonstration database, and its authentication secret
+must be delivered privately to the owner. Neither migration nor seed execution
+belongs in the application start command. Future schema changes require a new
+controlled migration action.
+
+Free-tier sleep, retention and database-lifetime limits are provider policy and
+must be rechecked before each release. Their expiry is loss of a demonstration
+environment, not an authorised production recovery event.
+
 ## Required Environment Variables
 
 - `DATABASE_URL`

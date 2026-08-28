@@ -1,241 +1,160 @@
-# ShiftFlow
+# Shift-Flow
 
-ShiftFlow is an operational workforce management platform for companies that need shift, team, activity, notification, audit, RBAC, reporting, and dashboard workflows.
+[![Release gates](https://github.com/DegsTerin/Shift-Flow/actions/workflows/release-gates.yml/badge.svg)](https://github.com/DegsTerin/Shift-Flow/actions/workflows/release-gates.yml)
 
-## Stack
+Shift-Flow is an operations workspace for teams that coordinate shifts, service activities, ownership, controls and reporting. It brings live workload visibility, governed activity records and permission-aware administration into one responsive Web application.
 
-- Web: Next.js, React, TypeScript.
-- API: Express/TypeScript plus a modular ASP.NET Core compatibility host; REST
-  remains canonical during the strangler migration.
-- Data: PostgreSQL, with Prisma as the sole migration owner and Npgsql for
-  migrated read paths.
-- Cache and sessions: Redis-backed ASP.NET Core distributed cache, session,
-  readiness and global rate limiting.
-- Identity: the current JWT contract is validated by both hosts; OAuth 2.0 and
-  OpenID Connect remain deferred until an identity provider is selected.
-- Edge and runtime: non-root Linux containers behind an allowlisted Nginx
-  same-origin proxy.
-- Quality: ESLint, Prettier, TypeScript strict mode, Vitest, MSTest and
-  Playwright.
-- Delivery: GitHub Actions core, .NET and disposable runtime gates.
+## Product walkthrough
 
-GraphQL is not part of the current public surface. It will be introduced only
-if a measured dashboard or reporting use case is better served by a composed
-read contract than by REST. Azure and AWS remain deployment candidates; no
-provider has been selected or encoded as infrastructure authority.
+![Shift-Flow synthetic product walkthrough](docs/assets/shift-flow-demo.gif)
 
-## Repository Layout
+The walkthrough uses the real local Web interface with immutable synthetic responses. It demonstrates product behaviour and visual design; it is not evidence of a production backend or production data.
+
+## What it delivers
+
+- Main and team dashboards with operational metrics, attention indicators, configurable widgets and TV mode.
+- Activity management across list, Kanban and detailed record views, including timelines and an internal task board.
+- Shift, team, client, user and role administration with permission-scoped navigation.
+- Notification centre, global search, filters and operational reporting.
+- Responsive layouts, light and dark themes, and `pt-BR` / `en-GB` interface support.
+- Structured audit, request-correlation, authentication, rate-limit and tenant-boundary controls.
+
+## Architecture
+
+| Layer                  | Current responsibility                                                    |
+| ---------------------- | ------------------------------------------------------------------------- |
+| Web                    | Next.js and React application written in strict TypeScript.               |
+| Incumbent API          | Modular Express REST API and the current compatibility surface.           |
+| Migration host         | ASP.NET Core compatibility host for the routed Audit slice.               |
+| Durable data           | PostgreSQL, with Prisma as the sole schema and migration owner.           |
+| Migration dependencies | Redis-backed distributed state and an allowlisted Nginx same-origin edge. |
+
+The repository deliberately supports two distinct runtime shapes:
+
+1. The controlled local strangler profile runs Next.js, Express, ASP.NET Core, PostgreSQL, Redis and Nginx. It validates migration boundaries in disposable containers.
+2. The Render demonstration uses a single native Node.js listener for the incumbent Next.js and Express applications, backed by PostgreSQL. Keeping Web and API on one public hostname preserves the existing refresh-cookie, CSRF and origin contract. This demonstration does not promote the ASP.NET Core migration profile and is not production approval.
+
+REST remains the canonical public contract. GraphQL and an external OAuth 2.0 / OpenID Connect provider remain deferred until there is measured product need and approved identity authority.
+
+## Technology
+
+- Next.js 16, React 19 and TypeScript
+- Node.js and Express
+- ASP.NET Core and Npgsql
+- PostgreSQL, Prisma and Redis
+- Nginx and Docker Compose
+- Vitest, MSTest and Playwright
+- ESLint, Prettier and strict TypeScript checks
+- GitHub Actions release gates
+
+## Repository layout
 
 ```text
 apps/
-  api/        Express API organized by modules and shared infrastructure.
-  api-dotnet/ ASP.NET Core compatibility host, modules and focused tests.
-  web/        Next.js application.
-docs/         Architecture, operations, governance, and delivery documentation.
-eng/          Reproducible development entry point, canonical core gate, and policy tests.
-infra/        Linux container and reversible Nginx edge definitions.
-prisma/       Schema, migrations, and seed scripts.
-PLANS.md      Non-authoritative executable plan and current implementation evidence.
-scripts/      Maintenance and quality scripts.
-tests/e2e/    Playwright end-to-end, accessibility, and load checks.
+  api/         Express API and shared infrastructure
+  api-dotnet/  ASP.NET Core compatibility host and focused tests
+  web/         Next.js application
+docs/          Architecture, operations and delivery documentation
+eng/           Reproducible development workflow and canonical gates
+infra/         Container, edge and Render runtime definitions
+prisma/        Schema, approved migrations and deterministic seeds
+scripts/       Maintenance, policy and focused regression checks
+tests/e2e/     End-to-end, accessibility and load checks
 ```
 
-## Development Workflow
+## Prerequisites
 
-Use the single development entry point before starting the runtime:
+- Node.js and npm versions compatible with the lockfile
+- PowerShell 7+
+- Docker Desktop for PostgreSQL and disposable runtime validation
+- .NET 10 SDK for the compatibility host
+
+Run the read-only environment diagnosis first:
 
 ```powershell
 ./eng/development.ps1 Doctor
+```
+
+The full toolchain and offline behaviour are documented in [Project Setup and Development Workflow](docs/PROJECT-SETUP.md).
+
+## Local development
+
+Prepare locked dependencies and generated clients:
+
+```powershell
 ./eng/development.ps1 Setup
+Copy-Item .env.example .env
+```
+
+Replace the local-only placeholder secrets in `.env`, keep `POSTGRES_PASSWORD` aligned with `DATABASE_URL`, then start PostgreSQL and apply the approved migrations:
+
+```powershell
+docker compose up -d postgres
+npx prisma migrate deploy
+```
+
+Seed a disposable local database only when required. Seed credentials are runtime values and must never be committed:
+
+```powershell
+$env:E2E_EMAIL = "demo@shiftflow.local"
+$env:E2E_PASSWORD = "<strong-local-password>"
+npm run seed:integration
+npm run homologation:seed
+```
+
+Start the managed Web and Express development platform:
+
+```powershell
+npm run platform:start
+```
+
+The managed platform exposes Web at `http://localhost:3000` and API at `http://localhost:3001`. Use `npm run platform:status`, `npm run platform:restart` and `npm run platform:stop` for lifecycle control. The scripts act only on processes whose recorded identity belongs to this repository.
+
+`AUTH_MODE=demo` is local development functionality. Production configuration rejects it and always requires authentication.
+
+## Quality gates
+
+Use the quick lane for development feedback:
+
+```powershell
 ./eng/development.ps1 Quick
 ```
 
-`Doctor` is read-only. `Setup` performs locked npm and NuGet restores plus
-Prisma client generation without migrations or seeds. `Quick` is explicitly
-`NON_GATE` and provides fast Node.js and .NET quality, unit-test and build
-feedback. Run the canonical core gate with:
+`Quick` is explicitly non-gating. Before a release candidate, run the canonical core gate:
 
 ```powershell
 ./eng/development.ps1 Full
 ```
 
-Use `-PlanOnly` to inspect any exact plan without executing it, and `-Offline`
-with `Setup` or `Full` when registry access is unavailable. An offline
-dependency audit is reported as `NOT_RUN`; `Full -Offline` finishes non-zero as
-`INCOMPLETE_NON_GATE`, not as a pass. See
-[Project Setup and Development Workflow](docs/PROJECT-SETUP.md) for the
-toolchain, credential boundary and gate interpretation.
-
-## Local Setup
-
-Quick start on Windows PowerShell:
-
-```powershell
-npm start
-```
-
-Stop everything:
-
-```powershell
-npm stop
-```
-
-The development workflow prepares dependencies. The remaining steps configure
-an explicit local runtime and are outside the runtime-credential-free core gate.
-
-1. If the workflow was not used, install dependencies and generate the client:
-
-```bash
-npm ci
-npm run prisma:generate
-```
-
-2. Copy `.env.example` to `.env` and set local infrastructure secrets. `POSTGRES_PASSWORD` must match the password embedded in `DATABASE_URL`. Do not store end-user passwords in `.env`.
-
-3. Start PostgreSQL:
-
-```bash
-docker compose up -d postgres
-```
-
-4. Apply migrations:
-
-```bash
-npx prisma migrate deploy
-```
-
-5. Seed local data when needed:
-
-```bash
-npm run seed:integration
-npm run homologation:seed
-```
-
-6. Run the applications:
-
-```bash
-npm run dev:api
-npm run dev:web
-```
-
-To exercise the complete migration topology, run its canonical disposable gate:
+The disposable migration-topology gate is separate:
 
 ```powershell
 npm run test:runtime:strangler
 ```
 
-The gate generates independent process-local credentials, builds the immutable
-image inputs, applies only the approved Prisma migrations, seeds deterministic
-fixtures, exercises the routed security and persistence contracts, and removes
-its containers and volumes even after failure. The profile is a disposable local
-validation environment, not a production manifest. Nginx exposes
-`http://localhost:8080`, routes only `/api/audit` and `/openapi/` to ASP.NET Core,
-and leaves all other API traffic on Express. The `platform:*` scripts and
-`npm stop` manage only the ordinary Windows Express/Web platform; they do not
-stop or remove this Compose profile.
+It creates isolated credentials and infrastructure, tests real routed behaviour and removes its containers and volumes after the run. A green local gate is evidence for that candidate only; it is not production approval.
 
-## Platform Control
+## Operations and security
 
-Use these scripts to manage the local development platform:
+- `GET /health` reports process liveness; `GET /ready` checks required incumbent dependencies.
+- API responses carry request-correlation identifiers and structured operational logs.
+- Unsafe requests are protected by the same-origin and CSRF contract.
+- Production secrets belong in the deployment provider's secret store and are excluded from Git.
+- Suspected vulnerabilities should follow [SECURITY.md](SECURITY.md), not a public issue.
 
-```bash
-npm run platform:start
-npm run platform:stop
-npm run platform:restart
-npm run platform:status
-```
-
-The platform commands release the terminal when the action finishes. Start and restart do not wait for readiness unless you pass `-Wait`; with that switch, API `/ready` and Web must respond successfully or the partial launch is stopped and the command fails.
-
-Logs and ownership-bound PID state are written under `dist/runtime`. Start, stop,
-restart and cleanup share an exclusive repository operation lock. Stop acts only
-on processes whose repository root, PID start time, process name and encoded
-launch command match that state. Cleanup refuses to run while the managed
-runtime, an unverifiable recorded process, a ShiftFlow port listener or a
-reparse point is present. An occupied port is reported as a conflict and is
-never authority to terminate an unrelated process. Readiness is accepted only
-when each listener belongs to the corresponding managed process tree and the
-API identifies itself as `shiftflow-api`. Stopping ShiftFlow does not close
-Docker Desktop.
-
-PowerShell options are available directly:
-
-```powershell
-.\scripts\start.ps1 -SkipInstall -SkipSeed
-.\scripts\stop.ps1 -KeepDatabase
-.\scripts\restart.ps1 -SkipInstall -SkipSeed -KeepDatabase
-```
-
-The scripts do not open a browser by default. Use `-OpenBrowser` with `start.ps1` or `restart.ps1` only when you want that behavior.
-
-Use `-Attach` with `start.ps1` or `restart.ps1` only when you want the script to stay attached and stream logs.
-
-Use `-Wait` with `start.ps1` or `restart.ps1` only when you want the script to wait until Web and API respond.
-
-The integration seed requires `E2E_EMAIL` and `E2E_PASSWORD` at runtime, hashes the password with bcrypt before storage, and does not print credentials in logs. Provide these values only through a local shell, per-run CI generation, or, only when unavoidable, a CI secret for a persistent external test identity; do not commit them to `.env` or `.env.example`. New or changed user passwords must be at least 12 characters and include lowercase, uppercase, numeric, and symbol characters.
-
-Local development defaults to `AUTH_MODE=demo`. When the integration seed provisions
-`AUTH_DEMO_EMAIL`, the Web restores an existing session or opens directly as that
-demo user without displaying the login form. `AUTH_MODE=demo` is rejected during
-production configuration validation; production always requires authentication.
-
-The realistic seed deletes all data in its target. It therefore accepts only a loopback PostgreSQL database named `shiftflow` or `shiftflow_<purpose>`, rejects `NODE_ENV=production`, requires a runtime password, and requires the explicit per-shell confirmation `SHIFTFLOW_DESTRUCTIVE_SEED_CONFIRMATION=DELETE_CONFIRMED_LOCAL_SHIFTFLOW_DATA`. The confirmation and password must never be committed. Use a disposable database only.
-
-`npm start` is reserved for the compiled API (`dist/api/server.js`). After `npm run build`, run the Web production artefact separately with `npm run start:web`. Neither production command applies migrations or seeds; deployment orchestration remains environment-specific.
-
-## Quality Gates
-
-Run fast feedback while developing, then the canonical core gate before
-opening a pull request:
-
-```powershell
-npm run dev:quick
-npm run dev:full
-```
-
-Additional checks:
-
-```bash
-npm run comments:verify
-npm run platform:workflow:test
-npm run test:e2e
-npm run test:a11y
-npm run test:load
-npm run test:dotnet
-npm run test:runtime:strangler
-npm run security:audit
-npm run clean:artifacts
-```
-
-The focused routed-behaviour probe is internal to the canonical runtime gate.
-The wrapper is the only supported entry point because it establishes the local
-Docker authority, disposable project identity, credentials and cleanup boundary.
-
-`npm run clean:artifacts` removes local Next/Playwright build outputs such as `.next` and `dist`. These directories are ignored by Git and excluded from gitleaks because they contain generated runtime material, including ephemeral Next keys.
-
-## API Operations
-
-- Edge/legacy liveness: `GET /health`; edge process liveness: `GET /edge-health`.
-- Public compatibility readiness: `GET /ready` currently remains on Express.
-  The migration-profile Docker healthcheck additionally requires ASP.NET Core
-  PostgreSQL, Redis and data-protection readiness plus Web availability.
-- Migrated contract: `GET /api/audit`, `GET /api/audit/{id}` and
-  `GET /openapi/v1.json` through Nginx.
-- Request correlation: every response includes `x-request-id`.
-- Rate limiting: migrated business traffic uses Redis and fails closed when it
-  is unavailable; legacy traffic still uses the existing process-local store.
-- Authentication lockout: failed logins are tracked by hashed e-mail/IP metadata and lock after `AUTH_LOCKOUT_MAX_ATTEMPTS` within the configured lockout window.
-- Logs: API logs are structured JSON and include `requestId`, HTTP method, path, status, latency, user, and company context when available.
+Deployment order, migration boundaries, rollback requirements and incident handling are defined in the [Production Runbook](docs/production-runbook.md).
 
 ## Documentation
 
-- [Contributing](CONTRIBUTING.md)
-- [Security](SECURITY.md)
 - [Architecture](docs/architecture.md)
-- [Development Standards](docs/development-standards.md)
-- [Project Setup and Development Workflow](docs/PROJECT-SETUP.md)
-- [Source Commenting Manifest](docs/source-commenting-manifest.md)
-- [Governance Index](docs/governance-index.md)
-- [Production Runbook](docs/production-runbook.md)
-- [Systematization Report](docs/systematization-report.md)
-- [Technical Roadmap](docs/technical-roadmap.md)
+- [Contributing](CONTRIBUTING.md)
+- [Development standards](docs/development-standards.md)
+- [Governance index](docs/governance-index.md)
+- [Project setup](docs/PROJECT-SETUP.md)
+- [Production runbook](docs/production-runbook.md)
+- [Technical roadmap](docs/technical-roadmap.md)
+
+## Licence
+
+The project declares `UNLICENSED`. Publication of the source code does not grant
+an open-source licence or redistribution rights.
