@@ -179,7 +179,7 @@ function Assert-PlatformCanStart {
     Write-Host "Removed stale ShiftFlow runtime state."
   }
 
-  $listeners = Get-PortListeners -Ports @(3000, 3001)
+  $listeners = @(Get-PortListeners -Ports @(3000, 3001))
   if ($listeners.Count -gt 0) {
     $details = $listeners |
       ForEach-Object { "port $($_.Port) (PID $($_.ProcessId), $($_.ProcessName))" }

@@ -248,9 +248,16 @@ function Test-ManagedProcessOwnership {
     return $false
   }
 
+  try {
+    $entryStartTime = [DateTimeOffset]$Entry.startTimeUtc
+    $snapshotStartTime = [DateTimeOffset]$Snapshot.StartTimeUtc
+  } catch {
+    return $false
+  }
+
   if ([int]$Entry.pid -ne [int]$Snapshot.ProcessId -or
       [string]$Entry.processName -ne [string]$Snapshot.Name -or
-      [string]$Entry.startTimeUtc -ne [string]$Snapshot.StartTimeUtc) {
+      $entryStartTime.UtcTicks -ne $snapshotStartTime.UtcTicks) {
     return $false
   }
 

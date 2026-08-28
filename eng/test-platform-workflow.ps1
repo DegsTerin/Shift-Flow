@@ -51,6 +51,10 @@ $snapshot = [pscustomobject]@{
 Assert-True -Condition (Test-ManagedProcessOwnership -Entry $entry -RepositoryRoot $root -Snapshot $snapshot) `
   -Message 'A matching managed process was not recognised.'
 
+$persistedEntry = $entry | ConvertTo-Json | ConvertFrom-Json
+Assert-True -Condition (Test-ManagedProcessOwnership -Entry $persistedEntry -RepositoryRoot $root -Snapshot $snapshot) `
+  -Message 'A matching managed process was rejected after its ISO timestamp was deserialised.'
+
 $wrongRoot = $entry.PSObject.Copy()
 $wrongRoot.root = 'C:\Projects\AnotherProject'
 Assert-True -Condition (-not (Test-ManagedProcessOwnership -Entry $wrongRoot -RepositoryRoot $root -Snapshot $snapshot)) `
@@ -202,6 +206,8 @@ Assert-True -Condition ($statusScript -match '\[switch\]\$RequireReady' -and
 Assert-True -Condition ($startScript -match 'Test-PortOwnedByManagedEntry' -and
     $startScript -match "ExpectedService 'shiftflow-api'") `
   -Message 'Platform start readiness must bind listeners and API identity to managed processes.'
+Assert-True -Condition ($startScript -match '\$listeners\s*=\s*@\(Get-PortListeners') `
+  -Message 'Platform start must normalise an empty listener result before checking its count.'
 Assert-True -Condition ($resetRealisticScript -match 'process\.execPath' -and $resetRealisticScript -notmatch 'npx') `
   -Message 'The realistic reset must use the locked Prisma CLI through Node without npx or a shell.'
 

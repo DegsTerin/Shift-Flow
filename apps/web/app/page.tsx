@@ -895,17 +895,30 @@ export default function Page() {
     if (storedTheme === "light" || storedTheme === "dark") setTheme(storedTheme);
     if (storedNavCollapsed === "true" || storedNavCollapsed === "false")
       setNavCollapsed(storedNavCollapsed === "true");
-    void restoreApiSession()
-      .catch(async () => {
+    let cancelled = false;
+    const bootstrapSession = async () => {
+      try {
+        await restoreApiSession();
+      } catch {
+        if (cancelled) return;
         clearApiSession();
-        const demoSession = await apiRequest<LoginResponse>("/api/auth/demo", undefined, {
-          method: "POST",
-          body: JSON.stringify({})
-        });
-        setApiSession(demoSession);
-      })
-      .catch(() => clearApiSession())
-      .finally(() => setRestoringSession(false));
+        try {
+          const demoSession = await apiRequest<LoginResponse>("/api/auth/demo", undefined, {
+            method: "POST",
+            body: JSON.stringify({})
+          });
+          if (!cancelled) setApiSession(demoSession);
+        } catch {
+          if (!cancelled) clearApiSession();
+        }
+      } finally {
+        if (!cancelled) setRestoringSession(false);
+      }
+    };
+    void bootstrapSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

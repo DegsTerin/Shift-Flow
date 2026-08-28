@@ -18,6 +18,7 @@ services:
       retries: 5
     networks:
       - data
+      - local-access
 
   redis:
     image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
@@ -38,6 +39,7 @@ services:
       retries: 5
     networks:
       - data
+      - local-access
 
   migrate:
     profiles: ["migration"]
@@ -189,3 +191,5 @@ networks:
         - subnet: 172.31.238.0/24
   data:
     internal: true
+  local-access:
+    internal: false

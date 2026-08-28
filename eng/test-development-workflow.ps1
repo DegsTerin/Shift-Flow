@@ -636,6 +636,20 @@ foreach ($serviceName in $immutableComposeImages.Keys) {
         throw "Compose service '$serviceName' must use its one exact immutable image contract."
     }
 }
+foreach ($localServiceName in @('postgres', 'redis')) {
+    $localServiceBlock = [regex]::Match(
+        $composeConfiguration,
+        '(?ms)^  ' + [regex]::Escape($localServiceName) + ':\r?\n(?<body>.*?)(?=^  \S|\z)')
+    if (-not $localServiceBlock.Success -or
+        $localServiceBlock.Value.IndexOf(
+            '      - local-access',
+            [System.StringComparison]::Ordinal) -lt 0) {
+        throw "Compose service '$localServiceName' must keep loopback publication reachable through the non-internal local-access network."
+    }
+}
+if ($composeConfiguration -notmatch '(?ms)^  local-access:\r?\n    internal: false\s*$') {
+    throw 'Compose must declare the local-access network as non-internal for loopback development ports.'
+}
 $runtimeJob = [regex]::Match(
     $workflow,
     '(?ms)^  runtime-gates:\r?\n(?<body>.*?)(?=^  [a-zA-Z0-9_-]+:\r?$|\z)')
