@@ -109,6 +109,98 @@ describe("RBAC scope evaluation", () => {
     ).resolves.toBe(false);
   });
 
+  it("lists roles with tenant search, matching count scope and stable ordering", async () => {
+    const service = RbacService.roles as unknown as {
+      repository: {
+        list(args: Record<string, unknown>): Promise<unknown[]>;
+        count(where: Record<string, unknown>): Promise<number>;
+      };
+      list(req: ApiRequest): Promise<unknown>;
+    };
+    const originalRepository = service.repository;
+    const list = vi.fn().mockResolvedValue([{ id: "role-26" }]);
+    const count = vi.fn().mockResolvedValue(26);
+    service.repository = { list, count };
+    const where = {
+      companyId: "company-a",
+      deletedAt: null,
+      OR: ["name", "description"].map((field) => ({
+        [field]: { contains: "operator", mode: "insensitive" }
+      }))
+    };
+
+    try {
+      await expect(
+        service.list({
+          query: { page: 3, pageSize: 12, search: " operator " },
+          auth: { id: "user-a", email: "user@example.com", companyId: "company-a" },
+          tenant: { companyId: "company-a" }
+        } as unknown as ApiRequest)
+      ).resolves.toMatchObject({
+        items: [{ id: "role-26" }],
+        total: 26,
+        page: 3,
+        pageSize: 12
+      });
+    } finally {
+      service.repository = originalRepository;
+    }
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where,
+        skip: 24,
+        take: 12,
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+        include: expect.objectContaining({
+          permissions: expect.any(Object),
+          _count: expect.any(Object)
+        })
+      })
+    );
+    expect(count).toHaveBeenCalledWith(where);
+  });
+
+  it("lists the permission catalogue with tenant scope and resource/action/id ordering", async () => {
+    const service = RbacService.permissions as unknown as {
+      repository: {
+        list(args: Record<string, unknown>): Promise<unknown[]>;
+        count(where: Record<string, unknown>): Promise<number>;
+      };
+      list(req: ApiRequest): Promise<unknown>;
+    };
+    const originalRepository = service.repository;
+    const list = vi.fn().mockResolvedValue([{ id: "permission-101" }]);
+    const count = vi.fn().mockResolvedValue(101);
+    service.repository = { list, count };
+    const where = { companyId: "company-a", deletedAt: null };
+
+    try {
+      await expect(
+        service.list({
+          query: { page: 2, pageSize: 100 },
+          auth: { id: "user-a", email: "user@example.com", companyId: "company-a" },
+          tenant: { companyId: "company-a" }
+        } as unknown as ApiRequest)
+      ).resolves.toMatchObject({
+        items: [{ id: "permission-101" }],
+        total: 101,
+        page: 2,
+        pageSize: 100
+      });
+    } finally {
+      service.repository = originalRepository;
+    }
+
+    expect(list).toHaveBeenCalledWith({
+      where,
+      skip: 100,
+      take: 100,
+      orderBy: [{ resource: "asc" }, { action: "asc" }, { id: "asc" }]
+    });
+    expect(count).toHaveBeenCalledWith(where);
+  });
+
   it("discards protected fields even when the service is called without HTTP validation", async () => {
     const service = RbacService.roles as unknown as {
       repository: { create(data: Record<string, unknown>): Promise<unknown> };
@@ -140,22 +232,18 @@ describe("RBAC scope evaluation", () => {
     });
   });
 
-  it("blocks scope changes while a profile has active assignments", async () => {
+  it("delegates scope changes to the locked aggregate mutation", async () => {
     const service = RbacService.roles as unknown as {
       rbacRepository: {
-        findRole(id: string, companyId: string): Promise<unknown>;
-        countActiveAssignments(id: string, companyId: string): Promise<number>;
+        mutateRole(...args: unknown[]): Promise<unknown>;
       };
       update(req: ApiRequest, id: string, data: Record<string, unknown>): Promise<unknown>;
     };
     const originalRepository = service.rbacRepository;
+    const rejection = Object.assign(new Error("active assignments"), { code: "BAD_REQUEST" });
+    const mutateRole = vi.fn().mockRejectedValue(rejection);
     service.rbacRepository = {
-      findRole: vi.fn().mockResolvedValue({
-        id: "role-a",
-        scope: "COMPANY",
-        isSystem: false
-      }),
-      countActiveAssignments: vi.fn().mockResolvedValue(1)
+      mutateRole
     };
 
     try {
@@ -172,6 +260,14 @@ describe("RBAC scope evaluation", () => {
     } finally {
       service.rbacRepository = originalRepository;
     }
+
+    expect(mutateRole).toHaveBeenCalledWith(
+      "role-a",
+      "company-a",
+      { scope: "CLIENT" },
+      "UPDATE",
+      expect.any(Function)
+    );
   });
 
   it("blocks every ordinary profile mutation for system profiles", async () => {
@@ -182,13 +278,14 @@ describe("RBAC scope evaluation", () => {
       duplicate(req: ApiRequest, id: string): Promise<unknown>;
     };
     const originalRepository = service.rbacRepository;
+    const rejection = Object.assign(new Error("system profile"), { code: "BAD_REQUEST" });
     const repository = {
       findRole: vi.fn().mockResolvedValue({
         id: "system-role",
         scope: "COMPANY",
         isSystem: true
       }),
-      countActiveAssignments: vi.fn(),
+      mutateRole: vi.fn().mockRejectedValue(rejection),
       duplicateRole: vi.fn()
     };
     service.rbacRepository = repository;
@@ -211,7 +308,7 @@ describe("RBAC scope evaluation", () => {
       service.rbacRepository = originalRepository;
     }
 
-    expect(repository.countActiveAssignments).not.toHaveBeenCalled();
+    expect(repository.mutateRole).toHaveBeenCalledTimes(2);
     expect(repository.duplicateRole).not.toHaveBeenCalled();
   });
 

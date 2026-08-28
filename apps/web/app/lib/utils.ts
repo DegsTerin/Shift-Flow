@@ -1,5 +1,4 @@
 // en-GB: Provides shared utils definitions so frontend modules use one consistent implementation.
-import type { FormEvent } from "react";
 import { apiRequest } from "./api";
 import type {
   ActivityItem,
@@ -25,6 +24,10 @@ export const emptyFilters: Filters = {
   from: "",
   to: ""
 };
+
+export function hasInvertedDateRange(filters: Pick<Filters, "from" | "to">) {
+  return Boolean(filters.from && filters.to && filters.to < filters.from);
+}
 export const statusGroups = [
   "PENDING",
   "IN_PROGRESS",
@@ -76,10 +79,10 @@ export function formatTime(value?: string | null, locale: Locale = "pt-BR") {
   );
 }
 
-export function slaLabel(value?: string | null) {
+export function slaLabel(value: string | null | undefined, t: Texts) {
   if (!value) return "-";
   const minutes = Math.round((new Date(value).getTime() - Date.now()) / 60000);
-  if (minutes < 0) return "SLA breach";
+  if (minutes < 0) return t.slaBreached;
   if (minutes < 60) return `${minutes} min`;
   return `${Math.round(minutes / 60)} h`;
 }
@@ -97,17 +100,22 @@ export function statusLabel(status: string | undefined, t: Texts) {
   return labels[status ?? ""] ?? status ?? "-";
 }
 
+export function priorityLabel(priority: string | null | undefined, t: Texts) {
+  const labels: Record<string, string> = {
+    LOW: t.priorityLow,
+    MEDIUM: t.priorityMedium,
+    HIGH: t.priorityHigh,
+    CRITICAL: t.priorityCritical
+  };
+  return labels[priority ?? ""] ?? priority ?? "-";
+}
+
 export function statusLegend(t: Texts) {
   return statusGroups.map((status) => ({
     status,
     label: statusLabel(status, t),
     color: statusColors[status]
   }));
-}
-
-export function matchesSearch(row: unknown, search: string) {
-  if (!search.trim()) return true;
-  return JSON.stringify(row).toLowerCase().includes(search.trim().toLowerCase());
 }
 
 export function userOptionLabel(user: UserRef) {
@@ -125,26 +133,38 @@ export function toDateInputValue(value: Date) {
   return new Date(value.getTime() - offset * 60000).toISOString().slice(0, 16);
 }
 
-export function activityPayload(form: FormData) {
-  const description = String(form.get("description") || form.get("requested") || "");
+export function activityPayload(form: FormData, current?: ActivityItem) {
+  const field = (name: string, fallback = "") =>
+    form.has(name) ? String(form.get(name) ?? "") : fallback;
+  const optionalText = (name: string) =>
+    form.has(name) ? String(form.get(name) ?? "") : undefined;
+  const optionalNullable = (name: string, fallback?: string | null) => {
+    if (!form.has(name)) return fallback || undefined;
+    const value = String(form.get(name) ?? "");
+    return value || null;
+  };
+  const currentClientId = current?.clientId ?? current?.client?.id ?? "";
+  const currentTeamId = current?.teamId ?? current?.team?.id ?? "";
+  const currentShiftId = current?.shiftId ?? current?.shift?.id ?? "";
+  const currentAssigneeId = current?.assigneeId ?? current?.assignee?.id ?? "";
   return {
-    title: String(form.get("title") ?? ""),
-    clientId: String(form.get("clientId") ?? ""),
-    teamId: String(form.get("teamId") ?? ""),
-    shiftId: String(form.get("shiftId") || "") || undefined,
-    assigneeId: String(form.get("assigneeId") || "") || undefined,
-    systemName: String(form.get("systemName") || "") || undefined,
-    serviceName: String(form.get("serviceName") || "") || undefined,
-    status: String(form.get("status") || "PENDING"),
-    priority: String(form.get("priority") || "MEDIUM"),
-    slaDueAt: String(form.get("slaDueAt") || "") || undefined,
-    description,
-    requested: String(form.get("requested") || "") || undefined,
-    performed: String(form.get("performed") || "") || undefined,
-    inProgressDetail: String(form.get("inProgressDetail") || "") || undefined,
-    pendingDetail: String(form.get("pendingDetail") || "") || undefined,
-    finalizationDetail: String(form.get("finalizationDetail") || "") || undefined,
-    observations: String(form.get("observations") || "") || undefined
+    title: field("title", current?.title ?? ""),
+    clientId: field("clientId", currentClientId),
+    teamId: field("teamId", currentTeamId),
+    shiftId: optionalNullable("shiftId", currentShiftId),
+    assigneeId: optionalNullable("assigneeId", currentAssigneeId),
+    systemName: optionalText("systemName"),
+    serviceName: optionalText("serviceName"),
+    status: field("status", current?.status ?? "PENDING"),
+    priority: field("priority", current?.priority ?? "MEDIUM"),
+    slaDueAt: optionalNullable("slaDueAt", current?.slaDueAt),
+    description: optionalText("description"),
+    requested: optionalText("requested"),
+    performed: optionalText("performed"),
+    inProgressDetail: optionalText("inProgressDetail"),
+    pendingDetail: optionalText("pendingDetail"),
+    finalizationDetail: optionalText("finalizationDetail"),
+    observations: optionalText("observations")
   };
 }
 
@@ -197,15 +217,19 @@ export function productAssignableRoles(roles: RoleRef[]) {
   );
 }
 
-export function userRoleOptions(user: UserRef, roles: RoleRef[]) {
+export function userRoleOptions(
+  user: UserRef,
+  roles: RoleRef[],
+  t: Pick<Texts, "noCompanyRole" | "currentRole" | "currentSuffix">
+) {
   const options = roles.map((role) => [role.id ?? "", role.name ?? "-"]);
   const assignment = editableCompanyAssignment(user);
   const currentId = assignment?.roleId ?? assignment?.role?.id ?? "";
   if (!currentId) {
-    return [["", "Sem perfil de empresa"], ...options];
+    return [["", t.noCompanyRole], ...options];
   }
   if (!options.some(([id]) => id === currentId)) {
-    options.unshift([currentId, `${assignment?.role?.name ?? "Perfil atual"} (atual)`]);
+    options.unshift([currentId, `${assignment?.role?.name ?? t.currentRole} (${t.currentSuffix})`]);
   }
   return options;
 }
@@ -278,27 +302,32 @@ export async function createRecord(
   form: FormData,
   token: string,
   clients: ClientRef[],
-  teams: TeamRef[]
+  teams: TeamRef[],
+  signal?: AbortSignal
 ) {
   if (entity === "users")
     return apiRequest("/api/users", token, {
       method: "POST",
-      body: JSON.stringify(userPayload(form, true))
+      body: JSON.stringify(userPayload(form, true)),
+      signal
     });
   if (entity === "clients")
     return apiRequest("/api/clients", token, {
       method: "POST",
-      body: JSON.stringify(clientPayload(form))
+      body: JSON.stringify(clientPayload(form)),
+      signal
     });
   if (entity === "teams")
     return apiRequest("/api/teams", token, {
       method: "POST",
-      body: JSON.stringify(teamPayload(form))
+      body: JSON.stringify(teamPayload(form)),
+      signal
     });
   if (entity === "shifts")
     return apiRequest<ShiftRef>("/api/shifts", token, {
       method: "POST",
-      body: JSON.stringify(shiftPayload(form))
+      body: JSON.stringify(shiftPayload(form)),
+      signal
     });
   if (entity === "activities" || entity === "kanban")
     return apiRequest<ActivityItem>("/api/activities", token, {
@@ -307,9 +336,8 @@ export async function createRecord(
         ...activityPayload(form),
         clientId: String(form.get("clientId") || clients[0]?.id || ""),
         teamId: String(form.get("teamId") || teams[0]?.id || "")
-      })
+      }),
+      signal
     });
   return undefined;
 }
-
-export type SubmitHandler = (event: FormEvent<HTMLFormElement>) => void;

@@ -1,6 +1,11 @@
 // en-GB: Verifies bounded pagination parsing and client-facing failures.
 import { describe, expect, it } from "vitest";
-import { toPagination, toSkipTake } from "./pagination.js";
+import {
+  searchableListQuerySchema,
+  toBoundedSearch,
+  toPagination,
+  toSkipTake
+} from "./pagination.js";
 
 describe("pagination", () => {
   it("uses bounded defaults and derives the database window", () => {
@@ -26,5 +31,11 @@ describe("pagination", () => {
     expect(() => toPagination(query)).toThrow(
       expect.objectContaining({ statusCode: 400, code: "BAD_REQUEST" })
     );
+  });
+
+  it("bounds defensive search parsing and validates the public query contract", () => {
+    expect(toBoundedSearch({ search: `  ${"x".repeat(220)}  ` })).toHaveLength(200);
+    expect(toBoundedSearch({})).toBe("");
+    expect(searchableListQuerySchema.safeParse({ search: "x".repeat(201) }).success).toBe(false);
   });
 });

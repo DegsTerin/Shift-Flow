@@ -84,21 +84,20 @@ export class ActivitiesRepository extends BaseRepository {
     };
     return prisma.$transaction(
       async (tx) => {
-        const [items, total] = await Promise.all([
-          tx.activity.findMany({
-            where,
-            ...toSkipTake(pagination),
-            orderBy: [{ priority: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
-            include: {
-              client: true,
-              team: true,
-              shift: true,
-              assignee: { select: publicUserSelect },
-              reporter: { select: publicUserSelect }
-            }
-          }),
-          tx.activity.count({ where })
-        ]);
+        const items = await tx.activity.findMany({
+          relationLoadStrategy: "join",
+          where,
+          ...toSkipTake(pagination),
+          orderBy: [{ priority: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
+          include: {
+            client: true,
+            team: true,
+            shift: true,
+            assignee: { select: publicUserSelect },
+            reporter: { select: publicUserSelect }
+          }
+        });
+        const total = await tx.activity.count({ where });
         return { items, total, ...pagination };
       },
       { isolationLevel: "RepeatableRead" }

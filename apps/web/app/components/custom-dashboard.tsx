@@ -5,6 +5,8 @@ import {
   Copy,
   Eye,
   EyeOff,
+  ChevronLeft,
+  ChevronRight,
   GripVertical,
   LayoutGrid,
   Maximize2,
@@ -33,6 +35,30 @@ export type DashboardWidgetDefinition = {
   defaultWidth: number;
   defaultHeight: number;
   render: (widget: DashboardWidget) => ReactNode;
+};
+
+const canonicalWidgetTitles: Readonly<Record<string, readonly string[]>> = {
+  "summary-total": ["Atividades totais", "Total activities"],
+  "summary-pending": ["Pendentes", "Pending"],
+  "summary-running": ["Em andamento", "In progress"],
+  "summary-done": ["Finalizadas", "Completed"],
+  "summary-critical": ["Criticas", "Críticas", "Critical"],
+  "summary-risk": ["SLA em risco", "SLA at risk"],
+  "summary-overdue": ["Atividades atrasadas", "Atrasadas", "Overdue activities", "Overdue"],
+  "summary-average-resolution": ["Tempo medio", "Tempo médio", "Average time"],
+  "kanban-summary": ["Kanban resumido", "Kanban summary"],
+  "operational-alerts": ["Alertas operacionais", "Operational alerts"],
+  "team-summary": ["Equipes", "Teams"],
+  "chart-team": ["Atividades por equipe", "Activities by team"],
+  "chart-client": ["Atividades por cliente", "Activities by client"],
+  "chart-priority": ["Atividades por prioridade", "Activities by priority"],
+  "chart-shift": ["Incidentes por turno", "Incidents by shift"],
+  "chart-status": ["Evolucao mensal", "Evolução mensal", "Monthly evolution"],
+  "status-legend": ["Legenda de status", "Status legend"],
+  "activity-list": ["Ultimas atividades", "Últimas atividades", "Latest activities"],
+  "team-productivity": ["Produtividade por analista", "Productivity by analyst"],
+  "team-risk": ["SLA em risco", "SLA at risk"],
+  "team-activity-list": ["Ultimas atividades", "Últimas atividades", "Latest activities"]
 };
 
 function ordered(widgets: DashboardWidget[]) {
@@ -69,19 +95,36 @@ function definitionKey(widget: DashboardWidget) {
   return String(widget.settings?.sourceKey ?? widget.key).replace(/-\d{13}-\d+$/, "");
 }
 
+const localisedCopyTitle = "LOCALISED_COPY";
+
+export function displayWidgetTitle(
+  widget: DashboardWidget,
+  definition: DashboardWidgetDefinition,
+  copySuffix?: string
+) {
+  const canonicalTitles = canonicalWidgetTitles[definitionKey(widget)] ?? [];
+  const title = canonicalTitles.includes(widget.title) ? definition.title : widget.title;
+  return widget.settings?.titlePresentation === localisedCopyTitle && copySuffix
+    ? `${title} ${copySuffix}`
+    : title;
+}
+
 export function CustomizableDashboard({
   t,
   config,
   definitions,
+  canConfigure = true,
   onSave,
   onReset
 }: {
   t: Texts;
   config: DashboardConfiguration;
   definitions: DashboardWidgetDefinition[];
+  canConfigure?: boolean;
   onSave: (config: DashboardConfiguration) => Promise<DashboardConfiguration | void>;
   onReset: () => Promise<DashboardConfiguration | void>;
 }) {
+  const currentEpoch = captureApiSessionEpoch();
   const [draft, setDraft] = useState(config);
   const [snapshot, setSnapshot] = useState(config);
   const [editing, setEditing] = useState(false);
@@ -89,7 +132,16 @@ export function CustomizableDashboard({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const saveRequestId = useRef(0);
+  const lastConfirmedRef = useRef(config);
+  const intentRef = useRef(config);
+  const persistencePendingRef = useRef(false);
+  const resetPendingRef = useRef(false);
   const mounted = useRef(true);
+  const canConfigureRef = useRef(canConfigure);
+  const observedEpoch = useRef(currentEpoch);
+  const crossedSessionBoundary = observedEpoch.current !== currentEpoch;
+  const effectiveCanConfigure = canConfigure && !crossedSessionBoundary;
+  if (crossedSessionBoundary) canConfigureRef.current = false;
   const enqueuePersistence = useRef(createSerialOperationQueue()).current;
   const definitionMap = useMemo(
     () => new Map(definitions.map((definition) => [definition.key, definition])),
@@ -98,6 +150,8 @@ export function CustomizableDashboard({
 
   useEffect(() => {
     if (!canSynchroniseDashboardConfig(editing, saving)) return;
+    lastConfirmedRef.current = config;
+    intentRef.current = config;
     setDraft(config);
     setSnapshot(config);
   }, [config, editing, saving]);
@@ -110,43 +164,89 @@ export function CustomizableDashboard({
   }, []);
 
   useEffect(() => {
+    if (observedEpoch.current === currentEpoch) return;
+    observedEpoch.current = currentEpoch;
+    saveRequestId.current += 1;
+    persistencePendingRef.current = false;
+    resetPendingRef.current = false;
+    canConfigureRef.current = canConfigure;
+    lastConfirmedRef.current = config;
+    intentRef.current = config;
+    setDraft(config);
+    setSnapshot(config);
+    setEditing(false);
+    setSaving(false);
+    setSaveError(null);
+  }, [canConfigure, config, currentEpoch]);
+
+  useEffect(() => {
+    canConfigureRef.current = canConfigure;
+    if (canConfigure) return;
+    saveRequestId.current += 1;
+    persistencePendingRef.current = false;
+    resetPendingRef.current = false;
+    setEditing(false);
+    setSaving(false);
+    setSaveError(null);
+    lastConfirmedRef.current = config;
+    intentRef.current = config;
+    setDraft(config);
+    setSnapshot(config);
+  }, [canConfigure, config]);
+
+  useEffect(() => {
     function openCustomization() {
-      setSnapshot(draft);
+      if (!canConfigureRef.current) return;
+      setSnapshot(intentRef.current);
       setEditing(true);
     }
 
     window.addEventListener("shiftflow:customize-dashboard", openCustomization);
     return () => window.removeEventListener("shiftflow:customize-dashboard", openCustomization);
-  }, [draft]);
+  }, []);
 
-  async function persist(next: DashboardConfiguration, rollback = draft) {
+  async function persist(next: DashboardConfiguration) {
+    if (!canConfigureRef.current) return false;
+    persistencePendingRef.current = true;
     const requestId = saveRequestId.current + 1;
     const sessionEpoch = captureApiSessionEpoch();
-    const isCurrent = () => mounted.current && isApiSessionEpochCurrent(sessionEpoch);
+    const isCurrent = () =>
+      mounted.current && canConfigureRef.current && isApiSessionEpochCurrent(sessionEpoch);
     saveRequestId.current = requestId;
+    intentRef.current = next;
     setDraft(next);
     setSaving(true);
     setSaveError(null);
     try {
       const saved = await enqueuePersistence(() => onSave(next), isCurrent);
-      if (!isCurrent() || requestId !== saveRequestId.current) return;
-      if (saved) {
-        setDraft(saved);
-        setSnapshot(saved);
-      }
+      if (!isCurrent()) return false;
+      const confirmed = saved ?? next;
+      lastConfirmedRef.current = confirmed;
+      if (requestId !== saveRequestId.current) return false;
+      intentRef.current = confirmed;
+      setDraft(confirmed);
+      setSaveError(null);
+      return true;
     } catch (cause) {
-      if (!isCurrent() || requestId !== saveRequestId.current) return;
-      setDraft(rollback);
+      if (!isCurrent() || requestId !== saveRequestId.current) return false;
+      const confirmed = lastConfirmedRef.current;
+      intentRef.current = confirmed;
+      setDraft(confirmed);
       setSaveError(cause instanceof Error ? cause.message : t.dashboardSaveFailed);
+      return false;
     } finally {
       if (mounted.current && requestId === saveRequestId.current) {
+        persistencePendingRef.current = false;
         setSaving(false);
       }
     }
   }
 
   function mutate(updater: (widgets: DashboardWidget[]) => DashboardWidget[]) {
-    const next = { ...draft, isDefault: false, widgets: updater(draft.widgets) };
+    if (!canConfigureRef.current || resetPendingRef.current) return;
+    const current = intentRef.current;
+    const next = { ...current, isDefault: false, widgets: updater(current.widgets) };
+    intentRef.current = next;
     void persist(next);
   }
 
@@ -156,10 +256,10 @@ export function CustomizableDashboard({
     (definition) => !draft.widgets.some((widget) => definitionKey(widget) === definition.key)
   );
 
-  function moveWidget(targetKey: string) {
-    if (!draggedKey || draggedKey === targetKey) return;
+  function reorderWidget(sourceKey: string, targetKey: string) {
+    if (sourceKey === targetKey) return;
     mutate((widgets) => {
-      const source = widgets.find((widget) => widget.key === draggedKey);
+      const source = widgets.find((widget) => widget.key === sourceKey);
       const target = widgets.find((widget) => widget.key === targetKey);
       if (!source || !target || source.isPinned || target.isPinned) return widgets;
       const sourceOrder = source.order;
@@ -172,6 +272,11 @@ export function CustomizableDashboard({
         })
       );
     });
+  }
+
+  function moveWidget(targetKey: string) {
+    if (!draggedKey) return;
+    reorderWidget(draggedKey, targetKey);
     setDraggedKey(null);
   }
 
@@ -201,7 +306,11 @@ export function CustomizableDashboard({
           ...widget,
           id: undefined,
           key: `${definitionKey(widget)}-${Date.now()}-${widgets.length}`,
-          title: `${widget.title} copia`,
+          settings: {
+            ...widget.settings,
+            sourceKey: definitionKey(widget),
+            titlePresentation: localisedCopyTitle
+          },
           isPinned: false,
           order: widgets.length
         }
@@ -214,15 +323,21 @@ export function CustomizableDashboard({
   }
 
   async function reset() {
+    if (!canConfigureRef.current || persistencePendingRef.current) return;
+    persistencePendingRef.current = true;
+    resetPendingRef.current = true;
     const requestId = saveRequestId.current + 1;
     const sessionEpoch = captureApiSessionEpoch();
-    const isCurrent = () => mounted.current && isApiSessionEpochCurrent(sessionEpoch);
+    const isCurrent = () =>
+      mounted.current && canConfigureRef.current && isApiSessionEpochCurrent(sessionEpoch);
     saveRequestId.current = requestId;
     setSaving(true);
     try {
       const resetConfig = await enqueuePersistence(onReset, isCurrent);
       if (!isCurrent() || requestId !== saveRequestId.current) return;
       if (resetConfig) {
+        lastConfirmedRef.current = resetConfig;
+        intentRef.current = resetConfig;
         setDraft(resetConfig);
         setSnapshot(resetConfig);
       }
@@ -232,46 +347,74 @@ export function CustomizableDashboard({
       setSaveError(cause instanceof Error ? cause.message : t.dashboardSaveFailed);
     } finally {
       if (mounted.current && requestId === saveRequestId.current) {
+        persistencePendingRef.current = false;
+        resetPendingRef.current = false;
         setSaving(false);
       }
     }
   }
 
-  function cancel() {
-    setEditing(false);
-    void persist(snapshot, snapshot);
+  async function cancel() {
+    if (!canConfigureRef.current || persistencePendingRef.current) return;
+    if (await persist(snapshot)) setEditing(false);
   }
 
+  function exitCustomization() {
+    if (persistencePendingRef.current) return;
+    setEditing(false);
+  }
+
+  const editable = editing && effectiveCanConfigure;
+
   return (
-    <section className={editing ? "custom-dashboard editing" : "custom-dashboard"}>
-      {editing ? (
+    <section
+      aria-busy={saving || undefined}
+      className={editable ? "custom-dashboard editing" : "custom-dashboard"}
+    >
+      {editable ? (
         <div className="dashboard-toolbar">
           <div className="dashboard-toolbar-title">
             <LayoutGrid size={18} />
-            <span>{saving ? t.dashboardSaved : t.customizeDashboard}</span>
+            <span>{saving ? t.dashboardSaving : t.customizeDashboard}</span>
           </div>
-          {saveError ? (
-            <p className="dashboard-save-error" role="alert">
-              {saveError}
-            </p>
-          ) : null}
           <div className="dashboard-toolbar-actions">
-            <button className="compact-button" onClick={reset} type="button">
+            <button className="compact-button" disabled={saving} onClick={reset} type="button">
               <RotateCcw size={16} />
               {t.restoreDefault}
             </button>
-            <button className="compact-button" onClick={cancel} type="button">
+            <button
+              className="compact-button"
+              disabled={saving}
+              onClick={() => void cancel()}
+              type="button"
+            >
               <X size={16} />
               {t.cancel}
             </button>
-            <button className="primary-button" onClick={() => setEditing(false)} type="button">
+            <button
+              aria-label={t.exitCustomization}
+              className="primary-button"
+              disabled={saving}
+              onClick={exitCustomization}
+              type="button"
+            >
               <Save size={16} />
-              {t.save}
+              {t.exitCustomization}
             </button>
           </div>
         </div>
       ) : null}
-      {editing ? (
+      {saving ? (
+        <p aria-live="polite" className="dashboard-save-status" role="status">
+          {t.dashboardSaving}
+        </p>
+      ) : null}
+      {saveError ? (
+        <p className="dashboard-save-error" role="alert">
+          {saveError}
+        </p>
+      ) : null}
+      {editable ? (
         <div className="widget-palette">
           {addableDefinitions.length ? (
             <div className="widget-palette-row">
@@ -292,17 +435,22 @@ export function CustomizableDashboard({
           {hiddenWidgets.length ? (
             <div className="widget-palette-row">
               <span>{t.hiddenWidgets}</span>
-              {hiddenWidgets.map((widget) => (
-                <button
-                  className="compact-button"
-                  key={widget.key}
-                  onClick={() => updateWidget(widget.key, { isVisible: true })}
-                  type="button"
-                >
-                  <Eye size={16} />
-                  {widget.title}
-                </button>
-              ))}
+              {hiddenWidgets.map((widget) => {
+                const definition = definitionMap.get(definitionKey(widget));
+                return (
+                  <button
+                    className="compact-button"
+                    key={widget.key}
+                    onClick={() => updateWidget(widget.key, { isVisible: true })}
+                    type="button"
+                  >
+                    <Eye size={16} />
+                    {definition
+                      ? displayWidgetTitle(widget, definition, t.copySuffix)
+                      : widget.title}
+                  </button>
+                );
+              })}
             </div>
           ) : null}
         </div>
@@ -311,12 +459,16 @@ export function CustomizableDashboard({
         {visibleWidgets.map((widget) => {
           const definition = definitionMap.get(definitionKey(widget));
           if (!definition) return null;
+          const widgetIndex = visibleWidgets.findIndex((item) => item.key === widget.key);
+          const earlierWidget = visibleWidgets[widgetIndex - 1];
+          const laterWidget = visibleWidgets[widgetIndex + 1];
+          const presentedTitle = displayWidgetTitle(widget, definition, t.copySuffix);
           return (
             <article
               className={widget.isPinned ? "dashboard-widget pinned" : "dashboard-widget"}
-              draggable={editing && !widget.isPinned}
+              draggable={editable && !widget.isPinned}
               key={widget.key}
-              onDragOver={(event) => editing && event.preventDefault()}
+              onDragOver={(event) => editable && event.preventDefault()}
               onDragStart={() => setDraggedKey(widget.key)}
               onDrop={() => moveWidget(widget.key)}
               style={{
@@ -324,13 +476,33 @@ export function CustomizableDashboard({
                 minHeight: `${Math.max(1, widget.gridHeight) * 88}px`
               }}
             >
-              {editing ? (
+              {editable ? (
                 <div className="widget-edit-bar">
                   <span>
                     <GripVertical size={16} />
-                    {widget.title}
+                    {presentedTitle}
                   </span>
                   <div className="widget-edit-actions">
+                    <button
+                      aria-label={`${t.moveWidgetEarlier}: ${presentedTitle}`}
+                      className="icon-button"
+                      disabled={widget.isPinned || !earlierWidget || earlierWidget.isPinned}
+                      onClick={() => earlierWidget && reorderWidget(widget.key, earlierWidget.key)}
+                      title={t.moveWidgetEarlier}
+                      type="button"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      aria-label={`${t.moveWidgetLater}: ${presentedTitle}`}
+                      className="icon-button"
+                      disabled={widget.isPinned || !laterWidget || laterWidget.isPinned}
+                      onClick={() => laterWidget && reorderWidget(widget.key, laterWidget.key)}
+                      title={t.moveWidgetLater}
+                      type="button"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
                     <button
                       aria-label={widget.isPinned ? t.unpin : t.pin}
                       className="icon-button"

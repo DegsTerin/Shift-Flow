@@ -1,17 +1,4 @@
 // en-GB: Defines dashboard transfer shapes so data crossing application boundaries remains explicit.
-export type DashboardFiltersDto = {
-  teamId?: string;
-  assigneeId?: string;
-  clientId?: string;
-  priority?: string;
-  status?: string;
-  shiftId?: string;
-  search?: string;
-  attention?: "OVERDUE" | "CRITICAL" | "SLA_RISK";
-  from?: Date;
-  to?: Date;
-};
-
 export type DashboardTypeDto = "MAIN" | "TEAM" | "EXECUTIVE";
 
 export type DashboardWidgetTypeDto =

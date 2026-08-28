@@ -46,6 +46,24 @@ function expectReferenceLock(
   expect(companyId).toBe("company-1");
 }
 
+function transactionConcurrencyTracker() {
+  let inFlight = 0;
+  let maximum = 0;
+  return {
+    async run<T>(value: T) {
+      inFlight += 1;
+      maximum = Math.max(maximum, inFlight);
+      try {
+        await Promise.resolve();
+        return value;
+      } finally {
+        inFlight -= 1;
+      }
+    },
+    maximum: () => maximum
+  };
+}
+
 describe("ActivitiesRepository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,6 +101,9 @@ describe("ActivitiesRepository", () => {
   it("uses the requested page window while counting the full filter", async () => {
     const repository = new ActivitiesRepository();
     const where = { companyId: "company-1", deletedAt: null };
+    const concurrency = transactionConcurrencyTracker();
+    persistence.findMany.mockImplementation(() => concurrency.run([]));
+    persistence.count.mockImplementation(() => concurrency.run(135));
 
     const result = await repository.filteredList(where, { page: 3, pageSize: 20 });
 
@@ -96,9 +117,11 @@ describe("ActivitiesRepository", () => {
     expect(persistence.getDelegate).not.toHaveBeenCalled();
     expect(persistence.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        relationLoadStrategy: "join",
         orderBy: [{ priority: "desc" }, { updatedAt: "desc" }, { id: "desc" }]
       })
     );
+    expect(concurrency.maximum()).toBe(1);
   });
 
   it("creates the activity, audit and history through one transaction client", async () => {
@@ -306,6 +329,46 @@ describe("ActivitiesRepository", () => {
 
     expect(persistence.lockActivity).toHaveBeenCalledOnce();
     expect(persistence.activityUpdate).toHaveBeenCalledOnce();
+    expect(persistence.auditCreate).toHaveBeenCalledOnce();
+    expect(persistence.historyCreate).toHaveBeenCalledOnce();
+  });
+
+  it("writes explicit nullable reference clears without locking removed references", async () => {
+    persistence.activityFindFirst.mockResolvedValue({
+      id: "activity-1",
+      status: "PENDING",
+      clientId: "client-1",
+      teamId: "team-1",
+      shiftId: "shift-1",
+      assigneeId: "user-a",
+      reporterId: "user-b",
+      slaDueAt: new Date("2026-08-30T12:00:00.000Z")
+    });
+    const repository = new ActivitiesRepository();
+
+    await repository.updateWithEvidence("company-1", "activity-1", () => ({
+      data: {
+        shiftId: null,
+        assigneeId: null,
+        slaDueAt: null,
+        updatedById: "user-1"
+      },
+      evidenceFor: () => ({
+        audit: { entityId: "activity-1", action: "UPDATE" },
+        history: { activityId: "activity-1", type: "UPDATED" }
+      })
+    }));
+
+    expect(persistence.lockActivity).toHaveBeenCalledOnce();
+    expect(persistence.activityUpdate).toHaveBeenCalledWith({
+      where: { id: "activity-1" },
+      data: {
+        shiftId: null,
+        assigneeId: null,
+        slaDueAt: null,
+        updatedById: "user-1"
+      }
+    });
     expect(persistence.auditCreate).toHaveBeenCalledOnce();
     expect(persistence.historyCreate).toHaveBeenCalledOnce();
   });

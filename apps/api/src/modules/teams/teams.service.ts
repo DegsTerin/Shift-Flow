@@ -1,6 +1,6 @@
 // en-GB: Implements teams rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../../shared/http/request-types.js";
-import { toPagination, toSkipTake } from "../../shared/http/pagination.js";
+import { toBoundedSearch, toPagination, toSkipTake } from "../../shared/http/pagination.js";
 import { notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import {
@@ -40,12 +40,24 @@ export class TeamsService extends BaseService {
   override async list(req: ApiRequest, filters: Record<string, unknown> = {}) {
     const pagination = toPagination(req.query);
     const companyId = this.requireCompanyId(req);
-    const where = { ...filters, companyId, deletedAt: null };
+    const search = toBoundedSearch(req.query);
+    const where = {
+      ...filters,
+      companyId,
+      deletedAt: null,
+      ...(search
+        ? {
+            OR: ["name", "description"].map((field) => ({
+              [field]: { contains: search, mode: "insensitive" }
+            }))
+          }
+        : {})
+    };
     const [items, total] = await Promise.all([
       this.repository.list({
         where,
         ...toSkipTake(pagination),
-        orderBy: { updatedAt: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         include: teamInclude
       }),
       this.repository.count(where)

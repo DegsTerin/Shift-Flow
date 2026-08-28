@@ -7,34 +7,22 @@ import type { UsersRepository } from "./users.repository.js";
 const delegates = vi.hoisted(() => ({
   userFindFirst: vi.fn(),
   roleFindFirst: vi.fn(),
-  userCompanyUpsert: vi.fn(),
-  assignmentFindFirst: vi.fn(),
-  assignmentFindMany: vi.fn().mockResolvedValue([]),
-  assignmentCreate: vi.fn(),
-  assignmentUpdate: vi.fn(),
-  assignmentUpdateMany: vi.fn()
+  assignmentFindMany: vi.fn().mockResolvedValue([])
 }));
 
 vi.mock("../../shared/lib/prisma.js", () => ({
   getDelegate: vi.fn(async (name: string) => {
     if (name === "user") return { findFirst: delegates.userFindFirst };
     if (name === "role") return { findFirst: delegates.roleFindFirst };
-    if (name === "userCompany") return { upsert: delegates.userCompanyUpsert };
     if (name === "userRoleAssignment") {
-      return {
-        findFirst: delegates.assignmentFindFirst,
-        findMany: delegates.assignmentFindMany,
-        create: delegates.assignmentCreate,
-        update: delegates.assignmentUpdate,
-        updateMany: delegates.assignmentUpdateMany
-      };
+      return { findMany: delegates.assignmentFindMany };
     }
     throw new Error(`Unexpected delegate: ${name}`);
   })
 }));
 
 vi.mock("../../shared/services/audit-writer.js", () => ({
-  writeAudit: vi.fn().mockResolvedValue(undefined)
+  buildAuditData: vi.fn((_req: unknown, input: Record<string, unknown>) => input)
 }));
 
 import { UsersService } from "./users.service.js";
@@ -49,9 +37,8 @@ function request(): ApiRequest {
 
 function serviceWithRepository() {
   const repository = {
-    create: vi.fn().mockResolvedValue({ id: "user-a" }),
-    update: vi.fn().mockResolvedValue({ id: "user-a" }),
-    updatePasswordAndRevoke: vi.fn().mockResolvedValue({ id: "user-a" })
+    createAggregate: vi.fn().mockResolvedValue({ id: "user-a" }),
+    updateAggregate: vi.fn().mockResolvedValue({ id: "user-a" })
   };
   const service = new UsersService(repository as unknown as UsersRepository);
   return { service, repository };
@@ -72,7 +59,49 @@ describe("UsersService product role assignment", () => {
         }
       }
     ]);
-    delegates.assignmentFindFirst.mockResolvedValue(null);
+  });
+
+  it("keeps company membership and deletion scopes when searching a paginated user list", async () => {
+    const repository = {
+      list: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0)
+    };
+    const service = new UsersService(repository as unknown as UsersRepository);
+    const listRequest = {
+      ...request(),
+      query: { search: " operator ", page: "2", pageSize: "10" }
+    } as unknown as ApiRequest;
+
+    await service.list(listRequest);
+
+    const where = {
+      deletedAt: null,
+      companies: { some: { companyId: "company-a", deletedAt: null } },
+      OR: [
+        { email: { contains: "operator", mode: "insensitive" } },
+        { displayName: { contains: "operator", mode: "insensitive" } },
+        { jobTitle: { contains: "operator", mode: "insensitive" } }
+      ]
+    };
+    expect(repository.list).toHaveBeenCalledWith(
+      expect.objectContaining({ where, skip: 10, take: 10 })
+    );
+    expect(repository.count).toHaveBeenCalledWith(where);
+    expect(repository.list).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ updatedAt: "desc" }, { id: "asc" }] })
+    );
+  });
+
+  it("fails closed when a user list has no active company context", async () => {
+    const repository = {
+      list: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0)
+    };
+    const service = new UsersService(repository as unknown as UsersRepository);
+    const companylessRequest = { ...request(), auth: undefined, tenant: undefined } as ApiRequest;
+
+    await expect(service.list(companylessRequest)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(repository.list).not.toHaveBeenCalled();
   });
 
   it("rejects a limited profile before changing the user, membership or assignments", async () => {
@@ -112,68 +141,26 @@ describe("UsersService product role assignment", () => {
         }
       }
     });
-    expect(repository.update).not.toHaveBeenCalled();
-    expect(delegates.userCompanyUpsert).not.toHaveBeenCalled();
-    expect(delegates.assignmentUpdateMany).not.toHaveBeenCalled();
-    expect(delegates.assignmentCreate).not.toHaveBeenCalled();
+    expect(repository.updateAggregate).not.toHaveBeenCalled();
   });
 
-  it("replaces only company-scoped assignments and preserves limited assignments", async () => {
+  it("delegates the permanent company profile to the transactional aggregate", async () => {
     delegates.roleFindFirst.mockResolvedValue({
       id: "company-role",
       name: "Operador",
       scope: "COMPANY",
       isActive: true
     });
-    const { service } = serviceWithRepository();
+    const { service, repository } = serviceWithRepository();
 
     await service.update(request(), "user-a", { roleId: "company-role" });
 
-    expect(delegates.assignmentUpdateMany).toHaveBeenCalledWith({
-      where: {
-        companyId: "company-a",
-        userId: "user-a",
-        deletedAt: null,
-        clientId: null,
-        teamId: null,
-        startsAt: { lte: expect.any(Date) },
-        endsAt: null,
-        NOT: { roleId: "company-role" },
-        role: { scope: "COMPANY" }
-      },
-      data: { deletedAt: expect.any(Date) }
-    });
-    expect(delegates.assignmentFindFirst).toHaveBeenCalledWith({
-      where: {
-        companyId: "company-a",
-        userId: "user-a",
-        roleId: "company-role",
-        clientId: null,
-        teamId: null,
-        deletedAt: null,
-        startsAt: { lte: expect.any(Date) },
-        endsAt: null
-      }
-    });
-    expect(delegates.assignmentCreate).toHaveBeenCalledWith({
-      data: { companyId: "company-a", userId: "user-a", roleId: "company-role" }
-    });
-  });
-
-  it("does not rewrite an existing permanent assignment for an unrelated edit", async () => {
-    delegates.roleFindFirst.mockResolvedValue({
-      id: "company-role",
-      name: "Operador",
-      scope: "COMPANY",
-      isActive: true
-    });
-    delegates.assignmentFindFirst.mockResolvedValue({ id: "assignment-a" });
-    const { service } = serviceWithRepository();
-
-    await service.update(request(), "user-a", { roleId: "company-role" });
-
-    expect(delegates.assignmentUpdate).not.toHaveBeenCalled();
-    expect(delegates.assignmentCreate).not.toHaveBeenCalled();
+    expect(repository.updateAggregate).toHaveBeenCalledWith(
+      "user-a",
+      "company-a",
+      { roleId: "company-role" },
+      expect.any(Function)
+    );
   });
 
   it("blocks permission amplification before changing user or membership state", async () => {
@@ -200,10 +187,7 @@ describe("UsersService product role assignment", () => {
       })
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
-    expect(repository.update).not.toHaveBeenCalled();
-    expect(delegates.userCompanyUpsert).not.toHaveBeenCalled();
-    expect(delegates.assignmentUpdateMany).not.toHaveBeenCalled();
-    expect(delegates.assignmentCreate).not.toHaveBeenCalled();
+    expect(repository.updateAggregate).not.toHaveBeenCalled();
   });
 
   it("rejects user creation before persistence when delegation is not authorised", async () => {
@@ -226,9 +210,7 @@ describe("UsersService product role assignment", () => {
       })
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
-    expect(repository.create).not.toHaveBeenCalled();
-    expect(delegates.userCompanyUpsert).not.toHaveBeenCalled();
-    expect(delegates.assignmentCreate).not.toHaveBeenCalled();
+    expect(repository.createAggregate).not.toHaveBeenCalled();
   });
 
   it("requires an explicit profile before creating a user", async () => {
@@ -243,9 +225,7 @@ describe("UsersService product role assignment", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
     expect(delegates.roleFindFirst).not.toHaveBeenCalled();
-    expect(repository.create).not.toHaveBeenCalled();
-    expect(delegates.userCompanyUpsert).not.toHaveBeenCalled();
-    expect(delegates.assignmentCreate).not.toHaveBeenCalled();
+    expect(repository.createAggregate).not.toHaveBeenCalled();
   });
 
   it("changes the credential version and revokes refresh sessions through one repository operation", async () => {
@@ -257,11 +237,62 @@ describe("UsersService product role assignment", () => {
       password: "CorrectHorseBattery1!"
     });
 
-    expect(repository.updatePasswordAndRevoke).toHaveBeenCalledWith("user-a", {
-      displayName: "Updated user",
-      passwordHash: "new-password-hash"
+    expect(repository.updateAggregate).toHaveBeenCalledWith(
+      "user-a",
+      "company-a",
+      {
+        data: { displayName: "Updated user", passwordHash: "new-password-hash" },
+        credentialChange: true,
+        revokeSessions: true
+      },
+      expect.any(Function)
+    );
+  });
+
+  it("does not write the global user record for a profile-only change", async () => {
+    delegates.roleFindFirst.mockResolvedValue({
+      id: "company-role",
+      name: "Company role",
+      scope: "COMPANY",
+      isActive: true,
+      permissions: []
     });
-    expect(repository.update).not.toHaveBeenCalled();
+    const { service, repository } = serviceWithRepository();
+
+    await service.update(request(), "user-a", { roleId: "company-role" });
+
+    expect(repository.updateAggregate).toHaveBeenCalledWith(
+      "user-a",
+      "company-a",
+      { roleId: "company-role" },
+      expect.any(Function)
+    );
+  });
+
+  it("scopes a scalar identity update to a sole active company membership", async () => {
+    const { service, repository } = serviceWithRepository();
+
+    await service.update(request(), "user-a", { displayName: "Updated user" });
+
+    expect(repository.updateAggregate).toHaveBeenCalledWith(
+      "user-a",
+      "company-a",
+      { data: { displayName: "Updated user" } },
+      expect.any(Function)
+    );
+  });
+
+  it("scopes deletion and session revocation to a sole active company membership", async () => {
+    const { service, repository } = serviceWithRepository();
+
+    await service.remove(request(), "user-a");
+
+    expect(repository.updateAggregate).toHaveBeenCalledWith(
+      "user-a",
+      "company-a",
+      { data: { deletedAt: expect.any(Date) }, revokeSessions: true },
+      expect.any(Function)
+    );
   });
 
   it("queries only current unscoped company authority for delegation", async () => {

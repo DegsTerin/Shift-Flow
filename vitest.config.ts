@@ -9,6 +9,12 @@ export default defineConfig({
       "prisma/**/*.test.mjs",
       "scripts/**/*.test.mjs"
     ],
-    exclude: ["node_modules/**", "tests/e2e/**", "apps/web/.next/**", "generated/**"]
+    exclude: [
+      "node_modules/**",
+      "tests/e2e/**",
+      "apps/web/.next/**",
+      "generated/**",
+      "**/*.postgres.test.mjs"
+    ]
   }
 });

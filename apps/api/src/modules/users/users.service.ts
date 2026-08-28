@@ -2,16 +2,12 @@
 import bcrypt from "bcryptjs";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { getDelegate } from "../../shared/lib/prisma.js";
-import { toPagination, toSkipTake } from "../../shared/http/pagination.js";
+import { toBoundedSearch, toPagination, toSkipTake } from "../../shared/http/pagination.js";
 import { badRequest, forbidden, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
-import { writeAudit } from "../../shared/services/audit-writer.js";
+import { buildAuditData } from "../../shared/services/audit-writer.js";
 import { validatePasswordPolicy } from "../../shared/security/password-policy.js";
 import { UsersRepository } from "./users.repository.js";
-
-type UserCompanyDelegate = {
-  upsert(args: unknown): Promise<unknown>;
-};
 
 type UserDelegate = {
   findFirst(args: unknown): Promise<unknown | null>;
@@ -38,7 +34,6 @@ type ProductRoleSelection = {
 };
 
 type UserRoleAssignmentDelegate = {
-  findFirst(args: unknown): Promise<{ id: string } | null>;
   findMany(args: unknown): Promise<
     Array<{
       role?: {
@@ -48,9 +43,6 @@ type UserRoleAssignmentDelegate = {
       };
     }>
   >;
-  create(args: unknown): Promise<unknown>;
-  update(args: unknown): Promise<unknown>;
-  updateMany(args: unknown): Promise<unknown>;
 };
 
 export class UsersService extends BaseService {
@@ -58,26 +50,35 @@ export class UsersService extends BaseService {
     super(usersRepository, "User", {
       hasCompanyScope: false,
       userStamps: false,
+      auditWrites: false,
       orderBy: { updatedAt: "desc" }
     });
   }
 
   override async list(req: ApiRequest) {
-    const companyId = this.companyId(req);
+    const companyId = this.requireCurrentCompanyId(req);
     const pagination = toPagination(req.query);
+    const search = toBoundedSearch(req.query);
     const where = {
       deletedAt: null,
-      ...(companyId ? { companies: { some: { companyId, deletedAt: null } } } : {})
+      companies: { some: { companyId, deletedAt: null } },
+      ...(search
+        ? {
+            OR: ["email", "displayName", "jobTitle"].map((field) => ({
+              [field]: { contains: search, mode: "insensitive" }
+            }))
+          }
+        : {})
     };
     const [items, total] = await Promise.all([
       this.repository.list({
         where,
         ...toSkipTake(pagination),
-        orderBy: { updatedAt: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         include: {
           roleAssignments: {
             where: {
-              ...(companyId ? { companyId } : {}),
+              companyId,
               deletedAt: null,
               startsAt: { lte: new Date() },
               OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
@@ -93,6 +94,7 @@ export class UsersService extends BaseService {
   }
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {
+    const companyId = this.requireCurrentCompanyId(req);
     const password = String(data.password);
     validatePasswordPolicy(password);
     const rest = { ...data };
@@ -104,12 +106,22 @@ export class UsersService extends BaseService {
     await this.assertCanAssignRole(req, roleSelection);
     delete rest.password;
     delete rest.roleId;
-    const created = await super.create(req, {
-      ...rest,
-      passwordHash: await bcrypt.hash(password, 12)
-    });
-    await this.attachToCurrentCompany(req, String((created as { id: string }).id), roleSelection);
-    return created;
+    return this.usersRepository.createAggregate(
+      {
+        ...rest,
+        passwordHash: await bcrypt.hash(password, 12)
+      },
+      companyId,
+      roleSelection.role.id,
+      (_before, after) =>
+        buildAuditData(req, {
+          entityType: "User",
+          entityId: String((after as { id?: string }).id ?? "unknown"),
+          action: "CREATE",
+          after,
+          companyId
+        })
+    );
   }
 
   override async get(req: ApiRequest, id: string) {
@@ -121,56 +133,80 @@ export class UsersService extends BaseService {
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
-    await this.get(req, id);
+    const companyId = this.requireCurrentCompanyId(req);
+    const before = await this.get(req, id);
     const roleId = data.roleId ? String(data.roleId) : undefined;
     const roleSelection = roleId ? await this.resolveProductRole(req, roleId) : undefined;
     if (roleSelection) {
       await this.assertCanAssignRole(req, roleSelection);
     }
-    delete data.roleId;
-    let updated: unknown;
-    if (data.password) {
-      const { password, ...rest } = data;
+    const { roleId: _roleId, password, ...globalChanges } = data;
+    void _roleId;
+    const hasPasswordChange = typeof password === "string" && password.length > 0;
+    const hasGlobalChanges = hasPasswordChange || Object.keys(globalChanges).length > 0;
+    let aggregateData: Record<string, unknown> | undefined;
+    if (hasPasswordChange) {
       validatePasswordPolicy(String(password));
-      updated = await this.usersRepository.updatePasswordAndRevoke(id, {
-        ...rest,
+      aggregateData = {
+        ...globalChanges,
         passwordHash: await bcrypt.hash(String(password), 12)
-      });
-      await writeAudit(req, {
-        entityType: "User",
-        entityId: id,
-        action: "UPDATE",
-        after: updated,
-        companyId: this.companyId(req)
-      });
-    } else {
-      updated = await super.update(req, id, data);
+      };
+    } else if (hasGlobalChanges) {
+      aggregateData = globalChanges;
     }
-
-    if (roleSelection) {
-      await this.attachToCurrentCompany(req, id, roleSelection);
-    }
-    return updated;
+    if (!hasGlobalChanges && !roleSelection) return before;
+    return this.usersRepository.updateAggregate(
+      id,
+      companyId,
+      {
+        ...(aggregateData ? { data: aggregateData } : {}),
+        ...(roleSelection ? { roleId: roleSelection.role.id } : {}),
+        ...(hasPasswordChange ? { credentialChange: true, revokeSessions: true } : {})
+      },
+      (transactionBefore, after) =>
+        buildAuditData(req, {
+          entityType: "User",
+          entityId: id,
+          action: "UPDATE",
+          before: transactionBefore,
+          after,
+          companyId
+        })
+    );
   }
 
   override async remove(req: ApiRequest, id: string) {
-    await this.get(req, id);
-    return super.remove(req, id);
+    const companyId = this.requireCurrentCompanyId(req);
+    const before = await this.get(req, id);
+    return this.usersRepository.updateAggregate(
+      id,
+      companyId,
+      { data: { deletedAt: new Date() }, revokeSessions: true },
+      (transactionBefore, after) =>
+        buildAuditData(req, {
+          entityType: "User",
+          entityId: id,
+          action: "SOFT_DELETE",
+          before: transactionBefore ?? before,
+          after,
+          companyId
+        })
+    );
   }
 
   private async findInCurrentCompany(req: ApiRequest, id: string) {
-    const companyId = this.companyId(req);
+    const companyId = this.requireCurrentCompanyId(req);
     const users = await getDelegate<UserDelegate>("user");
     return users.findFirst({
       where: {
         id,
         deletedAt: null,
-        ...(companyId ? { companies: { some: { companyId, deletedAt: null } } } : {})
+        companies: { some: { companyId, deletedAt: null } }
       },
       include: {
         roleAssignments: {
           where: {
-            ...(companyId ? { companyId } : {}),
+            companyId,
             deletedAt: null,
             startsAt: { lte: new Date() },
             OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }]
@@ -185,10 +221,7 @@ export class UsersService extends BaseService {
     req: ApiRequest,
     requestedRoleId: string
   ): Promise<ProductRoleSelection> {
-    const companyId = this.companyId(req);
-    if (!companyId) {
-      throw badRequest("Company context is required");
-    }
+    const companyId = this.requireCurrentCompanyId(req);
 
     const roles = await getDelegate<RoleDelegate>("role");
     const requestedRole = await roles.findFirst({
@@ -218,53 +251,12 @@ export class UsersService extends BaseService {
     return { companyId, role: requestedRole };
   }
 
-  private async attachToCurrentCompany(
-    req: ApiRequest,
-    userId: string,
-    selection: ProductRoleSelection
-  ) {
-    const { companyId, role } = selection;
-
-    const userCompany = await getDelegate<UserCompanyDelegate>("userCompany");
-    await userCompany.upsert({
-      where: { companyId_userId: { companyId, userId } },
-      create: { companyId, userId, isDefault: true },
-      update: { deletedAt: null }
-    });
-
-    const assignments = await getDelegate<UserRoleAssignmentDelegate>("userRoleAssignment");
-    const now = new Date();
-    await assignments.updateMany({
-      where: {
-        companyId,
-        userId,
-        deletedAt: null,
-        clientId: null,
-        teamId: null,
-        startsAt: { lte: now },
-        endsAt: null,
-        NOT: { roleId: role.id },
-        role: { scope: "COMPANY" }
-      },
-      data: { deletedAt: new Date() }
-    });
-    const existingAssignment = await assignments.findFirst({
-      where: {
-        companyId,
-        userId,
-        roleId: role.id,
-        clientId: null,
-        teamId: null,
-        deletedAt: null,
-        startsAt: { lte: now },
-        endsAt: null
-      }
-    });
-    if (existingAssignment) {
-      return;
+  private requireCurrentCompanyId(req: ApiRequest) {
+    const companyId = this.companyId(req);
+    if (!companyId) {
+      throw badRequest("Company context is required");
     }
-
-    await assignments.create({ data: { companyId, userId, roleId: role.id } });
+    return companyId;
   }
 
   private async assertCanAssignRole(req: ApiRequest, selection: ProductRoleSelection) {

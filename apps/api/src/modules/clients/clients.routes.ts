@@ -3,13 +3,19 @@ import { Router } from "express";
 import { authenticate } from "../../shared/middlewares/authenticate.js";
 import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
+import { searchableListQuerySchema } from "../../shared/http/pagination.js";
 import { ClientsController } from "./clients.controller.js";
 import { clientSchema } from "./clients.validators.js";
 
 export const clientRoutes = Router();
 
 clientRoutes.use(authenticate);
-clientRoutes.get("/", requirePermission("clients", "read"), ClientsController.list);
+clientRoutes.get(
+  "/",
+  requirePermission("clients", "read"),
+  validate("query", searchableListQuerySchema),
+  ClientsController.list
+);
 clientRoutes.post(
   "/",
   requirePermission("clients", "write"),

@@ -7,6 +7,83 @@
   --radius: 8px;
 }
 
+.reference-field,
+.reference-select {
+  /* en-GB: Uses a vertical layout so the selected value and its search tools remain grouped. */
+  display: grid;
+  /* en-GB: Keeps related reference controls visually close without reducing their hit targets. */
+  gap: 6px;
+  /* en-GB: Allows reference controls to shrink inside responsive grid columns. */
+  min-width: 0;
+}
+
+.reference-field > span {
+  /* en-GB: Keeps reference labels consistent with the surrounding form labels. */
+  font-size: 0.84rem;
+  /* en-GB: Gives reference labels the same visual weight as other field labels. */
+  font-weight: 600;
+}
+
+.reference-select-tools {
+  /* en-GB: Aligns search and paging controls in a compact row. */
+  align-items: center;
+  /* en-GB: Uses a grid so the search field receives the remaining width. */
+  display: grid;
+  /* en-GB: Keeps paging buttons compact while allowing search to expand. */
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  /* en-GB: Separates adjacent controls enough for reliable interaction. */
+  gap: 6px;
+}
+
+.reference-select-tools .icon-button {
+  /* en-GB: Allows translated paging labels to remain visible without clipping. */
+  padding-inline: 8px;
+  /* en-GB: Lets each paging control size itself to its translated label. */
+  width: auto;
+}
+
+.filter-bar .reference-select-tools {
+  /* en-GB: Gives compact remote filters a full-width search row and a contained paging row. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.filter-bar .reference-select-tools input {
+  /* en-GB: Keeps remote search within its own row instead of displacing adjacent filters. */
+  grid-column: 1 / -1;
+  /* en-GB: Allows the search control to shrink within the responsive filter column. */
+  min-width: 0;
+  /* en-GB: Uses the complete filter-column width without overflowing it. */
+  width: 100%;
+}
+
+.filter-bar .reference-select-tools .icon-button {
+  /* en-GB: Preserves translated paging labels inside narrow responsive filter columns. */
+  padding-inline: 4px;
+  /* en-GB: Shares the available paging row symmetrically between navigation controls. */
+  width: 100%;
+}
+
+.filter-bar .reference-select-tools > span {
+  /* en-GB: Centres the page indicator between the two paging controls. */
+  justify-self: center;
+  /* en-GB: Prevents the compact page indicator from wrapping onto another line. */
+  white-space: nowrap;
+}
+
+.filter-bar > .reference-field {
+  /* en-GB: Gives remote filters enough horizontal space for their optional search and paging tools. */
+  grid-column: span 2;
+  /* en-GB: Allows each remote filter to shrink safely when the filter grid becomes constrained. */
+  min-width: 0;
+}
+
+@media (max-width: 620px) {
+  .filter-bar > .reference-field {
+    /* en-GB: Lets each remote filter occupy the complete single-column mobile grid. */
+    grid-column: 1 / -1;
+  }
+}
+
 * {
   /* en-GB: Sets this presentation property so the component keeps its intended visual behaviour. */
   box-sizing: border-box;
@@ -452,6 +529,30 @@ textarea {
   padding: 0;
   /* en-GB: Controls horizontal sizing so the element fits its container responsively. */
   width: 38px;
+}
+
+.notification-indicator {
+  /* en-GB: Aligns the status icon and count so their relationship remains visually clear. */
+  align-items: center;
+  /* en-GB: Uses muted foreground treatment to distinguish status from interactive controls. */
+  color: var(--muted);
+  /* en-GB: Keeps the status icon and count together without introducing button semantics. */
+  display: inline-flex;
+  /* en-GB: Prevents the compact status indicator from expanding within the action group. */
+  flex: 0 0 auto;
+  /* en-GB: Separates the icon from its numeric value for legibility. */
+  gap: 4px;
+  /* en-GB: Matches neighbouring control height while retaining non-interactive presentation. */
+  min-height: var(--control-h);
+  /* en-GB: Provides compact breathing room without creating a button-shaped surface. */
+  padding: 0 4px;
+}
+
+.notification-indicator > span {
+  /* en-GB: Keeps the unread count legible without competing with primary actions. */
+  font-size: 0.78rem;
+  /* en-GB: Gives the unread count sufficient emphasis within the compact status treatment. */
+  font-weight: 700;
 }
 
 .auth-actions,
@@ -1256,7 +1357,37 @@ tbody tr:hover {
 
 tbody tr {
   /* en-GB: Controls pointer interaction so the element behaves as users expect. */
+  cursor: default;
+}
+
+.record-link,
+.kanban-open-button {
+  /* en-GB: Removes the native surface while preserving semantic button behaviour. */
+  background: transparent;
+  /* en-GB: Removes the native boundary so the control follows its surrounding content. */
+  border: 0;
+  /* en-GB: Keeps the control colour aligned with the surrounding record text. */
+  color: inherit;
+  /* en-GB: Communicates that the record title is interactive. */
   cursor: pointer;
+  /* en-GB: Keeps the control typography aligned with the surrounding record text. */
+  font: inherit;
+  /* en-GB: Removes native inner spacing so table and card alignment remains unchanged. */
+  padding: 0;
+  /* en-GB: Aligns multi-line record titles with their containing cell or card. */
+  text-align: left;
+  /* en-GB: Makes the record opening affordance visible without changing layout. */
+  text-decoration: underline;
+  /* en-GB: Keeps the underline readable without touching glyph descenders. */
+  text-underline-offset: 0.16em;
+}
+
+.record-link:focus-visible,
+.kanban-open-button:focus-visible {
+  /* en-GB: Exposes a strong keyboard focus indicator around the semantic control. */
+  box-shadow: var(--focus-ring);
+  /* en-GB: Keeps the focus outline aligned with the product focus treatment. */
+  outline: none;
 }
 
 .priority {
@@ -2897,9 +3028,7 @@ textarea:disabled {
 .segmented button {
   /* en-GB: Controls motion so state changes remain clear and visually smooth. */
   transition:
-    background 150ms ease,
     border-color 150ms ease,
-    color 150ms ease,
     transform 150ms ease;
 }
 
@@ -2969,6 +3098,22 @@ textarea:disabled {
   grid-column: 1 / -1;
   /* en-GB: Controls vertical sizing so the element keeps the required usable area. */
   min-height: 42px;
+}
+
+.filter-validation-error {
+  /* en-GB: Uses the danger colour so an invalid date relationship is immediately visible. */
+  color: var(--danger);
+  /* en-GB: Keeps validation feedback readable without competing with the filter heading. */
+  font-size: 0.84rem;
+  /* en-GB: Places relationship feedback beneath the complete filter row. */
+  grid-column: 1 / -1;
+  /* en-GB: Removes default paragraph spacing so the grid controls the feedback rhythm. */
+  margin: 0;
+}
+
+.date-filter[aria-invalid="true"] {
+  /* en-GB: Marks each bound involved in an invalid date relationship. */
+  border-color: var(--danger);
 }
 
 .select-label,
@@ -3233,6 +3378,11 @@ td:last-child {
   /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: none;
   /* en-GB: Controls pointer interaction so the element behaves as users expect. */
+  cursor: default;
+}
+
+.kanban-card[draggable="true"] {
+  /* en-GB: Communicates drag availability only when the user can move activities. */
   cursor: grab;
 }
 
@@ -3243,7 +3393,7 @@ td:last-child {
   box-shadow: var(--shadow-sm);
 }
 
-.kanban-card:active {
+.kanban-card[draggable="true"]:active {
   /* en-GB: Controls pointer interaction so the element behaves as users expect. */
   cursor: grabbing;
 }
@@ -3262,21 +3412,12 @@ td:last-child {
 
 .team-card {
   /* en-GB: Controls pointer interaction so the element behaves as users expect. */
-  cursor: pointer;
+  cursor: default;
   /* en-GB: Controls motion so state changes remain clear and visually smooth. */
   transition:
     border-color 150ms ease,
     transform 150ms ease,
     box-shadow 150ms ease;
-}
-
-.team-card:hover {
-  /* en-GB: Defines the element boundary so its shape, grouping, or state remains clear. */
-  border-color: var(--accent);
-  /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
-  box-shadow: var(--shadow-md);
-  /* en-GB: Applies a visual transformation so the element reaches its intended state. */
-  transform: translateY(-2px);
 }
 
 .empty-state {
@@ -3966,7 +4107,7 @@ td {
   white-space: normal;
 }
 
-.team-card[role="button"]:focus-visible {
+.team-card .record-link:focus-visible {
   /* en-GB: Adds depth so the surface is distinguishable from surrounding content. */
   box-shadow: var(--focus-ring);
 }

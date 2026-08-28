@@ -1,7 +1,7 @@
 // en-GB: Renders the views interface so its behaviour and accessible structure stay reusable.
 "use client";
 
-import { CheckCircle2, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import type {
   ActivityItem,
   DashboardCharts,
@@ -9,6 +9,7 @@ import type {
   DashboardSummary,
   DashboardWidget,
   Locale,
+  ReportActivitySummary,
   TeamRef,
   Texts,
   View
@@ -16,6 +17,7 @@ import type {
 import {
   countOf,
   kanbanMoveCommand,
+  priorityLabel,
   statusColors,
   statusGroups,
   statusLabel,
@@ -24,10 +26,15 @@ import {
 } from "../lib/utils";
 import { ChartPanel } from "./charts";
 import { CustomizableDashboard, type DashboardWidgetDefinition } from "./custom-dashboard";
-import { ActivityList } from "./lists";
+import { ActivityList, TableFooter, type TablePagination } from "./lists";
 
 const chartPalette = ["#4f6f88", "#2f7d73", "#6d6aa8", "#9a7131", "#4d7f9f", "#7b8063", "#8a5f73"];
 const defaultTeamColor = chartPalette[0];
+export const kanbanActivityDragType = "application/x-shiftflow-activity-id";
+
+function hasKanbanActivityDrag(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.types).includes(kanbanActivityDragType);
+}
 
 function seriesPalette() {
   return chartPalette;
@@ -59,37 +66,55 @@ function activityCountsByTeam(groups: DashboardCharts["byTeam"], teams: TeamRef[
 
 function TeamSummaryStrip({
   teams,
-  activityCounts
+  activityCounts,
+  pagination,
+  t
 }: {
   teams: TeamRef[];
   activityCounts: Map<string, number>;
+  pagination?: TablePagination;
+  t?: Texts;
 }) {
   return (
-    <section className="team-summary">
-      {teams.map((team, index) => (
-        <article className="team-strip" key={team.id ?? team.name}>
-          <span style={{ backgroundColor: chartColorForTeam(team.id, teams, index) }} />
-          <div className="team-strip-body">
-            <div className="team-strip-heading">
-              <strong className="team-strip-name">{team.name ?? "-"}</strong>
-              <b>{team.id ? (activityCounts.get(team.id) ?? 0) : 0}</b>
+    <div>
+      <section className="team-summary">
+        {teams.map((team, index) => (
+          <article className="team-strip" key={team.id ?? team.name}>
+            <span style={{ backgroundColor: chartColorForTeam(team.id, teams, index) }} />
+            <div className="team-strip-body">
+              <div className="team-strip-heading">
+                <strong className="team-strip-name">{team.name ?? "-"}</strong>
+                <b>{team.id ? (activityCounts.get(team.id) ?? 0) : 0}</b>
+              </div>
+              <small className="team-strip-sla">
+                {team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min SLA` : "-"}
+              </small>
             </div>
-            <small className="team-strip-sla">
-              {team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min SLA` : "-"}
-            </small>
-          </div>
-        </article>
-      ))}
-    </section>
+          </article>
+        ))}
+      </section>
+      {pagination && t ? (
+        <TableFooter
+          t={t}
+          page={Math.max(0, pagination.page - 1)}
+          totalPages={Math.max(1, Math.ceil(pagination.total / pagination.pageSize))}
+          totalRows={pagination.total}
+          onPage={(page) => pagination.onPage(page + 1)}
+        />
+      ) : null}
+    </div>
   );
 }
 
-function withMainTeamSummary(layout: DashboardConfiguration): DashboardConfiguration {
+function withMainTeamSummary(
+  layout: DashboardConfiguration,
+  teamSummaryTitle: string
+): DashboardConfiguration {
   if (layout.widgets.some((widget) => widget.key === "team-summary")) return layout;
   const teamSummary: DashboardWidget = {
     key: "team-summary",
     widgetType: "LIST",
-    title: "Equipes",
+    title: teamSummaryTitle,
     gridColumn: 1,
     gridRow: 2,
     gridWidth: 12,
@@ -144,6 +169,15 @@ export function withRequiredWidgets(
     : layout;
 }
 
+export function prepareMainDashboardLayout(
+  layout: DashboardConfiguration,
+  teamSummaryTitle: string,
+  definitions: DashboardWidgetDefinition[]
+) {
+  if (layout.isDefault === false) return layout;
+  return withRequiredWidgets(withMainTeamSummary(layout, teamSummaryTitle), definitions);
+}
+
 export function MainDashboard({
   t,
   summary,
@@ -154,6 +188,8 @@ export function MainDashboard({
   layout,
   onSaveLayout,
   onResetLayout,
+  canConfigure,
+  pagination,
   onNew,
   onOpen
 }: {
@@ -166,8 +202,10 @@ export function MainDashboard({
   layout: DashboardConfiguration;
   onSaveLayout: (config: DashboardConfiguration) => Promise<DashboardConfiguration | void>;
   onResetLayout: () => Promise<DashboardConfiguration | void>;
-  onNew: () => void;
-  onOpen: (item: ActivityItem) => void;
+  canConfigure: boolean;
+  pagination?: TablePagination;
+  onNew?: () => void;
+  onOpen?: (item: ActivityItem) => void;
 }) {
   const palette = seriesPalette();
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
@@ -287,11 +325,18 @@ export function MainDashboard({
     },
     {
       key: "team-summary",
-      title: t.teams,
+      title: t.teamsWidgetDefaultTitle,
       widgetType: "LIST",
       defaultWidth: 12,
       defaultHeight: 1,
-      render: () => <TeamSummaryStrip teams={teams} activityCounts={teamActivityCounts} />
+      render: () => (
+        <TeamSummaryStrip
+          teams={teams}
+          activityCounts={teamActivityCounts}
+          pagination={pagination}
+          t={t}
+        />
+      )
     },
     {
       key: "chart-team",
@@ -328,6 +373,7 @@ export function MainDashboard({
           title={t.byPriority}
           values={charts.byPriority.map(countOf)}
           colors={colorsForValues(charts.byPriority, palette)}
+          labels={charts.byPriority.map((group) => priorityLabel(group.priority, t))}
         />
       )
     },
@@ -362,12 +408,12 @@ export function MainDashboard({
     },
     {
       key: "status-legend",
-      title: "Legenda de status",
+      title: t.statusLegend,
       widgetType: "INDICATOR",
       defaultWidth: 6,
       defaultHeight: 1,
       render: () => (
-        <section className="status-legend" aria-label="Legenda de status">
+        <section className="status-legend" aria-label={t.statusLegend}>
           {dashboardLegend.map((item) => (
             <span key={item.status}>
               <i style={{ backgroundColor: item.color }} />
@@ -399,8 +445,9 @@ export function MainDashboard({
   return (
     <CustomizableDashboard
       t={t}
-      config={withRequiredWidgets(withMainTeamSummary(layout), definitions)}
+      config={prepareMainDashboardLayout(layout, t.teamsWidgetDefaultTitle, definitions)}
       definitions={definitions}
+      canConfigure={canConfigure}
       onSave={onSaveLayout}
       onReset={onResetLayout}
     />
@@ -416,6 +463,9 @@ export function TeamDashboard({
   layout,
   onSaveLayout,
   onResetLayout,
+  canConfigure,
+  pagination,
+  onNew,
   onOpen
 }: {
   t: Texts;
@@ -426,7 +476,10 @@ export function TeamDashboard({
   layout: DashboardConfiguration;
   onSaveLayout: (config: DashboardConfiguration) => Promise<DashboardConfiguration | void>;
   onResetLayout: () => Promise<DashboardConfiguration | void>;
-  onOpen: (item: ActivityItem) => void;
+  canConfigure: boolean;
+  pagination?: TablePagination;
+  onNew?: () => void;
+  onOpen?: (item: ActivityItem) => void;
 }) {
   const palette = seriesPalette();
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
@@ -434,11 +487,18 @@ export function TeamDashboard({
   const definitions: DashboardWidgetDefinition[] = [
     {
       key: "team-summary",
-      title: t.teams,
+      title: t.teamsWidgetDefaultTitle,
       widgetType: "LIST",
       defaultWidth: 12,
       defaultHeight: 2,
-      render: () => <TeamSummaryStrip teams={teams} activityCounts={teamActivityCounts} />
+      render: () => (
+        <TeamSummaryStrip
+          teams={teams}
+          activityCounts={teamActivityCounts}
+          pagination={pagination}
+          t={t}
+        />
+      )
     },
     {
       key: "team-productivity",
@@ -465,6 +525,7 @@ export function TeamDashboard({
           title={t.risk}
           values={charts.byPriority.map(countOf)}
           colors={colorsForValues(charts.byPriority, palette)}
+          labels={charts.byPriority.map((group) => priorityLabel(group.priority, t))}
         />
       )
     },
@@ -479,7 +540,7 @@ export function TeamDashboard({
           t={t}
           activities={activities}
           locale={locale}
-          onNew={() => undefined}
+          onNew={onNew}
           onOpen={onOpen}
           compact
         />
@@ -492,6 +553,7 @@ export function TeamDashboard({
       t={t}
       config={layout}
       definitions={definitions}
+      canConfigure={canConfigure}
       onSave={onSaveLayout}
       onReset={onResetLayout}
     />
@@ -503,89 +565,149 @@ export function KanbanBoard({
   activities,
   dragged,
   setDragged,
+  canMove,
   onMove,
-  onOpen
+  onOpen,
+  pagination
 }: {
   t: Texts;
   activities: ActivityItem[];
   dragged: string | null;
   setDragged: (value: string | null) => void;
+  canMove: boolean;
   onMove: (id: string, status: string) => void;
   onOpen: (item: ActivityItem) => void;
+  pagination: TablePagination;
 }) {
+  const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
   return (
-    <section className="kanban-board" tabIndex={0}>
-      {statusGroups.map((group) => (
-        <article
-          className="kanban-column"
-          key={group}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={() => {
-            const command = kanbanMoveCommand(activities, dragged, group);
-            setDragged(null);
-            if (command) onMove(command.id, command.status);
-          }}
-        >
-          <h2>{statusLabel(group, t)}</h2>
-          {activities
-            .filter((item) => item.status === group)
-            .map((item) => (
-              <div
-                className="kanban-card"
-                draggable
-                key={`${group}-${item.id}`}
-                onClick={() => onOpen(item)}
-                onDragStart={() => setDragged(item.id)}
-                style={{ borderLeftColor: item.team?.color ?? defaultTeamColor }}
-              >
-                <strong>{item.id.slice(0, 8)}</strong>
-                <p>{item.title}</p>
-                <div>
-                  <span>{item.client?.name ?? "-"}</span>
-                  <span>{item.team?.name ?? "-"}</span>
-                  <span>{item.serviceName ?? item.systemName ?? "-"}</span>
+    <section className="full-width">
+      <div className="kanban-board" tabIndex={0}>
+        {statusGroups.map((group) => (
+          <article
+            className="kanban-column"
+            key={group}
+            onDragOver={(event) => {
+              if (!canMove || !hasKanbanActivityDrag(event.dataTransfer)) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }}
+            onDrop={(event) => {
+              const internalDrag = hasKanbanActivityDrag(event.dataTransfer);
+              if (internalDrag) event.preventDefault();
+              const payload = internalDrag
+                ? event.dataTransfer.getData(kanbanActivityDragType)
+                : "";
+              const command = canMove
+                ? kanbanMoveCommand(
+                    activities,
+                    payload && payload === dragged ? payload : null,
+                    group
+                  )
+                : undefined;
+              setDragged(null);
+              if (command) onMove(command.id, command.status);
+            }}
+          >
+            <h2>{statusLabel(group, t)}</h2>
+            {activities
+              .filter((item) => item.status === group)
+              .map((item) => (
+                <div
+                  className="kanban-card"
+                  draggable={canMove}
+                  key={`${group}-${item.id}`}
+                  onDragEnd={() => setDragged(null)}
+                  onDragStart={(event) => {
+                    if (!canMove) return;
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData(kanbanActivityDragType, item.id);
+                    setDragged(item.id);
+                  }}
+                  style={{ borderLeftColor: item.team?.color ?? defaultTeamColor }}
+                >
+                  <strong>{item.id.slice(0, 8)}</strong>
+                  <button
+                    aria-label={`${t.details}: ${item.title}`}
+                    className="kanban-open-button"
+                    onClick={() => onOpen(item)}
+                    type="button"
+                  >
+                    {item.title}
+                  </button>
+                  <div>
+                    <span>{item.client?.name ?? "-"}</span>
+                    <span>{item.team?.name ?? "-"}</span>
+                    <span>{item.serviceName ?? item.systemName ?? "-"}</span>
+                  </div>
+                  <small>
+                    {item.assignee?.displayName ?? "-"} - {slaLabel(item.slaDueAt, t)}
+                  </small>
+                  {canMove ? (
+                    <label
+                      className="kanban-status-control"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <span className="sr-only">{t.moveToStatus}</span>
+                      <select
+                        aria-label={`${t.moveToStatus}: ${item.title}`}
+                        value={item.status}
+                        onChange={(event) => {
+                          const command = kanbanMoveCommand(
+                            activities,
+                            item.id,
+                            event.target.value
+                          );
+                          if (command) onMove(command.id, command.status);
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        {statusGroups.map((status) => (
+                          <option key={status} value={status}>
+                            {statusLabel(status, t)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                 </div>
-                <small>
-                  {item.assignee?.displayName ?? "-"} - {slaLabel(item.slaDueAt)}
-                </small>
-              </div>
-            ))}
-        </article>
-      ))}
+              ))}
+          </article>
+        ))}
+      </div>
+      <TableFooter
+        t={t}
+        page={pagination.page - 1}
+        totalPages={totalPages}
+        totalRows={pagination.total}
+        onPage={(page) => pagination.onPage(page + 1)}
+      />
     </section>
   );
 }
 
-export function ReportsView({
-  t,
-  charts,
-  teams,
-  activities,
-  locale,
-  onOpen
-}: {
-  t: Texts;
-  charts: DashboardCharts;
-  teams: TeamRef[];
-  activities: ActivityItem[];
-  locale: Locale;
-  onOpen: (item: ActivityItem) => void;
-}) {
+export function ReportsView({ t, summary }: { t: Texts; summary: ReportActivitySummary }) {
   const palette = seriesPalette();
-  const teamColors = colorsForTeamGroups(charts.byTeam, teams);
 
   return (
     <>
       <section className="dashboard-panels">
+        <article className="metric-card">
+          <span>{t.total}</span>
+          <strong>{summary.total}</strong>
+          <small>{t.reports}</small>
+        </article>
         <ChartPanel
-          title={t.monthly}
-          values={charts.byStatus.map(countOf)}
-          colors={colorsForValues(charts.byStatus, palette)}
+          title={t.filterStatus}
+          values={summary.byStatus.map(countOf)}
+          colors={summary.byStatus.map((group) => statusColors[group.status ?? ""] ?? palette[0])}
+          labels={summary.byStatus.map((group) => statusLabel(group.status ?? "", t))}
         />
         <ChartPanel
-          title={t.productivity}
-          values={charts.byTeam.map(countOf)}
-          colors={teamColors}
+          title={t.byPriority}
+          values={summary.byPriority.map(countOf)}
+          colors={colorsForValues(summary.byPriority, palette)}
+          labels={summary.byPriority.map((group) => priorityLabel(group.priority, t))}
         />
       </section>
       <section className="panel full-width">
@@ -596,28 +718,7 @@ export function ReportsView({
             {t.export}
           </button>
         </div>
-        <div className="report-list">
-          {[
-            "Resumo de turno",
-            "SLA por cliente",
-            "Auditoria operacional",
-            "Backlog por prioridade"
-          ].map((item) => (
-            <div key={item}>
-              <CheckCircle2 size={18} />
-              <span>{item}</span>
-            </div>
-          ))}
-        </div>
       </section>
-      <ActivityList
-        t={t}
-        activities={activities}
-        locale={locale}
-        onNew={() => undefined}
-        onOpen={onOpen}
-        compact
-      />
     </>
   );
 }
@@ -632,20 +733,20 @@ export function SettingsView({
   onNavigate: (view: View) => void;
 }) {
   const groups: Array<{ title: string; description: string; view: View }> = [
-    { title: "Empresa", description: "Preferencias corporativas e contexto ativo.", view: "users" },
-    { title: t.users, description: "Usuarios, acesso e idioma preferencial.", view: "users" },
-    { title: t.teams, description: "Equipes, cores e SLA padrao.", view: "teams" },
-    { title: t.clients, description: "Clientes e codigos operacionais.", view: "clients" },
-    { title: t.shifts, description: "Turnos, janelas e cobertura operacional.", view: "shifts" },
-    { title: t.roles, description: "Perfis, permissoes e bloqueios de sistema.", view: "roles" },
+    { title: t.company, description: t.companySettingsDescription, view: "users" },
+    { title: t.users, description: t.userSettingsDescription, view: "users" },
+    { title: t.teams, description: t.teamSettingsDescription, view: "teams" },
+    { title: t.clients, description: t.clientSettingsDescription, view: "clients" },
+    { title: t.shifts, description: t.shiftSettingsDescription, view: "shifts" },
+    { title: t.roles, description: t.roleSettingsDescription, view: "roles" },
     {
-      title: "Interface",
-      description: "Tema, idioma, navegacao e dashboard personalizavel.",
+      title: t.interface,
+      description: t.interfaceSettingsDescription,
       view: "dashboard"
     },
     {
-      title: "Seguranca",
-      description: "Autenticacao, sessoes, RBAC e politicas de acesso.",
+      title: t.security,
+      description: t.securitySettingsDescription,
       view: "roles"
     }
   ];

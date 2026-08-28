@@ -1,152 +1,157 @@
-// en-GB: Exercises RBAC persistence filters so expired or inactive authority is excluded at source.
-import { describe, expect, it, vi } from "vitest";
-
-const {
-  assignmentFindMany,
-  assignmentCount,
-  userCompanyFindFirst,
-  clientFindFirst,
-  teamFindFirst
-} = vi.hoisted(() => ({
-  assignmentFindMany: vi.fn().mockResolvedValue([]),
-  assignmentCount: vi.fn().mockResolvedValue(0),
-  userCompanyFindFirst: vi.fn().mockResolvedValue(null),
-  clientFindFirst: vi.fn().mockResolvedValue(null),
-  teamFindFirst: vi.fn().mockResolvedValue(null)
-}));
-
-vi.mock("../../shared/lib/prisma.js", () => ({
-  getDelegate: vi.fn(async (name: string) => {
-    if (name === "userRoleAssignment") {
-      return {
-        findMany: assignmentFindMany,
-        count: assignmentCount,
-        create: vi.fn()
-      };
-    }
-    if (name === "userCompany") {
-      return { findFirst: userCompanyFindFirst };
-    }
-    if (name === "client") {
-      return { findFirst: clientFindFirst };
-    }
-    if (name === "team") {
-      return { findFirst: teamFindFirst };
-    }
-    return { findFirst: vi.fn() };
-  })
-}));
-
+// en-GB: Verifies that protected Role mutations lock, revalidate and audit within one transaction.
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RbacRepository } from "./rbac.repository.js";
 
-describe("RbacRepository", () => {
-  it("filters permission assignments by current user, tenant and lifecycle", async () => {
-    const repository = new RbacRepository();
+const persistence = vi.hoisted(() => ({
+  transaction: vi.fn(),
+  lockRole: vi.fn(),
+  countAssignments: vi.fn(),
+  createAssignment: vi.fn(),
+  updateRole: vi.fn(),
+  createAudit: vi.fn()
+}));
 
-    await repository.findAssignmentsForUser("user-a", "company-a");
+function transactionClient() {
+  return {
+    $queryRawUnsafe: persistence.lockRole,
+    role: { update: persistence.updateRole },
+    userRoleAssignment: {
+      count: persistence.countAssignments,
+      create: persistence.createAssignment
+    },
+    auditLog: { create: persistence.createAudit }
+  };
+}
 
-    expect(assignmentFindMany).toHaveBeenCalledOnce();
-    const query = assignmentFindMany.mock.calls[0]?.[0] as {
-      where: Record<string, unknown>;
-      include: Record<string, unknown>;
-    };
-    expect(query.where).toMatchObject({
-      userId: "user-a",
-      companyId: "company-a",
-      deletedAt: null,
-      startsAt: { lte: expect.any(Date) },
-      company: { status: "ACTIVE", deletedAt: null },
-      user: {
-        status: "ACTIVE",
-        deletedAt: null,
-        companies: {
-          some: {
-            companyId: "company-a",
-            deletedAt: null,
-            company: { status: "ACTIVE", deletedAt: null }
-          }
-        }
-      },
-      role: {
-        isActive: true,
-        deletedAt: null,
-        OR: [{ companyId: "company-a" }, { companyId: null }]
-      }
-    });
-    expect(query.where.OR).toEqual([{ endsAt: null }, { endsAt: { gt: expect.any(Date) } }]);
-    expect(query.where.AND).toEqual([
-      {
-        OR: [{ clientId: null }, { client: { status: "ACTIVE", deletedAt: null } }]
-      },
-      {
-        OR: [{ teamId: null }, { team: { deletedAt: null } }]
-      }
+describe("RbacRepository protected Role mutations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    persistence.lockRole.mockResolvedValue([
+      { id: "role-a", companyId: "company-a", scope: "COMPANY", isSystem: false }
     ]);
-    expect(query.include).toMatchObject({
-      role: {
-        include: {
-          permissions: {
-            where: {
-              OR: [{ companyId: "company-a" }, { companyId: null }],
-              permission: {
-                deletedAt: null,
-                OR: [{ companyId: "company-a" }, { companyId: null }]
-              }
-            }
-          }
-        }
-      }
+    persistence.countAssignments.mockResolvedValue(0);
+    persistence.createAssignment.mockResolvedValue({ id: "assignment-a" });
+    persistence.updateRole.mockResolvedValue({
+      id: "role-a",
+      companyId: "company-a",
+      scope: "CLIENT",
+      isSystem: false
     });
+    persistence.transaction.mockImplementation(
+      async (callback: (tx: ReturnType<typeof transactionClient>) => Promise<unknown>) =>
+        callback(transactionClient())
+    );
   });
 
-  it("counts only assignments that have started and not ended", async () => {
-    const repository = new RbacRepository();
+  it("locks the profile before counting assignments and commits mutation plus audit", async () => {
+    const repository = new RbacRepository(async () => ({
+      $transaction: persistence.transaction
+    }));
+    const auditData = vi.fn((before: unknown, after: unknown) => ({
+      entityType: "Role",
+      entityId: "role-a",
+      action: "UPDATE",
+      before,
+      after
+    }));
 
-    await repository.countActiveAssignments("role-a", "company-a");
+    await expect(
+      repository.mutateRole("role-a", "company-a", { scope: "CLIENT" }, "UPDATE", auditData)
+    ).resolves.toMatchObject({ id: "role-a", scope: "CLIENT" });
 
-    expect(assignmentCount).toHaveBeenCalledWith({
-      where: {
-        roleId: "role-a",
-        companyId: "company-a",
-        deletedAt: null,
-        startsAt: { lte: expect.any(Date) },
-        OR: [{ endsAt: null }, { endsAt: { gt: expect.any(Date) } }]
-      }
-    });
+    expect(persistence.lockRole).toHaveBeenCalledWith(
+      expect.stringContaining('FROM "roles"'),
+      "role-a",
+      "company-a"
+    );
+    expect(persistence.lockRole.mock.invocationCallOrder[0]).toBeLessThan(
+      persistence.countAssignments.mock.invocationCallOrder[0]
+    );
+    expect(persistence.countAssignments.mock.invocationCallOrder[0]).toBeLessThan(
+      persistence.updateRole.mock.invocationCallOrder[0]
+    );
+    expect(persistence.updateRole.mock.invocationCallOrder[0]).toBeLessThan(
+      persistence.createAudit.mock.invocationCallOrder[0]
+    );
+    expect(auditData).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "role-a", scope: "COMPANY" }),
+      expect.objectContaining({ id: "role-a", scope: "CLIENT" })
+    );
+    expect(persistence.transaction).toHaveBeenCalledOnce();
   });
 
-  it("requires active user and company state for membership", async () => {
-    const repository = new RbacRepository();
+  it("rejects deletion after the locked active-assignment recheck", async () => {
+    persistence.countAssignments.mockResolvedValueOnce(1);
+    const repository = new RbacRepository(async () => ({
+      $transaction: persistence.transaction
+    }));
 
-    await repository.findUserCompany("user-a", "company-a");
+    await expect(
+      repository.mutateRole(
+        "role-a",
+        "company-a",
+        { deletedAt: new Date() },
+        "SOFT_DELETE",
+        () => ({})
+      )
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
-    expect(userCompanyFindFirst).toHaveBeenCalledWith({
-      where: {
-        userId: "user-a",
-        companyId: "company-a",
-        deletedAt: null,
-        user: { status: "ACTIVE", deletedAt: null },
-        company: { status: "ACTIVE", deletedAt: null }
-      }
-    });
+    expect(persistence.updateRole).not.toHaveBeenCalled();
+    expect(persistence.createAudit).not.toHaveBeenCalled();
   });
 
-  it("accepts only active clients and non-deleted teams for new limited assignments", async () => {
-    const repository = new RbacRepository();
+  it("rejects a system profile while holding its mutation lock", async () => {
+    persistence.lockRole.mockResolvedValueOnce([
+      { id: "role-a", companyId: "company-a", scope: "COMPANY", isSystem: true }
+    ]);
+    const repository = new RbacRepository(async () => ({
+      $transaction: persistence.transaction
+    }));
 
-    await repository.findClient("client-a", "company-a");
-    await repository.findTeam("team-a", "company-a");
+    await expect(
+      repository.mutateRole("role-a", "company-a", { name: "Changed" }, "UPDATE", () => ({}))
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
-    expect(clientFindFirst).toHaveBeenCalledWith({
-      where: {
-        id: "client-a",
-        companyId: "company-a",
-        status: "ACTIVE",
-        deletedAt: null
-      }
-    });
-    expect(teamFindFirst).toHaveBeenCalledWith({
-      where: { id: "team-a", companyId: "company-a", deletedAt: null }
-    });
+    expect(persistence.countAssignments).not.toHaveBeenCalled();
+    expect(persistence.updateRole).not.toHaveBeenCalled();
+    expect(persistence.createAudit).not.toHaveBeenCalled();
+  });
+
+  it("locks and revalidates the selected profile before creating an assignment", async () => {
+    const repository = new RbacRepository(async () => ({
+      $transaction: persistence.transaction
+    }));
+    const data = {
+      companyId: "company-a",
+      userId: "user-a",
+      roleId: "role-a"
+    };
+
+    await expect(repository.assignRole(data)).resolves.toMatchObject({ id: "assignment-a" });
+
+    expect(persistence.lockRole).toHaveBeenCalledWith(
+      expect.stringContaining('"isActive" = TRUE'),
+      "role-a",
+      "company-a"
+    );
+    expect(persistence.lockRole.mock.invocationCallOrder[0]).toBeLessThan(
+      persistence.createAssignment.mock.invocationCallOrder[0]
+    );
+    expect(persistence.createAssignment).toHaveBeenCalledWith({ data });
+  });
+
+  it("rechecks scope requirements after acquiring the assignment lock", async () => {
+    persistence.lockRole.mockResolvedValueOnce([
+      { id: "role-a", companyId: "company-a", scope: "CLIENT", isSystem: false }
+    ]);
+    const repository = new RbacRepository(async () => ({
+      $transaction: persistence.transaction
+    }));
+
+    await expect(
+      repository.assignRole({ companyId: "company-a", userId: "user-a", roleId: "role-a" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    expect(persistence.createAssignment).not.toHaveBeenCalled();
   });
 });

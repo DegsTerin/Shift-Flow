@@ -14,7 +14,11 @@ export class ShiftsService extends BaseService {
 
   constructor() {
     const repository = new ShiftsRepository();
-    super(repository, "Shift", { userStamps: true });
+    super(repository, "Shift", {
+      userStamps: true,
+      searchFields: ["name", "timezone"],
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }]
+    });
     this.shiftsRepository = repository;
   }
 

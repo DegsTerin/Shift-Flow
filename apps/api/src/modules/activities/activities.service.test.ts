@@ -328,6 +328,35 @@ describe("ActivitiesService", () => {
     expect(scopeChecks.user).not.toHaveBeenCalled();
   });
 
+  it("preserves explicit nullable Activity clears in the evidenced mutation plan", async () => {
+    vi.clearAllMocks();
+    const { captured, repository } = evidencedRepository({
+      title: "Before",
+      status: "PENDING",
+      shiftId: "shift-1",
+      assigneeId: "assignee-1",
+      slaDueAt: new Date("2026-08-30T12:00:00.000Z")
+    });
+    const service = serviceWith(repository);
+
+    await service.update(request(), "activity-1", {
+      shiftId: null,
+      assigneeId: null,
+      slaDueAt: null
+    });
+
+    expect(captured.mutationData).toEqual(
+      expect.objectContaining({
+        shiftId: null,
+        assigneeId: null,
+        slaDueAt: null,
+        updatedById: "user-1"
+      })
+    );
+    expect(scopeChecks.shift).not.toHaveBeenCalled();
+    expect(scopeChecks.user).not.toHaveBeenCalled();
+  });
+
   it("preserves not-found precedence before validating update references", async () => {
     vi.clearAllMocks();
     const findById = vi.fn().mockResolvedValue(null);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   activityFilterSchema,
   activityNoteSchema,
+  activitySchema,
   reorderTaskColumnsSchema,
   restoreActivityTaskSchema,
   updateActivityTaskColumnSchema,
@@ -38,6 +39,12 @@ describe("activity validators", () => {
 
   it("keeps close and reopen compatible with an omitted request body", () => {
     expect(activityNoteSchema.parse(undefined)).toEqual({});
+  });
+
+  it("accepts explicit clearing of nullable activity relationships and SLA", () => {
+    expect(
+      activitySchema.partial().parse({ shiftId: null, assigneeId: null, slaDueAt: null })
+    ).toEqual({ shiftId: null, assigneeId: null, slaDueAt: null });
   });
 
   it("requires a complete unique task-column permutation payload", () => {

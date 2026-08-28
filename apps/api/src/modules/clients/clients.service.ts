@@ -4,6 +4,10 @@ import { ClientsRepository } from "./clients.repository.js";
 
 export class ClientsService extends BaseService {
   constructor() {
-    super(new ClientsRepository(), "Client", { userStamps: true, orderBy: { name: "asc" } });
+    super(new ClientsRepository(), "Client", {
+      userStamps: true,
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      searchFields: ["name", "code"]
+    });
   }
 }

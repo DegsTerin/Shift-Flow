@@ -1,13 +1,17 @@
-// en-GB: Verifies that every editable source file documents its responsibility in British English.
+// en-GB: Verifies that every non-ignored workspace source file documents its responsibility in British English.
 /* global console, process */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { extname } from "node:path";
 import postcss from "postcss";
 
-const trackedFiles = execFileSync("git", ["ls-files"], { encoding: "utf8" })
+const workspaceFiles = execFileSync(
+  "git",
+  ["ls-files", "--cached", "--others", "--exclude-standard"],
+  { encoding: "utf8" }
+)
   .split(/\r?\n/u)
-  .filter(Boolean);
+  .filter((file) => file && existsSync(file));
 
 const commentableExtensions = new Set([
   ".css",
@@ -63,7 +67,7 @@ function isCommentable(file) {
 }
 
 const undocumented = [];
-const commentableFiles = trackedFiles.filter(isCommentable);
+const commentableFiles = workspaceFiles.filter(isCommentable);
 const exceptionManifest = readFileSync("docs/source-commenting-manifest.md", "utf8");
 const documentedExceptionFiles = [...strictOrGeneratedFiles, ...immutableMigrationFiles];
 const undocumentedExceptions = documentedExceptionFiles.filter(

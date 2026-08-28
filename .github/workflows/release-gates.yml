@@ -104,6 +104,11 @@ jobs:
       - name: Deploy approved migrations to disposable CI database
         run: npx prisma migrate deploy
 
+      - name: Validate User aggregate against disposable PostgreSQL
+        env:
+          SHIFTFLOW_POSTGRES_INTEGRATION: "1"
+        run: npm run test:postgres:users
+
       - name: Seed integration data
         run: node prisma/integration-seed.mjs
 

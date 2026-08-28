@@ -6,6 +6,7 @@ import {
   apiRequest,
   captureApiSessionEpoch,
   clearApiSession,
+  queryString,
   restoreApiSession,
   settleApiSessionOperation,
   setApiSession,
@@ -126,6 +127,75 @@ describe("apiRequest", () => {
     });
 
     expect(observedSessions.at(-1)?.accessToken).toBe("new-access-token");
+    unsubscribe();
+  });
+
+  it("keeps the security epoch stable when refresh only rotates token and permission order", async () => {
+    const original = {
+      ...session("old-access-token"),
+      user: {
+        ...session("old-access-token").user,
+        permissions: ["dashboard:read", "activities:read"]
+      }
+    };
+    const refreshed = {
+      ...session("new-access-token"),
+      user: {
+        ...session("new-access-token").user,
+        permissions: ["activities:read", "dashboard:read", "activities:read"]
+      }
+    };
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input).endsWith("/api/auth/refresh")) {
+        return response(200, { data: refreshed });
+      }
+      return bearer(init) === "Bearer old-access-token"
+        ? response(401, { error: { message: "Expired" } })
+        : response(200, { data: "current-result" });
+    });
+    setApiSession(original);
+    const epoch = captureApiSessionEpoch();
+
+    await expect(apiRequest<string>("/api/protected", original.accessToken)).resolves.toBe(
+      "current-result"
+    );
+
+    expect(captureApiSessionEpoch()).toBe(epoch);
+  });
+
+  it("advances the security epoch and stops retry when refresh revokes a permission", async () => {
+    const original = {
+      ...session("old-access-token"),
+      user: {
+        ...session("old-access-token").user,
+        permissions: ["dashboard:read", "activities:read"]
+      }
+    };
+    const restricted = {
+      ...session("restricted-access-token"),
+      user: {
+        ...session("restricted-access-token").user,
+        permissions: ["dashboard:read"]
+      }
+    };
+    const observedSessions: Array<LoginResponse | null> = [];
+    const unsubscribe = subscribeApiSession((value) => observedSessions.push(value));
+    vi.mocked(fetch).mockImplementation(async (input) =>
+      String(input).endsWith("/api/auth/refresh")
+        ? response(200, { data: restricted })
+        : response(401, { error: { message: "Expired" } })
+    );
+    setApiSession(original);
+    const epoch = captureApiSessionEpoch();
+
+    await expect(apiRequest("/api/protected", original.accessToken)).rejects.toMatchObject({
+      message: "Authorisation changed during refresh",
+      status: 401
+    });
+
+    expect(captureApiSessionEpoch()).not.toBe(epoch);
+    expect(observedSessions.at(-1)).toEqual(restricted);
+    expect(fetch).toHaveBeenCalledTimes(2);
     unsubscribe();
   });
 
@@ -264,6 +334,262 @@ describe("apiRequest", () => {
     unsubscribe();
   });
 
+  it("does not reuse an older tenant refresh flight after the session changes", async () => {
+    const tenantSession = (
+      accessToken: string,
+      userId: string,
+      companyId: string
+    ): LoginResponse => ({
+      accessToken,
+      user: {
+        id: userId,
+        email: `${userId}@example.com`,
+        companyId,
+        permissions: ["dashboard:read"]
+      }
+    });
+    const sessionA = tenantSession("access-a", "user-a", "company-a");
+    const sessionB = tenantSession("access-b", "user-b", "company-b");
+    const refreshedB = tenantSession("access-b-refreshed", "user-b", "company-b");
+    let refreshCalls = 0;
+    let tenantBRequestObserved = false;
+    let releaseRefreshA: ((value: Response) => void) | undefined;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/auth/refresh")) {
+        refreshCalls += 1;
+        if (refreshCalls === 1) {
+          return new Promise<Response>((resolve) => {
+            releaseRefreshA = resolve;
+          });
+        }
+        return response(200, { data: refreshedB });
+      }
+      const authorization = bearer(init);
+      if (authorization === "Bearer access-b") tenantBRequestObserved = true;
+      if (authorization === "Bearer access-a" || authorization === "Bearer access-b") {
+        return response(401, { error: { message: "Expired" } });
+      }
+      if (authorization === "Bearer access-b-refreshed") {
+        return response(200, { data: "tenant-b-result" });
+      }
+      return response(500, { error: { message: `Unexpected request: ${url}` } });
+    });
+    const observedSessions: Array<LoginResponse | null> = [];
+    const unsubscribe = subscribeApiSession((value) => observedSessions.push(value));
+    setApiSession(sessionA);
+
+    const requestA = apiRequest("/api/a", sessionA.accessToken);
+    await vi.waitFor(() => expect(releaseRefreshA).toBeTypeOf("function"));
+    clearApiSession();
+    setApiSession(sessionB);
+    const requestB = apiRequest<string>("/api/b", sessionB.accessToken);
+    await vi.waitFor(() => expect(tenantBRequestObserved).toBe(true));
+    releaseRefreshA?.(response(401, { error: { message: "Old refresh rejected" } }));
+
+    await expect(requestB).resolves.toBe("tenant-b-result");
+    await expect(requestA).rejects.toMatchObject({ status: 401 });
+    expect(refreshCalls).toBe(2);
+    expect(observedSessions.at(-1)).toEqual(refreshedB);
+    unsubscribe();
+  });
+
+  it("does not reuse a refresh flight after a new generation keeps the same identity", async () => {
+    const sessionA = session("access-a");
+    const sessionB = session("access-b");
+    const refreshedB = session("access-b-refreshed");
+    let refreshCalls = 0;
+    let releaseRefreshA: ((value: Response) => void) | undefined;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/auth/refresh")) {
+        refreshCalls += 1;
+        if (refreshCalls === 1) {
+          return new Promise<Response>((resolve) => {
+            releaseRefreshA = resolve;
+          });
+        }
+        return response(200, { data: refreshedB });
+      }
+      const authorization = bearer(init);
+      if (authorization === "Bearer access-a" || authorization === "Bearer access-b") {
+        return response(401, { error: { message: "Expired" } });
+      }
+      if (authorization === "Bearer access-b-refreshed") {
+        return response(200, { data: "current-result" });
+      }
+      return response(500, { error: { message: `Unexpected request: ${url}` } });
+    });
+    const observedSessions: Array<LoginResponse | null> = [];
+    const unsubscribe = subscribeApiSession((value) => observedSessions.push(value));
+    setApiSession(sessionA);
+
+    const requestA = apiRequest("/api/a", sessionA.accessToken);
+    await vi.waitFor(() => expect(releaseRefreshA).toBeTypeOf("function"));
+    clearApiSession();
+    setApiSession(sessionB);
+    const requestB = apiRequest<string>("/api/b", sessionB.accessToken);
+    releaseRefreshA?.(response(200, { data: session("access-a-refreshed") }));
+
+    await expect(requestA).rejects.toMatchObject({ status: 401 });
+    await expect(requestB).resolves.toBe("current-result");
+    expect(refreshCalls).toBe(2);
+    expect(observedSessions.at(-1)).toEqual(refreshedB);
+    unsubscribe();
+  });
+
+  it.each([200, 401])(
+    "serialises stale refresh status %i before logout and successor login",
+    async (refreshStatus) => {
+      const order: string[] = [];
+      let cookieOwner = "session-a";
+      let releaseRefresh: (() => void) | undefined;
+      const refreshReleased = new Promise<void>((resolve) => {
+        releaseRefresh = resolve;
+      });
+      vi.mocked(fetch).mockImplementation(async (input) => {
+        const path = new URL(String(input)).pathname;
+        order.push(path);
+        if (path === "/api/auth/refresh") {
+          await refreshReleased;
+          cookieOwner = refreshStatus === 200 ? "stale-refresh-a" : "cleared-by-refresh-a";
+          return refreshStatus === 200
+            ? response(200, { data: session("access-a-refreshed") })
+            : response(401, { error: { message: "Old refresh rejected" } });
+        }
+        if (path === "/api/auth/logout") {
+          cookieOwner = "cleared-by-logout-a";
+          return response(200, { data: { loggedOut: true } });
+        }
+        if (path === "/api/auth/login") {
+          cookieOwner = "session-b";
+          return response(200, { data: session("access-b") });
+        }
+        return response(500, { error: { message: `Unexpected request: ${path}` } });
+      });
+      setApiSession(session("access-a"));
+
+      const staleRefresh = restoreApiSession();
+      await vi.waitFor(() => expect(order).toEqual(["/api/auth/refresh"]));
+      clearApiSession();
+      const logoutRequest = apiRequest("/api/auth/logout", "access-a", {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      const loginRequest = apiRequest<LoginResponse>("/api/auth/login", undefined, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(order).toEqual(["/api/auth/refresh"]);
+      releaseRefresh?.();
+
+      await expect(staleRefresh).rejects.toMatchObject({ status: 401 });
+      await expect(logoutRequest).resolves.toEqual({ loggedOut: true });
+      await expect(loginRequest).resolves.toEqual(session("access-b"));
+      expect(order).toEqual(["/api/auth/refresh", "/api/auth/logout", "/api/auth/login"]);
+      expect(cookieOwner).toBe("session-b");
+    }
+  );
+
+  it("does not send an aborted authentication request waiting in the local cookie queue", async () => {
+    let releaseRefresh: ((value: Response) => void) | undefined;
+    const paths: string[] = [];
+    vi.stubGlobal("navigator", {});
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const path = new URL(String(input)).pathname;
+      paths.push(path);
+      if (path === "/api/auth/refresh") {
+        return new Promise<Response>((resolve) => {
+          releaseRefresh = resolve;
+        });
+      }
+      return response(200, { data: session("unexpected-login") });
+    });
+
+    const refresh = restoreApiSession();
+    await vi.waitFor(() => expect(releaseRefresh).toBeTypeOf("function"));
+    const controller = new AbortController();
+    const queuedLogin = apiRequest<LoginResponse>("/api/auth/login", undefined, {
+      method: "POST",
+      signal: controller.signal
+    });
+    controller.abort();
+    releaseRefresh?.(response(200, { data: session("restored-access-token") }));
+
+    await expect(refresh).resolves.toEqual(session("restored-access-token"));
+    await expect(queuedLogin).rejects.toMatchObject({ name: "AbortError" });
+    expect(paths).toEqual(["/api/auth/refresh"]);
+  });
+
+  it("passes abort through a queued browser Web Lock before acquisition", async () => {
+    let firstLockFinished: (() => void) | undefined;
+    const firstFinished = new Promise<void>((resolve) => {
+      firstLockFinished = resolve;
+    });
+    let lockCalls = 0;
+    const lockRequest = vi.fn(
+      (
+        _name: string,
+        optionsOrCallback: { signal?: AbortSignal } | (() => Promise<unknown>),
+        maybeCallback?: () => Promise<unknown>
+      ) => {
+        lockCalls += 1;
+        const options = typeof optionsOrCallback === "function" ? undefined : optionsOrCallback;
+        const callback =
+          typeof optionsOrCallback === "function" ? optionsOrCallback : maybeCallback;
+        if (!callback) throw new Error("Expected a Web Lock callback");
+        if (lockCalls === 1) {
+          return callback().finally(() => firstLockFinished?.());
+        }
+        return new Promise<unknown>((resolve, reject) => {
+          let aborted = false;
+          options?.signal?.addEventListener(
+            "abort",
+            () => {
+              aborted = true;
+              reject(new DOMException("The operation was aborted.", "AbortError"));
+            },
+            { once: true }
+          );
+          void firstFinished.then(() => {
+            if (aborted) return;
+            callback().then(resolve, reject);
+          });
+        });
+      }
+    );
+    vi.stubGlobal("navigator", { locks: { request: lockRequest } });
+    let releaseRefresh: ((value: Response) => void) | undefined;
+    const paths: string[] = [];
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const path = new URL(String(input)).pathname;
+      paths.push(path);
+      if (path === "/api/auth/refresh") {
+        return new Promise<Response>((resolve) => {
+          releaseRefresh = resolve;
+        });
+      }
+      return response(200, { data: session("unexpected-login") });
+    });
+
+    const refresh = restoreApiSession();
+    await vi.waitFor(() => expect(releaseRefresh).toBeTypeOf("function"));
+    const controller = new AbortController();
+    const queuedLogin = apiRequest<LoginResponse>("/api/auth/login", undefined, {
+      method: "POST",
+      signal: controller.signal
+    });
+    controller.abort();
+    releaseRefresh?.(response(200, { data: session("restored-access-token") }));
+
+    await expect(refresh).resolves.toEqual(session("restored-access-token"));
+    await expect(queuedLogin).rejects.toMatchObject({ name: "AbortError" });
+    expect(lockRequest.mock.calls[1]?.[1]).toMatchObject({ signal: controller.signal });
+    expect(paths).toEqual(["/api/auth/refresh"]);
+  });
+
   it("uses the browser-wide refresh lock when available", async () => {
     const lockRequest = vi.fn(async (_name: string, callback: () => Promise<LoginResponse>) =>
       callback()
@@ -274,6 +600,90 @@ describe("apiRequest", () => {
     await restoreApiSession();
 
     expect(lockRequest).toHaveBeenCalledWith("shiftflow-auth-refresh", expect.any(Function));
+  });
+
+  it("uses the same browser-wide cookie lock for login and logout", async () => {
+    const lockRequest = vi.fn(async (_name: string, callback: () => Promise<unknown>) =>
+      callback()
+    );
+    vi.stubGlobal("navigator", { locks: { request: lockRequest } });
+    vi.mocked(fetch).mockImplementation(async (input) =>
+      String(input).endsWith("/api/auth/login")
+        ? response(200, { data: session("logged-in") })
+        : response(200, { data: { loggedOut: true } })
+    );
+
+    await apiRequest<LoginResponse>("/api/auth/login", undefined, { method: "POST" });
+    await apiRequest("/api/auth/logout", "logged-in", { method: "POST" });
+
+    expect(lockRequest).toHaveBeenCalledTimes(2);
+    expect(lockRequest.mock.calls.map(([name]) => name)).toEqual([
+      "shiftflow-auth-refresh",
+      "shiftflow-auth-refresh"
+    ]);
+  });
+
+  it("registers queued same-tab auth intents with the browser lock immediately", async () => {
+    const pendingLocks: Array<() => void> = [];
+    let lockHeld = false;
+    const pump = () => {
+      if (lockHeld) return;
+      const next = pendingLocks.shift();
+      if (!next) return;
+      lockHeld = true;
+      next();
+    };
+    const lockRequest = vi.fn(
+      (_name: string, callback: () => Promise<unknown>) =>
+        new Promise<unknown>((resolve, reject) => {
+          pendingLocks.push(() => {
+            callback()
+              .then(resolve, reject)
+              .finally(() => {
+                lockHeld = false;
+                pump();
+              });
+          });
+          pump();
+        })
+    );
+    vi.stubGlobal("navigator", { locks: { request: lockRequest } });
+    let releaseRefresh: ((value: Response) => void) | undefined;
+    const fetchOrder: string[] = [];
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const path = new URL(String(input)).pathname;
+      fetchOrder.push(path);
+      if (path === "/api/auth/refresh") {
+        return new Promise<Response>((resolve) => {
+          releaseRefresh = resolve;
+        });
+      }
+      if (path === "/api/auth/logout") {
+        return response(200, { data: { loggedOut: true } });
+      }
+      if (path === "/api/auth/login") {
+        return response(200, { data: session("access-b") });
+      }
+      return response(500, { error: { message: `Unexpected request: ${path}` } });
+    });
+    setApiSession(session("access-a"));
+
+    const staleRefresh = restoreApiSession();
+    await vi.waitFor(() => expect(releaseRefresh).toBeTypeOf("function"));
+    clearApiSession();
+    const logoutRequest = apiRequest("/api/auth/logout", "access-a", { method: "POST" });
+    const loginRequest = apiRequest<LoginResponse>("/api/auth/login", undefined, {
+      method: "POST"
+    });
+
+    expect(lockRequest).toHaveBeenCalledTimes(3);
+    expect(fetchOrder).toEqual(["/api/auth/refresh"]);
+    releaseRefresh?.(response(200, { data: session("stale-refresh") }));
+
+    await expect(staleRefresh).rejects.toMatchObject({ status: 401 });
+    await expect(logoutRequest).resolves.toEqual({ loggedOut: true });
+    await expect(loginRequest).resolves.toEqual(session("access-b"));
+    expect(fetchOrder).toEqual(["/api/auth/refresh", "/api/auth/logout", "/api/auth/login"]);
   });
 
   it("does not send a queued refresh after logout changes the session generation", async () => {
@@ -443,5 +853,30 @@ describe("apiRequest", () => {
     await expect(pendingRequest).rejects.toMatchObject({ status: 401 });
     expect(observedSessions.at(-1)).toBeNull();
     unsubscribe();
+  });
+});
+
+describe("queryString", () => {
+  it("bounds search input and carries explicit server pagination", () => {
+    const value = queryString(
+      {
+        clientId: "",
+        teamId: "",
+        shiftId: "",
+        assigneeId: "",
+        priority: "",
+        status: "",
+        attention: "",
+        from: "",
+        to: ""
+      },
+      `  ${"x".repeat(220)}  `,
+      { page: 3, pageSize: 12 }
+    );
+    const params = new URLSearchParams(value.slice(1));
+
+    expect(params.get("search")).toHaveLength(200);
+    expect(params.get("page")).toBe("3");
+    expect(params.get("pageSize")).toBe("12");
   });
 });

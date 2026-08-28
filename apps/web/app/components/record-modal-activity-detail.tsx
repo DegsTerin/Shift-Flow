@@ -5,15 +5,25 @@ import type {
   ActivityItem,
   ClientRef,
   Locale,
+  RecordModalCapabilities,
+  ReferenceAccess,
   ShiftRef,
   TeamRef,
   Texts,
   UserRef
 } from "../lib/types";
-import { activityStatuses, formatDateTime, priorities, userOptionLabel } from "../lib/utils";
-import { SelectInput } from "./controls";
+import { activityHistoryText, activityHistoryTypeLabel } from "../lib/history-labels";
+import {
+  activityStatuses,
+  formatDateTime,
+  priorities,
+  priorityLabel,
+  statusLabel,
+  userOptionLabel
+} from "../lib/utils";
+import { ReferenceSelectInput, SelectInput } from "./controls";
 import { OperationalFields } from "./record-modal-create-form";
-import { InternalTaskBoard } from "./record-modal-task-board";
+import { InternalTaskBoard, type TaskBoardMutationRunner } from "./record-modal-task-board";
 
 export function ActivityDetail({
   activity,
@@ -26,12 +36,21 @@ export function ActivityDetail({
   shifts,
   editing,
   busy,
+  capabilities,
+  referenceAccess = {
+    clients: false,
+    users: false,
+    teams: false,
+    shifts: false,
+    roles: false
+  },
   setEditing,
   onSubmit,
   onRemove,
   onComment,
   onCloseActivity,
-  onReopenActivity
+  onReopenActivity,
+  runTaskBoardMutation
 }: {
   activity: ActivityItem;
   t: Texts;
@@ -43,72 +62,110 @@ export function ActivityDetail({
   shifts: ShiftRef[];
   editing: boolean;
   busy: boolean;
+  capabilities: RecordModalCapabilities;
+  referenceAccess?: ReferenceAccess;
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
   onComment: (event: FormEvent<HTMLFormElement>) => void;
   onCloseActivity: () => void;
   onReopenActivity: () => void;
+  runTaskBoardMutation: TaskBoardMutationRunner;
 }) {
   return (
     <>
       <form className="modal-grid" onSubmit={onSubmit}>
         <label>
-          Titulo
-          <input name="title" defaultValue={activity.title} disabled={!editing} required />
+          {t.title}
+          <input
+            name="title"
+            defaultValue={activity.title}
+            disabled={!editing || !capabilities.canWrite}
+            required
+          />
         </label>
-        <label>
-          Cliente
-          <SelectInput
+        <div className="reference-field">
+          <span>{t.filterClient}</span>
+          <ReferenceSelectInput
+            t={t}
+            label={t.filterClient}
             name="clientId"
             value={activity.clientId ?? activity.client?.id ?? ""}
-            disabled={!editing}
-            options={clients.map((item) => [item.id ?? "", item.name ?? "-"])}
+            selectedLabel={activity.client?.name ?? activity.clientId ?? ""}
+            disabled={!editing || !capabilities.canWrite}
+            initialItems={clients}
+            resource="clients"
+            token={token}
+            loadEnabled={referenceAccess.clients}
+            required
           />
-        </label>
-        <label>
-          Equipe
-          <SelectInput
+        </div>
+        <div className="reference-field">
+          <span>{t.filterTeam}</span>
+          <ReferenceSelectInput
+            t={t}
+            label={t.filterTeam}
             name="teamId"
             value={activity.teamId ?? activity.team?.id ?? ""}
-            disabled={!editing}
-            options={teams.map((item) => [item.id ?? "", item.name ?? "-"])}
+            selectedLabel={activity.team?.name ?? activity.teamId ?? ""}
+            disabled={!editing || !capabilities.canWrite}
+            initialItems={teams}
+            resource="teams"
+            token={token}
+            loadEnabled={referenceAccess.teams}
+            required
           />
-        </label>
-        <label>
-          Turno
-          <SelectInput
+        </div>
+        <div className="reference-field">
+          <span>{t.filterShift}</span>
+          <ReferenceSelectInput
+            t={t}
+            label={t.filterShift}
             name="shiftId"
             value={activity.shiftId ?? activity.shift?.id ?? ""}
-            disabled={!editing}
-            options={shifts.map((item) => [item.id ?? "", item.name ?? "-"])}
+            selectedLabel={activity.shift?.name ?? activity.shiftId ?? ""}
+            disabled={!editing || !capabilities.canWrite}
+            initialItems={shifts}
+            resource="shifts"
+            token={token}
+            loadEnabled={referenceAccess.shifts}
+            placeholder={t.none}
           />
-        </label>
-        <label>
-          Analista
-          <SelectInput
+        </div>
+        <div className="reference-field">
+          <span>{t.filterAnalyst}</span>
+          <ReferenceSelectInput
+            t={t}
+            label={t.filterAnalyst}
             name="assigneeId"
             value={activity.assigneeId ?? activity.assignee?.id ?? ""}
-            disabled={!editing}
-            options={users.map((item) => [item.id ?? "", userOptionLabel(item)])}
+            selectedLabel={
+              activity.assignee ? userOptionLabel(activity.assignee) : (activity.assigneeId ?? "")
+            }
+            disabled={!editing || !capabilities.canWrite}
+            initialItems={users}
+            resource="users"
+            token={token}
+            loadEnabled={referenceAccess.users}
+            placeholder={t.unassigned}
           />
-        </label>
+        </div>
         <label>
-          Prioridade
+          {t.filterPriority}
           <SelectInput
             name="priority"
             value={activity.priority ?? "MEDIUM"}
-            disabled={!editing}
-            options={priorities.map((item) => [item, item])}
+            disabled={!editing || !capabilities.canWrite}
+            options={priorities.map((item) => [item, priorityLabel(item, t)])}
           />
         </label>
         <label>
-          Status
+          {t.filterStatus}
           <SelectInput
             name="status"
             value={activity.status ?? "PENDING"}
-            disabled={!editing}
-            options={activityStatuses.map((item) => [item, item])}
+            disabled={!editing || !capabilities.canWrite}
+            options={activityStatuses.map((item) => [item, statusLabel(item, t)])}
           />
         </label>
         <label>
@@ -117,94 +174,119 @@ export function ActivityDetail({
             name="slaDueAt"
             type="datetime-local"
             defaultValue={activity.slaDueAt ? activity.slaDueAt.slice(0, 16) : ""}
-            disabled={!editing}
+            disabled={!editing || !capabilities.canWrite}
           />
         </label>
         <label>
-          Sistema
-          <input name="systemName" defaultValue={activity.systemName ?? ""} disabled={!editing} />
+          {t.system}
+          <input
+            name="systemName"
+            defaultValue={activity.systemName ?? ""}
+            disabled={!editing || !capabilities.canWrite}
+          />
         </label>
         <label>
-          Servico
-          <input name="serviceName" defaultValue={activity.serviceName ?? ""} disabled={!editing} />
+          {t.service}
+          <input
+            name="serviceName"
+            defaultValue={activity.serviceName ?? ""}
+            disabled={!editing || !capabilities.canWrite}
+          />
         </label>
         <label className="span-2">
-          Detalhe da atividade
+          {t.activityDetail}
           <textarea
             name="description"
             defaultValue={activity.description ?? ""}
-            disabled={!editing}
+            disabled={!editing || !capabilities.canWrite}
           />
         </label>
-        <OperationalFields activity={activity} disabled={!editing} />
+        <OperationalFields
+          activity={activity}
+          t={t}
+          disabled={!editing || !capabilities.canWrite}
+        />
         <div className="modal-actions span-2">
-          <button className="compact-button" type="button" onClick={() => setEditing(!editing)}>
-            <Save size={16} />
-            {editing ? t.close : t.edit}
-          </button>
-          {editing ? (
+          {capabilities.canWrite ? (
+            <button className="compact-button" type="button" onClick={() => setEditing(!editing)}>
+              <Save size={16} />
+              {editing ? t.close : t.edit}
+            </button>
+          ) : null}
+          {editing && capabilities.canWrite ? (
             <button className="primary-button" disabled={busy} type="submit">
               <Save size={16} />
               {t.save}
             </button>
           ) : null}
-          <button
-            className="compact-button"
-            disabled={busy || activity.status === "DONE"}
-            type="button"
-            onClick={onCloseActivity}
-          >
-            <CheckCircle2 size={16} />
-            {t.closeActivity}
-          </button>
-          <button
-            className="compact-button"
-            disabled={busy || activity.status !== "DONE"}
-            type="button"
-            onClick={onReopenActivity}
-          >
-            <RotateCcw size={16} />
-            {t.reopenActivity}
-          </button>
-          <button className="danger-button" disabled={busy} type="button" onClick={onRemove}>
-            <Trash2 size={16} />
-            {t.delete}
-          </button>
+          {capabilities.canWrite ? (
+            <>
+              <button
+                className="compact-button"
+                disabled={busy || activity.status === "DONE"}
+                type="button"
+                onClick={onCloseActivity}
+              >
+                <CheckCircle2 size={16} />
+                {t.closeActivity}
+              </button>
+              <button
+                className="compact-button"
+                disabled={busy || activity.status !== "DONE"}
+                type="button"
+                onClick={onReopenActivity}
+              >
+                <RotateCcw size={16} />
+                {t.reopenActivity}
+              </button>
+            </>
+          ) : null}
+          {capabilities.canDelete ? (
+            <button className="danger-button" disabled={busy} type="button" onClick={onRemove}>
+              <Trash2 size={16} />
+              {t.delete}
+            </button>
+          ) : null}
         </div>
       </form>
       <section className="detail-grid">
         <InternalTaskBoard
           activityId={activity.id}
+          t={t}
           token={token}
           users={users}
           attachments={activity.attachments ?? []}
           locale={locale}
           busy={busy}
+          canWrite={capabilities.canWrite}
+          canDelete={capabilities.canDelete}
+          canLoadUsers={referenceAccess.users}
+          runTaskBoardMutation={runTaskBoardMutation}
         />
         <InfoPanel
           title={t.responsible}
           rows={[
-            ["Criador", activity.reporter?.displayName ?? "-"],
-            ["Responsavel", activity.assignee?.displayName ?? "-"],
-            ["Equipe", activity.team?.name ?? "-"],
-            ["Sistema", activity.systemName ?? "-"],
-            ["Servico", activity.serviceName ?? "-"]
+            [t.creator, activity.reporter?.displayName ?? "-"],
+            [t.responsible, activity.assignee?.displayName ?? "-"],
+            [t.filterTeam, activity.team?.name ?? "-"],
+            [t.system, activity.systemName ?? "-"],
+            [t.service, activity.serviceName ?? "-"]
           ]}
         />
         <InfoPanel
           title={t.importantDates}
           rows={[
-            ["Criacao", formatDateTime(activity.createdAt, locale)],
-            ["Atualizacao", formatDateTime(activity.updatedAt, locale)],
+            [t.created, formatDateTime(activity.createdAt, locale)],
+            [t.updated, formatDateTime(activity.updatedAt, locale)],
             ["SLA", formatDateTime(activity.slaDueAt, locale)]
           ]}
         />
         <InfoPanel
-          title="Auditoria"
+          title={t.audit}
           rows={[
-            ["Criado por", activity.reporter?.displayName ?? "-"],
-            ["Data criacao", formatDateTime(activity.createdAt, locale)],
-            ["Ultima alteracao", formatDateTime(activity.updatedAt, locale)],
+            [t.createdBy, activity.reporter?.displayName ?? "-"],
+            [t.creationDate, formatDateTime(activity.createdAt, locale)],
+            [t.lastChanged, formatDateTime(activity.updatedAt, locale)],
             ["ID", activity.id]
           ]}
         />
@@ -215,11 +297,11 @@ export function ActivityDetail({
           <div className="timeline">
             {(activity.history ?? []).map((item) => (
               <div key={item.id}>
-                <strong>{item.type}</strong>
+                <strong>{activityHistoryTypeLabel(item.type, t)}</strong>
                 <span>
                   {formatDateTime(item.createdAt, locale)} - {item.actor?.displayName ?? "-"}
                 </span>
-                <small>{historyText(item)}</small>
+                <small>{activityHistoryText(item, t)}</small>
               </div>
             ))}
           </div>
@@ -228,12 +310,20 @@ export function ActivityDetail({
           <div className="panel-header">
             <h2>{t.comments}</h2>
           </div>
-          <form className="comment-form" onSubmit={onComment}>
-            <input name="body" placeholder={t.comments} required />
-            <button className="compact-button" disabled={busy} type="submit">
-              <Plus size={16} />
-            </button>
-          </form>
+          {capabilities.canComment ? (
+            <form className="comment-form" onSubmit={onComment}>
+              <input aria-label={t.addComment} name="body" placeholder={t.comments} required />
+              <button
+                aria-label={t.addComment}
+                className="compact-button"
+                disabled={busy}
+                title={t.addComment}
+                type="submit"
+              >
+                <Plus size={16} />
+              </button>
+            </form>
+          ) : null}
           <div className="timeline">
             {(activity.comments ?? []).map((item) => (
               <div key={item.id}>
@@ -288,21 +378,4 @@ function InfoPanel({ title, rows }: { title: string; rows: string[][] }) {
       </dl>
     </article>
   );
-}
-
-function historyText(item: {
-  note?: string;
-  fromStatus?: string;
-  toStatus?: string;
-  fromPriority?: string;
-  toPriority?: string;
-  metadata?: unknown;
-}) {
-  if (item.note) return item.note;
-  const statusChange = [item.fromStatus, item.toStatus].filter(Boolean).join(" -> ");
-  if (statusChange) return statusChange;
-  const priorityChange = [item.fromPriority, item.toPriority].filter(Boolean).join(" -> ");
-  if (priorityChange) return priorityChange;
-  if (item.metadata) return "Alteracao registrada com valores anteriores e novos.";
-  return "Movimentacao registrada.";
 }

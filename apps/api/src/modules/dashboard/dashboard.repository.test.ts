@@ -48,6 +48,24 @@ function transactionClient() {
   };
 }
 
+function transactionConcurrencyTracker() {
+  let inFlight = 0;
+  let maximum = 0;
+  return {
+    async run<T>(value: T) {
+      inFlight += 1;
+      maximum = Math.max(maximum, inFlight);
+      try {
+        await Promise.resolve();
+        return value;
+      } finally {
+        inFlight -= 1;
+      }
+    },
+    maximum: () => maximum
+  };
+}
+
 function context(team: string | null = null) {
   return { companyId, userId, dashboardType: "MAIN" as const, teamId: team };
 }
@@ -99,10 +117,13 @@ describe("DashboardRepository", () => {
     const where = { companyId, status: "PENDING", AND: [{ priority: "LOW" }] };
     const riskWhere = { companyId, AND: [{ slaDueAt: { gte: new Date(0) } }] };
     const overdueWhere = { companyId, AND: [{ slaDueAt: { lt: new Date(0) } }] };
+    const concurrency = transactionConcurrencyTracker();
     persistence.activityCount
-      .mockResolvedValueOnce(12)
-      .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(3);
+      .mockImplementationOnce(() => concurrency.run(12))
+      .mockImplementationOnce(() => concurrency.run(2))
+      .mockImplementationOnce(() => concurrency.run(3));
+    persistence.activityGroupBy.mockImplementation(() => concurrency.run([]));
+    persistence.activityFindMany.mockImplementation(() => concurrency.run([]));
 
     const result = await repository.summarySnapshot(where, riskWhere, overdueWhere);
 
@@ -134,11 +155,14 @@ describe("DashboardRepository", () => {
       orderBy: [{ completedAt: "desc" }, { id: "desc" }],
       take: 500
     });
+    expect(concurrency.maximum()).toBe(1);
   });
 
   it("reads all chart groupings in canonical order from one snapshot", async () => {
     const repository = new DashboardRepository();
     const where = { companyId, deletedAt: null };
+    const concurrency = transactionConcurrencyTracker();
+    persistence.activityGroupBy.mockImplementation(() => concurrency.run([]));
 
     await repository.chartsSnapshot(where);
 
@@ -152,6 +176,7 @@ describe("DashboardRepository", () => {
         orderBy: { [field]: "asc" }
       }))
     );
+    expect(concurrency.maximum()).toBe(1);
   });
 
   it("uses a total order for the bounded operational list", async () => {

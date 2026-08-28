@@ -1,17 +1,15 @@
-// en-GB: Guards destructive seed operations so they can target only explicitly confirmed disposable local ShiftFlow databases.
+// en-GB: Guards destructive seeds and PostgreSQL integration so they target only approved disposable local databases.
 import { URL } from "node:url";
 
 export const destructiveSeedConfirmation = "DELETE_CONFIRMED_LOCAL_SHIFTFLOW_DATA";
 
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const allowedDatabasePattern = /^shiftflow(?:[_-][a-z0-9_-]+)?$/i;
+const localRuntimeDatabasePattern = /^shiftflow_runtime_[a-f0-9]{24}$/;
 
-export function assertSafeDestructiveSeed({ databaseUrl, nodeEnv, confirmation, password }) {
+function parsePostgresTarget(databaseUrl, purpose) {
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required to run the destructive realistic seed.");
-  }
-  if (nodeEnv?.trim().toLowerCase() === "production") {
-    throw new Error("The destructive realistic seed is forbidden in production.");
+    throw new Error(`DATABASE_URL is required to run the ${purpose}.`);
   }
 
   let target;
@@ -21,19 +19,59 @@ export function assertSafeDestructiveSeed({ databaseUrl, nodeEnv, confirmation, 
     throw new Error("DATABASE_URL must be a valid PostgreSQL URL.");
   }
 
-  const databaseName = decodeURIComponent(target.pathname.replace(/^\//u, ""));
   if (!["postgres:", "postgresql:"].includes(target.protocol)) {
-    throw new Error("The destructive realistic seed supports PostgreSQL URLs only.");
+    throw new Error(`${purpose} supports PostgreSQL URLs only.`);
   }
   if (!loopbackHosts.has(target.hostname.toLowerCase())) {
-    throw new Error("The destructive realistic seed is restricted to a loopback database host.");
+    throw new Error(`${purpose} is restricted to a loopback database host.`);
   }
   const unsupportedParameters = [...target.searchParams.keys()].filter((key) => key !== "schema");
   if (unsupportedParameters.length > 0) {
     throw new Error(
-      `The destructive realistic seed rejects database routing parameters: ${unsupportedParameters.join(", ")}.`
+      `${purpose} rejects database routing parameters: ${unsupportedParameters.join(", ")}.`
     );
   }
+
+  return {
+    target,
+    databaseName: decodeURIComponent(target.pathname.replace(/^\//u, ""))
+  };
+}
+
+export function assertSafePostgresIntegrationTarget(databaseUrl, nodeEnv, ci) {
+  const purpose = "disposable PostgreSQL integration test";
+  if (nodeEnv?.trim().toLowerCase() === "production") {
+    throw new Error(`${purpose} is forbidden in production.`);
+  }
+  const { target, databaseName } = parsePostgresTarget(databaseUrl, purpose);
+  const port = target.port || "5432";
+  const isLocalRuntime =
+    target.hostname === "127.0.0.1" &&
+    port === "55432" &&
+    localRuntimeDatabasePattern.test(databaseName);
+  const isContinuousIntegration =
+    ci?.trim().toLowerCase() === "true" &&
+    target.hostname === "localhost" &&
+    port === "5432" &&
+    databaseName === "shiftflow_ci";
+
+  if (!isLocalRuntime && !isContinuousIntegration) {
+    throw new Error(
+      `${purpose} requires its exact local runtime target or the explicit CI target.`
+    );
+  }
+  if (decodeURIComponent(target.password).length < 12) {
+    throw new Error(`${purpose} requires an ephemeral password with at least 12 characters.`);
+  }
+
+  return { host: target.hostname, port, databaseName };
+}
+
+export function assertSafeDestructiveSeed({ databaseUrl, nodeEnv, confirmation, password }) {
+  if (nodeEnv?.trim().toLowerCase() === "production") {
+    throw new Error("The destructive realistic seed is forbidden in production.");
+  }
+  const { target, databaseName } = parsePostgresTarget(databaseUrl, "destructive realistic seed");
   if (!allowedDatabasePattern.test(databaseName)) {
     throw new Error(
       "The destructive realistic seed requires a database named shiftflow or shiftflow_<purpose>."

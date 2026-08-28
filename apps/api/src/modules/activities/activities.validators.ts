@@ -14,8 +14,8 @@ const activityStatusSchema = z.enum([
 export const activitySchema = z.object({
   clientId: z.string().uuid(),
   teamId: z.string().uuid(),
-  shiftId: z.string().uuid().optional(),
-  assigneeId: z.string().uuid().optional(),
+  shiftId: z.string().uuid().nullable().optional(),
+  assigneeId: z.string().uuid().nullable().optional(),
   reporterId: z.string().uuid().optional(),
   title: z.string().min(2).max(220),
   description: z.string().max(10000).optional(),
@@ -29,7 +29,7 @@ export const activitySchema = z.object({
   serviceName: z.string().max(120).optional(),
   status: activityStatusSchema.optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
-  slaDueAt: z.coerce.date().optional()
+  slaDueAt: z.coerce.date().nullable().optional()
 });
 
 export const moveActivitySchema = z.object({

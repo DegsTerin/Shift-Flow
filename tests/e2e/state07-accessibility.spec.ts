@@ -47,7 +47,7 @@ async function expectNoSeriousAxeViolations(page: Page) {
 
 async function navigateToKanban(page: Page, isMobile: boolean) {
   if (isMobile) {
-    await page.getByRole("button", { name: /Collapse navigation|Recolher navegacao/ }).click();
+    await page.getByRole("button", { name: /Collapse navigation|Recolher navegação/ }).click();
   }
 
   await page.getByRole("button", { name: "Kanban" }).click();

@@ -2,14 +2,22 @@
 "use client";
 
 import { Plus, Save, Trash2, X } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
-import { apiRequest } from "../lib/api";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  apiRequest,
+  captureApiSessionEpoch,
+  isApiSessionEpochCurrent,
+  settleApiSessionOperation
+} from "../lib/api";
+import { isAbortError } from "../lib/latest-request";
 import type {
   ActivityItem,
   ClientRef,
   CommentItem,
   Locale,
   ModalState,
+  RecordModalCapabilities,
+  ReferenceAccess,
   RoleRef,
   ShiftRef,
   TeamMemberRole,
@@ -24,12 +32,12 @@ import {
   recordEndpoint,
   recordPayload,
   shiftStatuses,
-  userOptionLabel,
   userRoleId,
   userRoleOptions
 } from "../lib/utils";
-import { SelectInput } from "./controls";
+import { ReferenceSelectInput, SelectInput } from "./controls";
 import { ActivityDetail } from "./record-modal-activity-detail";
+import type { ModalMutationOutcome, TaskBoardMutationRunner } from "./record-modal-task-board";
 import { CreateForm } from "./record-modal-create-form";
 
 export function RecordModal({
@@ -42,6 +50,14 @@ export function RecordModal({
   teams,
   shifts,
   roles,
+  referenceAccess = {
+    clients: false,
+    users: false,
+    teams: false,
+    shifts: false,
+    roles: false
+  },
+  capabilities,
   onClose,
   onReload
 }: {
@@ -54,8 +70,10 @@ export function RecordModal({
   teams: TeamRef[];
   shifts: ShiftRef[];
   roles: RoleRef[];
+  referenceAccess?: ReferenceAccess;
+  capabilities: RecordModalCapabilities;
   onClose: () => void;
-  onReload: () => Promise<void>;
+  onReload: (originEpoch: number) => Promise<void>;
 }) {
   const isActivity = state.entity === "activities" || state.entity === "kanban";
   const activity = isActivity && state.record ? (state.record as ActivityItem) : null;
@@ -66,140 +84,246 @@ export function RecordModal({
   const [editing, setEditing] = useState(state.mode === "create");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const mounted = useRef(true);
+  const modalRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<{ focus?: () => void; isConnected?: boolean } | null>(null);
+  const operation = useRef<{
+    controller: AbortController;
+    epoch: number;
+    reconciliation?: Promise<void>;
+  } | null>(null);
+
+  type MutationOptions = {
+    closeOnSuccess?: boolean;
+    reconcileOnFailure?: boolean;
+    failureMessage?: string;
+    onCurrentSuccess?: (originEpoch: number) => void | Promise<void>;
+    reconcileLocal?: (originEpoch: number) => void | Promise<void>;
+  };
+
+  function reconcileOperation(currentOperation: NonNullable<typeof operation.current>) {
+    if (!isApiSessionEpochCurrent(currentOperation.epoch)) return Promise.resolve();
+    if (!currentOperation.reconciliation) {
+      currentOperation.reconciliation = Promise.resolve().then(() =>
+        onReload(currentOperation.epoch)
+      );
+    }
+    return currentOperation.reconciliation;
+  }
 
   useEffect(() => {
+    mounted.current = true;
+    previousFocusRef.current = document.activeElement as typeof previousFocusRef.current;
     document.body.classList.add("modal-open");
-    return () => document.body.classList.remove("modal-open");
+    closeButtonRef.current?.focus();
+    return () => {
+      mounted.current = false;
+      document.body.classList.remove("modal-open");
+      const previousFocus = previousFocusRef.current;
+      if (previousFocus?.isConnected !== false) previousFocus?.focus?.();
+    };
   }, []);
+
+  function closeModal() {
+    if (operation.current) return;
+    onClose();
+  }
+
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape" && !operation.current) {
+      event.preventDefault();
+      closeModal();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(
+      modalRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      ) ?? []
+    );
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
+
+  async function runMutation(
+    authorised: boolean,
+    request: (signal: AbortSignal) => Promise<unknown>,
+    options: MutationOptions = {}
+  ): Promise<ModalMutationOutcome> {
+    if (!authorised || !token || operation.current) return "IGNORED";
+    const epoch = captureApiSessionEpoch();
+    if (epoch === null) return "STALE";
+    const controller = new AbortController();
+    const currentOperation = { controller, epoch };
+    operation.current = currentOperation;
+    const isOperationCurrent = () =>
+      operation.current === currentOperation && isApiSessionEpochCurrent(currentOperation.epoch);
+    const canUpdateModal = () => mounted.current && isOperationCurrent();
+    setBusy(true);
+    setMessage(null);
+    try {
+      return await settleApiSessionOperation(epoch, request(controller.signal), {
+        onSuccess: async () => {
+          if (!isOperationCurrent()) return;
+          await reconcileOperation(currentOperation);
+          if (!canUpdateModal()) return;
+          await options.onCurrentSuccess?.(currentOperation.epoch);
+          await options.reconcileLocal?.(currentOperation.epoch);
+          if (options.closeOnSuccess !== false) onClose();
+        },
+        onFailure: async (cause) => {
+          if (!isOperationCurrent() || isAbortError(cause)) return;
+          if (options.reconcileOnFailure) {
+            try {
+              await reconcileOperation(currentOperation);
+              if (canUpdateModal()) {
+                await options.reconcileLocal?.(currentOperation.epoch);
+              }
+            } catch {
+              // The original mutation failure remains the owner-visible result.
+            }
+          }
+          if (!canUpdateModal()) return;
+          setMessage(
+            cause instanceof Error ? cause.message : (options.failureMessage ?? t.requestFailed)
+          );
+        }
+      });
+    } catch (cause) {
+      if (canUpdateModal() && !isAbortError(cause)) {
+        setMessage(cause instanceof Error ? cause.message : t.requestFailed);
+      }
+      return "FAILED";
+    } finally {
+      if (operation.current === currentOperation) operation.current = null;
+      if (mounted.current) setBusy(false);
+    }
+  }
+
+  const runTaskBoardMutation: TaskBoardMutationRunner = (authorised, request, hooks) =>
+    runMutation(authorised, request, {
+      closeOnSuccess: false,
+      reconcileOnFailure: true,
+      failureMessage: t.taskBoardUpdateFailed,
+      onCurrentSuccess: hooks?.onCurrentSuccess,
+      reconcileLocal: hooks?.reconcileLocal
+    });
+
+  useEffect(() => {
+    if (!capabilities.canWrite) setEditing(false);
+  }, [capabilities.canWrite]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token) return;
     const form = new FormData(event.currentTarget);
-    setBusy(true);
-    setMessage(null);
-    try {
-      if (state.mode === "create") await createRecord(state.entity, form, token, clients, teams);
-      else if (activity)
-        await apiRequest<ActivityItem>(`/api/activities/${activity.id}`, token, {
+    await runMutation(capabilities.canWrite, (signal) => {
+      if (state.mode === "create") {
+        return createRecord(state.entity, form, token ?? "", clients, teams, signal);
+      }
+      if (activity) {
+        return apiRequest<ActivityItem>(`/api/activities/${activity.id}`, token, {
           method: "PATCH",
-          body: JSON.stringify(activityPayload(form))
+          body: JSON.stringify(activityPayload(form, activity)),
+          signal
         });
-      else if (recordId)
-        await apiRequest(recordEndpoint(state.entity, recordId), token, {
+      }
+      if (recordId) {
+        return apiRequest(recordEndpoint(state.entity, recordId), token, {
           method: "PATCH",
-          body: JSON.stringify(recordPayload(state.entity, form, clients, teams))
+          body: JSON.stringify(recordPayload(state.entity, form, clients, teams)),
+          signal
         });
-      await onReload();
-      onClose();
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Request failed");
-    } finally {
-      setBusy(false);
-    }
+      }
+      return Promise.resolve(undefined);
+    });
   }
 
   async function removeActivity() {
-    if (!token || (!activity && !recordId)) return;
-    setBusy(true);
-    try {
+    if (!activity && !recordId) return;
+    await runMutation(capabilities.canDelete, (signal) => {
       const endpoint = activity
         ? `/api/activities/${activity.id}`
         : recordEndpoint(state.entity, recordId);
-      await apiRequest(endpoint, token, { method: "DELETE" });
-      await onReload();
-      onClose();
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Request failed");
-    } finally {
-      setBusy(false);
-    }
+      return apiRequest(endpoint, token, { method: "DELETE", signal });
+    });
   }
 
   async function transitionActivity(action: "close" | "reopen") {
-    if (!token || !activity) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      await apiRequest<ActivityItem>(`/api/activities/${activity.id}/${action}`, token, {
+    if (!activity) return;
+    await runMutation(capabilities.canWrite, (signal) =>
+      apiRequest<ActivityItem>(`/api/activities/${activity.id}/${action}`, token, {
         method: "POST",
-        body: JSON.stringify({
-          note:
-            action === "close"
-              ? "Encerrado pelo modal operacional"
-              : "Reaberto pelo modal operacional"
-        })
-      });
-      await onReload();
-      onClose();
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Request failed");
-    } finally {
-      setBusy(false);
-    }
+        body: JSON.stringify({}),
+        signal
+      })
+    );
   }
 
   async function addComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || !activity) return;
+    if (!activity) return;
     const form = new FormData(event.currentTarget);
-    setBusy(true);
-    try {
-      await apiRequest<CommentItem>("/api/comments", token, {
+    await runMutation(capabilities.canComment, (signal) =>
+      apiRequest<CommentItem>("/api/comments", token, {
         method: "POST",
-        body: JSON.stringify({ activityId: activity.id, body: String(form.get("body") ?? "") })
-      });
-      await onReload();
-      onClose();
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Request failed");
-    } finally {
-      setBusy(false);
-    }
+        body: JSON.stringify({ activityId: activity.id, body: String(form.get("body") ?? "") }),
+        signal
+      })
+    );
   }
 
   async function addTeamMember(teamId: string, userId: string, role: TeamMemberRole) {
-    if (!token || !teamId || !userId) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      await apiRequest(`/api/teams/${teamId}/members`, token, {
+    if (!teamId || !userId) return;
+    await runMutation(capabilities.canAddMembers, (signal) =>
+      apiRequest(`/api/teams/${teamId}/members`, token, {
         method: "POST",
-        body: JSON.stringify({ userId, role })
-      });
-      await onReload();
-      onClose();
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Request failed");
-    } finally {
-      setBusy(false);
-    }
+        body: JSON.stringify({ userId, role }),
+        signal
+      })
+    );
   }
 
   async function removeTeamMember(teamId: string, userId: string) {
-    if (!token || !teamId || !userId) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      await apiRequest(`/api/teams/${teamId}/members/${userId}`, token, { method: "DELETE" });
-      await onReload();
-      onClose();
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Request failed");
-    } finally {
-      setBusy(false);
-    }
+    if (!teamId || !userId) return;
+    await runMutation(capabilities.canRemoveMembers, (signal) =>
+      apiRequest(`/api/teams/${teamId}/members/${userId}`, token, { method: "DELETE", signal })
+    );
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <section className="record-modal">
+    <div className="modal-backdrop">
+      <section
+        aria-labelledby="record-modal-title"
+        aria-modal="true"
+        className="record-modal"
+        onKeyDown={handleDialogKeyDown}
+        ref={modalRef}
+        role="dialog"
+        tabIndex={-1}
+      >
         <header className="modal-header">
           <div>
             <p className="eyebrow">{state.mode === "create" ? t.newRecord : t.details}</p>
-            <h2>{modalTitle(state.entity, t)}</h2>
+            <h2 id="record-modal-title">{modalTitle(state.entity, t)}</h2>
           </div>
-          <button className="icon-button" onClick={onClose} title={t.close}>
+          <button
+            aria-label={t.close}
+            className="icon-button"
+            disabled={busy}
+            onClick={closeModal}
+            ref={closeButtonRef}
+            title={t.close}
+            type="button"
+          >
             <X size={18} />
           </button>
         </header>
@@ -208,7 +332,7 @@ export function RecordModal({
             {message}
           </p>
         ) : null}
-        {state.mode === "create" ? (
+        {state.mode === "create" && capabilities.canWrite ? (
           <CreateForm
             entity={state.entity}
             t={t}
@@ -217,6 +341,8 @@ export function RecordModal({
             teams={teams}
             shifts={shifts}
             roles={roles}
+            token={token}
+            referenceAccess={referenceAccess}
             busy={busy}
             onSubmit={submit}
           />
@@ -233,12 +359,15 @@ export function RecordModal({
             shifts={shifts}
             editing={editing}
             busy={busy}
+            capabilities={capabilities}
+            referenceAccess={referenceAccess}
             setEditing={setEditing}
             onSubmit={submit}
             onRemove={removeActivity}
             onComment={addComment}
             onCloseActivity={() => void transitionActivity("close")}
             onReopenActivity={() => void transitionActivity("reopen")}
+            runTaskBoardMutation={runTaskBoardMutation}
           />
         ) : null}
         {state.mode === "detail" && !activity ? (
@@ -248,8 +377,11 @@ export function RecordModal({
             t={t}
             users={users}
             roles={roles}
+            token={token}
+            referenceAccess={referenceAccess}
             editing={editing}
             busy={busy}
+            capabilities={capabilities}
             setEditing={setEditing}
             onSubmit={submit}
             onRemove={removeActivity}
@@ -262,14 +394,23 @@ export function RecordModal({
   );
 }
 
-function GenericDetail({
+export function GenericDetail({
   entity,
   record,
   t,
   users,
   roles,
+  token,
+  referenceAccess = {
+    clients: false,
+    users: false,
+    teams: false,
+    shifts: false,
+    roles: false
+  },
   editing,
   busy,
+  capabilities,
   setEditing,
   onSubmit,
   onRemove,
@@ -281,8 +422,11 @@ function GenericDetail({
   t: Texts;
   users: UserRef[];
   roles: RoleRef[];
+  token?: string;
+  referenceAccess?: ReferenceAccess;
   editing: boolean;
   busy: boolean;
+  capabilities: RecordModalCapabilities;
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
@@ -295,8 +439,12 @@ function GenericDetail({
         user={record as UserRef & { preferredLocale?: string; preferredTheme?: string }}
         t={t}
         roles={roles}
+        token={token}
+        canLoadRoles={referenceAccess.roles}
         editing={editing}
         busy={busy}
+        canWrite={capabilities.canWrite}
+        canDelete={capabilities.canDelete}
         setEditing={setEditing}
         onSubmit={onSubmit}
         onRemove={onRemove}
@@ -309,6 +457,8 @@ function GenericDetail({
         t={t}
         editing={editing}
         busy={busy}
+        canWrite={capabilities.canWrite}
+        canDelete={capabilities.canDelete}
         setEditing={setEditing}
         onSubmit={onSubmit}
         onRemove={onRemove}
@@ -320,8 +470,14 @@ function GenericDetail({
         team={record as TeamRef & { description?: string }}
         t={t}
         users={users}
+        token={token}
+        canLoadUsers={referenceAccess.users}
         editing={editing}
         busy={busy}
+        canWrite={capabilities.canWrite}
+        canDelete={capabilities.canDelete}
+        canAddMembers={capabilities.canAddMembers}
+        canRemoveMembers={capabilities.canRemoveMembers}
         setEditing={setEditing}
         onSubmit={onSubmit}
         onRemove={onRemove}
@@ -336,6 +492,8 @@ function GenericDetail({
         t={t}
         editing={editing}
         busy={busy}
+        canWrite={capabilities.canWrite}
+        canDelete={capabilities.canDelete}
         setEditing={setEditing}
         onSubmit={onSubmit}
         onRemove={onRemove}
@@ -348,31 +506,39 @@ function FormActions({
   t,
   editing,
   busy,
+  canWrite,
+  canDelete,
   setEditing,
   onRemove
 }: {
   t: Texts;
   editing: boolean;
   busy: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
   setEditing: (value: boolean) => void;
   onRemove: () => void;
 }) {
   return (
     <div className="modal-actions span-2">
-      <button className="compact-button" type="button" onClick={() => setEditing(!editing)}>
-        <Save size={16} />
-        {editing ? t.close : t.edit}
-      </button>
-      {editing ? (
+      {canWrite ? (
+        <button className="compact-button" type="button" onClick={() => setEditing(!editing)}>
+          <Save size={16} />
+          {editing ? t.close : t.edit}
+        </button>
+      ) : null}
+      {editing && canWrite ? (
         <button className="primary-button" disabled={busy} type="submit">
           <Save size={16} />
           {t.save}
         </button>
       ) : null}
-      <button className="danger-button" disabled={busy} type="button" onClick={onRemove}>
-        <Trash2 size={16} />
-        {t.delete}
-      </button>
+      {canDelete ? (
+        <button className="danger-button" disabled={busy} type="button" onClick={onRemove}>
+          <Trash2 size={16} />
+          {t.delete}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -381,8 +547,12 @@ function UserDetail({
   user,
   t,
   roles,
+  token,
+  canLoadRoles,
   editing,
   busy,
+  canWrite,
+  canDelete,
   setEditing,
   onSubmit,
   onRemove
@@ -390,16 +560,21 @@ function UserDetail({
   user: UserRef & { preferredLocale?: string; preferredTheme?: string };
   t: Texts;
   roles: RoleRef[];
+  token?: string;
+  canLoadRoles: boolean;
   editing: boolean;
   busy: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
 }) {
+  const currentRoleId = userRoleId(user);
   return (
     <form className="modal-grid" onSubmit={onSubmit}>
       <label>
-        Nome
+        {t.name}
         <input
           name="displayName"
           defaultValue={user.displayName ?? ""}
@@ -408,7 +583,7 @@ function UserDetail({
         />
       </label>
       <label>
-        E-mail
+        {t.email}
         <input
           name="email"
           type="email"
@@ -418,11 +593,11 @@ function UserDetail({
         />
       </label>
       <label>
-        Cargo
+        {t.jobTitle}
         <input name="jobTitle" defaultValue={user.jobTitle ?? ""} disabled={!editing} />
       </label>
       <label>
-        Status
+        {t.filterStatus}
         <SelectInput
           name="status"
           value={user.status ?? "ACTIVE"}
@@ -435,17 +610,24 @@ function UserDetail({
           ]}
         />
       </label>
-      <label>
-        Perfil
-        <SelectInput
+      <div className="reference-field">
+        <span>{t.role}</span>
+        <ReferenceSelectInput
+          t={t}
+          label={t.role}
           name="roleId"
-          value={userRoleId(user)}
+          value={currentRoleId}
+          selectedLabel={userRoleOptions(user, roles, t).find(([id]) => id === currentRoleId)?.[1]}
           disabled={!editing}
-          options={userRoleOptions(user, roles)}
+          initialItems={roles}
+          resource="roles"
+          token={token}
+          loadEnabled={canLoadRoles}
+          placeholder={currentRoleId ? undefined : t.noCompanyRole}
         />
-      </label>
+      </div>
       <label>
-        Idioma
+        {t.language}
         <SelectInput
           name="preferredLocale"
           value={user.preferredLocale ?? "PT_BR"}
@@ -457,7 +639,7 @@ function UserDetail({
         />
       </label>
       <label>
-        Tema
+        {t.theme}
         <SelectInput
           name="preferredTheme"
           value={user.preferredTheme ?? "SYSTEM"}
@@ -470,18 +652,20 @@ function UserDetail({
         />
       </label>
       <label className="span-2">
-        Nova senha
+        {t.newPassword}
         <input
           name="password"
           type="password"
           disabled={!editing}
-          placeholder="Preencha apenas para alterar"
+          placeholder={t.newPasswordHint}
         />
       </label>
       <FormActions
         t={t}
         editing={editing}
         busy={busy}
+        canWrite={canWrite}
+        canDelete={canDelete}
         setEditing={setEditing}
         onRemove={onRemove}
       />
@@ -494,6 +678,8 @@ function ClientDetail({
   t,
   editing,
   busy,
+  canWrite,
+  canDelete,
   setEditing,
   onSubmit,
   onRemove
@@ -502,6 +688,8 @@ function ClientDetail({
   t: Texts;
   editing: boolean;
   busy: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
@@ -509,15 +697,15 @@ function ClientDetail({
   return (
     <form className="modal-grid" onSubmit={onSubmit}>
       <label>
-        Nome
+        {t.name}
         <input name="name" defaultValue={client.name ?? ""} disabled={!editing} required />
       </label>
       <label>
-        Codigo
+        {t.code}
         <input name="code" defaultValue={client.code ?? ""} disabled={!editing} />
       </label>
       <label>
-        Status
+        {t.filterStatus}
         <SelectInput
           name="status"
           value={client.status ?? "ACTIVE"}
@@ -532,6 +720,8 @@ function ClientDetail({
         t={t}
         editing={editing}
         busy={busy}
+        canWrite={canWrite}
+        canDelete={canDelete}
         setEditing={setEditing}
         onRemove={onRemove}
       />
@@ -539,12 +729,18 @@ function ClientDetail({
   );
 }
 
-function TeamDetail({
+export function TeamDetail({
   team,
   t,
   users,
+  token,
+  canLoadUsers,
   editing,
   busy,
+  canWrite,
+  canDelete,
+  canAddMembers,
+  canRemoveMembers,
   setEditing,
   onSubmit,
   onRemove,
@@ -554,8 +750,14 @@ function TeamDetail({
   team: TeamRef & { description?: string };
   t: Texts;
   users: UserRef[];
+  token?: string;
+  canLoadUsers: boolean;
   editing: boolean;
   busy: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+  canAddMembers: boolean;
+  canRemoveMembers: boolean;
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
@@ -563,23 +765,23 @@ function TeamDetail({
   onRemoveMember: (teamId: string, userId: string) => Promise<void>;
 }) {
   const members = team.members ?? [];
-  const memberUserIds = new Set(members.map((member) => member.userId).filter(Boolean));
+  const memberUserIds = new Set(
+    members.map((member) => member.userId).filter((id): id is string => Boolean(id))
+  );
   const availableUsers = users.filter((user) => user.id && !memberUserIds.has(user.id));
-  const [selectedUserId, setSelectedUserId] = useState(availableUsers[0]?.id ?? "");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRole, setSelectedRole] = useState<TeamMemberRole>("MEMBER");
-  const effectiveSelectedUserId = availableUsers.some((user) => user.id === selectedUserId)
-    ? selectedUserId
-    : (availableUsers[0]?.id ?? "");
+  const effectiveSelectedUserId = memberUserIds.has(selectedUserId) ? "" : selectedUserId;
 
   return (
     <div className="modal-stack">
       <form className="modal-grid" onSubmit={onSubmit}>
         <label>
-          Nome
+          {t.name}
           <input name="name" defaultValue={team.name ?? ""} disabled={!editing} required />
         </label>
         <label>
-          Cor
+          {t.colour}
           <input name="color" defaultValue={team.color ?? "#0f766e"} disabled={!editing} />
         </label>
         <label>
@@ -592,80 +794,90 @@ function TeamDetail({
           />
         </label>
         <label className="span-2">
-          Descricao
+          {t.description}
           <textarea name="description" defaultValue={team.description ?? ""} disabled={!editing} />
         </label>
         <FormActions
           t={t}
           editing={editing}
           busy={busy}
+          canWrite={canWrite}
+          canDelete={canDelete}
           setEditing={setEditing}
           onRemove={onRemove}
         />
       </form>
       <section className="team-members-panel">
         <div className="panel-header">
-          <h3>Membros</h3>
+          <h3>{t.members}</h3>
           <span>{members.length}</span>
         </div>
-        <div className="team-member-controls">
-          <label>
-            Usuario
-            <select
-              value={effectiveSelectedUserId}
-              disabled={busy || !team.id || !availableUsers.length}
-              onChange={(event) => setSelectedUserId(event.target.value)}
+        {canRemoveMembers && !canAddMembers ? (
+          <p className="guard-note">{t.memberReferenceAccessRequired}</p>
+        ) : null}
+        {canAddMembers ? (
+          <div className="team-member-controls">
+            <div className="reference-field">
+              <span>{t.user}</span>
+              <ReferenceSelectInput
+                t={t}
+                label={t.user}
+                resource="users"
+                initialItems={availableUsers}
+                excludedIds={[...memberUserIds]}
+                token={token}
+                loadEnabled={canLoadUsers}
+                placeholder={t.selectUser}
+                value={effectiveSelectedUserId}
+                disabled={busy || !team.id}
+                onValueChange={setSelectedUserId}
+              />
+            </div>
+            <label>
+              {t.teamRole}
+              <select
+                value={selectedRole}
+                disabled={busy || !team.id}
+                onChange={(event) => setSelectedRole(event.target.value as TeamMemberRole)}
+              >
+                <option value="MEMBER">{t.member}</option>
+                <option value="LEADER">{t.leader}</option>
+              </select>
+            </label>
+            <button
+              className="primary-button"
+              disabled={busy || !team.id || !effectiveSelectedUserId}
+              type="button"
+              onClick={() => void onAddMember(team.id ?? "", effectiveSelectedUserId, selectedRole)}
             >
-              {availableUsers.length ? null : <option value="">Sem usuarios disponiveis</option>}
-              {availableUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {userOptionLabel(user)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Perfil na equipe
-            <select
-              value={selectedRole}
-              disabled={busy || !team.id || !availableUsers.length}
-              onChange={(event) => setSelectedRole(event.target.value as TeamMemberRole)}
-            >
-              <option value="MEMBER">Membro</option>
-              <option value="LEADER">Lider</option>
-            </select>
-          </label>
-          <button
-            className="primary-button"
-            disabled={busy || !team.id || !effectiveSelectedUserId}
-            type="button"
-            onClick={() => void onAddMember(team.id ?? "", effectiveSelectedUserId, selectedRole)}
-          >
-            <Plus size={16} />
-            Adicionar
-          </button>
-        </div>
+              <Plus size={16} />
+              {t.add}
+            </button>
+          </div>
+        ) : null}
         <div className="team-member-list">
           {members.length ? (
             members.map((member) => (
               <div key={member.id ?? member.userId}>
                 <span>
                   <strong>{member.user?.displayName ?? member.user?.email ?? member.userId}</strong>
-                  <small>{member.role === "LEADER" ? "Lider" : "Membro"}</small>
+                  <small>{member.role === "LEADER" ? t.leader : t.member}</small>
                 </span>
-                <button
-                  className="danger-button"
-                  disabled={busy || !team.id || !member.userId}
-                  type="button"
-                  onClick={() => void onRemoveMember(team.id ?? "", member.userId ?? "")}
-                >
-                  <Trash2 size={16} />
-                  Remover
-                </button>
+                {canRemoveMembers ? (
+                  <button
+                    className="danger-button"
+                    disabled={busy || !team.id || !member.userId}
+                    type="button"
+                    onClick={() => void onRemoveMember(team.id ?? "", member.userId ?? "")}
+                  >
+                    <Trash2 size={16} />
+                    {t.remove}
+                  </button>
+                ) : null}
               </div>
             ))
           ) : (
-            <p className="empty-state">Nenhum membro atribuido.</p>
+            <p className="empty-state">{t.noMembersAssigned}</p>
           )}
         </div>
       </section>
@@ -678,6 +890,8 @@ function ShiftDetail({
   t,
   editing,
   busy,
+  canWrite,
+  canDelete,
   setEditing,
   onSubmit,
   onRemove
@@ -686,6 +900,8 @@ function ShiftDetail({
   t: Texts;
   editing: boolean;
   busy: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
@@ -693,11 +909,11 @@ function ShiftDetail({
   return (
     <form className="modal-grid" onSubmit={onSubmit}>
       <label>
-        Nome
+        {t.name}
         <input name="name" defaultValue={shift.name ?? ""} disabled={!editing} required />
       </label>
       <label>
-        Inicio
+        {t.start}
         <input
           name="startsAt"
           type="datetime-local"
@@ -707,7 +923,7 @@ function ShiftDetail({
         />
       </label>
       <label>
-        Fim
+        {t.end}
         <input
           name="endsAt"
           type="datetime-local"
@@ -717,7 +933,7 @@ function ShiftDetail({
         />
       </label>
       <label>
-        Timezone
+        {t.timeZone}
         <input
           name="timezone"
           defaultValue={shift.timezone ?? "America/Sao_Paulo"}
@@ -725,7 +941,7 @@ function ShiftDetail({
         />
       </label>
       <label>
-        Status
+        {t.filterStatus}
         <SelectInput
           name="status"
           value={shift.status ?? "OPEN"}
@@ -737,6 +953,8 @@ function ShiftDetail({
         t={t}
         editing={editing}
         busy={busy}
+        canWrite={canWrite}
+        canDelete={canDelete}
         setEditing={setEditing}
         onRemove={onRemove}
       />

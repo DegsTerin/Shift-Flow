@@ -38,7 +38,12 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import { clearApiSession, setApiSession } from "../lib/api";
-import { CustomizableDashboard, type DashboardWidgetDefinition } from "./custom-dashboard";
+import { messages } from "../lib/i18n";
+import {
+  CustomizableDashboard,
+  displayWidgetTitle,
+  type DashboardWidgetDefinition
+} from "./custom-dashboard";
 
 type StateSlot = { kind: "state"; value: unknown };
 type RefSlot = { kind: "ref"; value: { current: unknown } };
@@ -132,10 +137,26 @@ class HookRuntime {
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((complete) => {
+  let reject: (reason: unknown) => void = () => undefined;
+  const promise = new Promise<T>((complete, fail) => {
     resolve = complete;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
+}
+
+function elements(node: unknown): ReactElement[] {
+  if (Array.isArray(node)) return node.flatMap(elements);
+  if (!node || typeof node !== "object" || !("props" in node)) return [];
+  const element = node as ReactElement;
+  return [element, ...elements((element.props as { children?: unknown }).children)];
+}
+
+function textOf(node: unknown): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join(" ");
+  if (!node || typeof node !== "object" || !("props" in node)) return "";
+  return textOf(((node as ReactElement).props as { children?: unknown }).children);
 }
 
 function findButton(node: unknown, label: string): ReactElement {
@@ -154,7 +175,12 @@ function findButton(node: unknown, label: string): ReactElement {
   }
   const element = node as ReactElement;
   const props = element.props as { children?: unknown; "aria-label"?: string };
-  if (element.type === "button" && props["aria-label"] === label) return element;
+  if (
+    element.type === "button" &&
+    (props["aria-label"] === label || textOf(element).includes(label))
+  ) {
+    return element;
+  }
   return findButton(props.children, label);
 }
 
@@ -170,30 +196,24 @@ function session(companyId: string): LoginResponse {
   };
 }
 
-const texts = {
-  addWidget: "Add widget",
-  hiddenWidgets: "Hidden widgets",
-  dashboardSaved: "Layout saved",
-  dashboardSaveFailed: "Save failed",
-  customizeDashboard: "Customise dashboard",
-  restoreDefault: "Restore default",
-  cancel: "Cancel",
-  save: "Save",
-  pin: "Pin",
-  unpin: "Unpin",
-  decreaseWidth: "Decrease width",
-  increaseWidth: "Increase width",
-  decreaseHeight: "Decrease height",
-  increaseHeight: "Increase height",
-  duplicate: "Duplicate",
-  hide: "Hide",
-  delete: "Delete"
-} as Texts;
+const texts = messages["en-GB"] as Texts;
 
 const definitions: DashboardWidgetDefinition[] = [
   {
     key: "summary-total",
     title: "Total",
+    widgetType: "SUMMARY_CARD",
+    defaultWidth: 2,
+    defaultHeight: 2,
+    render: () => null
+  }
+];
+
+const twoDefinitions: DashboardWidgetDefinition[] = [
+  ...definitions,
+  {
+    key: "summary-pending",
+    title: "Pending",
     widgetType: "SUMMARY_CARD",
     defaultWidth: 2,
     defaultHeight: 2,
@@ -219,6 +239,24 @@ function configuration(patch: Partial<DashboardConfiguration["widgets"][number]>
         isPinned: false,
         order: 0,
         ...patch
+      }
+    ]
+  };
+}
+
+function twoWidgetConfiguration(): DashboardConfiguration {
+  const first = configuration().widgets[0];
+  if (!first) throw new Error("Expected base widget");
+  return {
+    ...configuration(),
+    widgets: [
+      first,
+      {
+        ...first,
+        key: "summary-pending",
+        title: "Pendentes",
+        order: 1,
+        gridColumn: 7
       }
     ]
   };
@@ -323,12 +361,89 @@ describe("CustomizableDashboard persistence integration", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
-  it("does not apply a completed write response after the authenticated tenant changes", async () => {
+  it("resets the draft before the successor tenant can persist a dashboard change", async () => {
     const first = deferred<DashboardConfiguration>();
     const onSave = vi
       .fn<(next: DashboardConfiguration) => Promise<DashboardConfiguration>>()
       .mockImplementationOnce(() => first.promise)
       .mockImplementation(async (next) => next);
+    const propsA = {
+      t: texts,
+      config: configuration(),
+      definitions,
+      onSave,
+      onReset: vi.fn(async () => configuration())
+    };
+
+    runtime.render(propsA);
+    listeners.get("shiftflow:customize-dashboard")?.();
+    let tree = runtime.render(propsA);
+    click(tree, texts.increaseWidth);
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    setApiSession(session("company-b"));
+    const propsB = {
+      ...propsA,
+      config: configuration({ gridWidth: 8, gridHeight: 6 })
+    };
+    runtime.render(propsB);
+    first.resolve(configuration({ gridWidth: 9, gridHeight: 7 }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    runtime.render(propsB);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    listeners.get("shiftflow:customize-dashboard")?.();
+    tree = runtime.render(propsB);
+    click(tree, texts.pin);
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    expect(onSave.mock.calls[1][0].widgets[0]).toMatchObject({
+      gridWidth: 8,
+      gridHeight: 6,
+      isPinned: true
+    });
+  });
+
+  it("exits editing and discards queued writes when configuration authority is revoked", async () => {
+    const first = deferred<DashboardConfiguration>();
+    const onSave = vi
+      .fn<(next: DashboardConfiguration) => Promise<DashboardConfiguration>>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementation(async (next) => next);
+    const baseProps = {
+      t: texts,
+      config: configuration(),
+      definitions,
+      onSave,
+      onReset: vi.fn(async () => configuration())
+    };
+
+    runtime.render({ ...baseProps, canConfigure: true });
+    listeners.get("shiftflow:customize-dashboard")?.();
+    let tree = runtime.render({ ...baseProps, canConfigure: true });
+    click(tree, texts.increaseWidth);
+    tree = runtime.render({ ...baseProps, canConfigure: true });
+    click(tree, texts.increaseHeight);
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    runtime.render({ ...baseProps, canConfigure: false });
+    first.resolve(configuration({ gridWidth: 3 }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    tree = runtime.render({ ...baseProps, canConfigure: false });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(() => findButton(tree, texts.increaseWidth)).toThrow();
+    listeners.get("shiftflow:customize-dashboard")?.();
+    tree = runtime.render({ ...baseProps, canConfigure: false });
+    expect(() => findButton(tree, texts.increaseWidth)).toThrow();
+  });
+
+  it("rolls two rejected queued edits back to the last server-confirmed configuration", async () => {
+    const first = deferred<DashboardConfiguration>();
+    const second = deferred<DashboardConfiguration>();
+    const onSave = vi
+      .fn<(next: DashboardConfiguration) => Promise<DashboardConfiguration>>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
     const props = {
       t: texts,
       config: configuration(),
@@ -341,19 +456,232 @@ describe("CustomizableDashboard persistence integration", () => {
     listeners.get("shiftflow:customize-dashboard")?.();
     let tree = runtime.render(props);
     click(tree, texts.increaseWidth);
+    tree = runtime.render(props);
+    click(tree, texts.increaseHeight);
     await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
 
-    setApiSession(session("company-b"));
-    first.resolve(configuration({ gridWidth: 9, gridHeight: 7 }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    tree = runtime.render(props);
-    click(tree, texts.pin);
+    first.reject(new Error("first rejected"));
     await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
-    expect(onSave.mock.calls[1][0].widgets[0]).toMatchObject({
-      gridWidth: 3,
-      gridHeight: 2,
-      isPinned: true
+    second.reject(new Error("second rejected"));
+    await vi.waitFor(() => {
+      tree = runtime.render(props);
+      expect(textOf(tree)).toContain("second rejected");
     });
+
+    const widget = elements(tree).find(
+      (element) =>
+        element.type === "article" &&
+        String((element.props as { className?: string }).className).includes("dashboard-widget")
+    );
+    expect((widget?.props as { style?: unknown }).style).toMatchObject({
+      gridColumn: "span 2",
+      minHeight: "176px"
+    });
+  });
+
+  it("rolls a rejected newer edit back to an older normalised server success", async () => {
+    const first = deferred<DashboardConfiguration>();
+    const second = deferred<DashboardConfiguration>();
+    const onSave = vi
+      .fn<(next: DashboardConfiguration) => Promise<DashboardConfiguration>>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const props = {
+      t: texts,
+      config: configuration(),
+      definitions,
+      onSave,
+      onReset: vi.fn(async () => configuration())
+    };
+
+    runtime.render(props);
+    listeners.get("shiftflow:customize-dashboard")?.();
+    let tree = runtime.render(props);
+    click(tree, texts.increaseWidth);
+    tree = runtime.render(props);
+    click(tree, texts.increaseHeight);
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    first.resolve(configuration({ gridWidth: 5, gridHeight: 2 }));
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    second.reject(new Error("newer rejected"));
+    await vi.waitFor(() => {
+      tree = runtime.render(props);
+      expect(textOf(tree)).toContain("newer rejected");
+    });
+
+    const widget = elements(tree).find(
+      (element) =>
+        element.type === "article" &&
+        String((element.props as { className?: string }).className).includes("dashboard-widget")
+    );
+    expect((widget?.props as { style?: unknown }).style).toMatchObject({
+      gridColumn: "span 5",
+      minHeight: "176px"
+    });
+  });
+
+  it("keeps the editor open and exposes a late persistence error", async () => {
+    const operation = deferred<DashboardConfiguration>();
+    const props = {
+      t: texts,
+      config: configuration(),
+      definitions,
+      onSave: vi.fn(() => operation.promise),
+      onReset: vi.fn(async () => configuration())
+    };
+
+    runtime.render(props);
+    listeners.get("shiftflow:customize-dashboard")?.();
+    let tree = runtime.render(props);
+    click(tree, texts.increaseWidth);
+    tree = runtime.render(props);
+
+    expect(
+      (findButton(tree, texts.exitCustomization).props as { disabled?: boolean }).disabled
+    ).toBe(true);
+    operation.reject(new Error("save remained visible"));
+    await vi.waitFor(() => {
+      tree = runtime.render(props);
+      expect(textOf(tree)).toContain("save remained visible");
+    });
+    expect(() => findButton(tree, texts.increaseWidth)).not.toThrow();
+  });
+
+  it("blocks reset, cancel and exit immediately after a persistence intent starts", async () => {
+    const operation = deferred<DashboardConfiguration>();
+    const onSave = vi.fn(() => operation.promise);
+    const onReset = vi.fn(async () => configuration());
+    const props = {
+      t: texts,
+      config: configuration(),
+      definitions,
+      onSave,
+      onReset
+    };
+
+    runtime.render(props);
+    listeners.get("shiftflow:customize-dashboard")?.();
+    const staleTree = runtime.render(props);
+    click(staleTree, texts.increaseWidth);
+    click(staleTree, texts.restoreDefault);
+    click(staleTree, texts.cancel);
+    click(staleTree, texts.exitCustomization);
+
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onReset).not.toHaveBeenCalled();
+    expect(() => findButton(runtime.render(props), texts.increaseWidth)).not.toThrow();
+
+    operation.resolve(configuration({ gridWidth: 3 }));
+    await vi.waitFor(() => {
+      const tree = runtime.render(props);
+      expect(
+        (findButton(tree, texts.exitCustomization).props as { disabled?: boolean }).disabled
+      ).toBe(false);
+    });
+  });
+
+  it("treats reset as a barrier against widget mutations", async () => {
+    const operation = deferred<DashboardConfiguration>();
+    const onSave = vi.fn(async (next: DashboardConfiguration) => next);
+    const onReset = vi.fn(() => operation.promise);
+    const props = {
+      t: texts,
+      config: configuration(),
+      definitions,
+      onSave,
+      onReset
+    };
+
+    runtime.render(props);
+    listeners.get("shiftflow:customize-dashboard")?.();
+    const staleTree = runtime.render(props);
+    click(staleTree, texts.restoreDefault);
+    click(staleTree, texts.increaseWidth);
+
+    await vi.waitFor(() => expect(onReset).toHaveBeenCalledOnce());
+    expect(onSave).not.toHaveBeenCalled();
+
+    operation.resolve(configuration());
+    await vi.waitFor(() => {
+      const tree = runtime.render(props);
+      expect(
+        (findButton(tree, texts.exitCustomization).props as { disabled?: boolean }).disabled
+      ).toBe(false);
+    });
+  });
+
+  it("reorders widgets with the keyboard-equivalent controls", async () => {
+    const onSave = vi.fn(async (next: DashboardConfiguration) => next);
+    const props = {
+      t: texts,
+      config: twoWidgetConfiguration(),
+      definitions: twoDefinitions,
+      onSave,
+      onReset: vi.fn(async () => twoWidgetConfiguration())
+    };
+
+    runtime.render(props);
+    listeners.get("shiftflow:customize-dashboard")?.();
+    const tree = runtime.render(props);
+    click(tree, `${texts.moveWidgetLater}: Total`);
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+
+    expect(onSave.mock.calls[0]?.[0].widgets.map((widget) => widget.key)).toEqual([
+      "summary-pending",
+      "summary-total"
+    ]);
+  });
+
+  it("localises only recognised internal titles and preserves custom titles", () => {
+    const definition = definitions[0];
+    if (!definition) throw new Error("Expected widget definition");
+
+    expect(
+      displayWidgetTitle(configuration({ title: "Atividades totais" }).widgets[0]!, definition)
+    ).toBe("Total");
+    expect(
+      displayWidgetTitle(configuration({ title: "Owner total" }).widgets[0]!, definition)
+    ).toBe("Owner total");
+  });
+
+  it("persists locale-neutral duplicate metadata and presents the active locale", async () => {
+    const onSave = vi.fn(async (next: DashboardConfiguration) => next);
+    const props = {
+      t: texts,
+      config: configuration({ title: "Atividades totais" }),
+      definitions,
+      onSave,
+      onReset: vi.fn(async () => configuration())
+    };
+
+    runtime.render(props);
+    listeners.get("shiftflow:customize-dashboard")?.();
+    click(runtime.render(props), texts.duplicate);
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+
+    const saved = onSave.mock.calls[0]?.[0];
+    if (!saved) throw new Error("Expected persisted dashboard configuration");
+    expect(saved.widgets.map((widget) => widget.title)).toEqual([
+      "Atividades totais",
+      "Atividades totais"
+    ]);
+    expect(saved.widgets[1]?.settings).toMatchObject({
+      sourceKey: "summary-total",
+      titlePresentation: "LOCALISED_COPY"
+    });
+    const duplicate = saved.widgets[1];
+    const englishDefinition = definitions[0];
+    if (!duplicate || !englishDefinition) throw new Error("Expected duplicated widget");
+    expect(displayWidgetTitle(duplicate, englishDefinition, messages["en-GB"].copySuffix)).toBe(
+      "Total copy"
+    );
+    expect(
+      displayWidgetTitle(
+        duplicate,
+        { ...englishDefinition, title: messages["pt-BR"].total },
+        messages["pt-BR"].copySuffix
+      )
+    ).toBe("Atividades totais cópia");
   });
 });

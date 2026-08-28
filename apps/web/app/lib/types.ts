@@ -1,6 +1,5 @@
 // en-GB: Provides shared types definitions so frontend modules use one consistent implementation.
-import type { Dispatch, SetStateAction } from "react";
-import type { LayoutDashboard, Moon } from "lucide-react";
+import type { Moon } from "lucide-react";
 import type { messages } from "./i18n";
 
 export type Locale = "pt-BR" | "en-GB";
@@ -26,7 +25,7 @@ export type SessionUser = {
   permissions?: string[];
 };
 export type LoginResponse = { accessToken: string; user: SessionUser };
-export type ListResponse<T> = { items: T[]; total: number };
+export type ListResponse<T> = { items: T[]; total: number; page?: number; pageSize?: number };
 export type DashboardSummary = {
   total: number;
   pending: number;
@@ -51,6 +50,11 @@ export type DashboardCharts = {
   byStatus: GroupCount[];
   byPriority: GroupCount[];
   byShift: GroupCount[];
+};
+export type ReportActivitySummary = {
+  total: number;
+  byStatus: GroupCount[];
+  byPriority: GroupCount[];
 };
 export type DashboardType = "MAIN" | "TEAM" | "EXECUTIVE";
 export type DashboardWidget = {
@@ -257,7 +261,19 @@ export type Filters = {
   to: string;
 };
 export type ModalState = { mode: "create" | "detail"; entity: View; record?: unknown } | null;
+export type RecordModalCapabilities = Readonly<{
+  canWrite: boolean;
+  canDelete: boolean;
+  canComment: boolean;
+  canAddMembers: boolean;
+  canRemoveMembers: boolean;
+}>;
+export type ReferenceAccess = Readonly<{
+  clients: boolean;
+  users: boolean;
+  teams: boolean;
+  shifts: boolean;
+  roles: boolean;
+}>;
 export type Texts = (typeof messages)["pt-BR"];
-export type MenuItem = { id: View; icon: typeof LayoutDashboard };
 export type IconType = typeof Moon;
-export type SetFilters = Dispatch<SetStateAction<Filters>>;

@@ -4,9 +4,10 @@ import type {
   AuthenticatedUser,
   TenantContext
 } from "../../shared/http/request-types.js";
-import { toPagination, toSkipTake } from "../../shared/http/pagination.js";
+import { toBoundedSearch, toPagination, toSkipTake } from "../../shared/http/pagination.js";
 import { badRequest, forbidden, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
+import { buildAuditData } from "../../shared/services/audit-writer.js";
 import { RbacRepository } from "./rbac.repository.js";
 
 type PermissionRule = {
@@ -107,12 +108,24 @@ class RolesService extends BaseService {
   override async list(req: ApiRequest, filters: Record<string, unknown> = {}) {
     const pagination = toPagination(req.query);
     const companyId = this.requireCompanyId(req);
-    const where = { ...filters, companyId, deletedAt: null };
+    const search = toBoundedSearch(req.query);
+    const where = {
+      ...filters,
+      companyId,
+      deletedAt: null,
+      ...(search
+        ? {
+            OR: ["name", "description"].map((field) => ({
+              [field]: { contains: search, mode: "insensitive" }
+            }))
+          }
+        : {})
+    };
     const [items, total] = await Promise.all([
       this.repository.list({
         where,
         ...toSkipTake(pagination),
-        orderBy: { updatedAt: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         include: roleInclude()
       }),
       this.repository.count(where)
@@ -134,18 +147,21 @@ class RolesService extends BaseService {
     if (!companyId) {
       throw badRequest("Company context is required");
     }
-    const role = await this.rbacRepository.findRole(id, companyId);
-    if (!role) {
-      throw notFound("Role not found");
-    }
-    if (role.isSystem) {
-      throw badRequest("System profiles cannot be deleted");
-    }
-    const assignmentCount = await this.rbacRepository.countActiveAssignments(id, companyId);
-    if (assignmentCount > 0) {
-      throw badRequest("Profile is in use and cannot be deleted");
-    }
-    return super.remove(req, id);
+    return this.rbacRepository.mutateRole(
+      id,
+      companyId,
+      { deletedAt: new Date() },
+      "SOFT_DELETE",
+      (before, after) =>
+        buildAuditData(req, {
+          entityType: "Role",
+          entityId: id,
+          action: "SOFT_DELETE",
+          before,
+          after,
+          companyId
+        })
+    );
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
@@ -153,20 +169,21 @@ class RolesService extends BaseService {
     if (!companyId) {
       throw badRequest("Company context is required");
     }
-    const role = await this.rbacRepository.findRole(id, companyId);
-    if (!role) {
-      throw notFound("Role not found");
-    }
-    if (role.isSystem) {
-      throw badRequest("System profiles cannot be edited");
-    }
-    if (data.scope && data.scope !== role.scope) {
-      const assignmentCount = await this.rbacRepository.countActiveAssignments(id, companyId);
-      if (assignmentCount > 0) {
-        throw badRequest("Profile scope cannot change while active assignments exist");
-      }
-    }
-    return super.update(req, id, pickAllowedFields(data, mutableRoleFields));
+    return this.rbacRepository.mutateRole(
+      id,
+      companyId,
+      pickAllowedFields(data, mutableRoleFields),
+      "UPDATE",
+      (before, after) =>
+        buildAuditData(req, {
+          entityType: "Role",
+          entityId: id,
+          action: "UPDATE",
+          before,
+          after,
+          companyId
+        })
+    );
   }
 
   async duplicate(req: ApiRequest, id: string) {
@@ -187,7 +204,10 @@ class RolesService extends BaseService {
 
 class PermissionsService extends BaseService {
   constructor(repository: RbacRepository) {
-    super(repository.permissions, "Permission", { userStamps: false });
+    super(repository.permissions, "Permission", {
+      userStamps: false,
+      orderBy: [{ resource: "asc" }, { action: "asc" }, { id: "asc" }]
+    });
   }
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {

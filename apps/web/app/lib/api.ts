@@ -9,7 +9,14 @@ const authenticationPaths = new Set(["/api/auth/login", refreshPath, "/api/auth/
 
 let activeSession: LoginResponse | null = null;
 let sessionGeneration = 0;
-let refreshPromise: Promise<LoginResponse> | null = null;
+let authCookieTail: Promise<void> = Promise.resolve();
+let refreshFlight:
+  | {
+      generation: number;
+      identity: string | null;
+      promise: Promise<LoginResponse>;
+    }
+  | undefined;
 const sessionSubscribers = new Set<(session: LoginResponse | null) => void>();
 
 export class ApiError extends Error {
@@ -20,6 +27,10 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+function isAbortFailure(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function assertCookieHostCompatibility() {
@@ -66,7 +77,7 @@ function publishSession(session: LoginResponse | null) {
 }
 
 function installSession(session: LoginResponse | null, advanceGeneration: boolean) {
-  if (advanceGeneration) {
+  if (advanceGeneration || !sameSecurityContext(activeSession, session)) {
     sessionGeneration += 1;
   }
   activeSession = session;
@@ -75,6 +86,19 @@ function installSession(session: LoginResponse | null, advanceGeneration: boolea
 
 function sameSessionIdentity(left: LoginResponse, right: LoginResponse) {
   return left.user.id === right.user.id && left.user.companyId === right.user.companyId;
+}
+
+function sessionIdentity(session: LoginResponse | null) {
+  return session ? `${session.user.id}:${session.user.companyId ?? ""}` : null;
+}
+
+function permissionKey(session: LoginResponse | null) {
+  return [...new Set(session?.user.permissions ?? [])].sort().join("\u0000");
+}
+
+function sameSecurityContext(left: LoginResponse | null, right: LoginResponse | null) {
+  if (!left || !right) return left === right;
+  return sameSessionIdentity(left, right) && permissionKey(left) === permissionKey(right);
 }
 
 export function setApiSession(session: LoginResponse) {
@@ -144,11 +168,42 @@ async function performRequest<T>(path: string, token?: string, init: RequestInit
   return payload.data;
 }
 
-function refreshSession() {
-  if (refreshPromise) return refreshPromise;
+function throwIfAuthRequestAborted(signal?: AbortSignal | null) {
+  if (!signal?.aborted) return;
+  if (signal.reason instanceof Error) throw signal.reason;
+  throw new DOMException("The operation was aborted.", "AbortError");
+}
 
+function serialiseAuthCookieOperation<T>(operation: () => Promise<T>, signal?: AbortSignal | null) {
+  throwIfAuthRequestAborted(signal);
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    return signal
+      ? navigator.locks.request(refreshLockName, { signal }, operation)
+      : navigator.locks.request(refreshLockName, operation);
+  }
+  const run = () => {
+    throwIfAuthRequestAborted(signal);
+    return operation();
+  };
+  const result = authCookieTail.then(run, run);
+  authCookieTail = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
+function refreshSession() {
   const expectedGeneration = sessionGeneration;
   const expectedSession = activeSession;
+  const expectedIdentity = sessionIdentity(expectedSession);
+  if (
+    refreshFlight?.generation === expectedGeneration &&
+    refreshFlight.identity === expectedIdentity
+  ) {
+    return refreshFlight.promise;
+  }
+
   const requestRefresh = async () => {
     if (
       sessionGeneration !== expectedGeneration ||
@@ -163,25 +218,25 @@ function refreshSession() {
       body: JSON.stringify({})
     });
   };
-  const lockedRefresh =
-    typeof navigator !== "undefined" && navigator.locks
-      ? navigator.locks.request(refreshLockName, requestRefresh)
-      : requestRefresh();
-  refreshPromise = lockedRefresh
-    .then((session) => {
-      if (sessionGeneration !== expectedGeneration) {
-        throw new ApiError("Session changed during refresh", 401);
-      }
-      if (expectedSession && !sameSessionIdentity(expectedSession, session)) {
-        throw new ApiError("Session identity changed during refresh", 401);
-      }
-      installSession(session, false);
-      return session;
-    })
-    .finally(() => {
-      refreshPromise = null;
-    });
-  return refreshPromise;
+  const promise = serialiseAuthCookieOperation(async () => {
+    const session = await requestRefresh();
+    if (sessionGeneration !== expectedGeneration) {
+      throw new ApiError("Session changed during refresh", 401);
+    }
+    if (expectedSession && !sameSessionIdentity(expectedSession, session)) {
+      throw new ApiError("Session identity changed during refresh", 401);
+    }
+    installSession(session, false);
+    return session;
+  }).finally(() => {
+    if (refreshFlight?.promise === promise) refreshFlight = undefined;
+  });
+  refreshFlight = {
+    generation: expectedGeneration,
+    identity: expectedIdentity,
+    promise
+  };
+  return promise;
 }
 
 export function restoreApiSession() {
@@ -190,16 +245,25 @@ export function restoreApiSession() {
 
 export async function apiRequest<T>(path: string, token?: string, init: RequestInit = {}) {
   const requestGeneration = sessionGeneration;
-  const effectiveToken = authenticationPaths.has(path)
-    ? token
-    : (activeSession?.accessToken ?? token);
+  const authenticationRequest = authenticationPaths.has(path);
+  const effectiveToken = authenticationRequest ? token : (activeSession?.accessToken ?? token);
+  const initialRequest = () => {
+    throwIfAuthRequestAborted(init.signal);
+    if (authenticationRequest && sessionGeneration !== requestGeneration) {
+      throw new ApiError("Session changed before authentication request", 401);
+    }
+    return performRequest<T>(path, effectiveToken, init);
+  };
   try {
-    const result = await performRequest<T>(path, effectiveToken, init);
-    if (!authenticationPaths.has(path) && sessionGeneration !== requestGeneration) {
+    const result = await (authenticationRequest
+      ? serialiseAuthCookieOperation(initialRequest, init.signal)
+      : initialRequest());
+    if (!authenticationRequest && sessionGeneration !== requestGeneration) {
       throw new ApiError("Session changed during request", 401);
     }
     return result;
   } catch (error) {
+    if (isAbortFailure(error)) throw error;
     if (sessionGeneration !== requestGeneration) {
       throw new ApiError("Session changed during request", 401);
     }
@@ -208,7 +272,7 @@ export async function apiRequest<T>(path: string, token?: string, init: RequestI
       error.status === 401 &&
       Boolean(effectiveToken) &&
       Boolean(activeSession) &&
-      !authenticationPaths.has(path);
+      !authenticationRequest;
     if (!canRefresh) {
       throw error;
     }
@@ -219,6 +283,9 @@ export async function apiRequest<T>(path: string, token?: string, init: RequestI
         activeSession && activeSession.accessToken !== effectiveToken
           ? activeSession
           : await refreshSession();
+      if (sessionGeneration !== requestGeneration) {
+        throw new ApiError("Authorisation changed during refresh", 401);
+      }
     } catch (refreshError) {
       if (sessionGeneration === requestGeneration) {
         clearApiSession();
@@ -246,11 +313,20 @@ export async function apiRequest<T>(path: string, token?: string, init: RequestI
   }
 }
 
-export function queryString(filters: Filters, search: string) {
+export function queryString(
+  filters: Filters,
+  search: string,
+  pagination?: { page: number; pageSize: number }
+) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value) params.set(key, value);
   });
-  if (search.trim()) params.set("search", search.trim());
+  const boundedSearch = search.trim().slice(0, 200);
+  if (boundedSearch) params.set("search", boundedSearch);
+  if (pagination) {
+    params.set("page", String(pagination.page));
+    params.set("pageSize", String(pagination.pageSize));
+  }
   return params.toString() ? `?${params.toString()}` : "";
 }

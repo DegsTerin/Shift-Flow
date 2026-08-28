@@ -1,13 +1,144 @@
 // en-GB: Verifies Kanban decisions and role payload semantics at the browser boundary.
 import { describe, expect, it } from "vitest";
+import { messages } from "./i18n";
 import {
+  activityPayload,
+  hasInvertedDateRange,
   kanbanMoveCommand,
+  priorityLabel,
   productAssignableRoles,
   roleUpdatePayload,
+  slaLabel,
+  statusLabel,
   userPayload,
   userRoleId,
   userRoleOptions
 } from "./utils";
+
+describe("activity enum labels", () => {
+  it("localises priorities and statuses without changing their canonical values", () => {
+    expect(priorityLabel("CRITICAL", messages["pt-BR"])).toBe("Crítica");
+    expect(priorityLabel("CRITICAL", messages["en-GB"])).toBe("Critical");
+    expect(statusLabel("WAITING_CUSTOMER", messages["pt-BR"])).toBe("Aguardando cliente");
+    expect(statusLabel("WAITING_CUSTOMER", messages["en-GB"])).toBe("Waiting for customer");
+    expect(priorityLabel("FUTURE_PRIORITY", messages["en-GB"])).toBe("FUTURE_PRIORITY");
+  });
+});
+
+describe("slaLabel", () => {
+  it("localises an elapsed SLA without a hard-coded language", () => {
+    const now = new Date("2026-08-28T12:00:00.000Z");
+    const clock = Date.now;
+    Date.now = () => now.getTime();
+    try {
+      expect(slaLabel("2026-08-28T11:59:00.000Z", messages["pt-BR"])).toBe("SLA violado");
+      expect(slaLabel("2026-08-28T11:59:00.000Z", messages["en-GB"])).toBe("SLA breached");
+    } finally {
+      Date.now = clock;
+    }
+  });
+});
+
+describe("activityPayload", () => {
+  it("preserves all current references when an unrelated edit omits unloaded selectors", () => {
+    const form = new FormData();
+    form.set("title", "Renamed activity");
+
+    expect(
+      activityPayload(form, {
+        id: "activity-a",
+        title: "Original activity",
+        clientId: "client-26",
+        teamId: "team-26",
+        shiftId: "shift-26",
+        assigneeId: "user-26"
+      })
+    ).toMatchObject({
+      title: "Renamed activity",
+      clientId: "client-26",
+      teamId: "team-26",
+      shiftId: "shift-26",
+      assigneeId: "user-26"
+    });
+  });
+
+  it("allows optional references to be explicitly cleared", () => {
+    const form = new FormData();
+    form.set("title", "Renamed activity");
+    form.set("shiftId", "");
+    form.set("assigneeId", "");
+
+    const payload = activityPayload(form, {
+      id: "activity-a",
+      title: "Original activity",
+      clientId: "client-a",
+      teamId: "team-a",
+      shiftId: "shift-a",
+      assigneeId: "user-a"
+    });
+
+    expect(JSON.parse(JSON.stringify(payload))).toMatchObject({
+      shiftId: null,
+      assigneeId: null
+    });
+  });
+
+  it("serialises explicit text and SLA clearing without copying requested into description", () => {
+    const form = new FormData();
+    form.set("title", "Renamed activity");
+    form.set("description", "");
+    form.set("requested", "Original request");
+    form.set("systemName", "");
+    form.set("serviceName", "");
+    form.set("performed", "");
+    form.set("inProgressDetail", "");
+    form.set("pendingDetail", "");
+    form.set("finalizationDetail", "");
+    form.set("observations", "");
+    form.set("slaDueAt", "");
+
+    const serialised = JSON.parse(
+      JSON.stringify(
+        activityPayload(form, {
+          id: "activity-a",
+          title: "Original activity",
+          clientId: "client-a",
+          teamId: "team-a",
+          description: "Previous description",
+          requested: "Original request",
+          slaDueAt: "2026-08-30T12:00:00.000Z"
+        })
+      )
+    );
+
+    expect(serialised).toMatchObject({
+      description: "",
+      requested: "Original request",
+      systemName: "",
+      serviceName: "",
+      performed: "",
+      inProgressDetail: "",
+      pendingDetail: "",
+      finalizationDetail: "",
+      observations: "",
+      slaDueAt: null
+    });
+  });
+});
+
+describe("hasInvertedDateRange", () => {
+  it("accepts absent, equal and increasing canonical date-only bounds", () => {
+    expect(hasInvertedDateRange({ from: "", to: "" })).toBe(false);
+    expect(hasInvertedDateRange({ from: "2026-08-28", to: "" })).toBe(false);
+    expect(hasInvertedDateRange({ from: "", to: "2026-08-28" })).toBe(false);
+    expect(hasInvertedDateRange({ from: "2026-08-28", to: "2026-08-28" })).toBe(false);
+    expect(hasInvertedDateRange({ from: "2026-08-28", to: "2026-08-29" })).toBe(false);
+  });
+
+  it("rejects an inverted canonical date-only range without timezone conversion", () => {
+    expect(hasInvertedDateRange({ from: "2026-08-28", to: "2026-08-27" })).toBe(true);
+  });
+});
 
 describe("kanbanMoveCommand", () => {
   const activities = [
@@ -109,8 +240,10 @@ describe("product role assignment", () => {
       roleAssignments: [{ roleId: "client-role", role: { id: "client-role", scope: "CLIENT" } }]
     };
 
-    expect(userRoleOptions(companyUser, roles)).toEqual([["company-role", "Operator"]]);
-    expect(userRoleOptions(limitedUser, roles)).toEqual([
+    expect(userRoleOptions(companyUser, roles, messages["pt-BR"])).toEqual([
+      ["company-role", "Operator"]
+    ]);
+    expect(userRoleOptions(limitedUser, roles, messages["pt-BR"])).toEqual([
       ["", "Sem perfil de empresa"],
       ["company-role", "Operator"]
     ]);
@@ -128,7 +261,7 @@ describe("product role assignment", () => {
     };
 
     expect(userRoleId(user)).toBe("");
-    expect(userRoleOptions(user, [])).toEqual([["", "Sem perfil de empresa"]]);
+    expect(userRoleOptions(user, [], messages["pt-BR"])).toEqual([["", "Sem perfil de empresa"]]);
   });
 
   it("preserves an active current company role that is outside the loaded role page", () => {
@@ -147,7 +280,9 @@ describe("product role assignment", () => {
       ]
     };
 
-    expect(userRoleOptions(user, [])).toEqual([["current-role", "Current operator (atual)"]]);
+    expect(userRoleOptions(user, [], messages["pt-BR"])).toEqual([
+      ["current-role", "Current operator (atual)"]
+    ]);
   });
 
   it("preserves a time-bounded company role outside the simple editor", () => {
@@ -162,7 +297,7 @@ describe("product role assignment", () => {
     };
 
     expect(userRoleId(user)).toBe("");
-    expect(userRoleOptions(user, [])).toEqual([["", "Sem perfil de empresa"]]);
+    expect(userRoleOptions(user, [], messages["pt-BR"])).toEqual([["", "Sem perfil de empresa"]]);
   });
 
   it("does not submit an inactive company role during unrelated edits", () => {
@@ -176,6 +311,6 @@ describe("product role assignment", () => {
     };
 
     expect(userRoleId(user)).toBe("");
-    expect(userRoleOptions(user, [])).toEqual([["", "Sem perfil de empresa"]]);
+    expect(userRoleOptions(user, [], messages["pt-BR"])).toEqual([["", "Sem perfil de empresa"]]);
   });
 });

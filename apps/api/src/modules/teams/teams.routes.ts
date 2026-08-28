@@ -3,13 +3,19 @@ import { Router } from "express";
 import { authenticate } from "../../shared/middlewares/authenticate.js";
 import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
+import { searchableListQuerySchema } from "../../shared/http/pagination.js";
 import { TeamsController } from "./teams.controller.js";
 import { teamMemberSchema, teamSchema } from "./teams.validators.js";
 
 export const teamRoutes = Router();
 
 teamRoutes.use(authenticate);
-teamRoutes.get("/", requirePermission("teams", "read"), TeamsController.list);
+teamRoutes.get(
+  "/",
+  requirePermission("teams", "read"),
+  validate("query", searchableListQuerySchema),
+  TeamsController.list
+);
 teamRoutes.post(
   "/",
   requirePermission("teams", "write"),

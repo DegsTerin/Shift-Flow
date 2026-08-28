@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import type {
   ActivityItem,
   ClientRef,
+  ReferenceAccess,
   RoleRef,
   ShiftRef,
   TeamRef,
@@ -14,11 +15,12 @@ import type {
 import {
   activityStatuses,
   priorities,
+  priorityLabel,
   shiftStatuses,
-  toDateInputValue,
-  userOptionLabel
+  statusLabel,
+  toDateInputValue
 } from "../lib/utils";
-import { SelectInput } from "./controls";
+import { ReferenceSelectInput, SelectInput } from "./controls";
 
 export function CreateForm({
   entity,
@@ -28,6 +30,14 @@ export function CreateForm({
   teams,
   shifts,
   roles,
+  token,
+  referenceAccess = {
+    clients: false,
+    users: false,
+    teams: false,
+    shifts: false,
+    roles: false
+  },
   busy,
   onSubmit
 }: {
@@ -38,6 +48,8 @@ export function CreateForm({
   teams: TeamRef[];
   shifts: ShiftRef[];
   roles: RoleRef[];
+  token?: string;
+  referenceAccess?: ReferenceAccess;
   busy: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
@@ -47,19 +59,19 @@ export function CreateForm({
     return (
       <form className="modal-grid" onSubmit={onSubmit}>
         <label>
-          Nome
+          {t.name}
           <input name="displayName" required />
         </label>
         <label>
-          E-mail
+          {t.email}
           <input name="email" type="email" required />
         </label>
         <label>
-          Cargo
+          {t.jobTitle}
           <input name="jobTitle" />
         </label>
         <label>
-          Status
+          {t.filterStatus}
           <SelectInput
             name="status"
             value="ACTIVE"
@@ -71,20 +83,23 @@ export function CreateForm({
             ]}
           />
         </label>
-        <label>
-          Perfil
-          <SelectInput
+        <div className="reference-field">
+          <span>{t.role}</span>
+          <ReferenceSelectInput
+            t={t}
+            label={t.role}
             name="roleId"
             value=""
-            options={[
-              ["", "Selecione um perfil de empresa"],
-              ...roles.map((role) => [role.id ?? "", role.name ?? "-"])
-            ]}
+            initialItems={roles}
+            resource="roles"
+            token={token}
+            loadEnabled={referenceAccess.roles}
+            placeholder={t.selectCompanyRole}
             required
           />
-        </label>
+        </div>
         <label>
-          Senha
+          {t.password}
           <input name="password" type="password" required />
         </label>
         <button className="primary-button span-2" disabled={busy} type="submit">
@@ -97,15 +112,15 @@ export function CreateForm({
     return (
       <form className="modal-grid" onSubmit={onSubmit}>
         <label>
-          Nome
+          {t.name}
           <input name="name" required />
         </label>
         <label>
-          Codigo
+          {t.code}
           <input name="code" />
         </label>
         <label>
-          Status
+          {t.filterStatus}
           <SelectInput
             name="status"
             value="ACTIVE"
@@ -125,11 +140,11 @@ export function CreateForm({
     return (
       <form className="modal-grid" onSubmit={onSubmit}>
         <label>
-          Nome
+          {t.name}
           <input name="name" required />
         </label>
         <label>
-          Cor
+          {t.colour}
           <input name="color" defaultValue="#0f766e" />
         </label>
         <label>
@@ -137,7 +152,7 @@ export function CreateForm({
           <input name="defaultSlaMinutes" type="number" defaultValue="240" />
         </label>
         <label className="span-2">
-          Descricao
+          {t.description}
           <textarea name="description" />
         </label>
         <button className="primary-button span-2" disabled={busy} type="submit">
@@ -150,11 +165,11 @@ export function CreateForm({
     return (
       <form className="modal-grid" onSubmit={onSubmit}>
         <label>
-          Nome
+          {t.name}
           <input name="name" required />
         </label>
         <label>
-          Inicio
+          {t.start}
           <input
             name="startsAt"
             type="datetime-local"
@@ -163,7 +178,7 @@ export function CreateForm({
           />
         </label>
         <label>
-          Fim
+          {t.end}
           <input
             name="endsAt"
             type="datetime-local"
@@ -172,11 +187,11 @@ export function CreateForm({
           />
         </label>
         <label>
-          Timezone
+          {t.timeZone}
           <input name="timezone" defaultValue="America/Sao_Paulo" />
         </label>
         <label>
-          Status
+          {t.filterStatus}
           <SelectInput
             name="status"
             value="OPEN"
@@ -192,55 +207,81 @@ export function CreateForm({
   return (
     <form className="modal-grid" onSubmit={onSubmit}>
       <label>
-        Titulo
+        {t.title}
         <input name="title" required />
       </label>
-      <label>
-        Cliente
-        <SelectInput
+      <div className="reference-field">
+        <span>{t.filterClient}</span>
+        <ReferenceSelectInput
+          t={t}
+          label={t.filterClient}
           name="clientId"
-          value={clients[0]?.id ?? ""}
-          options={clients.map((item) => [item.id ?? "", item.name ?? "-"])}
+          value=""
+          initialItems={clients}
+          resource="clients"
+          token={token}
+          loadEnabled={referenceAccess.clients}
+          placeholder={t.selectClient}
+          required
         />
-      </label>
-      <label>
-        Equipe
-        <SelectInput
+      </div>
+      <div className="reference-field">
+        <span>{t.filterTeam}</span>
+        <ReferenceSelectInput
+          t={t}
+          label={t.filterTeam}
           name="teamId"
-          value={teams[0]?.id ?? ""}
-          options={teams.map((item) => [item.id ?? "", item.name ?? "-"])}
+          value=""
+          initialItems={teams}
+          resource="teams"
+          token={token}
+          loadEnabled={referenceAccess.teams}
+          placeholder={t.selectTeam}
+          required
         />
-      </label>
-      <label>
-        Turno
-        <SelectInput
+      </div>
+      <div className="reference-field">
+        <span>{t.filterShift}</span>
+        <ReferenceSelectInput
+          t={t}
+          label={t.filterShift}
           name="shiftId"
-          value={shifts[0]?.id ?? ""}
-          options={shifts.map((item) => [item.id ?? "", item.name ?? "-"])}
+          value=""
+          initialItems={shifts}
+          resource="shifts"
+          token={token}
+          loadEnabled={referenceAccess.shifts}
+          placeholder={t.none}
         />
-      </label>
-      <label>
-        Analista
-        <SelectInput
+      </div>
+      <div className="reference-field">
+        <span>{t.filterAnalyst}</span>
+        <ReferenceSelectInput
+          t={t}
+          label={t.filterAnalyst}
           name="assigneeId"
-          value={users[0]?.id ?? ""}
-          options={users.map((item) => [item.id ?? "", userOptionLabel(item)])}
+          value=""
+          initialItems={users}
+          resource="users"
+          token={token}
+          loadEnabled={referenceAccess.users}
+          placeholder={t.unassigned}
         />
-      </label>
+      </div>
       <label>
-        Prioridade
+        {t.filterPriority}
         <SelectInput
           name="priority"
           value="MEDIUM"
-          options={priorities.map((item) => [item, item])}
+          options={priorities.map((item) => [item, priorityLabel(item, t)])}
         />
       </label>
       <label>
-        Status
+        {t.filterStatus}
         <SelectInput
           name="status"
           value="PENDING"
-          options={activityStatuses.map((item) => [item, item])}
+          options={activityStatuses.map((item) => [item, statusLabel(item, t)])}
         />
       </label>
       <label>
@@ -248,14 +289,14 @@ export function CreateForm({
         <input name="slaDueAt" type="datetime-local" defaultValue={toDateInputValue(later)} />
       </label>
       <label>
-        Sistema
+        {t.system}
         <input name="systemName" />
       </label>
       <label>
-        Servico
+        {t.service}
         <input name="serviceName" />
       </label>
-      <OperationalFields />
+      <OperationalFields t={t} />
       <button className="primary-button span-2" disabled={busy} type="submit">
         <Save size={16} />
         {t.save}
@@ -266,15 +307,17 @@ export function CreateForm({
 
 export function OperationalFields({
   activity,
+  t,
   disabled = false
 }: {
   activity?: ActivityItem;
+  t: Texts;
   disabled?: boolean;
 }) {
   return (
     <>
       <label className="span-2">
-        O que foi solicitado
+        {t.requestedWork}
         <textarea
           name="requested"
           defaultValue={activity?.requested ?? ""}
@@ -283,7 +326,7 @@ export function OperationalFields({
         />
       </label>
       <label className="span-2">
-        O que foi feito
+        {t.performedWork}
         <textarea
           name="performed"
           defaultValue={activity?.performed ?? ""}
@@ -292,7 +335,7 @@ export function OperationalFields({
         />
       </label>
       <label className="span-2">
-        O que esta em andamento
+        {t.workInProgress}
         <textarea
           name="inProgressDetail"
           defaultValue={activity?.inProgressDetail ?? ""}
@@ -301,7 +344,7 @@ export function OperationalFields({
         />
       </label>
       <label className="span-2">
-        O que esta pendente
+        {t.pendingWork}
         <textarea
           name="pendingDetail"
           defaultValue={activity?.pendingDetail ?? ""}
@@ -310,7 +353,7 @@ export function OperationalFields({
         />
       </label>
       <label className="span-2">
-        Como foi finalizado
+        {t.finalisation}
         <textarea
           name="finalizationDetail"
           defaultValue={activity?.finalizationDetail ?? ""}
@@ -319,7 +362,7 @@ export function OperationalFields({
         />
       </label>
       <label className="span-2">
-        Observacoes
+        {t.observations}
         <textarea
           name="observations"
           defaultValue={activity?.observations ?? ""}

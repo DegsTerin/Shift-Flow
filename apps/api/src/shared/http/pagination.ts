@@ -9,6 +9,10 @@ export const paginationSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25)
 });
 
+export const searchableListQuerySchema = z.object({
+  search: z.string().trim().max(200).optional()
+});
+
 export type Pagination = z.infer<typeof paginationSchema>;
 
 export function toPagination(query: unknown): Pagination {
@@ -24,4 +28,11 @@ export function toSkipTake({ page, pageSize }: Pagination) {
     skip: (page - 1) * pageSize,
     take: pageSize
   };
+}
+
+export function toBoundedSearch(query: unknown) {
+  if (!query || typeof query !== "object" || !("search" in query)) return "";
+  return String((query as { search?: unknown }).search ?? "")
+    .trim()
+    .slice(0, 200);
 }

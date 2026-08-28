@@ -4,32 +4,48 @@
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ActivityItem, Locale, TeamRef, Texts } from "../lib/types";
-import { formatDateTime, formatTime, idOf, slaLabel, statusLabel } from "../lib/utils";
+import {
+  formatDateTime,
+  formatTime,
+  idOf,
+  priorityLabel,
+  slaLabel,
+  statusLabel
+} from "../lib/utils";
 
-const tablePageSize = 12;
+export const tablePageSize = 12;
+
+export type TablePagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  onPage: (page: number) => void;
+};
 
 function compareCells(a: string, b: string, direction: "asc" | "desc") {
   const result = a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
   return direction === "asc" ? result : -result;
 }
 
-function TableFooter({
+export function TableFooter({
+  t,
   page,
   totalPages,
   totalRows,
   onPage
 }: {
+  t: Texts;
   page: number;
   totalPages: number;
   totalRows: number;
   onPage: (page: number) => void;
 }) {
-  if (totalRows <= tablePageSize) return null;
+  if (totalPages <= 1) return null;
 
   return (
     <div className="table-footer">
       <span>
-        Pagina {page + 1} de {totalPages} - {totalRows} registros
+        {t.page} {page + 1} {t.of} {totalPages} - {totalRows} {t.records}
       </span>
       <div>
         <button
@@ -38,7 +54,7 @@ function TableFooter({
           onClick={() => onPage(Math.max(0, page - 1))}
           type="button"
         >
-          Anterior
+          {t.previous}
         </button>
         <button
           className="compact-button"
@@ -46,7 +62,7 @@ function TableFooter({
           onClick={() => onPage(Math.min(totalPages - 1, page + 1))}
           type="button"
         >
-          Proxima
+          {t.next}
         </button>
       </div>
     </div>
@@ -58,30 +74,34 @@ export function ActivityList({
   activities,
   locale = "pt-BR",
   compact = false,
+  pagination,
   onNew,
+  newDisabledReason,
   onOpen
 }: {
   t: Texts;
   activities: ActivityItem[];
   locale?: Locale;
   compact?: boolean;
-  onNew: () => void;
-  onOpen: (item: ActivityItem) => void;
+  pagination?: TablePagination;
+  onNew?: () => void;
+  newDisabledReason?: string;
+  onOpen?: (item: ActivityItem) => void;
 }) {
   const [sortIndex, setSortIndex] = useState(9);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(0);
   const columns = [
     "ID",
-    "Cliente",
-    "Sistema",
-    "Servico",
-    "Equipe",
-    "Analista",
-    "Prioridade",
+    t.filterClient,
+    t.system,
+    t.service,
+    t.filterTeam,
+    t.filterAnalyst,
+    t.filterPriority,
     "SLA",
-    "Status",
-    "Atualizado"
+    t.filterStatus,
+    t.updated
   ];
   const rows = useMemo(
     () =>
@@ -94,27 +114,32 @@ export function ActivityList({
           item.serviceName ?? "-",
           item.team?.name ?? item.teamId ?? "-",
           item.assignee?.displayName ?? "-",
-          item.priority ?? "-",
-          slaLabel(item.slaDueAt),
+          priorityLabel(item.priority, t),
+          slaLabel(item.slaDueAt, t),
           statusLabel(item.status, t),
           formatDateTime(item.updatedAt, locale)
         ]
       })),
     [activities, locale, t]
   );
-  const sortedRows = useMemo(
-    () =>
-      [...rows].sort((a, b) =>
-        compareCells(a.cells[sortIndex] ?? "", b.cells[sortIndex] ?? "", sortDirection)
-      ),
-    [rows, sortDirection, sortIndex]
-  );
-  const totalPages = Math.max(1, Math.ceil(sortedRows.length / tablePageSize));
-  const currentPage = Math.min(page, totalPages - 1);
-  const visibleRows = sortedRows.slice(
-    currentPage * tablePageSize,
-    currentPage * tablePageSize + tablePageSize
-  );
+  const sortedRows = useMemo(() => {
+    if (pagination) return rows;
+    return [...rows].sort((a, b) =>
+      compareCells(a.cells[sortIndex] ?? "", b.cells[sortIndex] ?? "", sortDirection)
+    );
+  }, [pagination, rows, sortDirection, sortIndex]);
+  const totalRows = pagination?.total ?? sortedRows.length;
+  const effectivePageSize = pagination?.pageSize ?? tablePageSize;
+  const totalPages = Math.max(1, Math.ceil(totalRows / effectivePageSize));
+  const currentPage = pagination
+    ? Math.max(0, pagination.page - 1)
+    : Math.min(page, totalPages - 1);
+  const visibleRows = pagination
+    ? sortedRows
+    : sortedRows.slice(
+        currentPage * effectivePageSize,
+        currentPage * effectivePageSize + effectivePageSize
+      );
   const sortBy = (index: number) => {
     setPage(0);
     if (sortIndex === index) {
@@ -129,11 +154,20 @@ export function ActivityList({
     <section className={compact ? "panel full-width compact-table" : "panel full-width"}>
       <div className="panel-header">
         <h2>{compact ? t.operationalList : t.activities}</h2>
-        <button className="compact-button" onClick={onNew} type="button">
-          <Plus size={16} />
-          {t.newRecord}
-        </button>
+        {onNew || newDisabledReason ? (
+          <button
+            className="compact-button"
+            disabled={!onNew}
+            onClick={onNew}
+            title={newDisabledReason}
+            type="button"
+          >
+            <Plus size={16} />
+            {t.newRecord}
+          </button>
+        ) : null}
       </div>
+      {newDisabledReason ? <p className="guard-note">{newDisabledReason}</p> : null}
       <div className="table-wrap" tabIndex={0}>
         <table>
           <caption className="sr-only">{compact ? t.operationalList : t.activities}</caption>
@@ -141,20 +175,37 @@ export function ActivityList({
             <tr>
               {columns.map((column, index) => (
                 <th key={column}>
-                  <button className="table-sort" onClick={() => sortBy(index)} type="button">
-                    {column}
-                    {sortIndex === index ? (
-                      <span>{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
-                    ) : null}
-                  </button>
+                  {pagination ? (
+                    <span className="table-sort">{column}</span>
+                  ) : (
+                    <button className="table-sort" onClick={() => sortBy(index)} type="button">
+                      {column}
+                      {sortIndex === index ? (
+                        <span>{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
+                      ) : null}
+                    </button>
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {visibleRows.map(({ item, cells }) => (
-              <tr key={item.id} onClick={() => onOpen(item)}>
-                <td>{cells[0]}</td>
+              <tr key={item.id}>
+                <td>
+                  {onOpen ? (
+                    <button
+                      aria-label={`${t.details}: ${cells[0]}`}
+                      className="record-link"
+                      onClick={() => onOpen(item)}
+                      type="button"
+                    >
+                      {cells[0]}
+                    </button>
+                  ) : (
+                    cells[0]
+                  )}
+                </td>
                 <td>{cells[1]}</td>
                 <td>{cells[2]}</td>
                 <td>{cells[3]}</td>
@@ -181,10 +232,11 @@ export function ActivityList({
         </table>
       </div>
       <TableFooter
+        t={t}
         page={currentPage}
         totalPages={totalPages}
-        totalRows={sortedRows.length}
-        onPage={setPage}
+        totalRows={totalRows}
+        onPage={(nextPage) => (pagination ? pagination.onPage(nextPage + 1) : setPage(nextPage))}
       />
     </section>
   );
@@ -196,7 +248,9 @@ export function ManagementTable<T>({
   columns,
   cells,
   t,
+  pagination,
   onNew,
+  newDisabledReason,
   onOpen
 }: {
   title: string;
@@ -204,7 +258,9 @@ export function ManagementTable<T>({
   columns: string[];
   cells: (row: T) => string[];
   t: Texts;
-  onNew: () => void;
+  pagination?: TablePagination;
+  onNew?: () => void;
+  newDisabledReason?: string;
   onOpen: (row: T) => void;
 }) {
   const [sortIndex, setSortIndex] = useState(0);
@@ -216,17 +272,25 @@ export function ManagementTable<T>({
   );
   const sortedRows = useMemo(
     () =>
-      [...rowsWithCells].sort((a, b) =>
-        compareCells(a.cells[sortIndex] ?? "", b.cells[sortIndex] ?? "", sortDirection)
-      ),
-    [rowsWithCells, sortDirection, sortIndex]
+      pagination
+        ? rowsWithCells
+        : [...rowsWithCells].sort((a, b) =>
+            compareCells(a.cells[sortIndex] ?? "", b.cells[sortIndex] ?? "", sortDirection)
+          ),
+    [pagination, rowsWithCells, sortDirection, sortIndex]
   );
-  const totalPages = Math.max(1, Math.ceil(sortedRows.length / tablePageSize));
-  const currentPage = Math.min(page, totalPages - 1);
-  const visibleRows = sortedRows.slice(
-    currentPage * tablePageSize,
-    currentPage * tablePageSize + tablePageSize
-  );
+  const totalRows = pagination?.total ?? sortedRows.length;
+  const effectivePageSize = pagination?.pageSize ?? tablePageSize;
+  const totalPages = Math.max(1, Math.ceil(totalRows / effectivePageSize));
+  const currentPage = pagination
+    ? Math.max(0, pagination.page - 1)
+    : Math.min(page, totalPages - 1);
+  const visibleRows = pagination
+    ? sortedRows
+    : sortedRows.slice(
+        currentPage * effectivePageSize,
+        currentPage * effectivePageSize + effectivePageSize
+      );
   const sortBy = (index: number) => {
     setPage(0);
     if (sortIndex === index) {
@@ -241,11 +305,20 @@ export function ManagementTable<T>({
     <section className="panel full-width">
       <div className="panel-header">
         <h2>{title}</h2>
-        <button className="compact-button" onClick={onNew} type="button">
-          <Plus size={16} />
-          {t.newRecord}
-        </button>
+        {onNew || newDisabledReason ? (
+          <button
+            className="compact-button"
+            disabled={!onNew}
+            onClick={onNew}
+            title={newDisabledReason}
+            type="button"
+          >
+            <Plus size={16} />
+            {t.newRecord}
+          </button>
+        ) : null}
       </div>
+      {newDisabledReason ? <p className="guard-note">{newDisabledReason}</p> : null}
       <div className="table-wrap" tabIndex={0}>
         <table>
           <caption className="sr-only">{title}</caption>
@@ -253,21 +326,38 @@ export function ManagementTable<T>({
             <tr>
               {columns.map((column, index) => (
                 <th key={column}>
-                  <button className="table-sort" onClick={() => sortBy(index)} type="button">
-                    {column}
-                    {sortIndex === index ? (
-                      <span>{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
-                    ) : null}
-                  </button>
+                  {pagination ? (
+                    <span className="table-sort">{column}</span>
+                  ) : (
+                    <button className="table-sort" onClick={() => sortBy(index)} type="button">
+                      {column}
+                      {sortIndex === index ? (
+                        <span>{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
+                      ) : null}
+                    </button>
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {visibleRows.map(({ row, cells: rowCells }, index) => (
-              <tr key={`${idOf(row) || index}`} onClick={() => onOpen(row)}>
+              <tr key={`${idOf(row) || index}`}>
                 {rowCells.map((cell, cellIndex) => (
-                  <td key={`${cell}-${cellIndex}`}>{cell}</td>
+                  <td key={`${cell}-${cellIndex}`}>
+                    {cellIndex === 0 ? (
+                      <button
+                        aria-label={`${t.details}: ${cell}`}
+                        className="record-link"
+                        onClick={() => onOpen(row)}
+                        type="button"
+                      >
+                        {cell}
+                      </button>
+                    ) : (
+                      cell
+                    )}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -282,10 +372,11 @@ export function ManagementTable<T>({
         </table>
       </div>
       <TableFooter
+        t={t}
         page={currentPage}
         totalPages={totalPages}
-        totalRows={sortedRows.length}
-        onPage={setPage}
+        totalRows={totalRows}
+        onPage={(nextPage) => (pagination ? pagination.onPage(nextPage + 1) : setPage(nextPage))}
       />
     </section>
   );
@@ -294,44 +385,54 @@ export function ManagementTable<T>({
 export function TeamsView({
   t,
   teams,
+  pagination,
   onNew,
+  newDisabledReason,
   onOpen
 }: {
   t: Texts;
   teams: TeamRef[];
-  onNew: () => void;
+  pagination?: TablePagination;
+  onNew?: () => void;
+  newDisabledReason?: string;
   onOpen: (team: TeamRef) => void;
 }) {
   return (
     <section className="panel full-width">
       <div className="panel-header">
         <h2>{t.teams}</h2>
-        <button className="compact-button" onClick={onNew} type="button">
-          <Plus size={16} />
-          {t.newRecord}
-        </button>
+        {onNew || newDisabledReason ? (
+          <button
+            className="compact-button"
+            disabled={!onNew}
+            onClick={onNew}
+            title={newDisabledReason}
+            type="button"
+          >
+            <Plus size={16} />
+            {t.newRecord}
+          </button>
+        ) : null}
       </div>
+      {newDisabledReason ? <p className="guard-note">{newDisabledReason}</p> : null}
       <div className="team-grid">
         {teams.map((team) => (
-          <article
-            className="team-card"
-            key={team.id ?? team.name}
-            onClick={() => onOpen(team)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onOpen(team);
-              }
-            }}
-            role="button"
-            tabIndex={0}
-          >
+          <article className="team-card" key={team.id ?? team.name}>
             <span style={{ backgroundColor: team.color ?? "#0ea5e9" }} />
-            <h3>{team.name ?? "-"}</h3>
+            <h3>
+              <button
+                aria-label={`${t.details}: ${team.name ?? "-"}`}
+                className="record-link"
+                onClick={() => onOpen(team)}
+                type="button"
+              >
+                {team.name ?? "-"}
+              </button>
+            </h3>
             <p>{team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min` : "-"}</p>
             <dl>
               <div>
-                <dt>Membros</dt>
+                <dt>{t.members}</dt>
                 <dd>{team.members?.length ?? 0}</dd>
               </div>
               <div>
@@ -341,8 +442,17 @@ export function TeamsView({
             </dl>
           </article>
         ))}
-        {!teams.length ? <p className="empty-state">Nenhuma equipe encontrada.</p> : null}
+        {!teams.length ? <p className="empty-state">{t.noTeamsFound}</p> : null}
       </div>
+      {pagination ? (
+        <TableFooter
+          t={t}
+          page={Math.max(0, pagination.page - 1)}
+          totalPages={Math.max(1, Math.ceil(pagination.total / pagination.pageSize))}
+          totalRows={pagination.total}
+          onPage={(nextPage) => pagination.onPage(nextPage + 1)}
+        />
+      ) : null}
     </section>
   );
 }

@@ -4,20 +4,24 @@ import { notFound } from "../errors/app-error.js";
 
 type Delegate = {
   findMany(args?: unknown): Promise<unknown[]>;
-  findUnique(args: unknown): Promise<unknown | null>;
   findFirst(args: unknown): Promise<unknown | null>;
   count(args?: unknown): Promise<number>;
   create(args: unknown): Promise<unknown>;
   update(args: unknown): Promise<unknown>;
-  delete?(args: unknown): Promise<unknown>;
   groupBy?(args: unknown): Promise<unknown[]>;
 };
+
+function isRecordNotFoundError(cause: unknown) {
+  return Boolean(
+    cause && typeof cause === "object" && (cause as { code?: unknown }).code === "P2025"
+  );
+}
 
 export type ListArgs = {
   where?: Record<string, unknown>;
   skip?: number;
   take?: number;
-  orderBy?: Record<string, string>;
+  orderBy?: Record<string, string> | Array<Record<string, string>>;
   include?: Record<string, unknown>;
 };
 
@@ -57,18 +61,21 @@ export class BaseRepository {
   }
 
   async update(id: string, data: Record<string, unknown>, companyId?: string) {
-    if (companyId) {
-      const scoped = await (
-        await this.delegate()
-      ).findFirst({
-        where: { id, companyId, deletedAt: null }
+    const delegate = await this.delegate();
+    try {
+      return await delegate.update({
+        where: {
+          id,
+          ...(companyId ? { companyId, deletedAt: null } : {})
+        },
+        data
       });
-      if (!scoped) {
+    } catch (cause) {
+      if (companyId && isRecordNotFoundError(cause)) {
         throw notFound("Resource not found");
       }
+      throw cause;
     }
-    const where = { id };
-    return (await this.delegate()).update({ where, data });
   }
 
   async softDelete(id: string, actorUserId?: string, companyId?: string) {

@@ -3,13 +3,19 @@ import { Router } from "express";
 import { authenticate } from "../../shared/middlewares/authenticate.js";
 import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
+import { searchableListQuerySchema } from "../../shared/http/pagination.js";
 import { ShiftsController } from "./shifts.controller.js";
 import { coverageSchema, shiftSchema } from "./shifts.validators.js";
 
 export const shiftRoutes = Router();
 
 shiftRoutes.use(authenticate);
-shiftRoutes.get("/", requirePermission("shifts", "read"), ShiftsController.list);
+shiftRoutes.get(
+  "/",
+  requirePermission("shifts", "read"),
+  validate("query", searchableListQuerySchema),
+  ShiftsController.list
+);
 shiftRoutes.post(
   "/",
   requirePermission("shifts", "write"),

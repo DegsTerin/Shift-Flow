@@ -1,6 +1,7 @@
 // en-GB: Encapsulates rbac persistence so data access remains consistent and testable.
+import { badRequest, notFound } from "../../shared/errors/app-error.js";
+import { getDelegate, getPrisma } from "../../shared/lib/prisma.js";
 import { BaseRepository } from "../../shared/repositories/base.repository.js";
-import { getDelegate } from "../../shared/lib/prisma.js";
 
 type AssignmentDelegate = {
   findMany(args: unknown): Promise<unknown[]>;
@@ -41,9 +42,40 @@ type ScopedResourceDelegate = {
   findFirst(args: unknown): Promise<unknown | null>;
 };
 
+type RoleRecord = Record<string, unknown> & {
+  id: string;
+  scope: string;
+  isSystem: boolean;
+};
+
+type RoleMutationClient = {
+  $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
+  role: {
+    update(args: unknown): Promise<RoleRecord>;
+  };
+  userRoleAssignment: {
+    count(args: unknown): Promise<number>;
+    create(args: unknown): Promise<unknown>;
+  };
+  auditLog: {
+    create(args: unknown): Promise<unknown>;
+  };
+};
+
+type RoleMutationPrisma = {
+  $transaction<T>(callback: (tx: RoleMutationClient) => Promise<T>): Promise<T>;
+};
+
+type RoleAuditFactory = (before: unknown, after: unknown) => Record<string, unknown>;
+
 export class RbacRepository {
   roles = new BaseRepository("role");
   permissions = new BaseRepository("permission");
+
+  constructor(
+    private readonly prismaProvider: () => Promise<RoleMutationPrisma> = async () =>
+      (await getPrisma()) as RoleMutationPrisma
+  ) {}
 
   async assignments() {
     return getDelegate<AssignmentDelegate>("userRoleAssignment");
@@ -120,7 +152,25 @@ export class RbacRepository {
   }
 
   async assignRole(data: Record<string, unknown>) {
-    return (await this.assignments()).create({ data });
+    const roleId = String(data.roleId);
+    const companyId = String(data.companyId);
+    const prisma = await this.prismaProvider();
+    return prisma.$transaction(async (tx) => {
+      const roles = await tx.$queryRawUnsafe<Array<{ id: string; scope: string }>>(
+        'SELECT "id", "scope" FROM "roles" WHERE "id" = $1::uuid AND "companyId" = $2::uuid AND "isActive" = TRUE AND "deletedAt" IS NULL FOR SHARE',
+        roleId,
+        companyId
+      );
+      const role = roles[0];
+      if (!role) throw badRequest("Role is not active in the current company");
+      if (role.scope === "CLIENT" && !data.clientId) {
+        throw badRequest("Client-scoped roles require a client");
+      }
+      if (role.scope === "TEAM" && !data.teamId) {
+        throw badRequest("Team-scoped roles require a team");
+      }
+      return tx.userRoleAssignment.create({ data });
+    });
   }
 
   async assignPermission(roleId: string, permissionId: string, companyId?: string) {
@@ -152,16 +202,57 @@ export class RbacRepository {
     });
   }
 
-  async countActiveAssignments(roleId: string, companyId: string) {
-    const now = new Date();
-    return (await this.assignments()).count({
-      where: {
+  async mutateRole(
+    roleId: string,
+    companyId: string,
+    data: Record<string, unknown>,
+    action: "UPDATE" | "SOFT_DELETE",
+    auditData: RoleAuditFactory
+  ) {
+    const prisma = await this.prismaProvider();
+    return prisma.$transaction(async (tx) => {
+      const roles = await tx.$queryRawUnsafe<RoleRecord[]>(
+        'SELECT * FROM "roles" WHERE "id" = $1::uuid AND "companyId" = $2::uuid AND "deletedAt" IS NULL FOR UPDATE',
         roleId,
-        companyId,
-        deletedAt: null,
-        startsAt: { lte: now },
-        OR: [{ endsAt: null }, { endsAt: { gt: now } }]
+        companyId
+      );
+      const before = roles[0];
+      if (!before) throw notFound("Role not found");
+      if (before.isSystem) {
+        throw badRequest(
+          action === "SOFT_DELETE"
+            ? "System profiles cannot be deleted"
+            : "System profiles cannot be edited"
+        );
       }
+
+      const changesScope = data.scope !== undefined && data.scope !== before.scope;
+      if (action === "SOFT_DELETE" || changesScope) {
+        const now = new Date();
+        const assignmentCount = await tx.userRoleAssignment.count({
+          where: {
+            roleId,
+            companyId,
+            deletedAt: null,
+            startsAt: { lte: now },
+            OR: [{ endsAt: null }, { endsAt: { gt: now } }]
+          }
+        });
+        if (assignmentCount > 0) {
+          throw badRequest(
+            action === "SOFT_DELETE"
+              ? "Profile is in use and cannot be deleted"
+              : "Profile scope cannot change while active assignments exist"
+          );
+        }
+      }
+
+      const after = await tx.role.update({
+        where: { id: roleId, companyId, deletedAt: null },
+        data
+      });
+      await tx.auditLog.create({ data: auditData(before, after) });
+      return after;
     });
   }
 

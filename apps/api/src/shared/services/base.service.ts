@@ -1,6 +1,6 @@
 // en-GB: Implements application rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../http/request-types.js";
-import { toPagination, toSkipTake } from "../http/pagination.js";
+import { toBoundedSearch, toPagination, toSkipTake } from "../http/pagination.js";
 import { badRequest, notFound } from "../errors/app-error.js";
 import type { BaseRepository } from "../repositories/base.repository.js";
 import { writeAudit } from "./audit-writer.js";
@@ -11,7 +11,8 @@ type BaseServiceOptions = {
   deletedAtFilter?: boolean;
   userStamps?: boolean;
   auditWrites?: boolean;
-  orderBy?: Record<string, string>;
+  orderBy?: Record<string, string> | Array<Record<string, string>>;
+  searchFields?: string[];
 };
 
 export class BaseService {
@@ -27,7 +28,8 @@ export class BaseService {
       deletedAtFilter: options.deletedAtFilter ?? true,
       userStamps: options.userStamps ?? false,
       auditWrites: options.auditWrites ?? true,
-      orderBy: options.orderBy ?? { updatedAt: "desc" }
+      orderBy: options.orderBy ?? { updatedAt: "desc" },
+      searchFields: options.searchFields ?? []
     };
   }
 
@@ -46,10 +48,18 @@ export class BaseService {
   async list(req: ApiRequest, filters: Record<string, unknown> = {}) {
     const pagination = toPagination(req.query);
     const companyId = this.requireCompanyId(req);
+    const search = toBoundedSearch(req.query);
     const where = {
       ...filters,
       ...(this.options.hasCompanyScope && companyId ? { companyId } : {}),
-      ...(this.options.deletedAtFilter ? { deletedAt: null } : {})
+      ...(this.options.deletedAtFilter ? { deletedAt: null } : {}),
+      ...(search && this.options.searchFields.length
+        ? {
+            OR: this.options.searchFields.map((field) => ({
+              [field]: { contains: search, mode: "insensitive" }
+            }))
+          }
+        : {})
     };
 
     const [items, total] = await Promise.all([

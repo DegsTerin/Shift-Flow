@@ -3,6 +3,7 @@ import { Router } from "express";
 import { authenticate } from "../../shared/middlewares/authenticate.js";
 import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
+import { paginationSchema, searchableListQuerySchema } from "../../shared/http/pagination.js";
 import {
   assignPermissionSchema,
   assignRoleSchema,
@@ -17,7 +18,12 @@ export const rbacRoutes = Router();
 
 rbacRoutes.use(authenticate);
 rbacRoutes.get("/check", validate("query", permissionCheckSchema), RbacController.check);
-rbacRoutes.get("/roles", requirePermission("rbac", "read"), RbacController.roles.list);
+rbacRoutes.get(
+  "/roles",
+  requirePermission("rbac", "read"),
+  validate("query", searchableListQuerySchema),
+  RbacController.roles.list
+);
 rbacRoutes.post(
   "/roles",
   requirePermission("rbac", "write"),
@@ -47,7 +53,12 @@ rbacRoutes.delete(
   requirePermission("rbac", "write"),
   RbacController.removePermission
 );
-rbacRoutes.get("/permissions", requirePermission("rbac", "read"), RbacController.permissions.list);
+rbacRoutes.get(
+  "/permissions",
+  requirePermission("rbac", "read"),
+  validate("query", paginationSchema),
+  RbacController.permissions.list
+);
 rbacRoutes.post(
   "/permissions",
   requirePermission("rbac", "write"),

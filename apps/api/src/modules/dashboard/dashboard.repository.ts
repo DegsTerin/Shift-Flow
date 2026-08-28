@@ -73,15 +73,12 @@ export class DashboardRepository {
   ) {
     const prisma = await this.prisma();
     return prisma.$transaction(async (tx) => {
-      const [total, byStatus, byPriority, slaAtRisk, overdue, completedActivities] =
-        await Promise.all([
-          tx.activity.count({ where }),
-          this.groupBy(tx.activity, "status", where),
-          this.groupBy(tx.activity, "priority", where),
-          tx.activity.count({ where: slaRiskWhere }),
-          tx.activity.count({ where: overdueWhere }),
-          this.completedForAverage(tx.activity, where)
-        ]);
+      const total = await tx.activity.count({ where });
+      const byStatus = await this.groupBy(tx.activity, "status", where);
+      const byPriority = await this.groupBy(tx.activity, "priority", where);
+      const slaAtRisk = await tx.activity.count({ where: slaRiskWhere });
+      const overdue = await tx.activity.count({ where: overdueWhere });
+      const completedActivities = await this.completedForAverage(tx.activity, where);
       return { total, byStatus, byPriority, slaAtRisk, overdue, completedActivities };
     }, repeatableRead);
   }
@@ -89,13 +86,11 @@ export class DashboardRepository {
   async chartsSnapshot(where: Record<string, unknown>) {
     const prisma = await this.prisma();
     return prisma.$transaction(async (tx) => {
-      const [byTeam, byClient, byStatus, byPriority, byShift] = await Promise.all([
-        this.groupBy(tx.activity, "teamId", where),
-        this.groupBy(tx.activity, "clientId", where),
-        this.groupBy(tx.activity, "status", where),
-        this.groupBy(tx.activity, "priority", where),
-        this.groupBy(tx.activity, "shiftId", where)
-      ]);
+      const byTeam = await this.groupBy(tx.activity, "teamId", where);
+      const byClient = await this.groupBy(tx.activity, "clientId", where);
+      const byStatus = await this.groupBy(tx.activity, "status", where);
+      const byPriority = await this.groupBy(tx.activity, "priority", where);
+      const byShift = await this.groupBy(tx.activity, "shiftId", where);
       return { byTeam, byClient, byStatus, byPriority, byShift };
     }, repeatableRead);
   }

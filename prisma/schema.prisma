@@ -1,7 +1,8 @@
 // en-GB: Defines the canonical data model so generated clients and migrations share one schema.
 generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../generated/prisma"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

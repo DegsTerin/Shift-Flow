@@ -30,7 +30,7 @@ async function login(page: Page) {
 
 async function navigateToKanban(page: Page, isMobile: boolean) {
   if (isMobile) {
-    await page.getByRole("button", { name: /Collapse navigation|Recolher navegacao/ }).click();
+    await page.getByRole("button", { name: /Collapse navigation|Recolher navegação/ }).click();
   }
 
   await page.getByRole("button", { name: "Kanban" }).click();
@@ -42,6 +42,12 @@ test.describe("STATE-07 homologation", () => {
 
     await expect(page.getByText(/INTEGRATION ADMIN/i)).toBeVisible();
     await expect(page.getByText(/Atividades totais|Total activities/)).toBeVisible();
+    const referenceLabels = page.locator(".filter-bar .reference-field > span");
+    await expect(referenceLabels).toHaveCount(4);
+    for (let index = 0; index < 4; index += 1) {
+      await expect(referenceLabels.nth(index)).toBeVisible();
+    }
+    await expect(page.locator(".filter-bar .reference-select-tools")).toHaveCount(0);
     await expect
       .poll(
         async () =>
@@ -53,21 +59,24 @@ test.describe("STATE-07 homologation", () => {
         }
       )
       .toBeGreaterThanOrEqual(4);
-    const metrics = (await page.locator(".metric-card strong").allTextContents()).map((value) =>
-      Number.parseFloat(value)
-    );
-    expect(metrics.length).toBeGreaterThanOrEqual(8);
-    expect(metrics[0]).toBeGreaterThanOrEqual(4);
-    expect(metrics[1]).toBeGreaterThanOrEqual(1);
-    expect(metrics[2]).toBeGreaterThanOrEqual(1);
-    expect(metrics[3]).toBeGreaterThanOrEqual(1);
-    expect(metrics[4]).toBeGreaterThanOrEqual(1);
-    expect(metrics[5]).toBeGreaterThanOrEqual(1);
-    expect(metrics[6]).toBeGreaterThanOrEqual(1);
-    expect(metrics[7]).toBeGreaterThanOrEqual(0);
-    await expect(
-      page.locator(".metric-card").filter({ hasText: /Atrasadas|Overdue/ })
-    ).toBeVisible();
+    await expect(page.locator(".metric-card")).toHaveCount(8);
+    const requiredMetrics: Array<[RegExp, number]> = [
+      [/Atividades totais|Total activities/, 4],
+      [/Pendentes|Pending/, 1],
+      [/Em andamento|In progress/, 1],
+      [/Finalizadas|Completed/, 1],
+      [/Críticas|Critical/, 1],
+      [/SLA em risco|SLA at risk/, 1],
+      [/Atrasadas|Overdue/, 1],
+      [/Tempo médio|Average time/, 0]
+    ];
+    for (const [label, minimum] of requiredMetrics) {
+      const card = page.locator(".metric-card").filter({ hasText: label }).first();
+      await expect(card).toBeVisible();
+      await expect
+        .poll(async () => Number.parseFloat(await card.locator("strong").innerText()))
+        .toBeGreaterThanOrEqual(minimum);
+    }
     await expect(page.locator(".alert-list")).toBeVisible();
   });
 
@@ -117,11 +126,11 @@ test.describe("STATE-07 homologation", () => {
 
     await login(page);
 
-    const shell = page.locator("main.app-shell");
+    const shell = page.locator("div.app-shell");
     await expect(
       page.getByText(/Dados carregados de endpoints reais|Loaded from live endpoints/)
     ).toHaveCount(0);
-    await page.getByRole("button", { name: /Recolher navegacao|Collapse navigation/ }).click();
+    await page.getByRole("button", { name: /Recolher navegação|Collapse navigation/ }).click();
     await expect(shell).toHaveClass(/nav-collapsed/);
 
     await page.getByRole("button", { name: /Modo TV|TV Mode/ }).click();
@@ -156,7 +165,7 @@ test.describe("STATE-07 homologation", () => {
     expect(overflow).toBe(false);
 
     await expect(page.getByRole("navigation")).toBeHidden();
-    await page.getByRole("button", { name: /Collapse navigation|Recolher navegacao/ }).click();
+    await page.getByRole("button", { name: /Collapse navigation|Recolher navegação/ }).click();
     await expect(page.getByRole("navigation")).toBeVisible();
     await page.getByRole("button", { name: "Kanban" }).click();
     await expect(page.getByRole("navigation")).toBeHidden();

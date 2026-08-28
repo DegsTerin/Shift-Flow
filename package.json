@@ -50,6 +50,7 @@
     "test:load:stress": "playwright test tests/e2e/state07-load.spec.ts --repeat-each=3",
     "test": "npm run test:unit",
     "test:unit": "vitest run",
+    "test:postgres:users": "vitest run --config vitest.postgres.config.ts",
     "db:reset:realistic": "node prisma/reset-realistic.mjs",
     "homologation:seed": "node prisma/homologation-seed.mjs",
     "prisma:generate": "prisma generate",

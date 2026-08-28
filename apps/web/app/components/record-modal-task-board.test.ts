@@ -4,6 +4,7 @@ import type { ActivityTaskBoard } from "../lib/types";
 import {
   handleInternalTaskDrop,
   planInternalTaskDrop,
+  planInternalTaskStep,
   taskDueAtPayload
 } from "./record-modal-task-board";
 
@@ -91,6 +92,27 @@ describe("planInternalTaskDrop", () => {
     expect(event.stopPropagation).not.toHaveBeenCalled();
     expect(clearDrag).toHaveBeenCalledOnce();
     expect(move).not.toHaveBeenCalled();
+  });
+});
+
+describe("planInternalTaskStep", () => {
+  it("moves a task one position before or after without drag input", () => {
+    expect(planInternalTaskStep(board, "task-b", -1)).toEqual({
+      taskId: "task-b",
+      columnId: "column-a",
+      position: 0
+    });
+    expect(planInternalTaskStep(board, "task-b", 1)).toEqual({
+      taskId: "task-b",
+      columnId: "column-a",
+      position: 2
+    });
+  });
+
+  it("emits no command beyond either column boundary", () => {
+    expect(planInternalTaskStep(board, "task-a", -1)).toBeNull();
+    expect(planInternalTaskStep(board, "task-c", 1)).toBeNull();
+    expect(planInternalTaskStep(board, "missing", 1)).toBeNull();
   });
 });
 

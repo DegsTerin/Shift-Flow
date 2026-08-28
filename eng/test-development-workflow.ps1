@@ -14,6 +14,7 @@ $nvmPath = Join-Path $repositoryRoot '.nvmrc'
 $packagePath = Join-Path $repositoryRoot 'package.json'
 $workflowPath = Join-Path $repositoryRoot '.github/workflows/release-gates.yml'
 $workflowEnvironmentPath = Join-Path $PSScriptRoot 'workflow.env'
+$postgresRegressionPath = Join-Path $repositoryRoot 'prisma/users-tenant-isolation.postgres.test.mjs'
 
 function Assert-Plan {
     [CmdletBinding()]
@@ -68,6 +69,7 @@ $buildScript = Get-Content -LiteralPath $buildPath -Raw
 $ciScript = Get-Content -LiteralPath $ciPath -Raw
 $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
+$postgresRegression = Get-Content -LiteralPath $postgresRegressionPath -Raw
 $documentedProjectVariables = @(
     Get-Content -LiteralPath $environmentExamplePath |
         ForEach-Object {
@@ -95,6 +97,7 @@ $requiredIsolatedVariables = @(
     'RATE_LIMIT_STORE',
     'REALISTIC_SEED_PASSWORD'
     'REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS'
+    'SHIFTFLOW_POSTGRES_INTEGRATION'
 )
 $developmentIsolatedVariables = @(Get-DeclaredIsolatedVariables -Script $developmentScript)
 $ciIsolatedVariables = @(Get-DeclaredIsolatedVariables -Script $ciScript)
@@ -214,6 +217,17 @@ Assert-Plan -Task 'Full' -Offline -Expected @(
     'PLAN|version=1|task=Full|mode=Offline|classification=INCOMPLETE_NON_GATE',
     'STEP|1|eng/ci.ps1 -Offline'
 )
+
+if ($package.scripts.'test:postgres:users' -cne
+    'vitest run --config vitest.postgres.config.ts') {
+    throw 'The PostgreSQL User regression must use its dedicated opt-in Vitest configuration.'
+}
+if (-not $postgresRegression.Contains(
+        'if (process.env.SHIFTFLOW_POSTGRES_INTEGRATION !== "1") {',
+        [System.StringComparison]::Ordinal) -or
+    $postgresRegression.Contains('describe.runIf(', [System.StringComparison]::Ordinal)) {
+    throw 'The dedicated PostgreSQL regression must fail closed instead of succeeding with skipped tests.'
+}
 
 $quickFunction = [regex]::Match(
     $developmentScript,
@@ -373,6 +387,12 @@ $remoteCoreGate = $workflow.IndexOf(
 $remoteMigration = $workflow.IndexOf(
     'run: npx prisma migrate deploy',
     [System.StringComparison]::Ordinal)
+$remotePostgresIntegration = $workflow.IndexOf(
+    'run: npm run test:postgres:users',
+    [System.StringComparison]::Ordinal)
+$remoteIntegrationSeed = $workflow.IndexOf(
+    'run: node prisma/integration-seed.mjs',
+    [System.StringComparison]::Ordinal)
 if ($workflow -match '(?i)\bsecrets\s*(?:[.]|\[)' -or
     -not $workflow.Contains(
         'DATABASE_URL: postgresql://shiftflow:ci-postgres-password@localhost:5432/shiftflow_ci?schema=public',
@@ -390,6 +410,16 @@ if ($workflow -match '(?i)\bsecrets\s*(?:[.]|\[)' -or
     $remoteMigration -lt 0 -or
     $remoteCoreGate -gt $remoteMigration) {
     throw 'Remote core lanes must cover Node.js 22 and 24 with full candidate history; runtime stages must follow them and use only fixed non-secret disposable inputs.'
+}
+if ([regex]::Matches(
+        $workflow,
+        '(?m)^\s*run:\s*npm run test:postgres:users\s*$').Count -ne 1 -or
+    -not $workflow.Contains('SHIFTFLOW_POSTGRES_INTEGRATION: "1"', [System.StringComparison]::Ordinal) -or
+    $remotePostgresIntegration -lt 0 -or
+    $remoteIntegrationSeed -lt 0 -or
+    $remotePostgresIntegration -lt $remoteMigration -or
+    $remotePostgresIntegration -gt $remoteIntegrationSeed) {
+    throw 'The disposable runtime must execute the opt-in User aggregate PostgreSQL regression after migrations and before shared seed data.'
 }
 if ([regex]::Matches(
         $workflow,
