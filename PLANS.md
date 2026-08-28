@@ -9,7 +9,7 @@
 | Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Plan ID        | `PLAN-PUBLIC-DEMO-RELEASE-20260828-01`                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Status         | `LOCAL_CANDIDATE_PASS`; first `Full` stopped at the recorded lint finding and the corrected complete `Full` passed; no GitHub repository, remote push, Render resource or deployment exists yet                                                                                                                                                                                                                                                                                                   |
+| Status         | `REMOTE_CI_REMEDIATION`; local candidate passed and public GitHub repository exists; first remote workflow failed on the initial-push zero diff base; no Render resource or deployment exists yet                                                                                                                                                                                                                                                                                                 |
 | Baseline       | Clean `main@177a4d002dd8857f5755847684c0009c78c6f52c`; prompt-system `6.0.0`; no Git remote                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Authority      | Owner request to publish only the system sources, prepare a professional en-GB README with a real product GIF, then publish through GitHub CLI and deploy through Render CLI                                                                                                                                                                                                                                                                                                                      |
 | Current state  | `STATE-08 PRODUCTION_RELEASE`; authorised release preparation plus target-specific demonstration hosting maintenance; no lifecycle transition                                                                                                                                                                                                                                                                                                                                                     |
@@ -102,8 +102,22 @@
   lint, type checking, Prisma validation/generation, override policy,
   production configuration and secret scanning passed; 63 files with 542 Node
   tests passed; Express and Next.js production builds passed; and all 19 .NET
-  tests passed with zero build warnings or errors. Publication remains pending
-  the scoped local commit.
+  tests passed with zero build warnings or errors. This candidate was recorded
+  in local commit `42237071f7dab6d13f3b3035eb258ba0996ed08a` before GitHub
+  publication.
+- GitHub CLI created public `DegsTerin/Shift-Flow`, configured `origin` and
+  pushed `main@42237071f7dab6d13f3b3035eb258ba0996ed08a`; the remote branch
+  matched that SHA. Remote run `33221025645` then failed in both Node lanes and
+  the .NET lane only after their substantive checks because the first push
+  supplied GitHub's all-zero `before` sentinel to the fail-closed Git diff-base
+  validation. Runtime jobs did not start and no Render resource was created.
+- The workflow correction preserves full candidate diff identity for pull
+  requests and ordinary pushes, but passes an empty optional base on the unique
+  repository-creation push where no prior remote commit exists. The canonical
+  workflow policy regression was updated to require that exact expression. A
+  fresh complete `Full` passed the same 542 Node and 19 .NET tests, builds and
+  controls; the corrective commit, push and remote run remain required. The
+  failed run remains immutable release evidence.
 
 ## In-app notification centre — 2026-08-28
 

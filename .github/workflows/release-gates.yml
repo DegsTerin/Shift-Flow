@@ -41,7 +41,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Canonical core gate
-        run: pwsh -NoProfile -File eng/ci.ps1 -Component Node -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
+        run: pwsh -NoProfile -File eng/ci.ps1 -Component Node -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}'
 
   dotnet-gate:
     name: ASP.NET Core gate (.NET 10)
@@ -60,7 +60,7 @@ jobs:
           global-json-file: global.json
 
       - name: Canonical ASP.NET Core gate
-        run: pwsh -NoProfile -File eng/ci.ps1 -Component DotNet -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
+        run: pwsh -NoProfile -File eng/ci.ps1 -Component DotNet -BaseRef '${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}'
 
   runtime-gates:
     name: Disposable runtime gates (Node.js 22)

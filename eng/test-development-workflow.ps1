@@ -423,7 +423,7 @@ if ($package.engines.node -cne '>=22.12.0 <23.0.0 || >=24.0.0 <25.0.0' -or
 }
 
 $remoteCoreCommand = @'
-run: pwsh -NoProfile -File eng/ci.ps1 -Component Node -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
+run: pwsh -NoProfile -File eng/ci.ps1 -Component Node -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}'
 '@.Trim()
 if ([regex]::Matches(
         $workflow,
@@ -463,7 +463,7 @@ if ($workflow -match '(?i)\bsecrets\s*(?:[.]|\[)' -or
 foreach ($dotnetWorkflowContract in @(
         'uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68',
         'global-json-file: global.json',
-        "run: pwsh -NoProfile -File eng/ci.ps1 -Component DotNet -BaseRef '`${{ github.event.pull_request.base.sha || github.event.before }}'",
+        "run: pwsh -NoProfile -File eng/ci.ps1 -Component DotNet -BaseRef '`${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}'",
         'runs-on: ubuntu-24.04')) {
     if (-not $workflow.Contains($dotnetWorkflowContract, [System.StringComparison]::Ordinal)) {
         throw "The remote workflow is missing ASP.NET Core or Redis contract '$dotnetWorkflowContract'."
