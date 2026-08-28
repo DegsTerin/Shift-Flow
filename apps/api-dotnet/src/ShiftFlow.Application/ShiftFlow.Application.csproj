@@ -1,0 +1,6 @@
+<!-- en-GB: Builds use-case contracts without coupling them to HTTP or concrete persistence. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../ShiftFlow.Domain/ShiftFlow.Domain.csproj" />
+  </ItemGroup>
+</Project>

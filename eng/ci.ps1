@@ -5,6 +5,9 @@ param(
 
     [switch]$SkipInstall,
 
+    [ValidateSet('All', 'Node', 'DotNet')]
+    [string]$Component = 'All',
+
     [string]$BaseRef
 )
 
@@ -13,6 +16,7 @@ Set-StrictMode -Version Latest
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $developmentEntrypoint = Join-Path $PSScriptRoot 'development.ps1'
+$dotnetEntrypoint = Join-Path $PSScriptRoot 'dotnet.ps1'
 $workflowEnvironmentPath = Join-Path $PSScriptRoot 'workflow.env'
 $syntheticDatabaseUrl = 'postgresql://shiftflow:workflow-local@127.0.0.1:1/shiftflow_workflow?schema=public'
 $isolatedEnvironmentVariables = @(
@@ -27,6 +31,8 @@ $isolatedEnvironmentVariables = @(
     'AUTH_RATE_LIMIT_MAX',
     'AUTH_RATE_LIMIT_WINDOW_MS',
     'CORS_ORIGIN',
+    'DATA_PROTECTION_KEYS_PATH',
+    'ENABLE_INTERNAL_RUNTIME_PROBES',
     'DATABASE_URL',
     'DEMO_EMAIL',
     'DEMO_PASSWORD',
@@ -45,19 +51,25 @@ $isolatedEnvironmentVariables = @(
     'LOG_LEVEL',
     'NEXT_PUBLIC_DEMO_EMAIL',
     'NEXT_PUBLIC_DEMO_PASSWORD',
+    'NEXT_PUBLIC_ALLOW_INSECURE_LOOPBACK',
     'NEXT_PUBLIC_API_BASE_URL',
     'NODE_ENV',
     'PGPASSFILE',
     'PGPASSWORD',
     'POSTGRES_PASSWORD',
     'RATE_LIMIT_STORE',
+    'REDIS_CONNECTION',
+    'REDIS_INSTANCE_NAME',
     'REALISTIC_SEED_EMAIL',
     'REALISTIC_SEED_PASSWORD',
     'REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS',
     'SHIFTFLOW_POSTGRES_INTEGRATION',
     'TRUST_PROXY',
+    'TRUSTED_PROXY_IPS',
     'USER_PASSWORD'
 )
+$runNode = $Component -in @('All', 'Node')
+$runDotNet = $Component -in @('All', 'DotNet')
 
 if (-not [string]::IsNullOrEmpty($BaseRef) -and
     $BaseRef -notmatch '^[0-9a-fA-F]{40}$') {
@@ -109,10 +121,10 @@ function Assert-DependenciesReady {
 
 Push-Location $repositoryRoot
 try {
-    & $developmentEntrypoint Doctor -CorePreflightOnly
+    & $developmentEntrypoint Doctor -CorePreflightOnly -CoreComponent $Component
     & (Join-Path $PSScriptRoot 'test-development-workflow.ps1')
 
-    if (-not $SkipInstall) {
+    if ($runNode -and -not $SkipInstall) {
         if ($Offline) {
             npm ci --offline --ignore-scripts --no-audit --no-fund
             Assert-LastExitCode -Operation 'Offline locked npm restore'
@@ -123,24 +135,37 @@ try {
         }
     }
 
-    npm run prisma:generate
-    Assert-LastExitCode -Operation 'Prisma client generation'
-    Assert-DependenciesReady
+    if ($runNode) {
+        npm run prisma:generate
+        Assert-LastExitCode -Operation 'Prisma client generation'
+        Assert-DependenciesReady
 
-    if ($Offline) {
-        Write-Output 'NOT_RUN: npm dependency audit requires online registry metadata.'
-    }
-    else {
-        npm run security:audit
-        Assert-LastExitCode -Operation 'npm dependency audit'
+        if ($Offline) {
+            Write-Output 'NOT_RUN: npm dependency audit requires online registry metadata.'
+        }
+        else {
+            npm run security:audit
+            Assert-LastExitCode -Operation 'npm dependency audit'
+        }
+
+        npm run quality
+        Assert-LastExitCode -Operation 'Quality checks'
+        npm run test:unit
+        Assert-LastExitCode -Operation 'Unit tests'
+        npm run build
+        Assert-LastExitCode -Operation 'Application build'
     }
 
-    npm run quality
-    Assert-LastExitCode -Operation 'Quality checks'
-    npm run test:unit
-    Assert-LastExitCode -Operation 'Unit tests'
-    npm run build
-    Assert-LastExitCode -Operation 'Application build'
+    if ($runDotNet) {
+        $dotnetArguments = @{}
+        if ($Offline) {
+            $dotnetArguments['Offline'] = $true
+        }
+        if ($SkipInstall) {
+            $dotnetArguments['SkipRestore'] = $true
+        }
+        & $dotnetEntrypoint @dotnetArguments
+    }
 
     git -C $repositoryRoot diff --check
     Assert-LastExitCode -Operation 'Working-tree diff hygiene'
@@ -155,7 +180,7 @@ try {
     }
 
     if ($Offline) {
-        throw 'INCOMPLETE_NON_GATE: the online dependency audit was NOT_RUN; offline Full cannot approve the canonical core gate.'
+        throw 'INCOMPLETE_NON_GATE: one or more online dependency audits were NOT_RUN; offline Full cannot approve the canonical core gate.'
     }
 }
 finally {

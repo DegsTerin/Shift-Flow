@@ -14,26 +14,37 @@ const workspaceFiles = execFileSync(
   .filter((file) => file && existsSync(file));
 
 const commentableExtensions = new Set([
+  ".cs",
+  ".csproj",
   ".css",
   ".mjs",
+  ".props",
   ".prisma",
   ".ps1",
+  ".slnx",
   ".sql",
   ".toml",
   ".ts",
   ".tsx",
+  ".yaml",
   ".yml"
 ]);
 const commentableConfigurationFiles = new Set([
+  ".dockerignore",
   ".editorconfig",
   ".env.example",
   ".github/CODEOWNERS",
   ".gitignore",
-  ".prettierignore"
+  ".prettierignore",
+  "apps/api-dotnet/Dockerfile",
+  "infra/docker/node.Dockerfile",
+  "infra/nginx/nginx.conf",
+  "infra/nginx/shiftflow-proxy.conf"
 ]);
 const strictOrGeneratedFiles = new Set([
   ".prettierrc",
   "apps/web/next-env.d.ts",
+  "global.json",
   "package-lock.json",
   "package.json",
   "prisma/migrations/migration_lock.toml"
@@ -57,8 +68,17 @@ function isCommentableJson(file) {
   return file === "tsconfig.json" || file.endsWith("/tsconfig.json");
 }
 
+function isGeneratedDotNetLock(file) {
+  return file.startsWith("apps/api-dotnet/") && file.endsWith("/packages.lock.json");
+}
+
 function isCommentable(file) {
-  if (strictOrGeneratedFiles.has(file) || immutableMigrationFiles.has(file)) return false;
+  if (
+    strictOrGeneratedFiles.has(file) ||
+    immutableMigrationFiles.has(file) ||
+    isGeneratedDotNetLock(file)
+  )
+    return false;
   return (
     commentableExtensions.has(extname(file)) ||
     commentableConfigurationFiles.has(file) ||
@@ -69,7 +89,11 @@ function isCommentable(file) {
 const undocumented = [];
 const commentableFiles = workspaceFiles.filter(isCommentable);
 const exceptionManifest = readFileSync("docs/source-commenting-manifest.md", "utf8");
-const documentedExceptionFiles = [...strictOrGeneratedFiles, ...immutableMigrationFiles];
+const documentedExceptionFiles = [
+  ...strictOrGeneratedFiles,
+  ...immutableMigrationFiles,
+  ...workspaceFiles.filter(isGeneratedDotNetLock)
+];
 const undocumentedExceptions = documentedExceptionFiles.filter(
   (file) => !exceptionManifest.includes(`\`${file}\``)
 );

@@ -10,11 +10,23 @@
 
 ## Current architecture
 
-- Modular monorepo with Next.js web, Express API, PostgreSQL, and Prisma.
-- Backend modules use route, controller, validator, service, repository, and DTO boundaries.
-- Authentication uses JWT access tokens and refresh-token rotation.
+- Modular monorepo with Next.js Web, the incumbent Express API, a .NET 10
+  ASP.NET Core compatibility host, PostgreSQL, Prisma, Redis and an Nginx
+  migration edge.
+- Express modules use route, controller, validator, service, repository and DTO
+  boundaries. ASP.NET Core separates Domain, Application, Infrastructure, API
+  and focused test projects.
+- Prisma remains the sole schema/migration owner. The migrated Audit read slice
+  uses Npgsql against the existing schema.
+- Authentication uses JWT access tokens and refresh-token rotation. ASP.NET
+  Core validates the current HS256 contract as a temporary bridge and
+  revalidates live principal, membership, revocation and RBAC state.
 - RBAC and tenant/company scope are enforced by middleware and services.
-- Structured request logging and readiness/liveness endpoints are present.
+- Redis backs ASP.NET Core cache/session foundations, dependency readiness and
+  fail-closed global rate limiting for migrated business traffic.
+- Nginx routes only `/api/audit` and `/openapi/` to ASP.NET Core; all remaining
+  API traffic stays on Express and the route promotion is reversible.
+- Structured request logging and separate liveness/readiness semantics are present.
 - Canonical architecture: `../../docs/architecture.md`.
 
 ## Implemented operating capabilities
@@ -23,6 +35,15 @@
 - Internal activity task boards and immutable operational history.
 - Responsive web interface, i18n, light/dark themes, and TV-oriented views where implemented.
 - Release, E2E, accessibility, load, security, source-comment, and quality scripts documented by the repository.
+- A locked .NET 10 solution, Audit OpenAPI contract, non-root Linux images and a
+  disposable PostgreSQL/Redis/Nginx strangler smoke are implemented. The real
+  runtime gate has proved authenticated same-tenant retrieval, cross-tenant
+  `404`, recursive secret sanitisation, live RBAC, credential-version
+  invalidation/restoration, token revocation, Redis rate-limit persistence and
+  fail-closed behaviour, dependency and routed-traffic recovery after Redis
+  restart, persisted data-protection keys across ASP.NET Core container
+  recreation, seven non-root runtime identities, complete disposable cleanup
+  and exact preservation of the caller environment.
 - One executable development entry point provides read-only diagnosis, locked
   setup, `NON_GATE` quick feedback, deterministic plans and a canonical
   runtime-credential-free core gate shared with GitHub Actions.
@@ -42,7 +63,10 @@
 - Conversation coordination and safe parallel work: `../core/Execution-Protocol.md`.
 - Repository routing adapter: `../../AGENTS.md`.
 - Historical governance-adoption sources: `../../docs/history/sources/`.
-- Runtime truth for local services: `scripts/status.ps1` plus HTTP health checks.
+- Runtime truth for the ordinary Windows Express/Web services:
+  `scripts/status.ps1` plus their HTTP health checks. The separate strangler
+  profile uses Compose health plus the routed runtime smoke; neither source of
+  truth governs the other runtime.
 - Governance index: `../../docs/governance-index.md`.
 - Executable plan: `../../PLANS.md`, which records active work and evidence but
   has no authority to change state or gates.
@@ -51,6 +75,18 @@
 ## Active risks and external dependencies
 
 - Remote Git configuration and external deployment targets depend on environment information outside this repository.
+- Azure versus AWS and the OAuth 2.0/OpenID Connect provider are undecided.
+  Provider-specific IaC, managed-service configuration, external identity
+  linking and deployment are therefore not implemented or authorised.
+- REST remains canonical. GraphQL is deferred until a measured
+  dashboard/reporting read case justifies it.
+- The disposable migration profile is sequential-only because its loopback
+  ports and trusted-proxy subnet are fixed. Concurrent use on one Docker host
+  requires collision-safe allocation and new proxy-trust evidence.
+- Pinned container digests provide immutable inputs but the repository does not
+  yet enforce OCI CVE scanning, SBOM generation or attestations. The transition
+  Node.js images also carry shared production dependencies, and the Web image
+  retains more workspace content than its final runtime needs.
 - Only the primary worktree is present and no parallel branch/worktree workflow is authorised; simultaneous work is read-only and file writing remains sequential in the coordinating conversation.
 - Language governance does not determine or change interface locale, translation catalogues, microcopy, or user-visible error language.
 - Local E2E and load checks require a freshly provisioned disposable database,
@@ -58,10 +94,17 @@
   isolated ports; they must not reuse developer data or services.
 - Remote environments must receive locally approved migrations through their deployment pipeline.
 - Physical-device and real-TV visual checks remain environment-dependent.
-- Attachment storage and distributed rate limiting require production infrastructure choices when scaling beyond the current deployment model.
+- Attachment storage, managed Redis/PostgreSQL, TLS/proxy trust, shared
+  data-protection key storage and least-privilege database roles require
+  production infrastructure choices. The legacy Express rate limiter remains
+  process-local; only migrated business traffic has the current Redis-backed
+  fail-closed limiter.
 - The corrective audit's local gates and disposable PostgreSQL/browser envelope
   passed, but that evidence is not production approval, deployment evidence, a
   Human Gate decision or a lifecycle transition.
+- The ASP.NET Core migration-profile evidence is likewise local and disposable;
+  it does not approve a route cutover outside the profile, cloud deployment,
+  OAuth/OIDC transition, GraphQL surface or lifecycle change.
 - Prisma `relationJoins` preview support is enabled for the filtered Activity
   graph so one PostgreSQL query replaces relation fan-out on a single
   transaction connection. It must remain regression-tested and be reassessed

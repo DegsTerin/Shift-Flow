@@ -1,8 +1,7 @@
 # en-GB: Configures docker compose automation so infrastructure and release behaviour remain reproducible.
 services:
   postgres:
-    image: postgres:16-alpine
-    container_name: shiftflow-postgres
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     # Development-only credentials. Production must use managed secrets and a non-public database endpoint.
     environment:
       POSTGRES_USER: shiftflow
@@ -17,6 +16,176 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - data
+
+  redis:
+    image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - data
+
+  migrate:
+    profiles: ["migration"]
+    build:
+      context: .
+      dockerfile: infra/docker/node.Dockerfile
+      target: migration
+    environment:
+      DATABASE_URL: postgresql://shiftflow:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required.}@postgres:5432/shiftflow?schema=public
+      SHIFTFLOW_DISPOSABLE_RUNTIME: CONFIRMED_DISPOSABLE_STRANGLER
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+
+  legacy-api:
+    profiles: ["migration"]
+    build:
+      context: .
+      dockerfile: infra/docker/node.Dockerfile
+      target: legacy-api
+    environment:
+      API_INSTANCE_COUNT: 1
+      API_PORT: 3001
+      CORS_ORIGIN: http://localhost:8080
+      DATABASE_URL: postgresql://shiftflow:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required.}@postgres:5432/shiftflow?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required.}
+      JWT_ISSUER: ${JWT_ISSUER:-shiftflow}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required.}
+      LOG_LEVEL: info
+      NODE_ENV: production
+      RATE_LIMIT_STORE: memory
+      REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS: "true"
+      TRUST_PROXY: 172.31.238.10
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - edge
+      - data
+
+  api-dotnet:
+    profiles: ["migration"]
+    build:
+      context: .
+      dockerfile: apps/api-dotnet/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      API_RATE_LIMIT_WINDOW_MS: "600000"
+      DATABASE_URL: postgresql://shiftflow:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required.}@postgres:5432/shiftflow?schema=public
+      DATA_PROTECTION_KEYS_PATH: /var/lib/shiftflow/keys
+      ENABLE_INTERNAL_RUNTIME_PROBES: "true"
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required.}
+      JWT_ISSUER: ${JWT_ISSUER:-shiftflow}
+      REDIS_CONNECTION: redis:6379,abortConnect=false
+      REDIS_INSTANCE_NAME: "shiftflow:local:"
+      TRUSTED_PROXY_IPS: 172.31.238.10
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    volumes:
+      - data-protection-keys:/var/lib/shiftflow/keys
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - edge
+      - data
+
+  web:
+    profiles: ["migration"]
+    build:
+      context: .
+      dockerfile: infra/docker/node.Dockerfile
+      target: web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+        NEXT_PUBLIC_ALLOW_INSECURE_LOOPBACK: "true"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      legacy-api:
+        condition: service_healthy
+      api-dotnet:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - edge
+
+  nginx:
+    profiles: ["migration"]
+    image: nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8
+    user: "101:101"
+    read_only: true
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/shiftflow-proxy.conf:/etc/nginx/shiftflow-proxy.conf:ro
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    depends_on:
+      legacy-api:
+        condition: service_healthy
+      api-dotnet:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget -qO- http://127.0.0.1:8080/edge-health >/dev/null &&
+          wget -qO- http://legacy-api:3001/ready >/dev/null &&
+          wget -qO- http://api-dotnet:8080/ready >/dev/null &&
+          wget -qO- http://web:3000/ >/dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      edge:
+        ipv4_address: 172.31.238.10
 
 volumes:
   postgres-data:
+  redis-data:
+  data-protection-keys:
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.31.238.0/24
+  data:
+    internal: true

@@ -1,0 +1,2 @@
+<!-- en-GB: Builds framework-independent domain records for migrated ShiftFlow capabilities. -->
+<Project Sdk="Microsoft.NET.Sdk" />

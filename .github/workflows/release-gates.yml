@@ -17,7 +17,7 @@ concurrency:
 jobs:
   core-gate:
     name: Core gate (Node.js ${{ matrix.node-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     strategy:
@@ -41,17 +41,36 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Canonical core gate
-        run: pwsh -NoProfile -File eng/ci.ps1 -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
+        run: pwsh -NoProfile -File eng/ci.ps1 -Component Node -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
+
+  dotnet-gate:
+    name: ASP.NET Core gate (.NET 10)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout complete candidate history
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          global-json-file: global.json
+
+      - name: Canonical ASP.NET Core gate
+        run: pwsh -NoProfile -File eng/ci.ps1 -Component DotNet -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
 
   runtime-gates:
     name: Disposable runtime gates (Node.js 22)
-    needs: core-gate
-    runs-on: ubuntu-latest
+    needs: [core-gate, dotnet-gate]
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
         env:
           POSTGRES_USER: shiftflow
           POSTGRES_PASSWORD: ci-postgres-password
@@ -63,7 +82,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     env:
       DATABASE_URL: postgresql://shiftflow:ci-postgres-password@localhost:5432/shiftflow_ci?schema=public
       E2E_EMAIL: integration.admin@shiftflow.local
@@ -95,6 +113,8 @@ jobs:
           $e2ePassword = "Ci!aA1-$nonce"
           $jwtSecret = [System.Convert]::ToBase64String(
             [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+          Write-Output "::add-mask::$e2ePassword"
+          Write-Output "::add-mask::$jwtSecret"
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "E2E_PASSWORD=$e2ePassword"
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "JWT_SECRET=$jwtSecret"
 
@@ -120,3 +140,17 @@ jobs:
 
       - name: Load stress
         run: npm run test:load:stress
+
+  strangler-runtime-gate:
+    name: ASP.NET Core strangler runtime gate
+    needs: runtime-gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Run canonical disposable strangler gate
+        shell: pwsh
+        run: pwsh -NoProfile -File eng/strangler-runtime.ps1 -ProjectName shiftflow-strangler-ci

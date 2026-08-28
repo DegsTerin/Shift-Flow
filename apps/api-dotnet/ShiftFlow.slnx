@@ -1,0 +1,8 @@
+<!-- en-GB: Groups the ASP.NET Core migration projects into one locked build and test boundary. -->
+<Solution>
+  <Project Path="src/ShiftFlow.Api/ShiftFlow.Api.csproj" />
+  <Project Path="src/ShiftFlow.Application/ShiftFlow.Application.csproj" />
+  <Project Path="src/ShiftFlow.Domain/ShiftFlow.Domain.csproj" />
+  <Project Path="src/ShiftFlow.Infrastructure/ShiftFlow.Infrastructure.csproj" />
+  <Project Path="tests/ShiftFlow.Api.Tests/ShiftFlow.Api.Tests.csproj" />
+</Solution>

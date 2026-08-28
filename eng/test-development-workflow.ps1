@@ -13,8 +13,15 @@ $environmentExamplePath = Join-Path $repositoryRoot '.env.example'
 $nvmPath = Join-Path $repositoryRoot '.nvmrc'
 $packagePath = Join-Path $repositoryRoot 'package.json'
 $workflowPath = Join-Path $repositoryRoot '.github/workflows/release-gates.yml'
+$composePath = Join-Path $repositoryRoot 'docker-compose.yml'
+$nodeDockerfilePath = Join-Path $repositoryRoot 'infra/docker/node.Dockerfile'
+$dotnetDockerfilePath = Join-Path $repositoryRoot 'apps/api-dotnet/Dockerfile'
 $workflowEnvironmentPath = Join-Path $PSScriptRoot 'workflow.env'
 $postgresRegressionPath = Join-Path $repositoryRoot 'prisma/users-tenant-isolation.postgres.test.mjs'
+$stranglerFixturePath = Join-Path $repositoryRoot 'prisma/strangler-integration-seed.mjs'
+$stranglerSecurityControlPath = Join-Path $repositoryRoot 'prisma/strangler-security-control.mjs'
+$stranglerSmokePath = Join-Path $PSScriptRoot 'smoke-strangler.ps1'
+$stranglerRuntimePath = Join-Path $PSScriptRoot 'strangler-runtime.ps1'
 
 function Assert-Plan {
     [CmdletBinding()]
@@ -69,7 +76,14 @@ $buildScript = Get-Content -LiteralPath $buildPath -Raw
 $ciScript = Get-Content -LiteralPath $ciPath -Raw
 $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
+$composeConfiguration = Get-Content -LiteralPath $composePath -Raw
+$nodeDockerfile = Get-Content -LiteralPath $nodeDockerfilePath -Raw
+$dotnetDockerfile = Get-Content -LiteralPath $dotnetDockerfilePath -Raw
 $postgresRegression = Get-Content -LiteralPath $postgresRegressionPath -Raw
+$stranglerFixture = Get-Content -LiteralPath $stranglerFixturePath -Raw
+$stranglerSecurityControl = Get-Content -LiteralPath $stranglerSecurityControlPath -Raw
+$stranglerSmoke = Get-Content -LiteralPath $stranglerSmokePath -Raw
+$stranglerRuntime = Get-Content -LiteralPath $stranglerRuntimePath -Raw
 $documentedProjectVariables = @(
     Get-Content -LiteralPath $environmentExamplePath |
         ForEach-Object {
@@ -81,6 +95,28 @@ $documentedProjectVariables = @(
 $workflowEnvironment = @(
     Get-Content -LiteralPath $workflowEnvironmentPath |
         Where-Object { $_ -and -not $_.StartsWith('#', [System.StringComparison]::Ordinal) })
+
+$runtimeEnvironmentBoundary = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)\$runtimeVariableNames\s*=\s*@\((?<body>.*?)\r?\n\)')
+$expectedRuntimeVariables = @(
+    'E2E_EMAIL',
+    'E2E_PASSWORD',
+    'JWT_ACCESS_SECRET',
+    'JWT_SECRET',
+    'POSTGRES_PASSWORD',
+    'SMOKE_ACTION',
+    'SMOKE_CREDENTIAL_VERSION',
+    'SMOKE_JWT_ID'
+)
+$observedRuntimeVariables = @(
+    [regex]::Matches($runtimeEnvironmentBoundary.Groups['body'].Value, "'(?<name>[A-Z0-9_]+)'") |
+        ForEach-Object { $_.Groups['name'].Value } |
+        Sort-Object -Unique)
+if (-not $runtimeEnvironmentBoundary.Success -or
+    @(Compare-Object $expectedRuntimeVariables $observedRuntimeVariables).Count -ne 0) {
+    throw 'The strangler runtime must preserve the exact runtime and internal-smoke caller environment boundary.'
+}
 
 $requiredIsolatedVariables = @(
     'API_INSTANCE_COUNT',
@@ -187,16 +223,17 @@ foreach ($requiredBuildRestoration in @(
 Assert-Plan -Task 'Doctor' -Expected @(
     'PLAN|version=1|task=Doctor|mode=Online|classification=WORKFLOW',
     'STEP|1|Validate repository root and required files',
-    'STEP|2|Validate PowerShell, Git, Node.js and npm toolchains',
-    'STEP|3|Validate tracked npm lock file and package metadata',
-    'STEP|4|Report whether prepared dependencies and the generated Prisma client are ready'
+    'STEP|2|Validate PowerShell, Git, Node.js, npm and .NET SDK toolchains',
+    'STEP|3|Validate tracked npm and NuGet lock metadata',
+    'STEP|4|Report whether prepared Node.js, Prisma and .NET dependencies are ready'
 )
 
 Assert-Plan -Task 'Setup' -Offline -Expected @(
     'PLAN|version=1|task=Setup|mode=Offline|classification=WORKFLOW',
     'STEP|1|Validate repository root, toolchains and package lock',
     'STEP|2|npm ci --offline --ignore-scripts --no-audit --no-fund',
-    'STEP|3|npm run prisma:generate'
+    'STEP|3|dotnet restore apps/api-dotnet/ShiftFlow.slnx --locked-mode (online) or validate the prepared offline graph',
+    'STEP|4|npm run prisma:generate'
 )
 
 Assert-Plan -Task 'Quick' -Expected @(
@@ -205,7 +242,8 @@ Assert-Plan -Task 'Quick' -Expected @(
     'STEP|2|npm run quality',
     'STEP|3|npm run test:unit',
     'STEP|4|npm run build',
-    'STEP|5|git diff --check for worktree and index'
+    'STEP|5|eng/dotnet.ps1 -SkipRestore -SkipAudit',
+    'STEP|6|git diff --check for worktree and index'
 )
 
 Assert-Plan -Task 'Full' -Expected @(
@@ -281,10 +319,10 @@ $ciPolicy = $ciScript.IndexOf(
     "& (Join-Path `$PSScriptRoot 'test-development-workflow.ps1')",
     [System.StringComparison]::Ordinal)
 $ciPreflight = $ciScript.IndexOf(
-    '& $developmentEntrypoint Doctor -CorePreflightOnly',
+    '& $developmentEntrypoint Doctor -CorePreflightOnly -CoreComponent $Component',
     [System.StringComparison]::Ordinal)
 $ciInstallBranch = $ciScript.IndexOf(
-    'if (-not $SkipInstall)',
+    'if ($runNode -and -not $SkipInstall)',
     [System.StringComparison]::Ordinal)
 $ciGenerate = $ciScript.IndexOf(
     'npm run prisma:generate',
@@ -310,12 +348,13 @@ if ($ciScrub -lt 0 -or
         [regex]::Escape('npm run prisma:generate')).Count -ne 1 -or
     [regex]::Matches(
         $ciScript,
-        [regex]::Escape('& $developmentEntrypoint Doctor -CorePreflightOnly')).Count -ne 1) {
+        [regex]::Escape('& $developmentEntrypoint Doctor -CorePreflightOnly -CoreComponent $Component')).Count -ne 1) {
     throw 'Canonical CI must scrub caller project values, run the shared preflight before every install path, and generate Prisma once under the controlled environment before dependency validation.'
 }
 
 foreach ($requiredCorePreflightContract in @(
         '[switch]$CorePreflightOnly',
+        "[ValidateSet('All', 'Node', 'DotNet')]",
         "if (`$CorePreflightOnly -and `$Task -cne 'Doctor')",
         'if (-not $CorePreflightOnly)',
         "Name = 'prepared dependencies'",
@@ -348,10 +387,11 @@ foreach ($requiredDiffContract in @(
     }
 }
 if ($ciScript -notmatch 'NOT_RUN: npm dependency audit requires online registry metadata[.]' -or
+    $ciScript -notmatch "\& \`$dotnetEntrypoint \@dotnetArguments" -or
     [regex]::Matches(
         $ciScript,
-        '(?m)^\s*if \(\$Offline\) \{\s*\r?\n\s*throw ''INCOMPLETE_NON_GATE: the online dependency audit was NOT_RUN; offline Full cannot approve the canonical core gate[.]''\s*\r?\n\s*\}\s*$').Count -ne 1) {
-    throw 'Offline canonical CI must run its local checks and then fail closed as INCOMPLETE_NON_GATE because the online audit was NOT_RUN.'
+        '(?m)^\s*if \(\$Offline\) \{\s*\r?\n\s*throw ''INCOMPLETE_NON_GATE: one or more online dependency audits were NOT_RUN; offline Full cannot approve the canonical core gate[.]''\s*\r?\n\s*\}\s*$').Count -ne 1) {
+    throw 'Offline canonical CI must run its local checks and then fail closed as INCOMPLETE_NON_GATE because online audits were NOT_RUN.'
 }
 
 $expectedScripts = @{
@@ -360,11 +400,18 @@ $expectedScripts = @{
     'dev:quick' = 'pwsh -NoLogo -NoProfile -File ./eng/development.ps1 Quick'
     'dev:full' = 'pwsh -NoLogo -NoProfile -File ./eng/development.ps1 Full'
     'dev:workflow:test' = 'pwsh -NoLogo -NoProfile -File ./eng/test-development-workflow.ps1'
+    'dev:dotnet' = 'dotnet run --project apps/api-dotnet/src/ShiftFlow.Api/ShiftFlow.Api.csproj'
+    'build:dotnet' = 'dotnet build apps/api-dotnet/ShiftFlow.slnx --configuration Release'
+    'test:dotnet' = 'dotnet test apps/api-dotnet/ShiftFlow.slnx --configuration Release'
+    'test:runtime:strangler' = 'pwsh -NoLogo -NoProfile -File ./eng/strangler-runtime.ps1'
 }
 foreach ($scriptName in $expectedScripts.Keys) {
     if ($package.scripts.$scriptName -cne $expectedScripts[$scriptName]) {
         throw "package.json script '$scriptName' does not match the canonical workflow command."
     }
+}
+if ($null -ne $package.scripts.PSObject.Properties['test:smoke:strangler']) {
+    throw 'The mutating strangler smoke must remain internal to its authority-bound disposable wrapper.'
 }
 
 if ($package.engines.node -cne '>=22.12.0 <23.0.0 || >=24.0.0 <25.0.0' -or
@@ -374,7 +421,7 @@ if ($package.engines.node -cne '>=22.12.0 <23.0.0 || >=24.0.0 <25.0.0' -or
 }
 
 $remoteCoreCommand = @'
-run: pwsh -NoProfile -File eng/ci.ps1 -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
+run: pwsh -NoProfile -File eng/ci.ps1 -Component Node -SkipInstall -BaseRef '${{ github.event.pull_request.base.sha || github.event.before }}'
 '@.Trim()
 if ([regex]::Matches(
         $workflow,
@@ -404,12 +451,21 @@ if ($workflow -match '(?i)\bsecrets\s*(?:[.]|\[)' -or
     -not $workflow.Contains('Add-Content -LiteralPath $env:GITHUB_ENV -Value "JWT_SECRET=$jwtSecret"', [System.StringComparison]::Ordinal) -or
     -not $workflow.Contains('node-version: [22, 24]', [System.StringComparison]::Ordinal) -or
     -not $workflow.Contains('node-version: ${{ matrix.node-version }}', [System.StringComparison]::Ordinal) -or
-    -not $workflow.Contains('needs: core-gate', [System.StringComparison]::Ordinal) -or
+    -not $workflow.Contains('needs: [core-gate, dotnet-gate]', [System.StringComparison]::Ordinal) -or
     -not $workflow.Contains('fetch-depth: 0', [System.StringComparison]::Ordinal) -or
     $remoteCoreGate -lt 0 -or
     $remoteMigration -lt 0 -or
     $remoteCoreGate -gt $remoteMigration) {
     throw 'Remote core lanes must cover Node.js 22 and 24 with full candidate history; runtime stages must follow them and use only fixed non-secret disposable inputs.'
+}
+foreach ($dotnetWorkflowContract in @(
+        'uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68',
+        'global-json-file: global.json',
+        "run: pwsh -NoProfile -File eng/ci.ps1 -Component DotNet -BaseRef '`${{ github.event.pull_request.base.sha || github.event.before }}'",
+        'runs-on: ubuntu-24.04')) {
+    if (-not $workflow.Contains($dotnetWorkflowContract, [System.StringComparison]::Ordinal)) {
+        throw "The remote workflow is missing ASP.NET Core or Redis contract '$dotnetWorkflowContract'."
+    }
 }
 if ([regex]::Matches(
         $workflow,
@@ -437,6 +493,313 @@ foreach ($duplicatedCommand in @(
     if ($workflow.Contains($duplicatedCommand, [System.StringComparison]::Ordinal)) {
         throw "The remote workflow duplicates canonical command '$duplicatedCommand'."
     }
+}
+
+$stranglerJob = $workflow.IndexOf(
+    'strangler-runtime-gate:',
+    [System.StringComparison]::Ordinal)
+$stranglerRuntimeRun = $workflow.IndexOf(
+    'run: pwsh -NoProfile -File eng/strangler-runtime.ps1 -ProjectName shiftflow-strangler-ci',
+    [System.StringComparison]::Ordinal)
+if ($stranglerJob -lt 0 -or
+    -not $workflow.Contains('needs: runtime-gates', [System.StringComparison]::Ordinal) -or
+    $stranglerRuntimeRun -lt $stranglerJob -or
+    [regex]::Matches(
+        $workflow,
+        [regex]::Escape('run: pwsh -NoProfile -File eng/strangler-runtime.ps1 -ProjectName shiftflow-strangler-ci')).Count -ne 1 -or
+    $workflow.Contains('REDIS_CONNECTION: localhost:6379,abortConnect=false', [System.StringComparison]::Ordinal)) {
+    throw 'The strangler runtime job must run the canonical disposable gate exactly once and only after the existing runtime gate.'
+}
+
+if ([regex]::Matches($workflow, '(?m)^\s*runs-on:\s*ubuntu-24[.]04\s*$').Count -ne 4 -or
+    $workflow.Contains('ubuntu-latest', [System.StringComparison]::Ordinal) -or
+    [regex]::Matches($workflow, [regex]::Escape('Write-Output "::add-mask::$e2ePassword"')).Count -ne 1 -or
+    [regex]::Matches($workflow, [regex]::Escape('Write-Output "::add-mask::$jwtSecret"')).Count -ne 1) {
+    throw 'Remote jobs must use the explicit stable runner label and mask the existing runtime credentials before export.'
+}
+
+foreach ($stranglerRuntimeContract in @(
+        "Join-Path `$repositoryRoot 'scripts/docker-desktop.ps1'",
+        'Assert-LocalDockerEnvironment',
+        '$postgresNonce =',
+        '$e2eNonce =',
+        'Write-Output "::add-mask::$value"',
+        'config --quiet',
+        'up --detach --build --wait',
+        'migrate node prisma/integration-seed.mjs',
+        'migrate node prisma/strangler-integration-seed.mjs',
+        "@('postgres', 'redis', 'legacy-api', 'api-dotnet', 'web', 'nginx')",
+        'cat /proc/1/status',
+        "`$uidMatch.Groups['effective'].Value",
+        'run --rm migrate id -u',
+        "docker inspect --format '{{.State.Status}}'",
+        '$lastHealthStatus',
+        'sha256sum /var/lib/shiftflow/keys/key-*.xml',
+        'internal/runtime/data-protection-probe',
+        'cp api-dotnet:/tmp/shiftflow-data-protection-probe $protectedPayload',
+        'rm --stop --force api-dotnet',
+        'up --detach --no-deps api-dotnet',
+        'cp $protectedPayload api-dotnet:/tmp/shiftflow-data-protection-probe',
+        "`$unprotectEvidence.status -cne 'available'",
+        'Compare-Object $keyHashesBefore $keyHashesAfter',
+        '-PreviousEvidencePath $beforeEvidence',
+        '-AllowSecurityMutation',
+        'redis-cli pttl',
+        '-ExpectRedisUnavailable',
+        'wget -qO- http://127.0.0.1:8080/ready',
+        "`$readinessEvidence.checks.postgresql -cne 'available'",
+        "`$readinessEvidence.checks.redis -cne 'available'",
+        "`$readinessEvidence.checks.dataProtection -cne 'available'",
+        '-ExpectRedisRecovered',
+        'redisRecoveredAfterRestart',
+        'logs --no-color --tail 200',
+        'down --volumes --remove-orphans',
+        '[System.Environment]::GetEnvironmentVariables(',
+        '[System.Environment]::SetEnvironmentVariable(',
+        'Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue',
+        '$environmentRestoreFailure',
+        '$cleanupFailure')) {
+    if (-not $stranglerRuntime.Contains(
+            $stranglerRuntimeContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The canonical strangler runtime gate is missing contract '$stranglerRuntimeContract'."
+    }
+}
+$runtimeAuthority = $stranglerRuntime.IndexOf(
+    'Assert-LocalDockerEnvironment',
+    [System.StringComparison]::Ordinal)
+$runtimeFirstDocker = $stranglerRuntime.IndexOf(
+    'docker compose',
+    [System.StringComparison]::Ordinal)
+$runtimeFirstCredential = $stranglerRuntime.IndexOf(
+    '$env:POSTGRES_PASSWORD =',
+    [System.StringComparison]::Ordinal)
+$runtimeSuccessAssignment = $stranglerRuntime.IndexOf(
+    '$successEvidence = [ordered]@{',
+    [System.StringComparison]::Ordinal)
+$runtimeCleanupCheck = $stranglerRuntime.IndexOf(
+    'if ($cleanupExitCode -ne 0)',
+    [System.StringComparison]::Ordinal)
+$runtimeSuccessOutput = $stranglerRuntime.IndexOf(
+    'Write-Output ($successEvidence | ConvertTo-Json -Compress)',
+    [System.StringComparison]::Ordinal)
+$runtimeEnvironmentCheck = $stranglerRuntime.IndexOf(
+    'if ($null -ne $environmentRestoreFailure)',
+    [System.StringComparison]::Ordinal)
+$runtimeCleanupFailureCheck = $stranglerRuntime.IndexOf(
+    'if ($null -ne $cleanupFailure)',
+    [System.StringComparison]::Ordinal)
+if ($runtimeAuthority -lt 0 -or
+    $runtimeFirstDocker -lt 0 -or
+    $runtimeFirstCredential -lt 0 -or
+    $runtimeAuthority -gt $runtimeFirstDocker -or
+    $runtimeAuthority -gt $runtimeFirstCredential -or
+    $runtimeSuccessAssignment -lt 0 -or
+    $runtimeCleanupFailureCheck -lt $runtimeSuccessAssignment -or
+    $runtimeCleanupCheck -lt $runtimeSuccessAssignment -or
+    $runtimeEnvironmentCheck -lt $runtimeCleanupCheck -or
+    $runtimeSuccessOutput -lt $runtimeCleanupCheck -or
+    $runtimeSuccessOutput -lt $runtimeCleanupFailureCheck -or
+    $runtimeSuccessOutput -lt $runtimeEnvironmentCheck -or
+    [regex]::Matches(
+        $stranglerRuntime,
+        '(?m)^try \{\s*\r?\n\s+\$postgresNonce =').Count -ne 1 -or
+    [regex]::Matches(
+        $stranglerRuntime,
+        [regex]::Escape('Write-Output ($successEvidence | ConvertTo-Json -Compress)')).Count -ne 1 -or
+    [regex]::Matches(
+        $stranglerRuntime,
+        [regex]::Escape('$null = & $smokePath')).Count -ne 4 -or
+    [regex]::Matches(
+        $stranglerRuntime,
+        [regex]::Escape('-ComposeProjectName $ProjectName')).Count -ne 4) {
+    throw 'The runtime gate must confirm local Docker authority before credentials or Docker access and emit PASS only after successful cleanup.'
+}
+
+$immutableComposeImages = [ordered]@{
+    postgres = 'postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685'
+    redis = 'redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232'
+    nginx = 'nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8'
+}
+foreach ($serviceName in $immutableComposeImages.Keys) {
+    $serviceBlock = [regex]::Match(
+        $composeConfiguration,
+        '(?ms)^  ' + [regex]::Escape($serviceName) + ':\r?\n(?<body>.*?)(?=^  \S|\z)')
+    $expectedImageLine = '    image: ' + $immutableComposeImages[$serviceName]
+    if (-not $serviceBlock.Success -or
+        [regex]::Matches(
+            $serviceBlock.Value,
+            '(?m)^' + [regex]::Escape($expectedImageLine) + '\s*$').Count -ne 1 -or
+        [regex]::Matches($serviceBlock.Value, '(?m)^    image:\s+').Count -ne 1) {
+        throw "Compose service '$serviceName' must use its one exact immutable image contract."
+    }
+}
+$runtimeJob = [regex]::Match(
+    $workflow,
+    '(?ms)^  runtime-gates:\r?\n(?<body>.*?)(?=^  [a-zA-Z0-9_-]+:\r?$|\z)')
+$workflowPostgresImage = '        image: ' + $immutableComposeImages.postgres
+if (-not $runtimeJob.Success -or
+    [regex]::Matches(
+        $runtimeJob.Value,
+        '(?m)^' + [regex]::Escape($workflowPostgresImage) + '\s*$').Count -ne 1 -or
+    [regex]::Matches($runtimeJob.Value, '(?m)^        image:\s+postgres:').Count -ne 1) {
+    throw 'The runtime-gates PostgreSQL service must use its exact immutable image contract.'
+}
+if (-not $composeConfiguration.Contains(
+        'API_RATE_LIMIT_WINDOW_MS: "600000"',
+        [System.StringComparison]::Ordinal)) {
+    throw 'The disposable profile must keep its Redis persistence proof inside a bounded, runner-safe rate-limit window.'
+}
+foreach ($composeSecurityContract in @(
+        'data-protection-keys:/var/lib/shiftflow/keys',
+        'SHIFTFLOW_DISPOSABLE_RUNTIME: CONFIRMED_DISPOSABLE_STRANGLER')) {
+    if (-not $composeConfiguration.Contains(
+            $composeSecurityContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The disposable profile is missing state or authority contract '$composeSecurityContract'."
+    }
+}
+$immutableNodeImage = 'node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b'
+$externalNodeStages = @([regex]::Matches($nodeDockerfile, '(?im)^FROM\s+node:[^\r\n]+$'))
+$expectedNodeStages = @('dependencies', 'legacy-api', 'web')
+if ($externalNodeStages.Count -ne $expectedNodeStages.Count) {
+    throw 'The Node.js container build must retain exactly three externally rooted stages.'
+}
+foreach ($stageName in $expectedNodeStages) {
+    if ([regex]::Matches(
+            $nodeDockerfile,
+            '(?m)^FROM ' + [regex]::Escape($immutableNodeImage) + ' AS ' + [regex]::Escape($stageName) + '\s*$').Count -ne 1) {
+        throw "Node.js stage '$stageName' must use the exact immutable base image."
+    }
+}
+$migrationStage = [regex]::Match(
+    $nodeDockerfile,
+    '(?ms)^FROM generated AS migration\r?\n(?<body>.*?)(?=^FROM |\z)')
+if (-not $migrationStage.Success -or
+    [regex]::Matches(
+        $migrationStage.Groups['body'].Value,
+        '(?m)^USER node\s*$').Count -ne 1) {
+    throw 'The exact one-shot migration image stage must run as the non-root node identity.'
+}
+$immutableDotNetStages = [ordered]@{
+    build = 'mcr.microsoft.com/dotnet/sdk:10.0.400-alpine3.23@sha256:b36516b249f0cccf9e5017082f51d4bda2d61469f205a7167fbf3b8498ecdd59'
+    runtime = 'mcr.microsoft.com/dotnet/aspnet:10.0.11-alpine3.23@sha256:4d5339ac9814f1a033a09e664bcf159e9fb386c89b6e7917b3dca7254e656027'
+}
+if ([regex]::Matches($dotnetDockerfile, '(?im)^FROM\s+mcr[.]microsoft[.]com/dotnet/[^\r\n]+$').Count -ne
+    $immutableDotNetStages.Count) {
+    throw 'The ASP.NET Core container build must retain exactly two externally rooted stages.'
+}
+foreach ($stageName in $immutableDotNetStages.Keys) {
+    if ([regex]::Matches(
+            $dotnetDockerfile,
+            '(?m)^FROM ' + [regex]::Escape($immutableDotNetStages[$stageName]) + ' AS ' + [regex]::Escape($stageName) + '\s*$').Count -ne 1) {
+        throw "ASP.NET Core stage '$stageName' must use its exact immutable base image."
+    }
+}
+
+foreach ($smokeContract in @(
+        "Join-Path `$repositoryRoot 'scripts/docker-desktop.ps1'",
+        'Assert-LocalDockerEnvironment',
+        "ValidatePattern('^shiftflow-strangler-[a-z0-9][a-z0-9-]*$')",
+        '$baseAddress.IsLoopback',
+        "`$baseAddress.Scheme -cne 'http'",
+        '$AllowSecurityMutation',
+        "-Path '/'",
+        "'/openapi/v1.json'",
+        "'/api/auth/login'",
+        "'/api/audit?entityType=MigrationProbe&action=STRANGLER_SMOKE&pageSize=100'",
+        "'/api/audit/88888888-8888-4888-8888-888888888881'",
+        "'/api/audit/88888888-8888-4888-8888-888888888882'",
+        "'x-rate-limit-limit'",
+        "'x-rate-limit-remaining'",
+        "-Action 'disable-role'",
+        "-Action 'advance-credential-version'",
+        "-Action 'restore-credential-version'",
+        '$credentialControl.previousCredentialVersion',
+        '$credentialControl.previousCredentialVersionMilliseconds',
+        '$credentialControl.advancedCredentialVersionMilliseconds',
+        '$restoreControl.restoredCredentialVersionMilliseconds',
+        '$restoredLogin.data.accessToken',
+        "-Action 'revoke-token'",
+        'Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue',
+        "'x-company-id' = '77777777-7777-4777-8777-777777777777'",
+        "`$ExpectRedisUnavailable",
+        "`$ExpectRedisRecovered",
+        'Redis unavailable and recovered expectations are mutually exclusive.',
+        "`$recoveryResponse.StatusCode -eq 401",
+        "`$recovery.error.code -ceq 'UNAUTHORIZED'",
+        "@{ Host = 'untrusted.invalid' }")) {
+    if (-not $stranglerSmoke.Contains($smokeContract, [System.StringComparison]::Ordinal)) {
+        throw "The strangler smoke is missing contract '$smokeContract'."
+    }
+}
+$smokeAuthority = $stranglerSmoke.IndexOf(
+    'Assert-LocalDockerEnvironment',
+    [System.StringComparison]::Ordinal)
+$smokeFirstRequest = $stranglerSmoke.IndexOf(
+    'Invoke-WebRequest',
+    [System.StringComparison]::Ordinal)
+if ($smokeAuthority -lt 0 -or
+    $smokeFirstRequest -lt 0 -or
+    $smokeAuthority -gt $smokeFirstRequest) {
+    throw 'The focused smoke must confirm local Docker authority before it can transmit runtime credentials or mutate controls.'
+}
+foreach ($securityControlContract in @(
+        'disable-role',
+        'enable-role',
+        'advance-credential-version',
+        'restore-credential-version',
+        'revoke-token',
+        'prisma.accessTokenRevocation.upsert',
+        'prisma.role.update',
+        'prisma.user.update',
+        'previousCredentialVersionMilliseconds',
+        'advancedCredentialVersionMilliseconds',
+        'restoredCredentialVersionMilliseconds',
+        'MILLISECONDS:',
+        '/^MILLISECONDS:(0|[1-9]\d*)$/',
+        'Number.isSafeInteger(milliseconds)',
+        '8_640_000_000_000_000',
+        'SHIFTFLOW_DISPOSABLE_RUNTIME',
+        'CONFIRMED_DISPOSABLE_STRANGLER',
+        'databaseUrl.protocol !== "postgresql:"',
+        'databaseUrl.hostname !== "postgres"',
+        'databaseUrl.port !== "5432"',
+        'databaseUrl.username !== "shiftflow"',
+        'databaseUrl.search !== "?schema=public"',
+        'databaseUrl.hash !== ""',
+        'databaseUrl.pathname !== "/shiftflow"')) {
+    if (-not $stranglerSecurityControl.Contains(
+            $securityControlContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The strangler security control is missing contract '$securityControlContract'."
+    }
+}
+if ($stranglerSecurityControl.Contains('dotenv/config', [System.StringComparison]::Ordinal)) {
+    throw 'The mutating strangler security control must never load repository dotenv state.'
+}
+foreach ($fixtureContract in @(
+        '77777777-7777-4777-8777-777777777777',
+        '88888888-8888-4888-8888-888888888881',
+        '88888888-8888-4888-8888-888888888882',
+        'tenant-visible',
+        'tenant-hidden',
+        'refresh_token',
+        'SHIFTFLOW_DISPOSABLE_RUNTIME',
+        'CONFIRMED_DISPOSABLE_STRANGLER',
+        'databaseUrl.protocol !== "postgresql:"',
+        'databaseUrl.hostname !== "postgres"',
+        'databaseUrl.port !== "5432"',
+        'databaseUrl.username !== "shiftflow"',
+        'databaseUrl.search !== "?schema=public"',
+        'databaseUrl.hash !== ""',
+        'databaseUrl.pathname !== "/shiftflow"')) {
+    if (-not $stranglerFixture.Contains($fixtureContract, [System.StringComparison]::Ordinal)) {
+        throw "The deterministic strangler fixture is missing contract '$fixtureContract'."
+    }
+}
+if ($stranglerFixture.Contains('dotenv/config', [System.StringComparison]::Ordinal)) {
+    throw 'The mutating strangler fixture must never load repository dotenv state.'
 }
 
 Write-Output 'All development workflow policy tests passed.'

@@ -9,10 +9,18 @@ development tooling and must not be used as a production process manager.
 
 Candidate validation currently uses:
 
-- PostgreSQL from `docker-compose.yml`
+- PostgreSQL and Redis from `docker-compose.yml`
 - `DATABASE_URL` from the deployment environment
 - Node.js runtime compatible with the lockfile
-- Build output from `npm run build`
+- .NET 10 runtime compatible with `global.json` and the NuGet lock files
+- Build output from `npm run build` and the ASP.NET Core publish pipeline
+- non-root Linux containers with an Nginx same-origin edge in the disposable
+  `migration` profile
+
+The Compose profile is evidence for the transition topology only. It is not a
+production deployment definition: it exposes loopback HTTP, uses local volumes
+and does not select Azure, AWS, a managed PostgreSQL/Redis service, a TLS
+termination design or a platform key repository.
 
 ## Required Environment Variables
 
@@ -36,8 +44,24 @@ Candidate validation currently uses:
 - `API_INSTANCE_COUNT`
 - `RATE_LIMIT_STORE`
 - `NEXT_PUBLIC_API_BASE_URL`
+- `NEXT_PUBLIC_ALLOW_INSECURE_LOOPBACK` (local migration profile only; forbidden
+  for a production origin)
+- `REDIS_CONNECTION`
+- `REDIS_INSTANCE_NAME`
+- `DATA_PROTECTION_KEYS_PATH`
+- `TRUSTED_PROXY_IPS`
+- `ENABLE_INTERNAL_RUNTIME_PROBES` must be absent or `false`; it exists only for
+  the disposable, edge-inaccessible data-protection container-recreation probe.
 
 Production values must not be committed to Git. Store database credentials and JWT/CORS values in the target platform secret manager.
+
+The compatibility host currently requires the same JWT issuer/key as Express.
+This is a migration bridge, not an OAuth 2.0/OpenID Connect deployment. Do not
+configure an IdP until its authority, account-linking model and BFF-versus-SPA
+topology have been approved. A production ASP.NET Core deployment must also use
+TLS-authenticated PostgreSQL/Redis endpoints, a protected shared
+data-protection key repository and least-privilege application database roles;
+the local profile does not prove those controls.
 
 `CORS_ORIGIN` and `NEXT_PUBLIC_API_BASE_URL` must be canonical HTTPS origins
 with the same hostname, although their ports may differ. They must not contain
@@ -63,6 +87,13 @@ appropriately named performance check only against a disposable or designated
 pre-production database. These runtime checks are separate evidence and must
 not be pointed at an existing local or production database by inference.
 
+For a transition candidate, also run `npm run test:runtime:strangler`. Its
+authority-bound wrapper owns the disposable migration profile, credentials,
+security mutations and cleanup while proving the Nginx, real PostgreSQL, Redis
+and JWT boundaries. The public `/ready` path remains on Express during
+coexistence; accept the migration topology only when the aggregate container
+healthcheck and the internally invoked migrated-route smoke both pass.
+
 ## Deployment Order
 
 1. Record the exact approved Git commit, build identity, migration set and
@@ -73,9 +104,11 @@ not be pointed at an existing local or production database by inference.
    immutable artefact identity.
 4. Review migration status, then deploy only the approved migrations through
    the target platform pipeline.
-5. Start the compiled API with `npm start` and the compiled Web application with
-   `npm run start:web`, or use equivalent target-specific supervisors. These
-   commands do not migrate or seed.
+5. Start the approved immutable deployment units with target-specific
+   supervisors. The incumbent topology uses the compiled Express API and
+   Next.js application. A separately approved transition topology also starts
+   ASP.NET Core, Redis and Nginx with only the reviewed literal route allowlist.
+   Application startup commands do not migrate or seed.
 6. Confirm that the Web and API public URLs are canonical HTTPS origins sharing
    one hostname, then validate
    `/health`, `/ready`, login, refresh, logout, dashboard, Kanban, dark mode,
@@ -112,8 +145,18 @@ not be pointed at an existing local or production database by inference.
 ## Current Open Operational Items
 
 - Configure the real Git remote.
-- Define the real production host or CI/CD deployment target.
+- Select Azure or AWS and define the real production host, CI/CD deployment
+  target and provider-specific infrastructure authority.
+- Select the OAuth 2.0/OpenID Connect provider and approve the account-linking
+  and browser-session design; the current HS256 bridge is temporary.
 - Store secrets in the target platform secret manager.
 - Decide whether Playwright release gates run against local preview, staging, or production.
-- Replace the in-memory API rate limiter with a shared store before horizontal API scaling.
+- Replace or retire the legacy Express process-local rate limiter before
+  horizontal scaling. The migrated Audit slice already uses Redis and fails
+  closed when that dependency is unavailable.
+- Require TLS/authentication for managed PostgreSQL and Redis, configure a
+  protected shared ASP.NET Core data-protection key repository, enforce
+  least-privilege runtime/migration database roles and define proxy/TLS trust.
+- Measure whether a GraphQL read surface is justified; REST remains canonical
+  until that evidence exists.
 - Define immutable artefact publication, backup/restore tooling, rollback automation and incident ownership for the selected target.

@@ -13,6 +13,10 @@ param(
     [switch]$CorePreflightOnly,
 
     [Parameter(DontShow)]
+    [ValidateSet('All', 'Node', 'DotNet')]
+    [string]$CoreComponent = 'All',
+
+    [Parameter(DontShow)]
     [string]$InternalExecutionToken
 )
 
@@ -22,6 +26,9 @@ Set-StrictMode -Version Latest
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $packagePath = Join-Path $repositoryRoot 'package.json'
 $lockPath = Join-Path $repositoryRoot 'package-lock.json'
+$globalJsonPath = Join-Path $repositoryRoot 'global.json'
+$dotnetSolutionPath = Join-Path $repositoryRoot 'apps/api-dotnet/ShiftFlow.slnx'
+$dotnetEntrypoint = Join-Path $PSScriptRoot 'dotnet.ps1'
 $workflowEnvironmentPath = Join-Path $PSScriptRoot 'workflow.env'
 $syntheticDatabaseUrl = 'postgresql://shiftflow:workflow-local@127.0.0.1:1/shiftflow_workflow?schema=public'
 $isolatedEnvironmentVariables = @(
@@ -36,6 +43,8 @@ $isolatedEnvironmentVariables = @(
     'AUTH_RATE_LIMIT_MAX',
     'AUTH_RATE_LIMIT_WINDOW_MS',
     'CORS_ORIGIN',
+    'DATA_PROTECTION_KEYS_PATH',
+    'ENABLE_INTERNAL_RUNTIME_PROBES',
     'DATABASE_URL',
     'DEMO_EMAIL',
     'DEMO_PASSWORD',
@@ -54,17 +63,21 @@ $isolatedEnvironmentVariables = @(
     'LOG_LEVEL',
     'NEXT_PUBLIC_DEMO_EMAIL',
     'NEXT_PUBLIC_DEMO_PASSWORD',
+    'NEXT_PUBLIC_ALLOW_INSECURE_LOOPBACK',
     'NEXT_PUBLIC_API_BASE_URL',
     'NODE_ENV',
     'PGPASSFILE',
     'PGPASSWORD',
     'POSTGRES_PASSWORD',
     'RATE_LIMIT_STORE',
+    'REDIS_CONNECTION',
+    'REDIS_INSTANCE_NAME',
     'REALISTIC_SEED_EMAIL',
     'REALISTIC_SEED_PASSWORD',
     'REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS',
     'SHIFTFLOW_POSTGRES_INTEGRATION',
     'TRUST_PROXY',
+    'TRUSTED_PROXY_IPS',
     'USER_PASSWORD'
 )
 
@@ -92,9 +105,9 @@ function Get-DevelopmentPlan {
         'Doctor' {
             @(
                 'Validate repository root and required files',
-                'Validate PowerShell, Git, Node.js and npm toolchains',
-                'Validate tracked npm lock file and package metadata',
-                'Report whether prepared dependencies and the generated Prisma client are ready'
+                'Validate PowerShell, Git, Node.js, npm and .NET SDK toolchains',
+                'Validate tracked npm and NuGet lock metadata',
+                'Report whether prepared Node.js, Prisma and .NET dependencies are ready'
             )
         }
         'Setup' {
@@ -107,6 +120,7 @@ function Get-DevelopmentPlan {
             @(
                 'Validate repository root, toolchains and package lock',
                 $npmRestore,
+                'dotnet restore apps/api-dotnet/ShiftFlow.slnx --locked-mode (online) or validate the prepared offline graph',
                 'npm run prisma:generate'
             )
         }
@@ -116,6 +130,7 @@ function Get-DevelopmentPlan {
                 'npm run quality',
                 'npm run test:unit',
                 'npm run build',
+                'eng/dotnet.ps1 -SkipRestore -SkipAudit',
                 'git diff --check for worktree and index'
             )
         }
@@ -218,15 +233,31 @@ function Assert-VersionSatisfiesRange {
 }
 
 function Assert-RepositoryLayout {
-    foreach ($requiredPath in @(
-            $packagePath,
-            $lockPath,
-            (Join-Path $repositoryRoot '.nvmrc'),
-            (Join-Path $repositoryRoot 'prisma/schema.prisma'),
+    $requiredPaths = @(
             (Join-Path $PSScriptRoot 'build.ps1'),
             (Join-Path $PSScriptRoot 'ci.ps1'),
             (Join-Path $PSScriptRoot 'test-development-workflow.ps1'),
-            $workflowEnvironmentPath)) {
+            $workflowEnvironmentPath)
+    if ($CoreComponent -in @('All', 'Node')) {
+        $requiredPaths += @(
+            $packagePath,
+            $lockPath,
+            (Join-Path $repositoryRoot '.nvmrc'),
+            (Join-Path $repositoryRoot 'prisma/schema.prisma'))
+    }
+    if ($CoreComponent -in @('All', 'DotNet')) {
+        $requiredPaths += @(
+            $globalJsonPath,
+            $dotnetSolutionPath,
+            $dotnetEntrypoint,
+            (Join-Path $repositoryRoot 'apps/api-dotnet/src/ShiftFlow.Domain/packages.lock.json'),
+            (Join-Path $repositoryRoot 'apps/api-dotnet/src/ShiftFlow.Application/packages.lock.json'),
+            (Join-Path $repositoryRoot 'apps/api-dotnet/src/ShiftFlow.Infrastructure/packages.lock.json'),
+            (Join-Path $repositoryRoot 'apps/api-dotnet/src/ShiftFlow.Api/packages.lock.json'),
+            (Join-Path $repositoryRoot 'apps/api-dotnet/tests/ShiftFlow.Api.Tests/packages.lock.json'))
+    }
+
+    foreach ($requiredPath in $requiredPaths) {
         if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
             throw "Required repository file '$requiredPath' is missing."
         }
@@ -253,32 +284,53 @@ function Assert-Toolchains {
         throw "PowerShell 7 or later is required; found $($PSVersionTable.PSVersion)."
     }
 
-    $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
-    $nodeVersion = Invoke-VersionCommand `
-        -Command 'node' `
-        -Arguments @('--version') `
-        -Operation 'Node.js version discovery'
-    $npmVersion = Invoke-VersionCommand `
-        -Command 'npm' `
-        -Arguments @('--version') `
-        -Operation 'npm version discovery'
     [void](Invoke-VersionCommand `
             -Command 'git' `
             -Arguments @('--version') `
             -Operation 'Git version discovery')
 
-    Assert-VersionSatisfiesRange `
-        -Name 'Node.js' `
-        -ActualVersion $nodeVersion `
-        -Range $package.engines.node
-    Assert-VersionSatisfiesRange `
-        -Name 'npm' `
-        -ActualVersion $npmVersion `
-        -Range $package.engines.npm
+    if ($CoreComponent -in @('All', 'Node')) {
+        $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
+        $nodeVersion = Invoke-VersionCommand `
+            -Command 'node' `
+            -Arguments @('--version') `
+            -Operation 'Node.js version discovery'
+        $npmVersion = Invoke-VersionCommand `
+            -Command 'npm' `
+            -Arguments @('--version') `
+            -Operation 'npm version discovery'
 
-    $nvmVersion = (Get-Content -LiteralPath (Join-Path $repositoryRoot '.nvmrc') -Raw).Trim()
-    if ($nvmVersion -cne '22') {
-        throw ".nvmrc must select the supported Node.js 22 LTS baseline; found '$nvmVersion'."
+        Assert-VersionSatisfiesRange `
+            -Name 'Node.js' `
+            -ActualVersion $nodeVersion `
+            -Range $package.engines.node
+        Assert-VersionSatisfiesRange `
+            -Name 'npm' `
+            -ActualVersion $npmVersion `
+            -Range $package.engines.npm
+
+        $nvmVersion = (Get-Content -LiteralPath (Join-Path $repositoryRoot '.nvmrc') -Raw).Trim()
+        if ($nvmVersion -cne '22') {
+            throw ".nvmrc must select the supported Node.js 22 LTS baseline; found '$nvmVersion'."
+        }
+    }
+
+    if ($CoreComponent -in @('All', 'DotNet')) {
+        $globalJson = Get-Content -LiteralPath $globalJsonPath -Raw | ConvertFrom-Json
+        $configuredSdk = [System.Version]$globalJson.sdk.version
+        $actualSdkText = Invoke-VersionCommand `
+            -Command 'dotnet' `
+            -Arguments @('--version') `
+            -Operation '.NET SDK version discovery'
+        $actualSdk = [System.Version]$actualSdkText
+        $configuredFeatureBand = [math]::Floor($configuredSdk.Build / 100)
+        $actualFeatureBand = [math]::Floor($actualSdk.Build / 100)
+        if ($actualSdk.Major -ne $configuredSdk.Major -or
+            $actualSdk.Minor -ne $configuredSdk.Minor -or
+            $actualFeatureBand -ne $configuredFeatureBand -or
+            $actualSdk -lt $configuredSdk) {
+            throw ".NET SDK '$actualSdkText' does not satisfy global.json feature band '$($globalJson.sdk.version)'."
+        }
     }
 }
 
@@ -343,9 +395,21 @@ function Assert-PackageLock {
 
 function Assert-DependenciesReady {
     $missing = [System.Collections.Generic.List[string]]::new()
-    foreach ($requiredPath in @(
+    $requiredPaths = @()
+    if ($CoreComponent -in @('All', 'Node')) {
+        $requiredPaths += @(
             (Join-Path $repositoryRoot 'node_modules'),
-            (Join-Path $repositoryRoot 'generated/prisma/client.js'))) {
+            (Join-Path $repositoryRoot 'generated/prisma/client.js'))
+    }
+    if ($CoreComponent -in @('All', 'DotNet')) {
+        $requiredPaths += @(
+            (Join-Path $repositoryRoot 'apps/api-dotnet/src/ShiftFlow.Domain/obj/project.assets.json'),
+            (Join-Path $repositoryRoot 'apps/api-dotnet/src/ShiftFlow.Application/obj/project.assets.json'),
+            (Join-Path $repositoryRoot 'apps/api-dotnet/src/ShiftFlow.Infrastructure/obj/project.assets.json'),
+            (Join-Path $repositoryRoot 'apps/api-dotnet/src/ShiftFlow.Api/obj/project.assets.json'),
+            (Join-Path $repositoryRoot 'apps/api-dotnet/tests/ShiftFlow.Api.Tests/obj/project.assets.json'))
+    }
+    foreach ($requiredPath in $requiredPaths) {
         if (-not (Test-Path -LiteralPath $requiredPath)) {
             $missing.Add($requiredPath)
         }
@@ -357,9 +421,11 @@ function Assert-DependenciesReady {
             ($missing -join ', '))
     }
 
-    $null = @(& npm ls --all --json 2>$null)
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Installed dependencies do not satisfy package.json, package-lock.json and npm overrides. Run ./eng/development.ps1 Setup first.'
+    if ($CoreComponent -in @('All', 'Node')) {
+        $null = @(& npm ls --all --json 2>$null)
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Installed dependencies do not satisfy package.json, package-lock.json and npm overrides. Run ./eng/development.ps1 Setup first.'
+        }
     }
 }
 
@@ -367,9 +433,11 @@ function Invoke-Doctor {
     $failures = [System.Collections.Generic.List[string]]::new()
     $checks = @(
         @{ Name = 'repository root'; Action = { Assert-RepositoryLayout } },
-        @{ Name = 'toolchains'; Action = { Assert-Toolchains } },
-        @{ Name = 'package lock'; Action = { Assert-PackageLock } }
+        @{ Name = 'toolchains'; Action = { Assert-Toolchains } }
     )
+    if ($CoreComponent -in @('All', 'Node')) {
+        $checks += @{ Name = 'npm package lock'; Action = { Assert-PackageLock } }
+    }
     if (-not $CorePreflightOnly) {
         $checks += @{
             Name = 'prepared dependencies'
@@ -406,6 +474,9 @@ function Invoke-Setup {
     else {
         npm ci --ignore-scripts --no-audit --no-fund
         Assert-LastExitCode -Operation 'Locked npm restore'
+
+        dotnet restore $dotnetSolutionPath --locked-mode
+        Assert-LastExitCode -Operation 'Locked .NET restore'
     }
 
     npm run prisma:generate
@@ -427,6 +498,7 @@ function Invoke-Quick {
     Assert-LastExitCode -Operation 'Unit tests'
     npm run build
     Assert-LastExitCode -Operation 'Application build'
+    & $dotnetEntrypoint -SkipRestore -SkipAudit
 
     git -C $repositoryRoot diff --check
     Assert-LastExitCode -Operation 'Working-tree diff hygiene'
@@ -449,6 +521,9 @@ if ($Offline -and $Task -notin @('Setup', 'Full')) {
 }
 if ($CorePreflightOnly -and $Task -cne 'Doctor') {
     throw '-CorePreflightOnly is an internal Doctor option.'
+}
+if (-not $CorePreflightOnly -and $CoreComponent -cne 'All') {
+    throw '-CoreComponent is an internal option supported only by the core Doctor preflight.'
 }
 if ($CorePreflightOnly -and $PlanOnly) {
     throw '-CorePreflightOnly cannot be combined with -PlanOnly.'
@@ -481,6 +556,8 @@ if ([string]::IsNullOrEmpty($InternalExecutionToken)) {
     if ($CorePreflightOnly) {
         $startInfo.ArgumentList.Add('-CorePreflightOnly')
     }
+    $startInfo.ArgumentList.Add('-CoreComponent')
+    $startInfo.ArgumentList.Add($CoreComponent)
 
     foreach ($variableName in $isolatedEnvironmentVariables) {
         [void]$startInfo.Environment.Remove($variableName)

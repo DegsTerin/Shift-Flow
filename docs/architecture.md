@@ -7,9 +7,48 @@ ShiftFlow uses a modular monorepo layout. Product surfaces live under `apps/`, i
 ## Runtime Components
 
 - `apps/web`: Next.js UI that communicates with the API through `NEXT_PUBLIC_API_BASE_URL`.
-- `apps/api`: Express API with modules grouped by business capability.
+- `apps/api`: incumbent Express API with modules grouped by business capability.
+- `apps/api-dotnet`: .NET 10 ASP.NET Core compatibility host with domain,
+  application, infrastructure, API and test projects.
 - `prisma`: PostgreSQL schema, migrations, and deterministic seed scripts.
+- `infra/nginx`: same-origin edge that promotes only an explicit route
+  allowlist to ASP.NET Core and sends all other traffic to Express or Next.js.
+- Redis: distributed cache/session infrastructure, dependency readiness and
+  fail-closed rate-limit state for migrated business traffic.
 - `tests/e2e`: Playwright tests for homologation, accessibility, and load-oriented flows.
+
+## Incremental Backend Migration
+
+The backend follows the strangler decision in
+[`ADR-0002`](adr/0002-aspnet-core-strangler.md). Express remains responsible for
+authentication and every business route except the read-only Audit slice.
+Nginx routes `GET /api/audit`, `GET /api/audit/{id}` and `/openapi/` to ASP.NET
+Core through an explicit allowlist; removing that allowlist returns traffic to
+Express without a data migration.
+
+The ASP.NET Core host preserves the existing REST envelopes, error codes,
+pagination, request correlation and tenant isolation. Its current boundaries
+are:
+
+- `ShiftFlow.Domain`: framework-independent Audit records.
+- `ShiftFlow.Application`: use-case contracts and page/filter models.
+- `ShiftFlow.Infrastructure`: literal reads of the existing PostgreSQL schema,
+  live principal/RBAC validation, Redis infrastructure and readiness probes.
+- `ShiftFlow.Api`: HTTP, JWT compatibility, authorisation, OpenAPI, session,
+  rate-limit and health composition.
+
+Prisma remains the only owner of schema and forward migrations. Npgsql may read
+the approved schema but must not introduce a second migration history. REST is
+the canonical API style. GraphQL is deferred until measurements identify a
+specific composed dashboard/reporting read model that improves on REST without
+moving commands or authentication into a second public contract.
+
+The current HS256 JWT is a temporary compatibility bridge, not the target
+identity architecture. OAuth 2.0/OpenID Connect requires an explicit identity
+provider decision, an account-linking migration and a separate BFF-versus-SPA
+decision. The implementation remains provider-neutral between Azure and AWS;
+neither cloud is selected and no local container evidence is deployment
+evidence.
 
 ## Activity Task Boards
 
@@ -62,9 +101,9 @@ grant permissions that the actor does not currently hold; this is a security
 floor rather than the final product hierarchy. Missing resource context
 continues to fail closed.
 
-## API Module Pattern
+## API Module Patterns
 
-Each API capability follows the same internal structure:
+Each Express capability follows the same internal structure:
 
 - `*.routes.ts`: route registration and middleware composition.
 - `*.controller.ts`: HTTP boundary, request extraction, and response mapping.
@@ -82,6 +121,12 @@ Shared infrastructure is kept in `apps/api/src/shared`:
 - `observability`: structured logger.
 - `repositories` and `services`: reusable persistence and service primitives.
 
+Migrated ASP.NET Core capabilities keep domain and application contracts free
+from HTTP, Npgsql and Redis types. API endpoints depend on application-owned
+interfaces; infrastructure implements them. Route migration must move one
+complete vertical slice and add differential or compatibility evidence before
+the Nginx allowlist changes.
+
 ## Boundaries
 
 - Controllers must not contain business rules.
@@ -89,14 +134,23 @@ Shared infrastructure is kept in `apps/api/src/shared`:
 - Repositories must not perform authorization decisions.
 - Shared helpers must stay framework-light unless their purpose is explicitly HTTP middleware.
 - Cross-company access must go through tenant and scope checks.
+- Prisma is the sole schema/migration owner during coexistence; .NET projects
+  must not create Entity Framework or parallel migration artefacts.
+- Nginx may promote only reviewed literal paths. A prefix-wide or default
+  backend cutover is not an acceptable migration step.
 
 ## Observability
 
-The API emits structured JSON logs. Each request gets a `requestId`, returned as `x-request-id`, and request completion logs include status code and duration. Error logs include normalized error metadata and hide stack traces in production.
+Express and ASP.NET Core emit structured JSON logs, while Nginx emits a bounded
+JSON edge access record without query strings. Each request gets a `requestId`,
+returned as `x-request-id`; completion telemetry includes method, path, status
+and duration. Application error output hides stack traces in production and
+response sanitisation prevents historical credential-shaped Audit fields from
+crossing the .NET HTTP boundary.
 
 ## Security Controls
 
-- Authentication uses short-lived JWT access tokens and hashed refresh tokens.
+- Express authentication uses short-lived JWT access tokens and hashed refresh tokens.
   Refresh rotation atomically consumes the current token before creating one
   successor; a concurrent loser fails closed and revokes active refresh tokens
   for that user and company. Session-family isolation would require a separately
@@ -141,8 +195,35 @@ The API emits structured JSON logs. Each request gets a `requestId`, returned as
   default; a company-wide administrative surface would require a separate
   explicit contract.
 - Rate limiting is configurable through `API_RATE_LIMIT_WINDOW_MS` and `API_RATE_LIMIT_MAX`.
+- ASP.NET Core applies its Redis-backed limiter before authentication and
+  database work, hashes the client address used in the key, and fails migrated
+  business traffic closed if Redis is unavailable. Liveness remains
+  dependency-free.
+- ASP.NET Core revalidates access-token revocation, the exact credential
+  version, active user/company membership and current PostgreSQL RBAC rather
+  than trusting permission claims in the compatibility token.
+- Historical Audit JSON is recursively sanitised at the .NET response boundary
+  so password, token, cookie, authorisation, credential and secret-shaped keys
+  cannot be returned by migrated endpoints.
+- The migration profile persists ASP.NET Core data-protection keys in a
+  non-root-owned volume. A production deployment requires a protected shared
+  key repository selected for the target platform.
+- Redis-backed ASP.NET Core sessions are currently infrastructure substrate;
+  login, refresh, logout, CSRF and refresh-token rotation remain owned by
+  Express until the separately governed OIDC/BFF migration.
 - Production startup requires explicit CORS origin and JWT secrets.
 
 ## Delivery Flow
 
-The release gate workflow validates Prisma, migrations, dependency security, formatting, linting, type safety, unit tests, build, end-to-end tests, and load stress checks before changes reach `main`.
+The release workflow preserves the Node.js 22/24 core lanes, adds a locked .NET
+10 gate, then runs the existing disposable PostgreSQL/Playwright runtime gate.
+A final sequential container gate builds the migration profile, deploys only
+approved Prisma migrations, seeds two-company fixtures and exercises the routed
+OpenAPI/JWT/Audit flow through Nginx. It also proves Redis rate-limit use,
+fail-closed loss and explicit readiness plus migrated-route recovery after a
+restart, live RBAC, credential-version invalidation/restoration, token
+revocation, non-root execution and data-protection key persistence across
+ASP.NET Core container recreation before always removing the disposable
+volumes. These are
+local/CI candidate controls, not a Human Gate, cloud deployment or production
+approval.

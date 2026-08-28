@@ -11,3 +11,7 @@ dist
 .shiftflow
 coverage
 *.tsbuildinfo
+# .NET build and test output is generated locally and in CI.
+**/bin/
+**/obj/
+TestResults/

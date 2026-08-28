@@ -1,3 +1,5 @@
 # en-GB: Preserves active prompt and historical evidence formatting so automated styling does not rewrite controlled records.
 prompts/**/*.md
 docs/history/*.md
+# .NET source and lock files are formatted by the .NET toolchain.
+apps/api-dotnet/**

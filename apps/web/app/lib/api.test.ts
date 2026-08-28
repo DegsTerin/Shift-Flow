@@ -802,6 +802,23 @@ describe("apiRequest", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("allows explicit same-origin loopback HTTP for the local migration stack", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ALLOW_INSECURE_LOOPBACK", "true");
+    vi.stubGlobal("window", {
+      location: {
+        href: "http://localhost:8080/",
+        hostname: "localhost",
+        protocol: "http:"
+      }
+    });
+    vi.mocked(fetch).mockResolvedValue(response(200, { data: { loggedOut: true } }));
+
+    await expect(apiRequest("/api/auth/logout", undefined, { method: "POST" })).resolves.toEqual({
+      loggedOut: true
+    });
+  });
+
   it("preserves HTTP status for callers", async () => {
     vi.mocked(fetch).mockResolvedValue(response(403, { error: { message: "Forbidden" } }));
 

@@ -5,14 +5,20 @@
 - Preserve existing behavior unless a change is explicitly documented.
 - Prefer module-local changes over broad rewrites.
 - Keep API boundaries clear: route, controller, validator, service, repository.
+- In ASP.NET Core, keep domain/application contracts independent from HTTP,
+  Npgsql, Redis and dependency-injection implementations.
 - Keep tenant and company scope checks explicit.
 - Favor simple TypeScript types and strict compiler feedback over runtime guessing.
 - Delete unused code and dependencies when replacement is complete.
+- Migrate one complete vertical slice at a time and preserve a reversible Nginx
+  route allowlist until compatibility evidence passes.
 
 ## Naming
 
 - API files use `<module>.<role>.ts`, for example `users.service.ts`.
 - Tests use `*.test.ts` for unit/integration tests and `*.spec.ts` for Playwright tests.
+- C# types and members use PascalCase, locals and parameters use camelCase, and
+  focused test classes use the production capability name plus `Tests`.
 - Environment variables use uppercase snake case.
 - Routes use plural nouns for resource collections.
 
@@ -43,11 +49,13 @@ npm run dev:full
 ```
 
 During implementation, `npm run dev:quick` provides `NON_GATE` feedback. The
-canonical `Full` gate includes workflow policy, dependency audit, quality,
-unit tests, build and candidate diff hygiene. Its offline mode reports
+canonical `Full` gate includes workflow policy, npm and NuGet dependency
+audits, TypeScript and .NET formatting/quality, unit tests, builds and candidate
+diff hygiene. Its offline mode reports
 registry-backed audit coverage as `NOT_RUN` and exits non-zero as
 `INCOMPLETE_NON_GATE` rather than converting that omission into a pass. Remote
-core lanes validate both supported Node.js majors before runtime gates.
+core lanes validate both supported Node.js majors and the locked .NET 10
+solution before sequential runtime gates.
 
 For release candidates:
 
@@ -55,7 +63,14 @@ For release candidates:
 npm run test:e2e
 npm run test:a11y
 npm run test:load:stress
+npm run test:dotnet
 ```
+
+When a change touches the migration topology, run
+`npm run test:runtime:strangler`. The authority-bound wrapper creates fresh
+process-scoped credentials, owns the disposable Compose lifecycle and invokes
+the mutating smoke internally. This runtime evidence does not replace the
+canonical core gate.
 
 Vitest unit tests are configured in `vitest.config.ts` and intentionally exclude Playwright specs under `tests/e2e`.
 
@@ -70,10 +85,17 @@ Reviewers should check:
 - Logs include enough context without secrets or personal tokens.
 - New dependencies are necessary and documented.
 - Rate limit, CORS, and tenant header changes include security impact notes.
+- Route promotion documents the exact Nginx allowlist and rollback path.
+- PostgreSQL schema changes remain forward-only Prisma migrations; migrated
+  .NET reads do not create a second migration owner.
+- OIDC, GraphQL and cloud-specific code cite the separately approved provider
+  or measured use case rather than inferring one from the target architecture.
 
 ## Branching and Versioning
 
-- `main` is protected by release gates.
+- `main` is intended to be protected by release gates when a remote is
+  configured. This workspace does not itself prove remote branch-protection
+  settings.
 - Feature branches should be short-lived and scoped to one business or technical concern.
 - Database migrations must be forward-only and reviewed with rollback notes.
 - Version bumps should include a concise change summary and operational impact.
@@ -96,7 +118,8 @@ Update docs when changing:
   multi-step work without granting authority or changing project state.
 - `eng/development.ps1` and `eng/ci.ps1` define the local/remote development
   loop and canonical runtime-credential-free core gate; `eng/build.ps1`
-  preserves tracked Next.js metadata around the raw application build.
+  preserves tracked Next.js metadata around the raw application build and
+  `eng/dotnet.ps1` owns the locked .NET restore, audit, format, build and tests.
 - `.github/CODEOWNERS` contains the active repository ownership rules for the current owner handle.
 - `SECURITY.md` defines the vulnerability handling policy.
 - `docs/adr/` stores architecture decision records.

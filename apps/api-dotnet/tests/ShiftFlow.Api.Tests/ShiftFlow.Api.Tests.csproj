@@ -1,0 +1,19 @@
+<!-- en-GB: Builds focused compatibility tests for the ASP.NET Core migration host. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/ShiftFlow.Api/ShiftFlow.Api.csproj" />
+    <ProjectReference Include="../../src/ShiftFlow.Application/ShiftFlow.Application.csproj" />
+    <ProjectReference Include="../../src/ShiftFlow.Domain/ShiftFlow.Domain.csproj" />
+    <ProjectReference Include="../../src/ShiftFlow.Infrastructure/ShiftFlow.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MSTest.TestAdapter" PrivateAssets="all" />
+    <PackageReference Include="MSTest.TestFramework" />
+  </ItemGroup>
+</Project>

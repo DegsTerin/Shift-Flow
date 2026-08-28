@@ -1,5 +1,6 @@
 // en-GB: Defines the env implementation so this project responsibility remains explicit and maintainable.
 import { z } from "zod";
+import { parseTrustedProxy } from "./trusted-proxy.js";
 
 const booleanFromString = z
   .union([z.boolean(), z.string()])
@@ -139,3 +140,5 @@ export const requireOriginOnUnsafeRequests =
 
 export const accessTokenSecret =
   env.JWT_ACCESS_SECRET ?? env.JWT_SECRET ?? "shiftflow-dev-access-secret";
+
+export const configuredTrustProxy = parseTrustedProxy(env.TRUST_PROXY);

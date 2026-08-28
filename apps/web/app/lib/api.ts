@@ -33,6 +33,10 @@ function isAbortFailure(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
 }
 
+function isLoopbackHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
 function assertCookieHostCompatibility() {
   if (typeof window === "undefined") return;
   let apiUrl: URL;
@@ -41,11 +45,17 @@ function assertCookieHostCompatibility() {
   } catch {
     throw new ApiError("API base URL is invalid", 0);
   }
-  if (
-    apiUrl.hostname !== window.location.hostname ||
-    apiUrl.protocol !== window.location.protocol ||
-    (process.env.NODE_ENV === "production" && apiUrl.protocol !== "https:")
-  ) {
+  const sameOriginAuthority =
+    apiUrl.hostname === window.location.hostname && apiUrl.protocol === window.location.protocol;
+  const explicitlyAllowedLocalHttp =
+    process.env.NEXT_PUBLIC_ALLOW_INSECURE_LOOPBACK === "true" &&
+    apiUrl.protocol === "http:" &&
+    isLoopbackHost(apiUrl.hostname);
+  const secureProductionTransport =
+    process.env.NODE_ENV !== "production" ||
+    apiUrl.protocol === "https:" ||
+    explicitlyAllowedLocalHttp;
+  if (!sameOriginAuthority || !secureProductionTransport) {
     throw new ApiError(
       "Web and API URLs must share a protocol and hostname for cookie-based CSRF",
       0

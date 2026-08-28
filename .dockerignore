@@ -1,0 +1,15 @@
+# en-GB: Keeps secrets, local state and generated artefacts out of reproducible Linux image contexts.
+.git
+.github
+.env*
+!.env.example
+.shiftflow
+**/bin
+**/obj
+**/.next
+node_modules
+dist
+coverage
+TestResults
+docs/history
+prompts

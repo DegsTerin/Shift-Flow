@@ -15,7 +15,7 @@ import { reportRoutes } from "../../modules/reports/reports.routes.js";
 import { dashboardRoutes } from "../../modules/dashboard/dashboard.routes.js";
 import { auditRoutes } from "../../modules/audit/audit.routes.js";
 import { rbacRoutes } from "../../modules/rbac/rbac.routes.js";
-import { configuredCorsOrigins, env } from "../config/env.js";
+import { configuredCorsOrigins, configuredTrustProxy, env } from "../config/env.js";
 import { rateLimit } from "../middlewares/rate-limit.js";
 import { requestContext } from "../middlewares/request-context.js";
 import { requestLogger } from "../middlewares/request-logger.js";
@@ -29,7 +29,7 @@ export function createServer() {
   const corsOptions = { origin: configuredCorsOrigins, credentials: true };
 
   app.use(helmet());
-  app.set("trust proxy", env.TRUST_PROXY ?? false);
+  app.set("trust proxy", configuredTrustProxy);
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "1mb" }));
   app.use(verifyOrigin);
