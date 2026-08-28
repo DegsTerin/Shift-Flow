@@ -2,6 +2,50 @@
 
 # ShiftFlow executable development plan
 
+## In-app notification centre — 2026-08-28
+
+### Control record
+
+| Field          | Value                                                                                                                                                                                                                                                                                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan ID        | `PLAN-NOTIFICATION-CENTRE-20260828-01`                                                                                                                                                                                                                                                                                                             |
+| Status         | `COMPLETED_LOCAL_PASS`; implementation commit `8486c468cd0c42ec88209ed4fcf7f3a8ea25dd50`; no deployment, production mutation or remote Git action                                                                                                                                                                                                  |
+| Baseline       | Clean `main@de23e2d5c722c063b77620618eef45a0fb6458f7`                                                                                                                                                                                                                                                                                              |
+| Authority      | Owner request to correct the inactive notification indicator and implement the notification system                                                                                                                                                                                                                                                 |
+| Current state  | `STATE-08 PRODUCTION_RELEASE`; this is explicitly authorised post-release product maintenance                                                                                                                                                                                                                                                      |
+| Positive scope | Real notification disclosure button, recipient-scoped list retrieval, individual and bulk read controls, unread count synchronisation, loading/empty/error states, pt-BR and en-GB labels, keyboard and dialog semantics, responsive presentation, focused regressions, browser inspection, canonical local gates, documentation and local commits |
+| Negative scope | Notification schema, migration files, new event-generation rules, e-mail/push/SMS delivery, background workers, production data, deployment, publication, remote Git action, Human Gate or lifecycle transition                                                                                                                                    |
+
+### Result and evidence
+
+- The previous status-only bell is now a real disclosure button with an unread
+  badge, expanded state and an accessible notification dialog.
+- Opening the centre retrieves the first 20 notifications through the existing
+  recipient-scoped REST contract. Authorised users can mark one or all visible
+  notifications as read, with the list and unread count updated only after a
+  successful API response.
+- Loading, empty, contained failure and pending-action states are implemented.
+  Escape and the explicit close control dismiss the panel; button, dialog,
+  heading and live-count semantics are exposed to assistive technology.
+- Browser inspection against the live integration fixture proved the real
+  unread record, list and controls without mutating its read state. Desktop and
+  390-by-844 responsive captures showed no clipping after the mobile bulk-action
+  correction, and the inspected page emitted no console errors or warnings.
+- Two focused files passed 57 tests. Source-comment verification, lint, type
+  checking, production build and candidate diff hygiene passed. The `Quick`
+  non-gate passed 62 files and 529 tests, both application builds and 19 .NET
+  tests. The single online `Full` gate passed zero npm and .NET vulnerabilities,
+  formatting, source comments, workflow policies, lint, type checking, Prisma
+  generation/validation, override and production-configuration checks, the
+  secret scan, all 529 Node tests, both production builds, all 19 .NET tests and
+  candidate diff hygiene.
+
+### Residual boundary
+
+The centre intentionally consumes the existing persisted notification stream.
+Creating new notification-generation rules or adding external delivery channels
+requires separate event and product authority.
+
 ## Local direct demo access — 2026-08-28
 
 ### Control record

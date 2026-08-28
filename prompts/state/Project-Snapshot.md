@@ -32,6 +32,11 @@
 ## Implemented operating capabilities
 
 - Authentication, users, teams, clients, shifts, activities, comments, notifications, reports, audit, RBAC, dashboard, and operational Kanban.
+- The Web header exposes an accessible, responsive in-app notification centre
+  backed by the recipient-scoped REST list and read contracts. It provides
+  unread count, loading, empty and contained error states plus individual and
+  bulk read controls. The implementation is locally complete at commit
+  `8486c468cd0c42ec88209ed4fcf7f3a8ea25dd50`.
 - Local development can open directly through a loopback-only configured demo
   identity while retaining current company and RBAC resolution, protected
   refresh/CSRF cookies and the normal session lifecycle. Production rejects the
