@@ -2,6 +2,61 @@
 
 # ShiftFlow executable development plan
 
+## Local direct demo access — 2026-08-28
+
+### Control record
+
+| Field          | Value                                                                                                                                                                                                                                                                                                           |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan ID        | `PLAN-LOCAL-DEMO-ACCESS-20260828-01`                                                                                                                                                                                                                                                                            |
+| Status         | `COMPLETED_LOCAL_PASS`; implementation commit `d3d690ff16fabad22cf849d737367574f61548d5`; no production authentication change, push, deployment or lifecycle transition                                                                                                                                         |
+| Baseline       | Clean `main@03eee0b00eb2b05dac008cf18710d02802a088d9`                                                                                                                                                                                                                                                           |
+| Authority      | Owner request to remove the visible authentication step, open the local system directly and create demonstration credentials                                                                                                                                                                                    |
+| Current state  | `STATE-08 PRODUCTION_RELEASE`; this is authorised post-release local demonstration maintenance                                                                                                                                                                                                                  |
+| Positive scope | Development-only direct session bootstrap, one configured demo identity, loopback enforcement, production rejection, protected refresh/CSRF cookies, Web session restoration, fallback login outside demo mode, environment isolation, focused regressions, local provisioning, documentation and local commits |
+| Negative scope | Production authentication bypass, embedded password, schema or migration-file changes, remote access, OAuth/OIDC migration, external identity, production data, deployment, publication, remote Git action, Human Gate or lifecycle transition                                                                  |
+
+### Result and evidence
+
+- Development defaults to `AUTH_MODE=demo` and `demo@shiftflow.local`. When no
+  refresh session exists, the Web requests one direct demo session and opens the
+  authorised application without rendering the login form. The sign-out action
+  is absent for that session because the same local mode would immediately
+  recreate it.
+- The Express service resolves the configured live user, default active company
+  and current company-wide permissions before issuing the existing access and
+  refresh-token contract. Direct access returns `404` when disabled or when the
+  request is not loopback. `AUTH_MODE=demo` is rejected when `NODE_ENV=production`.
+- No password or usable fallback credential is versioned. The local integration
+  database provisioned `demo@shiftflow.local` with a generated 24-character
+  password whose plaintext was placed only on the owner's Windows clipboard.
+- The focused runtime probe returned `200`, `authenticationMode=demo`, the exact
+  configured e-mail, a bearer token and a protected refresh cookie without
+  exposing the refresh token in the response body. The temporary API validation
+  container was removed afterwards.
+- Four focused files passed 112 tests. The `Quick` non-gate passed 61 files and
+  525 tests, both application builds and 19 .NET tests. The first canonical
+  `Full` attempt correctly failed because `AUTH_MODE` and `AUTH_DEMO_EMAIL` were
+  absent from the environment-isolation boundary; the boundary and its policy
+  regression were corrected. The successor online `Full` gate passed zero npm
+  and .NET vulnerabilities, formatting, source comments, workflow policies,
+  lint, type checking, Prisma generation/validation, override and production
+  configuration checks, a 336-file secret scan, all 525 Node tests, both
+  production builds, all 19 .NET tests and candidate diff hygiene.
+- The ordinary local Prisma migration command first failed with a schema-engine
+  connectivity error, and its container successor could not reach the Prisma
+  binary host (`EAI_AGAIN`). The unchanged approved migration SQL was therefore
+  applied sequentially to the fresh local PostgreSQL container and recorded
+  with its SHA-256 checksums before the existing integration seed provisioned
+  the demo identity. This local recovery is not production migration evidence.
+
+### Residual boundary
+
+The direct mode is intentionally unavailable in production and from non-loopback
+clients. Resetting the local PostgreSQL volume removes the provisioned demo
+identity and requires a new runtime-only password and seed execution. The
+generated password is not recoverable from Git or repository files.
+
 ## ASP.NET Core strangler foundation — 2026-08-28
 
 ### Control record

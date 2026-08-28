@@ -32,6 +32,11 @@
 ## Implemented operating capabilities
 
 - Authentication, users, teams, clients, shifts, activities, comments, notifications, reports, audit, RBAC, dashboard, and operational Kanban.
+- Local development can open directly through a loopback-only configured demo
+  identity while retaining current company and RBAC resolution, protected
+  refresh/CSRF cookies and the normal session lifecycle. Production rejects the
+  demo mode and continues to require authentication. The implementation is
+  locally complete at commit `d3d690ff16fabad22cf849d737367574f61548d5`.
 - Internal activity task boards and immutable operational history.
 - Responsive web interface, i18n, light/dark themes, and TV-oriented views where implemented.
 - Release, E2E, accessibility, load, security, source-comment, and quality scripts documented by the repository.
@@ -109,6 +114,9 @@
 - The ASP.NET Core migration-profile evidence is likewise local and disposable;
   it does not approve a route cutover outside the profile, cloud deployment,
   OAuth/OIDC transition, GraphQL surface or lifecycle change.
+- Direct demo access is a local usability mode, not a production identity
+  architecture or deployment control. It accepts only loopback requests, depends
+  on a separately provisioned local demo user and is rejected in production.
 - Prisma `relationJoins` preview support is enabled for the filtered Activity
   graph so one PostgreSQL query replaces relation fan-out on a single
   transaction connection. It must remain regression-tested and be reassessed
