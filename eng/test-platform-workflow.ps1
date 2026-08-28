@@ -206,6 +206,8 @@ Assert-True -Condition ($statusScript -match '\[switch\]\$RequireReady' -and
 Assert-True -Condition ($startScript -match 'Test-PortOwnedByManagedEntry' -and
     $startScript -match "ExpectedService 'shiftflow-api'") `
   -Message 'Platform start readiness must bind listeners and API identity to managed processes.'
+Assert-True -Condition ($startScript -match 'return\s+\[pscustomobject\]@\{') `
+  -Message 'Platform start must return managed process entries with properties that ownership verification can inspect.'
 Assert-True -Condition ($startScript -match '\$listeners\s*=\s*@\(Get-PortListeners') `
   -Message 'Platform start must normalise an empty listener result before checking its count.'
 Assert-True -Condition ($resetRealisticScript -match 'process\.execPath' -and $resetRealisticScript -notmatch 'npx') `

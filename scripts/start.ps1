@@ -62,7 +62,7 @@ function Start-ManagedProcess {
   $startTimeUtc = $process.StartTime.ToUniversalTime().ToString('o')
 
   Write-Host "$Name started with PID $($process.Id)"
-  return @{
+  return [pscustomobject]@{
     name = $Name
     pid = $process.Id
     root = $root.Path
