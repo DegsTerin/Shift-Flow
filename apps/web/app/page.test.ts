@@ -508,23 +508,24 @@ describe("Page request lifecycle", () => {
     let tree = runtime.render();
     expect((tree.props as { lang?: string }).lang).toBe("en-GB");
     expect(document.documentElement.lang).toBe("en-GB");
-    expect(document.title).toBe(`${messages["en-GB"].loginTitle} | ShiftFlow`);
+    expect(document.title).toBe(`${messages["en-GB"].loginTitle} | Shift-Flow`);
 
     tree = await authenticate();
     expect((tree.props as { lang?: string }).lang).toBe("en-GB");
     expect(document.documentElement.lang).toBe("en-GB");
-    expect(document.title).toBe(`${messages["en-GB"].dashboard} | ShiftFlow`);
+    expect(document.title).toBe(`${messages["en-GB"].dashboard} | Shift-Flow`);
+    expect(textOf(tree)).toContain("Shift-Flow");
 
     clickButton(tree, messages["en-GB"].activities);
     tree = runtime.render();
-    expect(document.title).toBe(`${messages["en-GB"].activities} | ShiftFlow`);
+    expect(document.title).toBe(`${messages["en-GB"].activities} | Shift-Flow`);
 
     (findIconToggle(tree, "en-GB").props as { onClick: () => void }).onClick();
     tree = runtime.render();
 
     expect((tree.props as { lang?: string }).lang).toBe("pt-BR");
     expect(document.documentElement.lang).toBe("pt-BR");
-    expect(document.title).toBe(`${messages["pt-BR"].activities} | ShiftFlow`);
+    expect(document.title).toBe(`${messages["pt-BR"].activities} | Shift-Flow`);
     expect(findIconToggle(tree, messages["pt-BR"].signOut)).toBeDefined();
   });
 

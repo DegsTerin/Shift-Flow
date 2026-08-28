@@ -1,7 +1,9 @@
 // en-GB: Provides shared i18n definitions so frontend modules use one consistent implementation.
+export const productName = "Shift-Flow";
+
 export const messages = {
   "pt-BR": {
-    app: "ShiftFlow",
+    app: productName,
     loginTitle: "Acesso operacional",
     loginSubtitle: "Entre para acompanhar turnos, equipes e atividades em tempo real.",
     email: "E-mail",
@@ -287,7 +289,7 @@ export const messages = {
     statusCancelled: "Cancelada"
   },
   "en-GB": {
-    app: "ShiftFlow",
+    app: productName,
     loginTitle: "Operations access",
     loginSubtitle: "Sign in to monitor shifts, teams and activities in real time.",
     email: "Email",

@@ -255,7 +255,7 @@ $webResponse = Invoke-Http -Path '/'
 Assert-Condition ($edgeHealth.StatusCode -eq 200) 'The Nginx edge liveness check failed.'
 Assert-Condition ($legacyHealth.StatusCode -eq 200) 'The legacy API liveness check failed.'
 Assert-Condition ($webResponse.StatusCode -eq 200) 'The Next.js application is unavailable through the Nginx edge.'
-Assert-Condition ($webResponse.Content.Contains('ShiftFlow', [System.StringComparison]::Ordinal)) 'The Nginx Web route did not return the ShiftFlow application.'
+Assert-Condition ($webResponse.Content.Contains('Shift-Flow', [System.StringComparison]::Ordinal)) 'The Nginx Web route did not return the Shift-Flow application.'
 
 $openApiResponse = Invoke-Http -Path '/openapi/v1.json'
 Assert-Condition ($openApiResponse.StatusCode -eq 200) 'The routed ASP.NET Core OpenAPI document is unavailable.'

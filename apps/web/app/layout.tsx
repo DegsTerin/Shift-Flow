@@ -1,13 +1,14 @@
 // en-GB: Defines the root document and metadata so every rendered page has a consistent accessible shell.
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { productName } from "./lib/i18n";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  applicationName: "ShiftFlow",
+  applicationName: productName,
   title: {
-    default: "ShiftFlow",
-    template: "%s | ShiftFlow"
+    default: productName,
+    template: `%s | ${productName}`
   },
   description:
     "Plataforma operacional para gestão de turnos, equipes, atividades, indicadores e operações em tempo real.",

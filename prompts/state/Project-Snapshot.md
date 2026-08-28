@@ -31,6 +31,8 @@
 
 ## Implemented operating capabilities
 
+- The public Web product name is `Shift-Flow`. Compatibility-sensitive technical
+  identifiers, namespaces, paths and runtime protection identities remain `ShiftFlow`.
 - Authentication, users, teams, clients, shifts, activities, comments, notifications, reports, audit, RBAC, dashboard, and operational Kanban.
 - The Web header exposes an accessible, responsive in-app notification centre
   backed by the recipient-scoped REST list and read contracts. It provides
