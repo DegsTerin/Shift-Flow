@@ -99,9 +99,15 @@ test.describe("STATE-07 homologation", () => {
   test("supports dark mode and EN-GB Kanban labels", async ({ page, isMobile }) => {
     await login(page);
 
+    await expect(page.locator("main")).toHaveAttribute("data-theme", "dark");
+    await page.getByRole("button", { name: /Claro|Light/ }).click();
+    await expect(page.locator("main")).toHaveAttribute("data-theme", "light");
     await page.getByRole("button", { name: /Escuro|Dark/ }).click();
     await expect(page.locator("main")).toHaveAttribute("data-theme", "dark");
 
+    await expect(page.getByRole("heading", { name: "Main Dashboard" })).toBeVisible();
+    await page.getByRole("button", { name: /en-GB/ }).click();
+    await expect(page.getByRole("heading", { name: "Dashboard Principal" })).toBeVisible();
     await page.getByRole("button", { name: /pt-BR/ }).click();
     await expect(page.getByRole("heading", { name: "Main Dashboard" })).toBeVisible();
 
@@ -155,7 +161,6 @@ test.describe("STATE-07 homologation", () => {
     test.skip(!isMobile, "Mobile-only responsive assertion.");
 
     await login(page);
-    await page.getByRole("button", { name: /pt-BR/ }).click();
     await expect(page.getByRole("heading", { name: "Main Dashboard" })).toBeVisible();
 
     await expect(page.locator("body")).toBeVisible();

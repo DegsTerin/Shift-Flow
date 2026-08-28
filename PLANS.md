@@ -9,7 +9,7 @@
 | Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Plan ID        | `PLAN-PUBLIC-DEMO-RELEASE-20260828-01`                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Status         | `REMOTE_CI_REMEDIATION`; local candidate passed and public GitHub repository exists; first remote workflow failed on the initial-push zero diff base; no Render resource or deployment exists yet                                                                                                                                                                                                                                                                                                 |
+| Status         | `REMOTE_E2E_REMEDIATION`; public GitHub repository exists; initial-push handling passed remotely, but the disposable Playwright job exposed stale default-state expectations and one dark-mode contrast defect; no Render resource or deployment exists yet                                                                                                                                                                                                                                       |
 | Baseline       | Clean `main@177a4d002dd8857f5755847684c0009c78c6f52c`; prompt-system `6.0.0`; no Git remote                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Authority      | Owner request to publish only the system sources, prepare a professional en-GB README with a real product GIF, then publish through GitHub CLI and deploy through Render CLI                                                                                                                                                                                                                                                                                                                      |
 | Current state  | `STATE-08 PRODUCTION_RELEASE`; authorised release preparation plus target-specific demonstration hosting maintenance; no lifecycle transition                                                                                                                                                                                                                                                                                                                                                     |
@@ -116,8 +116,23 @@
   repository-creation push where no prior remote commit exists. The canonical
   workflow policy regression was updated to require that exact expression. A
   fresh complete `Full` passed the same 542 Node and 19 .NET tests, builds and
-  controls; the corrective commit, push and remote run remain required. The
-  failed run remains immutable release evidence.
+  controls before the corrective commit and push. The first failed run remains
+  immutable release evidence.
+- Corrective commit `39a7a70e9faee33bb1f1a8a563190446dff17084` reached
+  `origin/main`. Remote run `33221412749` passed the Node 22, Node 24 and .NET
+  core jobs, then failed the disposable Playwright job after migrations, the
+  PostgreSQL User aggregate regression and both controlled seeds had passed.
+  Six browser tests passed, five failed and three were skipped; load stress and
+  the strangler runtime job did not execute. Render remained untouched.
+- The browser failures showed that E2E selectors still expected the former
+  light/pt-BR defaults while the governed product now starts dark/en-GB. The
+  independent mobile axe failure also measured white text on the dark-theme
+  accent primary button at approximately `1.86:1`. Tests now exercise the
+  actual dark-to-light-to-dark and en-GB-to-pt-BR-to-en-GB transitions, and the
+  dark primary foreground uses `#0f2a27`, measured at approximately `8.17:1`
+  against the existing accent. The complete local `Full` passed 542 Node and 19
+  .NET tests plus all builds and controls; a fresh remote run remains required.
+  Both failed GitHub runs remain immutable evidence.
 
 ## In-app notification centre — 2026-08-28
 

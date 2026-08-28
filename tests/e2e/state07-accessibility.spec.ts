@@ -63,6 +63,13 @@ test.describe("STATE-07 dedicated axe accessibility", () => {
     await login(page);
     await expectNoSeriousAxeViolations(page);
 
+    await expect(page.locator("main")).toHaveAttribute("data-theme", "dark");
+    await expectNoSeriousAxeViolations(page);
+
+    await page.getByRole("button", { name: /Claro|Light/ }).click();
+    await expect(page.locator("main")).toHaveAttribute("data-theme", "light");
+    await expectNoSeriousAxeViolations(page);
+
     await page.getByRole("button", { name: /Escuro|Dark/ }).click();
     await expect(page.locator("main")).toHaveAttribute("data-theme", "dark");
     await expectNoSeriousAxeViolations(page);

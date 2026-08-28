@@ -755,6 +755,11 @@ textarea {
   font-weight: 800;
 }
 
+.app-shell[data-theme="dark"] .primary-button {
+  /* en-GB: Uses a dark foreground so accent-filled primary actions meet WCAG contrast in dark mode. */
+  color: #0f2a27;
+}
+
 .danger-button {
   /* en-GB: Defines the background treatment so the surface or state is visually clear. */
   background: rgb(185 28 28 / 12%);
