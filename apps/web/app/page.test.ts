@@ -474,7 +474,10 @@ describe("Page request lifecycle", () => {
     pageDataBridge.fetchReferenceData.mockReset().mockResolvedValue({});
     pageDataBridge.fetchRbacData.mockReset().mockResolvedValue(undefined);
     pageDataBridge.fetchUnreadData.mockReset().mockResolvedValue(undefined);
-    vi.stubGlobal("localStorage", { getItem: vi.fn(), setItem: vi.fn() });
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn((key: string) => (key === "shiftflow.locale" ? "pt-BR" : null)),
+      setItem: vi.fn()
+    });
     vi.stubGlobal("document", { documentElement: { lang: "pt-BR" }, title: "" });
     vi.stubGlobal("window", {
       setTimeout: clock.setTimeout.bind(clock),
@@ -501,27 +504,36 @@ describe("Page request lifecycle", () => {
   });
 
   it("marks the rendered application subtree with the active locale", async () => {
+    vi.mocked(localStorage.getItem).mockReturnValue(null);
     let tree = runtime.render();
-    expect((tree.props as { lang?: string }).lang).toBe("pt-BR");
-    expect(document.documentElement.lang).toBe("pt-BR");
-    expect(document.title).toBe(`${messages["pt-BR"].loginTitle} | ShiftFlow`);
-
-    tree = await authenticate();
-    expect((tree.props as { lang?: string }).lang).toBe("pt-BR");
-    expect(document.documentElement.lang).toBe("pt-BR");
-    expect(document.title).toBe(`${messages["pt-BR"].dashboard} | ShiftFlow`);
-
-    clickButton(tree, messages["pt-BR"].activities);
-    tree = runtime.render();
-    expect(document.title).toBe(`${messages["pt-BR"].activities} | ShiftFlow`);
-
-    (findIconToggle(tree, "pt-BR").props as { onClick: () => void }).onClick();
-    tree = runtime.render();
-
     expect((tree.props as { lang?: string }).lang).toBe("en-GB");
     expect(document.documentElement.lang).toBe("en-GB");
+    expect(document.title).toBe(`${messages["en-GB"].loginTitle} | ShiftFlow`);
+
+    tree = await authenticate();
+    expect((tree.props as { lang?: string }).lang).toBe("en-GB");
+    expect(document.documentElement.lang).toBe("en-GB");
+    expect(document.title).toBe(`${messages["en-GB"].dashboard} | ShiftFlow`);
+
+    clickButton(tree, messages["en-GB"].activities);
+    tree = runtime.render();
     expect(document.title).toBe(`${messages["en-GB"].activities} | ShiftFlow`);
-    expect(findIconToggle(tree, messages["en-GB"].signOut)).toBeDefined();
+
+    (findIconToggle(tree, "en-GB").props as { onClick: () => void }).onClick();
+    tree = runtime.render();
+
+    expect((tree.props as { lang?: string }).lang).toBe("pt-BR");
+    expect(document.documentElement.lang).toBe("pt-BR");
+    expect(document.title).toBe(`${messages["pt-BR"].activities} | ShiftFlow`);
+    expect(findIconToggle(tree, messages["pt-BR"].signOut)).toBeDefined();
+  });
+
+  it("restores a saved pt-BR locale over the en-GB default", () => {
+    runtime.render();
+    const tree = runtime.render();
+
+    expect((tree.props as { lang?: string }).lang).toBe("pt-BR");
+    expect(document.documentElement.lang).toBe("pt-BR");
   });
 
   it("defaults a new session to the dark theme and keeps the theme toggle available", async () => {

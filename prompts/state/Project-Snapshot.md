@@ -44,8 +44,8 @@
   locally complete at commit `d3d690ff16fabad22cf849d737367574f61548d5`.
 - Internal activity task boards and immutable operational history.
 - Responsive web interface, i18n, light/dark themes, and TV-oriented views where implemented.
-  New sessions start in dark mode while a valid stored theme preference continues
-  to take precedence.
+  New sessions start in dark mode with the en-GB locale, while valid stored theme
+  and locale preferences continue to take precedence.
 - Release, E2E, accessibility, load, security, source-comment, and quality scripts documented by the repository.
 - A locked .NET 10 solution, Audit OpenAPI contract, non-root Linux images and a
   disposable PostgreSQL/Redis/Nginx strangler smoke are implemented. The real

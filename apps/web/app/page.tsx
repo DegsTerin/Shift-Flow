@@ -154,6 +154,7 @@ const activityConsumerViews: ReadonlySet<View> = new Set([
 ]);
 
 const notificationPageSize = 20;
+const defaultLocale: Locale = "en-GB";
 const defaultTheme: Theme = "dark";
 
 function recordResource(entity: View) {
@@ -176,7 +177,7 @@ type ManagementSnapshot = {
 };
 
 export default function Page() {
-  const [locale, setLocale] = useState<Locale>("pt-BR");
+  const [locale, setLocale] = useState<Locale>(defaultLocale);
   const [theme, setTheme] = useState<Theme>(defaultTheme);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
