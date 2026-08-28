@@ -154,6 +154,7 @@ const activityConsumerViews: ReadonlySet<View> = new Set([
 ]);
 
 const notificationPageSize = 20;
+const defaultTheme: Theme = "dark";
 
 function recordResource(entity: View) {
   if (entity === "activities" || entity === "kanban") return "activities";
@@ -176,7 +177,7 @@ type ManagementSnapshot = {
 
 export default function Page() {
   const [locale, setLocale] = useState<Locale>("pt-BR");
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>(defaultTheme);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [session, setSession] = useState<LoginResponse | null>(null);

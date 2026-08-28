@@ -524,6 +524,30 @@ describe("Page request lifecycle", () => {
     expect(findIconToggle(tree, messages["en-GB"].signOut)).toBeDefined();
   });
 
+  it("defaults a new session to the dark theme and keeps the theme toggle available", async () => {
+    let tree = runtime.render();
+
+    expect((tree.props as { "data-theme"?: string })["data-theme"]).toBe("dark");
+
+    tree = await authenticate();
+    const themeToggle = findIconToggle(tree, messages["pt-BR"].light);
+    (themeToggle.props as { onClick: () => void }).onClick();
+    tree = runtime.render();
+
+    expect((tree.props as { "data-theme"?: string })["data-theme"]).toBe("light");
+  });
+
+  it("restores a saved light-theme preference over the dark default", () => {
+    vi.mocked(localStorage.getItem).mockImplementation((key) =>
+      key === "shiftflow.theme" ? "light" : null
+    );
+
+    runtime.render();
+    const tree = runtime.render();
+
+    expect((tree.props as { "data-theme"?: string })["data-theme"]).toBe("light");
+  });
+
   it("commits only the latest complete page snapshot", async () => {
     const first = deferred<ReturnType<typeof dashboardSnapshot>>();
     const second = deferred<ReturnType<typeof dashboardSnapshot>>();
