@@ -2,7 +2,6 @@
 "use client";
 
 import {
-  Bell,
   Globe2,
   LayoutGrid,
   LockKeyhole,
@@ -19,6 +18,7 @@ import type { FormEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FilterBar, IconToggle, SegmentedControl } from "./components/controls";
 import { ActivityList, ManagementTable, shiftCells, TeamsView } from "./components/lists";
+import { NotificationCentre } from "./components/notification-centre";
 import { RecordModal } from "./components/record-modal";
 import { RoleManagementView } from "./components/role-management-view";
 import {
@@ -67,9 +67,11 @@ import type {
   DashboardConfiguration,
   DashboardSummary,
   Filters,
+  ListResponse,
   Locale,
   LoginResponse,
   ModalState,
+  NotificationItem,
   PermissionRef,
   ReportActivitySummary,
   RoleRef,
@@ -150,6 +152,8 @@ const activityConsumerViews: ReadonlySet<View> = new Set([
   "kanban",
   "reports"
 ]);
+
+const notificationPageSize = 20;
 
 function recordResource(entity: View) {
   if (entity === "activities" || entity === "kanban") return "activities";
@@ -236,6 +240,11 @@ export default function Page() {
   const [rbacDisplayedPageSize, setRbacDisplayedPageSize] = useState(rbacPageSize);
   const [rbacTotal, setRbacTotal] = useState(0);
   const [unread, setUnread] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationItems, setNotificationItems] = useState<NotificationItem[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [notificationPendingId, setNotificationPendingId] = useState<string | "all" | null>(null);
   const [actionPending, setActionPending] = useState(0);
   const [dataLoading, setDataLoading] = useState(false);
   const [managementLoading, setManagementLoading] = useState(false);
@@ -253,6 +262,7 @@ export default function Page() {
   const managementCoordinator = useRef(createLatestRequestCoordinator()).current;
   const rbacCoordinator = useRef(createLatestRequestCoordinator()).current;
   const unreadCoordinator = useRef(createLatestRequestCoordinator()).current;
+  const notificationCoordinator = useRef(createLatestRequestCoordinator()).current;
   const detailCoordinator = useRef(createLatestRequestCoordinator()).current;
   const moveCoordinator = useRef(createActivityMoveCoordinator()).current;
   const committedViewLoaderRef = useRef<CommittedViewLoader>({
@@ -476,6 +486,7 @@ export default function Page() {
     managementCoordinator.cancel();
     rbacCoordinator.cancel();
     unreadCoordinator.cancel();
+    notificationCoordinator.cancel();
     detailCoordinator.cancel();
     moveCoordinator.reset();
     actionTracker.reset();
@@ -534,6 +545,11 @@ export default function Page() {
     setRbacDisplayedPageSize(rbacPageSize);
     setRbacTotal(0);
     setUnread(0);
+    setNotificationsOpen(false);
+    setNotificationItems([]);
+    setNotificationsLoading(false);
+    setNotificationsError(null);
+    setNotificationPendingId(null);
     setModal(null);
     setDragged(null);
     setFilters(emptyFilters);
@@ -546,6 +562,7 @@ export default function Page() {
     loadCoordinator,
     managementCoordinator,
     moveCoordinator,
+    notificationCoordinator,
     rbacCoordinator,
     referenceCoordinator,
     unreadCoordinator
@@ -861,6 +878,31 @@ export default function Page() {
     }
   }, [can, publishUnreadError, t.apiOffline, token, unreadCoordinator]);
 
+  const loadNotifications = useCallback(async () => {
+    if (!token || !can("notifications", "read")) return;
+    const sessionEpoch = captureApiSessionEpoch();
+    if (sessionEpoch === null) return;
+    const request = notificationCoordinator.begin();
+    const isCurrent = () => request.isCurrent() && isApiSessionEpochCurrent(sessionEpoch);
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+    try {
+      const result = await apiRequest<ListResponse<NotificationItem>>(
+        `/api/notifications?page=1&pageSize=${notificationPageSize}`,
+        token,
+        { signal: request.signal }
+      );
+      if (!isCurrent()) return;
+      setNotificationItems(result.items);
+    } catch (cause) {
+      if (!isCurrent() || isAbortError(cause)) return;
+      const detail = cause instanceof Error ? cause.message : t.apiOffline;
+      setNotificationsError(`${t.notificationLoadFailed}: ${detail}`);
+    } finally {
+      if (isCurrent()) setNotificationsLoading(false);
+    }
+  }, [can, notificationCoordinator, t.apiOffline, t.notificationLoadFailed, token]);
+
   const reloadCurrentContext = useCallback(() => {
     if (view === "roles") return loadRbac();
     if (isManagementView(view)) {
@@ -980,12 +1022,14 @@ export default function Page() {
       managementCoordinator.cancel();
       rbacCoordinator.cancel();
       unreadCoordinator.cancel();
+      notificationCoordinator.cancel();
       detailCoordinator.cancel();
     },
     [
       detailCoordinator,
       loadCoordinator,
       managementCoordinator,
+      notificationCoordinator,
       rbacCoordinator,
       referenceCoordinator,
       unreadCoordinator
@@ -1013,6 +1057,43 @@ export default function Page() {
     media.addEventListener("change", closeDrawerOnDesktop);
     return () => media.removeEventListener("change", closeDrawerOnDesktop);
   }, []);
+
+  function toggleNotifications() {
+    if (notificationsOpen) {
+      setNotificationsOpen(false);
+      return;
+    }
+    setNotificationsOpen(true);
+    void loadNotifications();
+  }
+
+  async function markNotificationsRead(id?: string) {
+    if (!token || !can("notifications", "write") || notificationPendingId !== null) return;
+    const operationEpoch = captureApiSessionEpoch();
+    if (operationEpoch === null) return;
+    const pendingId = id ?? "all";
+    setNotificationPendingId(pendingId);
+    setNotificationsError(null);
+    try {
+      await apiRequest(
+        id ? `/api/notifications/${id}/read` : "/api/notifications/mark-all-read",
+        token,
+        { method: "POST", body: JSON.stringify({}) }
+      );
+      if (!isApiSessionEpochCurrent(operationEpoch)) return;
+      const readAt = new Date().toISOString();
+      setNotificationItems((items) =>
+        items.map((item) => (!id || item.id === id ? { ...item, readAt } : item))
+      );
+      setUnread((current) => (id ? Math.max(0, current - 1) : 0));
+    } catch (cause) {
+      if (!isApiSessionEpochCurrent(operationEpoch)) return;
+      const detail = cause instanceof Error ? cause.message : t.apiOffline;
+      setNotificationsError(`${t.notificationUpdateFailed}: ${detail}`);
+    } finally {
+      if (isApiSessionEpochCurrent(operationEpoch)) setNotificationPendingId(null);
+    }
+  }
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1480,16 +1561,21 @@ export default function Page() {
                   onClick={() => void refreshCurrent()}
                 />
                 {can("notifications", "read") ? (
-                  <span
-                    aria-label={`${unread} ${unread === 1 ? t.unreadSingular : t.unread}`}
-                    aria-live="polite"
-                    className="notification-indicator"
-                    role="status"
-                    title={`${unread} ${unread === 1 ? t.unreadSingular : t.unread}`}
-                  >
-                    <Bell size={17} />
-                    <span aria-hidden="true">{unread}</span>
-                  </span>
+                  <NotificationCentre
+                    t={t}
+                    locale={locale}
+                    open={notificationsOpen}
+                    unread={unread}
+                    items={notificationItems}
+                    loading={notificationsLoading}
+                    error={notificationsError}
+                    canMarkRead={can("notifications", "write")}
+                    pendingId={notificationPendingId}
+                    onToggle={toggleNotifications}
+                    onClose={() => setNotificationsOpen(false)}
+                    onMarkRead={(id) => void markNotificationsRead(id)}
+                    onMarkAllRead={() => void markNotificationsRead()}
+                  />
                 ) : null}
               </>
             ) : null}

@@ -7,6 +7,330 @@
   --radius: 8px;
 }
 
+.notification-centre {
+  /* en-GB: Keeps the disclosure button and its floating panel in one positioning context. */
+  flex: 0 0 auto;
+  /* en-GB: Positions the floating panel relative to its notification control on wide screens. */
+  position: relative;
+}
+
+.notification-button {
+  /* en-GB: Provides the positioning context required by the unread badge. */
+  position: relative;
+}
+
+.notification-button.active {
+  /* en-GB: Distinguishes the open notification centre from inactive header controls. */
+  background: var(--surface-strong);
+  /* en-GB: Connects the active notification control to the product accent. */
+  border-color: var(--accent);
+  /* en-GB: Gives the active bell sufficient contrast against its surface. */
+  color: var(--accent);
+}
+
+.notification-badge {
+  /* en-GB: Aligns short and capped unread values within one compact badge. */
+  align-items: center;
+  /* en-GB: Uses the danger token to make pending notifications immediately visible. */
+  background: var(--danger);
+  /* en-GB: Gives badge text reliable contrast across both application themes. */
+  color: #ffffff;
+  /* en-GB: Uses an inline flex box so one- and three-character values stay centred. */
+  display: inline-flex;
+  /* en-GB: Keeps the unread count readable without increasing the header control height. */
+  font-size: 0.66rem;
+  /* en-GB: Gives the compact unread value sufficient visual weight. */
+  font-weight: 800;
+  /* en-GB: Keeps the badge circular for short values and pill-shaped for the capped value. */
+  justify-content: center;
+  /* en-GB: Places the badge outside the bell without obscuring the icon. */
+  min-height: 18px;
+  /* en-GB: Preserves a legible badge width for a single digit. */
+  min-width: 18px;
+  /* en-GB: Separates longer badge content from its rounded edge. */
+  padding-inline: 4px;
+  /* en-GB: Anchors the badge to the notification button rather than the header row. */
+  position: absolute;
+  /* en-GB: Aligns the badge optically with the button's upper-right corner. */
+  right: -6px;
+  /* en-GB: Rounds the badge independently of the shared control radius. */
+  border-radius: 999px;
+  /* en-GB: Aligns the badge optically with the button's upper-right corner. */
+  top: -6px;
+}
+
+.notification-panel {
+  /* en-GB: Uses the application surface token so the panel follows the active theme. */
+  background: var(--surface);
+  /* en-GB: Defines the floating panel boundary against the workspace below. */
+  border: 1px solid var(--border);
+  /* en-GB: Matches the established card curvature used throughout the application. */
+  border-radius: var(--radius);
+  /* en-GB: Adds sufficient depth for a temporary surface above the dashboard. */
+  box-shadow: var(--shadow-floating);
+  /* en-GB: Separates panel regions while preserving a stable header and scrolling list. */
+  display: grid;
+  /* en-GB: Prevents the notification centre from exceeding the usable viewport height. */
+  max-height: min(70vh, 560px);
+  /* en-GB: Clips list content to the panel radius while its own region scrolls. */
+  overflow: hidden;
+  /* en-GB: Anchors the panel below its disclosure button on wide screens. */
+  position: absolute;
+  /* en-GB: Aligns the panel with the right edge of the notification button. */
+  right: 0;
+  /* en-GB: Leaves a clear visual gap between the header control and floating panel. */
+  top: calc(100% + 10px);
+  /* en-GB: Keeps the panel usable on narrow windows without exceeding the viewport. */
+  width: min(390px, calc(100vw - 32px));
+  /* en-GB: Places the notification surface above sticky workspace content. */
+  z-index: 70;
+}
+
+.notification-panel-header,
+.notification-panel-toolbar {
+  /* en-GB: Aligns notification headings and actions within each panel row. */
+  align-items: center;
+  /* en-GB: Uses flex alignment for predictable action placement. */
+  display: flex;
+  /* en-GB: Separates labels from their associated controls. */
+  gap: 12px;
+  /* en-GB: Keeps opposing panel actions at stable edges. */
+  justify-content: space-between;
+}
+
+.notification-panel-header {
+  /* en-GB: Separates the panel identity from its list and toolbar. */
+  border-bottom: 1px solid var(--border);
+  /* en-GB: Gives the panel heading and close control a consistent touch-safe inset. */
+  padding: 14px 14px 12px;
+}
+
+.notification-panel-header h2,
+.notification-panel-header p {
+  /* en-GB: Removes browser margins so panel header spacing remains intentional. */
+  margin: 0;
+}
+
+.notification-panel-header h2 {
+  /* en-GB: Establishes a compact but clear heading hierarchy within the top bar. */
+  font-size: 1rem;
+  /* en-GB: Keeps the notification title concise within the floating surface. */
+  line-height: 1.2;
+}
+
+.notification-panel-header p {
+  /* en-GB: Uses muted text for supporting unread-count information. */
+  color: var(--muted);
+  /* en-GB: Keeps count metadata subordinate to the panel title. */
+  font-size: 0.78rem;
+  /* en-GB: Separates count metadata from the notification heading. */
+  margin-top: 3px;
+}
+
+.notification-close-button {
+  /* en-GB: Uses a compact close control without reducing its accessible name. */
+  min-height: 32px;
+  /* en-GB: Matches the compact close-control height. */
+  width: 32px;
+}
+
+.notification-panel-toolbar {
+  /* en-GB: Separates notification controls from the list below. */
+  border-bottom: 1px solid var(--border);
+  /* en-GB: Keeps the list label and bulk action readable at compact density. */
+  padding: 10px 14px;
+}
+
+.notification-panel-toolbar strong {
+  /* en-GB: Keeps the secondary panel heading visually subordinate. */
+  font-size: 0.8rem;
+}
+
+.notification-panel .compact-button {
+  /* en-GB: Keeps panel actions compact even when global mobile controls become full width. */
+  min-height: 32px;
+  /* en-GB: Fits notification actions to their content rather than the panel width. */
+  padding: 0 10px;
+  /* en-GB: Preserves compact action width inside the notification panel. */
+  width: auto;
+}
+
+.notification-error,
+.notification-state {
+  /* en-GB: Keeps panel feedback visually contained inside the floating surface. */
+  margin: 0;
+  /* en-GB: Gives loading, empty and error feedback a comfortable reading inset. */
+  padding: 16px;
+}
+
+.notification-error {
+  /* en-GB: Uses the shared danger colour for actionable loading or update failures. */
+  color: var(--danger);
+  /* en-GB: Gives notification failures enough emphasis without introducing another card. */
+  font-weight: 700;
+}
+
+.notification-state {
+  /* en-GB: Uses muted text for non-error loading and empty states. */
+  color: var(--muted);
+}
+
+.notification-list {
+  /* en-GB: Uses a grid so notification rows keep consistent separation. */
+  display: grid;
+  /* en-GB: Adds compact separation between independent notification records. */
+  gap: 8px;
+  /* en-GB: Removes default list spacing so the panel owns its density. */
+  list-style: none;
+  /* en-GB: Removes default list margins that would misalign the panel. */
+  margin: 0;
+  /* en-GB: Allows long notification histories to remain reachable within the viewport. */
+  overflow-y: auto;
+  /* en-GB: Insets notification rows from the floating panel boundary. */
+  padding: 10px;
+}
+
+.notification-item {
+  /* en-GB: Aligns notification content and its read action without nested cards. */
+  align-items: start;
+  /* en-GB: Uses a subtle row surface to distinguish adjacent notification records. */
+  background: var(--surface-strong);
+  /* en-GB: Defines a stable boundary for read and unread notification rows. */
+  border: 1px solid var(--border);
+  /* en-GB: Reserves a neutral leading edge that unread rows can emphasise. */
+  border-left: 3px solid transparent;
+  /* en-GB: Matches the compact radius used by controls and secondary surfaces. */
+  border-radius: var(--radius-sm);
+  /* en-GB: Uses a grid so content and actions remain aligned as text wraps. */
+  display: grid;
+  /* en-GB: Separates notification text from its action control. */
+  gap: 10px;
+  /* en-GB: Gives each notification row sufficient touch and reading space. */
+  padding: 12px;
+}
+
+.notification-item.unread {
+  /* en-GB: Uses the product accent to make unread rows scannable without colour-only badges. */
+  border-left-color: var(--accent);
+}
+
+.notification-item article {
+  /* en-GB: Prevents long notification content from widening the floating panel. */
+  min-width: 0;
+}
+
+.notification-item-heading {
+  /* en-GB: Aligns the unread marker with the notification title. */
+  align-items: start;
+  /* en-GB: Uses flex layout so the title can wrap while the marker remains visible. */
+  display: flex;
+  /* en-GB: Separates the notification title from its unread marker. */
+  gap: 8px;
+  /* en-GB: Keeps the unread marker at the opposite edge of the title row. */
+  justify-content: space-between;
+}
+
+.notification-item strong,
+.notification-item p {
+  /* en-GB: Allows long backend-provided notification text to wrap safely. */
+  overflow-wrap: anywhere;
+}
+
+.notification-item p {
+  /* en-GB: Uses the muted token to distinguish supporting content from the title. */
+  color: var(--muted);
+  /* en-GB: Keeps notification body text compact within the list. */
+  font-size: 0.84rem;
+  /* en-GB: Preserves readable line spacing for wrapped notification text. */
+  line-height: 1.45;
+  /* en-GB: Separates the notification body from its title and timestamp. */
+  margin: 5px 0;
+}
+
+.notification-item time,
+.notification-read-state {
+  /* en-GB: Uses subdued metadata colour for time and read-state labels. */
+  color: var(--muted);
+  /* en-GB: Keeps secondary metadata visually subordinate. */
+  font-size: 0.74rem;
+}
+
+.notification-unread-dot {
+  /* en-GB: Uses the accent token for a compact non-text unread cue. */
+  background: var(--accent);
+  /* en-GB: Keeps the unread marker circular and visually consistent. */
+  border-radius: 999px;
+  /* en-GB: Prevents the unread marker from shrinking beside long titles. */
+  flex: 0 0 auto;
+  /* en-GB: Defines the unread marker's compact height. */
+  height: 8px;
+  /* en-GB: Aligns the marker optically with the first title line. */
+  margin-top: 4px;
+  /* en-GB: Defines the unread marker's compact width. */
+  width: 8px;
+}
+
+.notification-read-button {
+  /* en-GB: Aligns the individual read action with the start of wrapped notification content. */
+  justify-self: start;
+}
+
+.notification-read-state {
+  /* en-GB: Aligns the factual read label with the start of its notification row. */
+  justify-self: start;
+}
+
+@media (max-width: 1180px) {
+  .notification-panel {
+    /* en-GB: Keeps the floating panel inside the viewport when header actions wrap. */
+    position: fixed;
+    /* en-GB: Aligns the wrapped-header panel with the workspace edge. */
+    right: 16px;
+    /* en-GB: Clears the wrapped sticky header while retaining a predictable anchor. */
+    top: 96px;
+  }
+}
+
+@media (max-width: 620px) {
+  .notification-centre {
+    /* en-GB: Lets the notification button fill its allocated mobile action cell. */
+    width: 100%;
+  }
+
+  .notification-panel {
+    /* en-GB: Presents notifications as a bounded mobile sheet above the viewport edge. */
+    bottom: 12px;
+    /* en-GB: Keeps the mobile sheet clear of the left viewport edge. */
+    left: 12px;
+    /* en-GB: Uses most of the mobile viewport without hiding browser controls. */
+    max-height: calc(100dvh - 24px);
+    /* en-GB: Keeps the mobile sheet clear of the right viewport edge. */
+    right: 12px;
+    /* en-GB: Lets the mobile sheet anchor from the bottom instead of the wrapped header. */
+    top: auto;
+    /* en-GB: Derives mobile-sheet width from its fixed side insets. */
+    width: auto;
+  }
+
+  .notification-panel-toolbar {
+    /* en-GB: Stacks the mobile bulk action below the list heading so neither label is clipped. */
+    align-items: stretch;
+    /* en-GB: Uses the available sheet width for both the heading and bulk action. */
+    flex-direction: column;
+  }
+
+  .notification-panel .notification-panel-toolbar .compact-button {
+    /* en-GB: Aligns the wrapped bulk-action label with the mobile list heading. */
+    justify-content: flex-start;
+    /* en-GB: Prevents the bulk action from exceeding the mobile sheet width. */
+    max-width: 100%;
+    /* en-GB: Allows translated bulk-action labels to wrap on narrow screens. */
+    white-space: normal;
+    /* en-GB: Gives the mobile bulk action the full toolbar width for readable translations. */
+    width: 100%;
+  }
+}
+
 .reference-field,
 .reference-select {
   /* en-GB: Uses a vertical layout so the selected value and its search tools remain grouped. */

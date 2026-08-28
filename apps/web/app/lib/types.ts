@@ -30,6 +30,16 @@ export type LoginResponse = {
   user: SessionUser;
 };
 export type ListResponse<T> = { items: T[]; total: number; page?: number; pageSize?: number };
+export type NotificationItem = {
+  id: string;
+  activityId?: string | null;
+  type: string;
+  priority?: "LOW" | "NORMAL" | "HIGH";
+  title: string;
+  body?: string | null;
+  readAt?: string | null;
+  createdAt: string;
+};
 export type DashboardSummary = {
   total: number;
   pending: number;

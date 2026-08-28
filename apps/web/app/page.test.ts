@@ -1,7 +1,12 @@
 // en-GB: Exercises the real page orchestration across request, pagination and session boundaries.
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ActivityItem, DashboardConfiguration, LoginResponse } from "./lib/types";
+import type {
+  ActivityItem,
+  DashboardConfiguration,
+  LoginResponse,
+  NotificationItem
+} from "./lib/types";
 
 const hookBridge = vi.hoisted(() => ({
   useState: (initial: unknown): unknown => {
@@ -90,6 +95,7 @@ vi.mock("./lib/page-data", () => ({
 import Page from "./page";
 import { ActivityList, ManagementTable } from "./components/lists";
 import { FilterBar, IconToggle, ReferenceSelectInput, Select } from "./components/controls";
+import { NotificationCentre } from "./components/notification-centre";
 import { RecordModal } from "./components/record-modal";
 import { RoleManagementView } from "./components/role-management-view";
 import { KanbanBoard, MainDashboard, ReportsView, TeamDashboard } from "./components/views";
@@ -2164,29 +2170,46 @@ describe("Page request lifecycle", () => {
     expect((dashboard.props as { onOpen?: unknown }).onOpen).toBeUndefined();
   });
 
-  it("presents unread notifications as a non-interactive live status", async () => {
+  it("opens the notification centre and loads the recipient list from the real API contract", async () => {
     pageDataBridge.fetchUnreadData.mockReset().mockResolvedValueOnce({ unread: 7 });
+    const notification: NotificationItem = {
+      id: "notification-a",
+      type: "SYSTEM",
+      title: "Fixture ready",
+      body: "Integration data is available.",
+      readAt: null,
+      createdAt: "2026-08-28T15:04:10.057Z"
+    };
+    apiBridge.apiRequest.mockResolvedValueOnce({
+      items: [notification],
+      total: 1,
+      page: 1,
+      pageSize: 20
+    });
     await authenticate();
     await flushPromises();
-    const tree = runtime.render();
-    const indicator = elements(tree).find(
-      (element) =>
-        element.type === "span" &&
-        (element.props as { className?: string }).className === "notification-indicator"
-    );
-    const props = indicator?.props as {
-      "aria-label"?: string;
-      role?: string;
-      onClick?: unknown;
-      tabIndex?: number;
-      children?: unknown;
+    let tree = runtime.render();
+    let centre = findByType(tree, NotificationCentre);
+    let props = centre.props as {
+      unread: number;
+      open: boolean;
+      items: NotificationItem[];
+      onToggle: () => void;
     };
 
-    expect(props.role).toBe("status");
-    expect(props["aria-label"]).toBe("7 não lidas");
-    expect(props.onClick).toBeUndefined();
-    expect(props.tabIndex).toBeUndefined();
-    expect(textOf(props.children)).toContain("7");
+    expect(props).toMatchObject({ unread: 7, open: false, items: [] });
+    props.onToggle();
+    await flushPromises();
+    tree = runtime.render();
+    centre = findByType(tree, NotificationCentre);
+    props = centre.props as typeof props;
+
+    expect(apiBridge.apiRequest).toHaveBeenCalledWith(
+      "/api/notifications?page=1&pageSize=20",
+      "access-token",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+    expect(props).toMatchObject({ unread: 7, open: true, items: [notification] });
   });
 
   it("normalises the legacy notification count and labels the singular result", async () => {
@@ -2194,14 +2217,45 @@ describe("Page request lifecycle", () => {
     await authenticate();
     await flushPromises();
     const tree = runtime.render();
-    const indicator = elements(tree).find(
-      (element) =>
-        element.type === "span" &&
-        (element.props as { className?: string }).className === "notification-indicator"
-    );
+    const centre = findByType(tree, NotificationCentre);
 
-    expect((indicator?.props as { "aria-label"?: string })["aria-label"]).toBe("1 não lida");
-    expect(textOf(indicator)).toContain("1");
+    expect((centre.props as { unread: number }).unread).toBe(1);
+  });
+
+  it("marks one notification as read and updates the visible unread count", async () => {
+    pageDataBridge.fetchUnreadData.mockReset().mockResolvedValueOnce({ unread: 1 });
+    const notification: NotificationItem = {
+      id: "notification-a",
+      type: "SYSTEM",
+      title: "Fixture ready",
+      readAt: null,
+      createdAt: "2026-08-28T15:04:10.057Z"
+    };
+    apiBridge.apiRequest
+      .mockResolvedValueOnce({ items: [notification], total: 1, page: 1, pageSize: 20 })
+      .mockResolvedValueOnce({ count: 1 });
+    let tree = await authenticate(
+      scopedSession(["dashboard:read", "notifications:read", "notifications:write"])
+    );
+    await flushPromises();
+    let centre = findByType(tree, NotificationCentre);
+    (centre.props as { onToggle: () => void }).onToggle();
+    await flushPromises();
+    tree = runtime.render();
+    centre = findByType(tree, NotificationCentre);
+    (centre.props as { onMarkRead: (id: string) => void }).onMarkRead("notification-a");
+    await flushPromises();
+    tree = runtime.render();
+    centre = findByType(tree, NotificationCentre);
+    const props = centre.props as { unread: number; items: NotificationItem[] };
+
+    expect(apiBridge.apiRequest).toHaveBeenLastCalledWith(
+      "/api/notifications/notification-a/read",
+      "user-a-access-token",
+      { method: "POST", body: JSON.stringify({}) }
+    );
+    expect(props.unread).toBe(0);
+    expect(props.items[0]?.readAt).toEqual(expect.any(String));
   });
 
   it("suppresses a late RBAC failure after a successor tenant becomes active", async () => {
