@@ -8,6 +8,7 @@ import { loginSchema, refreshTokenSchema } from "./auth.validators.js";
 
 export const authRoutes = Router();
 
+authRoutes.post("/demo", loginRateLimit, AuthController.demo);
 authRoutes.post("/login", loginRateLimit, validate("body", loginSchema), AuthController.login);
 authRoutes.post("/refresh", validate("body", refreshTokenSchema), AuthController.refresh);
 authRoutes.post("/logout", validate("body", refreshTokenSchema), AuthController.logout);

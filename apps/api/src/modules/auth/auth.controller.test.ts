@@ -18,6 +18,40 @@ describe("AuthController", () => {
     vi.restoreAllMocks();
   });
 
+  it("sets protected session cookies for direct demo access", async () => {
+    vi.spyOn(AuthService.prototype, "openDemoSession").mockResolvedValue({
+      accessToken: "demo-access-token",
+      refreshToken: "demo-refresh-token",
+      expiresAt: new Date(Date.now() + 60_000),
+      user: {
+        id: "demo-user",
+        email: "demo@shiftflow.local",
+        displayName: "Demo User",
+        companyId: "demo-company",
+        permissions: ["dashboard:read"]
+      }
+    });
+
+    const app = express();
+    app.use(express.json());
+    app.post("/api/auth/demo", AuthController.demo);
+    app.use(errorHandler);
+
+    const response = await request(app).post("/api/auth/demo").send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      accessToken: "demo-access-token",
+      authenticationMode: "demo",
+      user: { email: "demo@shiftflow.local" }
+    });
+    expect(response.body.data.refreshToken).toBeUndefined();
+    const cookies = cookieHeader(response.headers["set-cookie"]);
+    expect(cookies).toContain("shiftflow_refresh=demo-refresh-token");
+    expect(cookies).toContain("HttpOnly");
+    expect(cookies).toContain("shiftflow_csrf=");
+  });
+
   it("clears the refresh cookie when refresh fails", async () => {
     vi.spyOn(AuthService.prototype, "refresh").mockRejectedValue(
       new AppError("Invalid refresh token", 401, "UNAUTHORIZED")

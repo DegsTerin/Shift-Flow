@@ -173,6 +173,54 @@ describe("AuthService", () => {
     );
   });
 
+  it("opens a loopback demo session with the configured user's current authority", async () => {
+    const mockRepository = repository();
+    const service = new AuthService(mockRepository as unknown as AuthRepository, {
+      enabled: true,
+      email: "demo@shiftflow.local"
+    });
+
+    const result = await service.openDemoSession(request());
+
+    expect(mockRepository.findUserByEmail).toHaveBeenCalledWith("demo@shiftflow.local");
+    expect(result.user).toMatchObject({
+      id: "user-1",
+      companyId: "company-a",
+      permissions: []
+    });
+    expect(mockRepository.writeAuthAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "DEMO_SESSION_STARTED",
+        userId: "user-1",
+        companyId: "company-a"
+      })
+    );
+  });
+
+  it("does not expose demo access when disabled or requested outside loopback", async () => {
+    const mockRepository = repository();
+    const disabled = new AuthService(mockRepository as unknown as AuthRepository, {
+      enabled: false,
+      email: "demo@shiftflow.local"
+    });
+    const remote = new AuthService(mockRepository as unknown as AuthRepository, {
+      enabled: true,
+      email: "demo@shiftflow.local"
+    });
+
+    await expect(disabled.openDemoSession(request())).rejects.toMatchObject({
+      code: "NOT_FOUND"
+    });
+    await expect(
+      remote.openDemoSession({
+        context: { requestId: "request-remote", ipAddress: "192.0.2.10" }
+      } as ApiRequest)
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
+  });
+
   it("does not expose a session when the credential changes during login", async () => {
     const mockRepository = repository({
       createRefreshToken: vi.fn().mockResolvedValue(false)

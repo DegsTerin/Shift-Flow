@@ -421,6 +421,34 @@ describe("Page request lifecycle", () => {
     return runtime.render();
   }
 
+  it("opens directly with a demo session when no refresh session exists", async () => {
+    const demoSession: LoginResponse = {
+      ...session(),
+      authenticationMode: "demo",
+      user: { ...session().user, email: "demo@shiftflow.local" }
+    };
+    apiBridge.restoreApiSession.mockReset().mockRejectedValueOnce(new Error("No session"));
+    apiBridge.apiRequest.mockResolvedValueOnce(demoSession);
+
+    runtime.render();
+    await flushPromises();
+    const tree = runtime.render();
+
+    expect(apiBridge.apiRequest).toHaveBeenCalledWith("/api/auth/demo", undefined, {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+    expect(textOf(tree)).not.toContain(messages["pt-BR"].loginTitle);
+    expect(elements(tree).some((element) => element.type === MainDashboard)).toBe(true);
+    expect(
+      elements(tree).some(
+        (element) =>
+          element.type === IconToggle &&
+          (element.props as { label?: string }).label === messages["pt-BR"].signOut
+      )
+    ).toBe(false);
+  });
+
   beforeEach(() => {
     clearApiSession();
     runtime = new HookRuntime();

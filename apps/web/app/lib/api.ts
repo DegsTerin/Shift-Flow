@@ -5,7 +5,8 @@ export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localh
 const csrfCookieName = "shiftflow_csrf";
 const refreshPath = "/api/auth/refresh";
 const refreshLockName = "shiftflow-auth-refresh";
-const authenticationPaths = new Set(["/api/auth/login", refreshPath, "/api/auth/logout"]);
+const sessionBootstrapPaths = new Set(["/api/auth/demo", "/api/auth/login"]);
+const authenticationPaths = new Set([...sessionBootstrapPaths, refreshPath, "/api/auth/logout"]);
 
 let activeSession: LoginResponse | null = null;
 let sessionGeneration = 0;
@@ -77,7 +78,7 @@ function isUnsafeMethod(method: string | undefined) {
 }
 
 function shouldAttachCsrf(path: string, init: RequestInit) {
-  return isUnsafeMethod(init.method) && path !== "/api/auth/login";
+  return isUnsafeMethod(init.method) && !sessionBootstrapPaths.has(path);
 }
 
 function publishSession(session: LoginResponse | null) {

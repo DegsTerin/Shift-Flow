@@ -120,6 +120,8 @@ if (-not $runtimeEnvironmentBoundary.Success -or
 
 $requiredIsolatedVariables = @(
     'API_INSTANCE_COUNT',
+    'AUTH_DEMO_EMAIL',
+    'AUTH_MODE',
     'CORS_ORIGIN',
     'DATABASE_URL',
     'E2E_EMAIL',

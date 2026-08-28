@@ -1,9 +1,9 @@
 // en-GB: Implements auth rules so invariants remain centralised outside the transport layer.
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { env } from "../../shared/config/env.js";
+import { authenticationMode, demoAccessEmail, env } from "../../shared/config/env.js";
 import type { ApiRequest, AuthenticatedUser } from "../../shared/http/request-types.js";
-import { forbidden, unauthorized } from "../../shared/errors/app-error.js";
+import { forbidden, notFound, unauthorized } from "../../shared/errors/app-error.js";
 import { signAccessToken } from "../../shared/middlewares/authenticate.js";
 import { AuthRepository } from "./auth.repository.js";
 import type { LoginDto } from "./auth.dto.js";
@@ -152,8 +152,88 @@ function credentialVersion(user: DbUser) {
   return user.passwordChangedAt?.getTime() ?? 0;
 }
 
+function isLoopbackAddress(address: string | undefined) {
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
 export class AuthService {
-  constructor(private readonly repository = new AuthRepository()) {}
+  constructor(
+    private readonly repository = new AuthRepository(),
+    private readonly demoAccess = {
+      enabled: authenticationMode === "demo",
+      email: demoAccessEmail
+    }
+  ) {}
+
+  private async issueSession(req: ApiRequest, user: DbUser, companyId: string) {
+    const authUser: AuthenticatedUser = {
+      id: user.id,
+      email: user.email,
+      companyId,
+      credentialVersion: credentialVersion(user)
+    };
+    authUser.permissions = permissionsFrom(user, companyId);
+    const accessToken = signAccessToken(authUser);
+    const refreshToken = crypto.randomBytes(48).toString("base64url");
+    const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
+
+    const created = await this.repository.createRefreshToken(
+      {
+        userId: user.id,
+        companyId,
+        tokenHash: hashToken(refreshToken),
+        userAgent: req.context?.userAgent,
+        ipAddress: req.context?.ipAddress,
+        expiresAt
+      },
+      {
+        userId: user.id,
+        companyId,
+        passwordChangedAt: user.passwordChangedAt ?? null
+      }
+    );
+    if (!created) {
+      throw unauthorized("Unable to establish session");
+    }
+    await this.repository.updateLastLogin(user.id);
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresAt,
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        companyId,
+        permissions: authUser.permissions
+      }
+    };
+  }
+
+  async openDemoSession(req: ApiRequest) {
+    if (!this.demoAccess.enabled || !isLoopbackAddress(req.context?.ipAddress)) {
+      throw notFound();
+    }
+
+    const user = (await this.repository.findUserByEmail(this.demoAccess.email)) as DbUser | null;
+    if (!user || user.status !== "ACTIVE" || user.deletedAt != null) {
+      throw unauthorized("Demo access is not provisioned");
+    }
+
+    const companyId = resolveCompany(user);
+    const result = await this.issueSession(req, user, companyId);
+    await this.repository.writeAuthAudit({
+      action: "DEMO_SESSION_STARTED",
+      emailHash: hashIdentifier(user.email),
+      userId: user.id,
+      companyId,
+      requestId: req.context?.requestId,
+      ipAddress: req.context?.ipAddress,
+      userAgent: req.context?.userAgent
+    });
+    return result;
+  }
 
   async login(req: ApiRequest, input: LoginDto) {
     const emailHash = hashIdentifier(input.email);
@@ -185,59 +265,19 @@ export class AuthService {
     }
 
     const companyId = resolveCompany(user, input.companyId);
-    const authUser: AuthenticatedUser = {
-      id: user.id,
-      email: user.email,
-      companyId,
-      credentialVersion: credentialVersion(user)
-    };
-    authUser.permissions = permissionsFrom(user, companyId);
-    const accessToken = signAccessToken(authUser);
-    const refreshToken = crypto.randomBytes(48).toString("base64url");
-    const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
-
-    const created = await this.repository.createRefreshToken(
-      {
-        userId: user.id,
-        companyId,
-        tokenHash: hashToken(refreshToken),
-        userAgent: req.context?.userAgent,
-        ipAddress: req.context?.ipAddress,
-        expiresAt
-      },
-      {
-        userId: user.id,
-        companyId,
-        passwordChangedAt: user.passwordChangedAt ?? null
-      }
-    );
-    if (!created) {
-      throw unauthorized("Invalid credentials");
-    }
-    await this.repository.updateLastLogin(user.id);
+    const result = await this.issueSession(req, user, companyId);
     await this.repository.recordSuccessfulLogin(emailHash);
     await this.repository.writeAuthAudit({
       action: "LOGIN_SUCCESS",
       emailHash,
       userId: user.id,
-      companyId: authUser.companyId,
+      companyId,
       requestId: req.context?.requestId,
       ipAddress: req.context?.ipAddress,
       userAgent: req.context?.userAgent
     });
 
-    return {
-      accessToken,
-      refreshToken,
-      expiresAt,
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        companyId,
-        permissions: authUser.permissions
-      }
-    };
+    return result;
   }
 
   async refresh(req: ApiRequest, refreshToken?: string) {

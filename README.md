@@ -174,6 +174,11 @@ Use `-Wait` with `start.ps1` or `restart.ps1` only when you want the script to w
 
 The integration seed requires `E2E_EMAIL` and `E2E_PASSWORD` at runtime, hashes the password with bcrypt before storage, and does not print credentials in logs. Provide these values only through a local shell, per-run CI generation, or, only when unavoidable, a CI secret for a persistent external test identity; do not commit them to `.env` or `.env.example`. New or changed user passwords must be at least 12 characters and include lowercase, uppercase, numeric, and symbol characters.
 
+Local development defaults to `AUTH_MODE=demo`. When the integration seed provisions
+`AUTH_DEMO_EMAIL`, the Web restores an existing session or opens directly as that
+demo user without displaying the login form. `AUTH_MODE=demo` is rejected during
+production configuration validation; production always requires authentication.
+
 The realistic seed deletes all data in its target. It therefore accepts only a loopback PostgreSQL database named `shiftflow` or `shiftflow_<purpose>`, rejects `NODE_ENV=production`, requires a runtime password, and requires the explicit per-shell confirmation `SHIFTFLOW_DESTRUCTIVE_SEED_CONFIRMATION=DELETE_CONFIRMED_LOCAL_SHIFTFLOW_DATA`. The confirmation and password must never be committed. Use a disposable database only.
 
 `npm start` is reserved for the compiled API (`dist/api/server.js`). After `npm run build`, run the Web production artefact separately with `npm run start:web`. Neither production command applies migrations or seeds; deployment orchestration remains environment-specific.

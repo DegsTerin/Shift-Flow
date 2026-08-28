@@ -24,7 +24,11 @@ export type SessionUser = {
   companyId?: string;
   permissions?: string[];
 };
-export type LoginResponse = { accessToken: string; user: SessionUser };
+export type LoginResponse = {
+  accessToken: string;
+  authenticationMode?: "required" | "demo";
+  user: SessionUser;
+};
 export type ListResponse<T> = { items: T[]; total: number; page?: number; pageSize?: number };
 export type DashboardSummary = {
   total: number;

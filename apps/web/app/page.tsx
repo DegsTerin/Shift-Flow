@@ -896,6 +896,14 @@ export default function Page() {
     if (storedNavCollapsed === "true" || storedNavCollapsed === "false")
       setNavCollapsed(storedNavCollapsed === "true");
     void restoreApiSession()
+      .catch(async () => {
+        clearApiSession();
+        const demoSession = await apiRequest<LoginResponse>("/api/auth/demo", undefined, {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+        setApiSession(demoSession);
+      })
       .catch(() => clearApiSession())
       .finally(() => setRestoringSession(false));
   }, []);
@@ -1495,7 +1503,9 @@ export default function Page() {
             {authorisedView ? (
               <IconToggle label={t.tvMode} icon={Maximize2} onClick={toggleMonitorMode} />
             ) : null}
-            <IconToggle label={t.signOut} icon={LogOut} onClick={() => void logout()} />
+            {session.authenticationMode !== "demo" ? (
+              <IconToggle label={t.signOut} icon={LogOut} onClick={() => void logout()} />
+            ) : null}
           </div>
         </header>
         {visibleError ? (

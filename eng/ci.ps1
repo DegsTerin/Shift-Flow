@@ -28,6 +28,8 @@ $isolatedEnvironmentVariables = @(
     'API_RATE_LIMIT_WINDOW_MS',
     'AUTH_LOCKOUT_MAX_ATTEMPTS',
     'AUTH_LOCKOUT_WINDOW_MS',
+    'AUTH_DEMO_EMAIL',
+    'AUTH_MODE',
     'AUTH_RATE_LIMIT_MAX',
     'AUTH_RATE_LIMIT_WINDOW_MS',
     'CORS_ORIGIN',

@@ -43,6 +43,8 @@ const envSchema = z
     API_RATE_LIMIT_WINDOW_MS: positiveInteger(60_000),
     AUTH_LOCKOUT_MAX_ATTEMPTS: positiveInteger(5),
     AUTH_LOCKOUT_WINDOW_MS: positiveInteger(15 * 60_000),
+    AUTH_MODE: z.enum(["required", "demo"]).optional(),
+    AUTH_DEMO_EMAIL: z.string().email().default("demo@shiftflow.local"),
     AUTH_RATE_LIMIT_MAX: positiveInteger(10),
     AUTH_RATE_LIMIT_WINDOW_MS: positiveInteger(15 * 60_000),
     CORS_ORIGIN: z.string().optional(),
@@ -106,6 +108,14 @@ const envSchema = z
       });
     }
 
+    if (isProduction && env.AUTH_MODE === "demo") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["AUTH_MODE"],
+        message: "AUTH_MODE=demo is not permitted in production"
+      });
+    }
+
     if (
       isProduction &&
       (isPlaceholderValue(env.JWT_ACCESS_SECRET) || isPlaceholderValue(env.JWT_SECRET))
@@ -137,6 +147,11 @@ export const configuredCorsOrigins = env.CORS_ORIGIN
 
 export const requireOriginOnUnsafeRequests =
   env.REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS ?? env.NODE_ENV === "production";
+
+export const authenticationMode =
+  env.AUTH_MODE ?? (env.NODE_ENV === "development" ? "demo" : "required");
+
+export const demoAccessEmail = env.AUTH_DEMO_EMAIL;
 
 export const accessTokenSecret =
   env.JWT_ACCESS_SECRET ?? env.JWT_SECRET ?? "shiftflow-dev-access-secret";

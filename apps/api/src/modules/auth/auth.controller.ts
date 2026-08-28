@@ -2,7 +2,7 @@
 import type { Response } from "express";
 import crypto from "node:crypto";
 import { asyncHandler } from "../../shared/http/async-handler.js";
-import { env } from "../../shared/config/env.js";
+import { authenticationMode, env } from "../../shared/config/env.js";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { ok } from "../../shared/http/response.js";
 import { forbidden } from "../../shared/errors/app-error.js";
@@ -109,12 +109,23 @@ function assertCookieCsrf(req: ApiRequest) {
   }
 }
 
-function withoutRefreshToken<T extends { refreshToken: string }>({ refreshToken, ...payload }: T) {
+function withoutRefreshToken<T extends { refreshToken: string }>(
+  { refreshToken, ...payload }: T,
+  mode = authenticationMode
+) {
   void refreshToken;
-  return payload;
+  return { ...payload, authenticationMode: mode };
 }
 
 export const AuthController = {
+  demo: asyncHandler(async (req: ApiRequest, res: Response) => {
+    const result = await service.openDemoSession(req);
+    const csrfToken = generateCsrfToken();
+    setRefreshCookie(res, result.refreshToken, result.expiresAt);
+    setCsrfCookie(res, csrfToken, result.expiresAt);
+    res.json(ok(withoutRefreshToken(result, "demo")));
+  }),
+
   login: asyncHandler(async (req: ApiRequest, res: Response) => {
     const result = await service.login(req, req.body);
     const csrfToken = generateCsrfToken();
