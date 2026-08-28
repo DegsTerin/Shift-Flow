@@ -44,6 +44,10 @@
   restart, persisted data-protection keys across ASP.NET Core container
   recreation, seven non-root runtime identities, complete disposable cleanup
   and exact preservation of the caller environment.
+- The ASP.NET Core strangler foundation is locally complete at implementation
+  commit `7a24d6265526d9e386ca639e36ad11c167db17a2`. No cloud deployment,
+  production route cutover, Human Gate approval or lifecycle transition is
+  inferred from that commit.
 - One executable development entry point provides read-only diagnosis, locked
   setup, `NON_GATE` quick feedback, deterministic plans and a canonical
   runtime-credential-free core gate shared with GitHub Actions.

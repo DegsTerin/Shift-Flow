@@ -9,7 +9,7 @@
 | Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Plan ID        | `PLAN-ASPNET-STRANGLER-20260828-01`                                                                                                                                                                                                                                                                                                                                                                          |
-| Status         | `IN_PROGRESS`; implementation, final canonical gates, disposable runtime evidence and independent review are complete, while scoped local commits remain open; this plan does not imply production cutover                                                                                                                                                                                                   |
+| Status         | `COMPLETED`; implementation commit `7a24d6265526d9e386ca639e36ad11c167db17a2`, final canonical gates, disposable runtime evidence and independent review are complete; this plan does not imply production cutover                                                                                                                                                                                           |
 | Baseline       | `main@30ea067f56d271ad3abe956823bc310c31acddc5`, tree `fb943e668ca975b8b7675988c90d8de34d27f91c`, with clean worktree and index before the audit lanes                                                                                                                                                                                                                                                       |
 | Authority      | Owner request to evolve ShiftFlow with HTML5, CSS3, TypeScript, React/Next.js, C# with ASP.NET Core, PostgreSQL, Redis, REST and justified GraphQL, OAuth 2.0/OIDC/JWT, Docker, Linux, Nginx, one selected cloud, GitHub and GitHub Actions                                                                                                                                                                  |
 | Current state  | `STATE-08 PRODUCTION_RELEASE`; this post-release architecture work does not itself authorise a lifecycle transition, deployment or production route change                                                                                                                                                                                                                                                   |
@@ -82,7 +82,7 @@ read-only Audit module to the new host with an immediate configuration rollback.
    local/GitHub .NET gates.
 6. `COMPLETED` — run focused, canonical and container/runtime validation; obtain
    an independent read-only diff review and resolve verified findings.
-7. `IN_PROGRESS` — close evidence, stage only the authorised candidate and create
+7. `COMPLETED` — close evidence, stage only the authorised candidate and create
    the required scoped local commits without push or remote action.
 
 ### Current evidence and rejected iterations
@@ -131,7 +131,10 @@ read-only Audit module to the new host with an immediate configuration rollback.
   configuration, the 336-file secret scan and candidate diff hygiene passed.
 - `CANDIDATE` — the final independent read-only review found P0/P1/P2 zero for
   the local/CI candidate and retained only the documented production and
-  operational residual risks. Commit-identity evidence remains pending.
+  operational residual risks.
+- `PASS` — the authorised implementation candidate was committed locally as
+  `7a24d6265526d9e386ca639e36ad11c167db17a2`; no push, deployment, publication,
+  Human Gate approval or lifecycle transition occurred.
 
 ### Residual and deferred boundaries
 
