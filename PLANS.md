@@ -2,6 +2,86 @@
 
 # ShiftFlow executable development plan
 
+## ASP.NET Core strangler foundation — 2026-08-28
+
+### Control record
+
+| Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Plan ID        | `PLAN-ASPNET-STRANGLER-20260828-01`                                                                                                                                                                                                                                                                                                                                                                          |
+| Status         | `IN_PROGRESS`; this plan records an incremental implementation and does not imply production cutover                                                                                                                                                                                                                                                                                                         |
+| Baseline       | `main@30ea067f56d271ad3abe956823bc310c31acddc5`, tree `fb943e668ca975b8b7675988c90d8de34d27f91c`, with clean worktree and index before the audit lanes                                                                                                                                                                                                                                                       |
+| Authority      | Owner request to evolve ShiftFlow with HTML5, CSS3, TypeScript, React/Next.js, C# with ASP.NET Core, PostgreSQL, Redis, REST and justified GraphQL, OAuth 2.0/OIDC/JWT, Docker, Linux, Nginx, one selected cloud, GitHub and GitHub Actions                                                                                                                                                                  |
+| Current state  | `STATE-08 PRODUCTION_RELEASE`; this post-release architecture work does not itself authorise a lifecycle transition, deployment or production route change                                                                                                                                                                                                                                                   |
+| Positive scope | Read-only architecture audit; provider-neutral strangler decision; ASP.NET Core compatibility host; PostgreSQL reads; Redis-backed distributed cache/session foundation; legacy JWT compatibility validation; audit read endpoints; OpenAPI for the migrated surface; Linux containers; reversible Nginx routing; additive .NET gates; documentation; proportional local validation and scoped local commits |
+| Negative scope | Existing `.env` access; schema or applied-migration changes; dual migration ownership; OIDC provider integration; external identity linking; cloud-provider selection or IaC; GraphQL without a measured use case; business mutations in .NET; removal of Express/Prisma; remote Git actions; deployment; publication; secrets; Human Gate or lifecycle approval                                             |
+| Parallel work  | Three frozen-baseline read-only audit lanes were reconciled; every edit, dependency restore, validation, staging and commit remains sequential in the coordinating worktree                                                                                                                                                                                                                                  |
+
+### Objective
+
+Introduce the first production-shaped ASP.NET Core migration slice without a
+flag-day rewrite. The current Next.js application and REST contract remain
+stable, Prisma remains the sole migration owner, and Nginx can route only the
+read-only Audit module to the new host with an immediate configuration rollback.
+
+### Reconciled architecture decisions
+
+| Concern            | Decision for this plan                                                                                                                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Frontend           | Retain the existing Next.js/React/TypeScript application and its HTML5/CSS3 accessibility controls. No Web adapter change is required for the first slice.                                                                                                                                 |
+| Backend            | Add a .NET 10 LTS modular host beside Express. Preserve module boundaries and move one complete read-only module before any mutation aggregate.                                                                                                                                            |
+| Data               | Read the existing PostgreSQL schema literally through Npgsql. Prisma remains the only owner of schema, migrations and seeds throughout coexistence.                                                                                                                                        |
+| Cache and sessions | Add Redis as distributed infrastructure with explicit namespace and health semantics. PostgreSQL remains authoritative for tenant, RBAC, revocation and audit data.                                                                                                                        |
+| API                | REST remains canonical. The migrated Audit endpoints retain the current envelope, status, pagination, errors and request identifier. GraphQL remains deferred until dashboard/reporting evidence justifies it.                                                                             |
+| Identity           | Validate the current HS256 JWT only as a temporary compatibility bridge and revalidate revocation, credential version, active membership and RBAC in PostgreSQL. OAuth 2.0/OIDC and the recommended BFF session design require a separately selected IdP and forward-only identity schema. |
+| Edge               | Nginx provides one same-origin entry point. Only `/api/audit` is allowlisted to ASP.NET Core; every other `/api` path remains on Express.                                                                                                                                                  |
+| Cloud              | Keep the implementation portable between Azure and AWS. Provider-specific services, IaC and deployment remain blocked until the owner selects one platform.                                                                                                                                |
+| Delivery           | Preserve Node.js 22/24 gates and add a separate blocking .NET gate. Disposable runtime validation begins only after both core gates pass.                                                                                                                                                  |
+
+### Acceptance criteria
+
+1. The repository contains a locked .NET 10 solution with clear API,
+   application, domain, infrastructure and test boundaries.
+2. `/health` is dependency-free, while `/ready` fails closed unless the
+   PostgreSQL and Redis dependencies required by the compatibility host respond.
+3. `GET /api/audit` and `GET /api/audit/{id}` preserve the existing public
+   envelope, pagination, filters, status codes, request identifier and
+   company-scoped data shape.
+4. Authentication accepts only the explicitly configured legacy HS256 issuer
+   and key. It rejects malformed, expired, revoked or stale-credential tokens
+   and inactive user/company membership.
+5. `audit:read` is resolved from current PostgreSQL assignments and cannot be
+   granted by stale token permission claims or a mismatched `x-company-id`.
+6. No .NET migration is created and no existing Prisma migration is changed.
+7. Redis configuration is explicit, namespaced and used by the distributed
+   cache/session foundation; readiness reports Redis loss instead of silently
+   approving a degraded host.
+8. Linux container images run as non-root, and the Nginx migration route is
+   isolated, same-origin and reversible without data changes.
+9. Local development and GitHub Actions treat the .NET build, formatting,
+   tests, lock files and dependency vulnerabilities as blocking evidence while
+   preserving the existing Node gates.
+10. Focused tests, the canonical core gate and proportional container/runtime
+    checks pass before the plan is closed and committed locally without push.
+
+### Execution plan
+
+1. `COMPLETED` — reconcile authority, current Git identity, repository
+   instructions, runtime architecture and the requested target stack.
+2. `COMPLETED` — run and reconcile independent read-only backend,
+   identity/infrastructure and frontend/CI migration audits.
+3. `IN_PROGRESS` — record the strangler decision and implement the locked
+   ASP.NET Core compatibility host with PostgreSQL, Redis and legacy JWT/RBAC
+   boundaries.
+4. `PENDING` — implement and specify the read-only Audit REST slice, including
+   focused contract and tenant-isolation regressions.
+5. `PENDING` — add Linux containers, reversible Nginx routing and additive
+   local/GitHub .NET gates.
+6. `PENDING` — run focused, canonical and container/runtime validation; obtain
+   an independent read-only diff review and resolve verified findings.
+7. `PENDING` — close evidence, stage only the authorised candidate and create
+   the required scoped local commits without push or remote action.
+
 ## Governed hand-off structural alignment — 2026-08-27
 
 ### Control record
