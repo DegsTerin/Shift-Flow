@@ -88,15 +88,11 @@ function isCommentable(file) {
 
 const undocumented = [];
 const commentableFiles = workspaceFiles.filter(isCommentable);
-const exceptionManifest = readFileSync("docs/source-commenting-manifest.md", "utf8");
-const documentedExceptionFiles = [
+const declaredExceptionFiles = [
   ...strictOrGeneratedFiles,
   ...immutableMigrationFiles,
   ...workspaceFiles.filter(isGeneratedDotNetLock)
 ];
-const undocumentedExceptions = documentedExceptionFiles.filter(
-  (file) => !exceptionManifest.includes(`\`${file}\``)
-);
 
 for (const file of commentableFiles) {
   const openingLines = readFileSync(file, "utf8").split(/\r?\n/u).slice(0, 12).join("\n");
@@ -115,17 +111,12 @@ cssRoot.walkDecls((declaration) => {
   }
 });
 
-if (
-  undocumented.length ||
-  undocumentedExceptions.length ||
-  documentedCssDeclarations !== cssDeclarations
-) {
+if (undocumented.length || documentedCssDeclarations !== cssDeclarations) {
   console.error(
     JSON.stringify(
       {
         status: "failed",
         undocumented,
-        undocumentedExceptions,
         cssDeclarations,
         documentedCssDeclarations
       },
@@ -143,7 +134,7 @@ console.log(
       documentedSourceFiles: commentableFiles.length,
       cssDeclarations,
       documentedCssDeclarations,
-      documentedExceptions: documentedExceptionFiles.length
+      declaredExceptions: declaredExceptionFiles.length
     },
     null,
     2

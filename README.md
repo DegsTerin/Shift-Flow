@@ -56,7 +56,7 @@ apps/
   api/         Express API and shared infrastructure
   api-dotnet/  ASP.NET Core compatibility host and focused tests
   web/         Next.js application
-docs/          Architecture, operations and delivery documentation
+docs/assets/   Product walkthrough media
 eng/           Reproducible development workflow and canonical gates
 infra/         Container, edge and Render runtime definitions
 prisma/        Schema, approved migrations and deterministic seeds
@@ -76,8 +76,6 @@ Run the read-only environment diagnosis first:
 ```powershell
 ./eng/development.ps1 Doctor
 ```
-
-The full toolchain and offline behaviour are documented in [Project Setup and Development Workflow](docs/PROJECT-SETUP.md).
 
 ## Local development
 
@@ -144,17 +142,12 @@ It creates isolated credentials and infrastructure, tests real routed behaviour 
 - Production secrets belong in the deployment provider's secret store and are excluded from Git.
 - Suspected vulnerabilities should follow [SECURITY.md](SECURITY.md), not a public issue.
 
-Deployment order, migration boundaries, rollback requirements and incident handling are defined in the [Production Runbook](docs/production-runbook.md).
+Deploy database migrations before application instances, verify `/health` and `/ready` after release, and retain a tested rollback path for the application and database.
 
-## Documentation
+## Repository guidance
 
-- [Architecture](docs/architecture.md)
 - [Contributing](CONTRIBUTING.md)
-- [Development standards](docs/development-standards.md)
-- [Governance index](docs/governance-index.md)
-- [Project setup](docs/PROJECT-SETUP.md)
-- [Production runbook](docs/production-runbook.md)
-- [Technical roadmap](docs/technical-roadmap.md)
+- [Security policy](SECURITY.md)
 
 ## Licence
 

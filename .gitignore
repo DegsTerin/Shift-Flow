@@ -25,6 +25,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Keep internal governance and non-runtime Markdown local.
+prompts/
+*.md
+!/README.md
+!/CONTRIBUTING.md
+!/SECURITY.md
+
 /generated/prisma
 .next
 apps/web/.next

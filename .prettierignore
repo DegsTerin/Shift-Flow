@@ -1,4 +1,4 @@
-# en-GB: Preserves active prompt and historical evidence formatting so automated styling does not rewrite controlled records.
+# en-GB: Keeps local-only Markdown records out of formatting checks so the public gate evaluates repository files only.
 prompts/**/*.md
 docs/history/*.md
 # .NET source and lock files are formatted by the .NET toolchain.
