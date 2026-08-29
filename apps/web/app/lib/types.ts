@@ -26,7 +26,7 @@ export type SessionUser = {
 };
 export type LoginResponse = {
   accessToken: string;
-  authenticationMode?: "required" | "demo";
+  authenticationMode?: "required" | "demo" | "portfolio";
   user: SessionUser;
 };
 export type ListResponse<T> = { items: T[]; total: number; page?: number; pageSize?: number };

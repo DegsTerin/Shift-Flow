@@ -7,6 +7,7 @@ export type AuthenticatedUser = {
   companyId?: string;
   permissions?: string[];
   credentialVersion?: number;
+  sessionKind?: "portfolio";
 };
 
 export type RequestContext = {

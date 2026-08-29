@@ -1,7 +1,13 @@
 // en-GB: Implements auth rules so invariants remain centralised outside the transport layer.
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { authenticationMode, demoAccessEmail, env } from "../../shared/config/env.js";
+import {
+  authenticationMode,
+  demoAccessEmail,
+  env,
+  portfolioAccessEmail,
+  portfolioAccessEnabled
+} from "../../shared/config/env.js";
 import type { ApiRequest, AuthenticatedUser } from "../../shared/http/request-types.js";
 import { forbidden, notFound, unauthorized } from "../../shared/errors/app-error.js";
 import { signAccessToken } from "../../shared/middlewares/authenticate.js";
@@ -64,9 +70,25 @@ type DbLoginAttempt = {
 };
 
 const unavailablePrincipalHash = "$2b$12$2sfkfoyzJU1PG2MrSc47RuF7z.ieyVDzKzMHRJCQkYBZirsBtuN9q";
+const portfolioRefreshTokenPrefix = "portfolio.";
+const portfolioPermissionAllowlist = new Set([
+  "dashboard:read",
+  "clients:read",
+  "teams:read",
+  "shifts:read",
+  "activities:read",
+  "comments:read",
+  "notifications:read",
+  "reports:read"
+]);
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function createRefreshToken(portfolioSession = false) {
+  const token = crypto.randomBytes(48).toString("base64url");
+  return portfolioSession ? `${portfolioRefreshTokenPrefix}${token}` : token;
 }
 
 function hashIdentifier(value: string | undefined) {
@@ -162,19 +184,36 @@ export class AuthService {
     private readonly demoAccess = {
       enabled: authenticationMode === "demo",
       email: demoAccessEmail
+    },
+    private readonly portfolioAccess = {
+      enabled: portfolioAccessEnabled,
+      email: portfolioAccessEmail
     }
   ) {}
 
-  private async issueSession(req: ApiRequest, user: DbUser, companyId: string) {
+  private portfolioPermissions(user: DbUser, companyId: string) {
+    return permissionsFrom(user, companyId).filter((permission) =>
+      portfolioPermissionAllowlist.has(permission)
+    );
+  }
+
+  private async issueSession(
+    req: ApiRequest,
+    user: DbUser,
+    companyId: string,
+    permissions = permissionsFrom(user, companyId),
+    portfolioSession = false
+  ) {
     const authUser: AuthenticatedUser = {
       id: user.id,
       email: user.email,
       companyId,
-      credentialVersion: credentialVersion(user)
+      credentialVersion: credentialVersion(user),
+      ...(portfolioSession ? { sessionKind: "portfolio" as const } : {})
     };
-    authUser.permissions = permissionsFrom(user, companyId);
+    authUser.permissions = permissions;
     const accessToken = signAccessToken(authUser);
-    const refreshToken = crypto.randomBytes(48).toString("base64url");
+    const refreshToken = createRefreshToken(portfolioSession);
     const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
 
     const created = await this.repository.createRefreshToken(
@@ -225,6 +264,37 @@ export class AuthService {
     const result = await this.issueSession(req, user, companyId);
     await this.repository.writeAuthAudit({
       action: "DEMO_SESSION_STARTED",
+      emailHash: hashIdentifier(user.email),
+      userId: user.id,
+      companyId,
+      requestId: req.context?.requestId,
+      ipAddress: req.context?.ipAddress,
+      userAgent: req.context?.userAgent
+    });
+    return result;
+  }
+
+  async openPortfolioSession(req: ApiRequest) {
+    if (!this.portfolioAccess.enabled) {
+      throw notFound();
+    }
+
+    const user = (await this.repository.findUserByEmail(
+      this.portfolioAccess.email
+    )) as DbUser | null;
+    if (!user || user.status !== "ACTIVE" || user.deletedAt != null) {
+      throw unauthorized("Portfolio access is not provisioned");
+    }
+
+    const companyId = resolveCompany(user);
+    const permissions = this.portfolioPermissions(user, companyId);
+    if (!permissions.includes("dashboard:read")) {
+      throw unauthorized("Portfolio access is not safely provisioned");
+    }
+
+    const result = await this.issueSession(req, user, companyId, permissions, true);
+    await this.repository.writeAuthAudit({
+      action: "PORTFOLIO_SESSION_STARTED",
       emailHash: hashIdentifier(user.email),
       userId: user.id,
       companyId,
@@ -319,10 +389,16 @@ export class AuthService {
       id: user.id,
       email: user.email,
       companyId,
-      credentialVersion: credentialVersion(user)
+      credentialVersion: credentialVersion(user),
+      ...(refreshToken.startsWith(portfolioRefreshTokenPrefix)
+        ? { sessionKind: "portfolio" as const }
+        : {})
     };
-    authUser.permissions = permissionsFrom(user, companyId);
-    const nextRefreshToken = crypto.randomBytes(48).toString("base64url");
+    const portfolioSession = authUser.sessionKind === "portfolio";
+    authUser.permissions = portfolioSession
+      ? this.portfolioPermissions(user, companyId)
+      : permissionsFrom(user, companyId);
+    const nextRefreshToken = createRefreshToken(portfolioSession);
     const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
 
     const rotated = await this.repository.rotateRefreshToken(

@@ -156,6 +156,14 @@ const activityConsumerViews: ReadonlySet<View> = new Set([
 const notificationPageSize = 20;
 const defaultLocale: Locale = "en-GB";
 const defaultTheme: Theme = "dark";
+const portfolioPasswordDisplay = "portfolio-access";
+
+function portfolioLoginConfiguration() {
+  return {
+    enabled: process.env.NEXT_PUBLIC_PORTFOLIO_ACCESS === "true",
+    email: process.env.NEXT_PUBLIC_PORTFOLIO_EMAIL?.trim() || "observador.executivo@shiftflow.local"
+  };
+}
 
 function recordResource(entity: View) {
   if (entity === "activities" || entity === "kanban") return "activities";
@@ -177,6 +185,7 @@ type ManagementSnapshot = {
 };
 
 export default function Page() {
+  const portfolioLogin = portfolioLoginConfiguration();
   const [locale, setLocale] = useState<Locale>(defaultLocale);
   const [theme, setTheme] = useState<Theme>(defaultTheme);
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -946,6 +955,7 @@ export default function Page() {
       } catch {
         if (cancelled) return;
         clearApiSession();
+        if (portfolioLoginConfiguration().enabled) return;
         try {
           const demoSession = await apiRequest<LoginResponse>("/api/auth/demo", undefined, {
             method: "POST",
@@ -1100,17 +1110,24 @@ export default function Page() {
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loggingOut) return;
-    const form = new FormData(event.currentTarget);
     setError(null);
     const finishAction = actionTracker.begin();
     try {
-      const nextSession = await apiRequest<LoginResponse>("/api/auth/login", undefined, {
-        method: "POST",
-        body: JSON.stringify({
-          email: String(form.get("email") ?? ""),
-          password: String(form.get("password") ?? "")
-        })
-      });
+      const nextSession = portfolioLogin.enabled
+        ? await apiRequest<LoginResponse>("/api/auth/portfolio", undefined, {
+            method: "POST",
+            body: JSON.stringify({})
+          })
+        : await (() => {
+            const form = new FormData(event.currentTarget);
+            return apiRequest<LoginResponse>("/api/auth/login", undefined, {
+              method: "POST",
+              body: JSON.stringify({
+                email: String(form.get("email") ?? ""),
+                password: String(form.get("password") ?? "")
+              })
+            });
+          })();
       setApiSession(nextSession);
     } catch (cause) {
       publishActionError(
@@ -1424,19 +1441,44 @@ export default function Page() {
             <Workflow size={28} />
             <span>{t.app}</span>
           </div>
-          <form className="login-card" onSubmit={submitLogin}>
+          <form
+            autoComplete={portfolioLogin.enabled ? "off" : undefined}
+            className="login-card"
+            onSubmit={submitLogin}
+          >
             <div>
               <p className="eyebrow">{t.liveApi}</p>
               <h1>{t.loginTitle}</h1>
               <p>{t.loginSubtitle}</p>
+              {portfolioLogin.enabled ? (
+                <p className="guard-note" id="portfolio-access-hint">
+                  {t.portfolioAccessHint}
+                </p>
+              ) : null}
             </div>
             <label>
               {t.email}
-              <input autoComplete="username" name="email" type="email" required />
+              <input
+                aria-describedby={portfolioLogin.enabled ? "portfolio-access-hint" : undefined}
+                autoComplete={portfolioLogin.enabled ? "off" : "username"}
+                name={portfolioLogin.enabled ? undefined : "email"}
+                readOnly={portfolioLogin.enabled}
+                type="email"
+                value={portfolioLogin.enabled ? portfolioLogin.email : undefined}
+                required
+              />
             </label>
             <label>
               {t.password}
-              <input autoComplete="current-password" name="password" type="password" required />
+              <input
+                aria-describedby={portfolioLogin.enabled ? "portfolio-access-hint" : undefined}
+                autoComplete={portfolioLogin.enabled ? "off" : "current-password"}
+                name={portfolioLogin.enabled ? undefined : "password"}
+                readOnly={portfolioLogin.enabled}
+                type="password"
+                value={portfolioLogin.enabled ? portfolioPasswordDisplay : undefined}
+                required
+              />
             </label>
             {error ? <p className="guard-note">{error.message}</p> : null}
             <button

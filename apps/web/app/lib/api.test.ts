@@ -214,6 +214,25 @@ describe("apiRequest", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it("treats portfolio access as a credential-free session bootstrap request", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue(response(401, { error: { message: "Unavailable" } }));
+    vi.stubGlobal("document", { cookie: "shiftflow_csrf=stale-csrf-token" });
+    setApiSession(session("old-access-token"));
+
+    await expect(
+      apiRequest("/api/auth/portfolio", undefined, {
+        method: "POST",
+        body: JSON.stringify({})
+      })
+    ).rejects.toBeInstanceOf(ApiError);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const requestHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(requestHeaders.get("Authorization")).toBeNull();
+    expect(requestHeaders.get("x-csrf-token")).toBeNull();
+  });
+
   it("shares session restoration across duplicate mounts", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValue(response(200, { data: session("restored-access-token") }));

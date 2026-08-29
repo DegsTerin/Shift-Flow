@@ -500,7 +500,117 @@ describe("Page request lifecycle", () => {
     runtime.cleanup();
     clearApiSession();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("shows fixed portfolio fields and signs in without sending a credential", async () => {
+    vi.stubEnv("NEXT_PUBLIC_PORTFOLIO_ACCESS", "true");
+    vi.stubEnv("NEXT_PUBLIC_PORTFOLIO_EMAIL", "observador.executivo@shiftflow.local");
+    apiBridge.restoreApiSession.mockRejectedValueOnce(new Error("No session"));
+
+    runtime.render();
+    await flushPromises();
+    const tree = runtime.render();
+    const inputElements = elements(tree).filter((element) => element.type === "input");
+    const emailInput = inputElements.find(
+      (element) => (element.props as { type?: string }).type === "email"
+    );
+    const passwordInput = inputElements.find(
+      (element) => (element.props as { type?: string }).type === "password"
+    );
+    const loginForm = elements(tree).find((element) => element.type === "form");
+
+    expect(apiBridge.apiRequest).not.toHaveBeenCalledWith(
+      "/api/auth/demo",
+      expect.anything(),
+      expect.anything()
+    );
+    expect(emailInput?.props).toMatchObject({
+      autoComplete: "off",
+      readOnly: true,
+      type: "email",
+      value: "observador.executivo@shiftflow.local"
+    });
+    expect((emailInput?.props as { name?: string }).name).toBeUndefined();
+    expect(passwordInput?.props).toMatchObject({
+      autoComplete: "off",
+      readOnly: true,
+      type: "password",
+      value: "portfolio-access"
+    });
+    expect((passwordInput?.props as { name?: string }).name).toBeUndefined();
+    expect(loginForm?.props).toMatchObject({ autoComplete: "off" });
+    expect(textOf(tree)).toContain(messages["pt-BR"].portfolioAccessHint);
+
+    apiBridge.apiRequest.mockResolvedValueOnce({
+      ...session(),
+      authenticationMode: "portfolio",
+      user: {
+        ...session().user,
+        email: "observador.executivo@shiftflow.local"
+      }
+    });
+    await (
+      loginForm?.props as {
+        onSubmit: (event: { preventDefault: () => void; currentTarget: object }) => Promise<void>;
+      }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+
+    expect(apiBridge.apiRequest).toHaveBeenCalledWith("/api/auth/portfolio", undefined, {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+  });
+
+  it("preserves editable credential login when portfolio access is disabled", async () => {
+    runtime.render();
+    await flushPromises();
+    const tree = runtime.render();
+    const inputElements = elements(tree).filter((element) => element.type === "input");
+    const emailInput = inputElements.find(
+      (element) => (element.props as { type?: string }).type === "email"
+    );
+    const passwordInput = inputElements.find(
+      (element) => (element.props as { type?: string }).type === "password"
+    );
+    const loginForm = elements(tree).find((element) => element.type === "form");
+
+    expect(emailInput?.props).toMatchObject({
+      autoComplete: "username",
+      name: "email",
+      readOnly: false,
+      type: "email"
+    });
+    expect(passwordInput?.props).toMatchObject({
+      autoComplete: "current-password",
+      name: "password",
+      readOnly: false,
+      type: "password"
+    });
+    vi.stubGlobal(
+      "FormData",
+      class {
+        get(name: string) {
+          return name === "email" ? "user@example.com" : "test-login-password";
+        }
+      }
+    );
+    apiBridge.apiRequest.mockResolvedValueOnce(session());
+
+    await (
+      loginForm?.props as {
+        onSubmit: (event: { preventDefault: () => void; currentTarget: object }) => Promise<void>;
+      }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+
+    expect(apiBridge.apiRequest).toHaveBeenCalledWith("/api/auth/login", undefined, {
+      method: "POST",
+      body: JSON.stringify({
+        email: "user@example.com",
+        password: "test-login-password"
+      })
+    });
   });
 
   it("marks the rendered application subtree with the active locale", async () => {

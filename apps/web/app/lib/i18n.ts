@@ -6,6 +6,8 @@ export const messages = {
     app: productName,
     loginTitle: "Acesso operacional",
     loginSubtitle: "Entre para acompanhar turnos, equipes e atividades em tempo real.",
+    portfolioAccessHint:
+      "O acesso público ao portfólio está pronto. Clique em Entrar para explorar os dados sintéticos.",
     email: "E-mail",
     password: "Senha",
     signIn: "Entrar",
@@ -292,6 +294,8 @@ export const messages = {
     app: productName,
     loginTitle: "Operations access",
     loginSubtitle: "Sign in to monitor shifts, teams and activities in real time.",
+    portfolioAccessHint:
+      "Public portfolio access is ready. Select Sign in to explore the synthetic workspace.",
     email: "Email",
     password: "Password",
     signIn: "Sign in",

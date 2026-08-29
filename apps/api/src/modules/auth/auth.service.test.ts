@@ -221,6 +221,120 @@ describe("AuthService", () => {
     expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
   });
 
+  it("opens public portfolio access remotely with only non-destructive operational permissions", async () => {
+    const portfolioEmail = "observador.executivo@shiftflow.local";
+    const mockRepository = repository({
+      findUserByEmail: vi.fn().mockResolvedValue(
+        activeUser({
+          email: portfolioEmail,
+          roleAssignments: [
+            assignment("company-a", "*", "*"),
+            assignment("company-a", "dashboard", "read"),
+            assignment("company-a", "clients", "read"),
+            assignment("company-a", "teams", "read"),
+            assignment("company-a", "shifts", "read"),
+            assignment("company-a", "activities", "read"),
+            assignment("company-a", "comments", "read"),
+            assignment("company-a", "notifications", "read"),
+            assignment("company-a", "reports", "read"),
+            assignment("company-a", "users", "read"),
+            assignment("company-a", "rbac", "write"),
+            assignment("company-a", "activities", "delete")
+          ]
+        })
+      )
+    });
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      { enabled: false, email: "demo@shiftflow.local" },
+      { enabled: true, email: portfolioEmail }
+    );
+    const remoteRequest = {
+      context: {
+        requestId: "request-portfolio",
+        userAgent: "portfolio-agent",
+        ipAddress: "192.0.2.10"
+      }
+    } as ApiRequest;
+
+    const result = await service.openPortfolioSession(remoteRequest);
+
+    expect(mockRepository.findUserByEmail).toHaveBeenCalledWith(portfolioEmail);
+    expect(result.refreshToken).toMatch(/^portfolio\./);
+    expect(result.user).toMatchObject({
+      email: portfolioEmail,
+      companyId: "company-a",
+      permissions: [
+        "dashboard:read",
+        "clients:read",
+        "teams:read",
+        "shifts:read",
+        "activities:read",
+        "comments:read",
+        "notifications:read",
+        "reports:read"
+      ]
+    });
+    expect(result.user.permissions).not.toContain("*:*");
+    expect(result.user.permissions).not.toContain("users:read");
+    expect(result.user.permissions).not.toContain("rbac:write");
+    expect(result.user.permissions).not.toContain("activities:delete");
+    expect(mockRepository.writeAuthAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "PORTFOLIO_SESSION_STARTED",
+        userId: "user-1",
+        companyId: "company-a",
+        ipAddress: "192.0.2.10"
+      })
+    );
+  });
+
+  it("keeps portfolio access undiscoverable when disabled", async () => {
+    const mockRepository = repository();
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      { enabled: false, email: "demo@shiftflow.local" },
+      { enabled: false, email: "observador.executivo@shiftflow.local" }
+    );
+
+    await expect(service.openPortfolioSession(request())).rejects.toMatchObject({
+      code: "NOT_FOUND"
+    });
+
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it("preserves the public portfolio permission boundary when its session refreshes", async () => {
+    const portfolioEmail = "observador.executivo@shiftflow.local";
+    const portfolioUser = activeUser({
+      email: portfolioEmail,
+      roleAssignments: [
+        assignment("company-a", "*", "*"),
+        assignment("company-a", "dashboard", "read"),
+        assignment("company-a", "activities", "read"),
+        assignment("company-a", "users", "delete")
+      ]
+    });
+    const mockRepository = repository({
+      findRefreshToken: vi
+        .fn()
+        .mockResolvedValue(refreshRecord({ companyId: "company-a", user: portfolioUser }))
+    });
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      { enabled: false, email: "demo@shiftflow.local" },
+      { enabled: true, email: portfolioEmail }
+    );
+
+    const result = await service.refresh(request(), "portfolio.portfolio-refresh-token");
+
+    expect(result.user.permissions).toEqual(["dashboard:read", "activities:read"]);
+    expect(result.refreshToken).toMatch(/^portfolio\./);
+    expect(result.user.permissions).not.toContain("*:*");
+    expect(result.user.permissions).not.toContain("users:delete");
+  });
+
   it("does not expose a session when the credential changes during login", async () => {
     const mockRepository = repository({
       createRefreshToken: vi.fn().mockResolvedValue(false)

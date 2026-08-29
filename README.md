@@ -4,7 +4,7 @@
 
 Shift-Flow is an operations workspace for teams that coordinate shifts, service activities, ownership, controls and reporting. It brings live workload visibility, governed activity records and permission-aware administration into one responsive Web application.
 
-[Open the live Render demonstration](https://shift-flow-degsterin.onrender.com). Authentication is required; demonstration credentials are delivered privately and are never stored in the repository.
+[Open the live Render demonstration](https://shift-flow-degsterin.onrender.com). The public portfolio identity and a masked presentation value are pre-filled: select **Sign in** to enter. The shared account is restricted to non-destructive exploration of synthetic data; no usable password is stored in the repository or browser bundle.
 
 ## Product walkthrough
 

@@ -111,7 +111,7 @@ function assertCookieCsrf(req: ApiRequest) {
 
 function withoutRefreshToken<T extends { refreshToken: string }>(
   { refreshToken, ...payload }: T,
-  mode = authenticationMode
+  mode: "required" | "demo" | "portfolio" = authenticationMode
 ) {
   void refreshToken;
   return { ...payload, authenticationMode: mode };
@@ -124,6 +124,14 @@ export const AuthController = {
     setRefreshCookie(res, result.refreshToken, result.expiresAt);
     setCsrfCookie(res, csrfToken, result.expiresAt);
     res.json(ok(withoutRefreshToken(result, "demo")));
+  }),
+
+  portfolio: asyncHandler(async (req: ApiRequest, res: Response) => {
+    const result = await service.openPortfolioSession(req);
+    const csrfToken = generateCsrfToken();
+    setRefreshCookie(res, result.refreshToken, result.expiresAt);
+    setCsrfCookie(res, csrfToken, result.expiresAt);
+    res.json(ok(withoutRefreshToken(result, "portfolio")));
   }),
 
   login: asyncHandler(async (req: ApiRequest, res: Response) => {

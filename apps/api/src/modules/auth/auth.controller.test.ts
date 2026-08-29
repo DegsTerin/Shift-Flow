@@ -52,6 +52,40 @@ describe("AuthController", () => {
     expect(cookies).toContain("shiftflow_csrf=");
   });
 
+  it("sets protected session cookies without exposing a credential for portfolio access", async () => {
+    vi.spyOn(AuthService.prototype, "openPortfolioSession").mockResolvedValue({
+      accessToken: "portfolio-access-token",
+      refreshToken: "portfolio-refresh-token",
+      expiresAt: new Date(Date.now() + 60_000),
+      user: {
+        id: "portfolio-user",
+        email: "observador.executivo@shiftflow.local",
+        displayName: "Portfolio Viewer",
+        companyId: "portfolio-company",
+        permissions: ["dashboard:read", "activities:read"]
+      }
+    });
+
+    const app = express();
+    app.use(express.json());
+    app.post("/api/auth/portfolio", AuthController.portfolio);
+    app.use(errorHandler);
+
+    const response = await request(app).post("/api/auth/portfolio").send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      accessToken: "portfolio-access-token",
+      authenticationMode: "portfolio",
+      user: { email: "observador.executivo@shiftflow.local" }
+    });
+    expect(response.body.data.refreshToken).toBeUndefined();
+    const cookies = cookieHeader(response.headers["set-cookie"]);
+    expect(cookies).toContain("shiftflow_refresh=portfolio-refresh-token");
+    expect(cookies).toContain("HttpOnly");
+    expect(cookies).toContain("shiftflow_csrf=");
+  });
+
   it("clears the refresh cookie when refresh fails", async () => {
     vi.spyOn(AuthService.prototype, "refresh").mockRejectedValue(
       new AppError("Invalid refresh token", 401, "UNAUTHORIZED")

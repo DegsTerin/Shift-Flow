@@ -5,7 +5,7 @@ export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localh
 const csrfCookieName = "shiftflow_csrf";
 const refreshPath = "/api/auth/refresh";
 const refreshLockName = "shiftflow-auth-refresh";
-const sessionBootstrapPaths = new Set(["/api/auth/demo", "/api/auth/login"]);
+const sessionBootstrapPaths = new Set(["/api/auth/demo", "/api/auth/login", "/api/auth/portfolio"]);
 const authenticationPaths = new Set([...sessionBootstrapPaths, refreshPath, "/api/auth/logout"]);
 
 let activeSession: LoginResponse | null = null;

@@ -164,6 +164,7 @@ export async function authenticate(req: ApiRequest, _res: Response, next: NextFu
       decoded.sub !== decoded.id ||
       typeof decoded.jti !== "string" ||
       typeof decoded.companyId !== "string" ||
+      (decoded.sessionKind !== undefined && decoded.sessionKind !== "portfolio") ||
       (decoded.credentialVersion !== undefined &&
         (!Number.isSafeInteger(decoded.credentialVersion) || decoded.credentialVersion < 0))
     ) {
@@ -200,7 +201,8 @@ export async function authenticate(req: ApiRequest, _res: Response, next: NextFu
             (permission): permission is string => typeof permission === "string"
           )
         : [],
-      credentialVersion: currentCredentialVersion
+      credentialVersion: currentCredentialVersion,
+      ...(decoded.sessionKind === "portfolio" ? { sessionKind: "portfolio" as const } : {})
     };
     next();
   } catch {

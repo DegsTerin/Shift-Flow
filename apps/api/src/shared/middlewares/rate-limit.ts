@@ -1,5 +1,6 @@
 // en-GB: Defines the rate limit implementation so this project responsibility remains explicit and maintainable.
 import crypto from "node:crypto";
+import { isIP } from "node:net";
 import type { NextFunction, Response } from "express";
 import { env } from "../config/env.js";
 import type { ApiRequest } from "../http/request-types.js";
@@ -28,6 +29,16 @@ function defaultRateLimitKey(req: ApiRequest) {
   return req.auth?.id ?? req.ip ?? "unknown";
 }
 
+export function rateLimitClientAddress(req: ApiRequest) {
+  if (process.env.RENDER === "true") {
+    const cloudflareAddress = req.header("cf-connecting-ip")?.trim();
+    if (cloudflareAddress && isIP(cloudflareAddress)) {
+      return cloudflareAddress;
+    }
+  }
+  return req.ip ?? "unknown";
+}
+
 function loginRateLimitKey(req: ApiRequest) {
   const email =
     req.body && typeof req.body === "object" && "email" in req.body
@@ -35,7 +46,7 @@ function loginRateLimitKey(req: ApiRequest) {
           .trim()
           .toLowerCase()
       : "";
-  return hashKey(`${req.ip ?? "unknown"}:${email}`);
+  return hashKey(`${rateLimitClientAddress(req)}:${email}`);
 }
 
 function cleanupExpiredBuckets(name: string, now: number, cleanupIntervalMs: number) {

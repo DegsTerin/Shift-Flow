@@ -56,6 +56,8 @@ const envSchema = z
     JWT_SECRET: z.string().optional(),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    PORTFOLIO_ACCESS_EMAIL: z.string().email().optional(),
+    PORTFOLIO_ACCESS_ENABLED: booleanFromString,
     RATE_LIMIT_STORE: z.enum(["memory", "external"]).default("memory"),
     REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS: booleanFromString,
     TRUST_PROXY: z.string().optional()
@@ -116,6 +118,14 @@ const envSchema = z
       });
     }
 
+    if (env.PORTFOLIO_ACCESS_ENABLED && !env.PORTFOLIO_ACCESS_EMAIL) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["PORTFOLIO_ACCESS_EMAIL"],
+        message: "PORTFOLIO_ACCESS_EMAIL is required when public portfolio access is enabled"
+      });
+    }
+
     if (
       isProduction &&
       (isPlaceholderValue(env.JWT_ACCESS_SECRET) || isPlaceholderValue(env.JWT_SECRET))
@@ -152,6 +162,9 @@ export const authenticationMode =
   env.AUTH_MODE ?? (env.NODE_ENV === "development" ? "demo" : "required");
 
 export const demoAccessEmail = env.AUTH_DEMO_EMAIL;
+
+export const portfolioAccessEnabled = env.PORTFOLIO_ACCESS_ENABLED ?? false;
+export const portfolioAccessEmail = env.PORTFOLIO_ACCESS_EMAIL ?? "";
 
 export const accessTokenSecret =
   env.JWT_ACCESS_SECRET ?? env.JWT_SECRET ?? "shiftflow-dev-access-secret";

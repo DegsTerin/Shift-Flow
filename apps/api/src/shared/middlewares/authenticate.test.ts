@@ -106,6 +106,22 @@ describe("authenticate middleware", () => {
     });
   });
 
+  it("preserves the signed portfolio session marker after live principal validation", async () => {
+    const token = signAccessToken(user({ sessionKind: "portfolio" }));
+    const next = vi.fn();
+    const req = requestWithToken(token);
+
+    await authenticate(req, {} as Response, next);
+
+    expect(next).toHaveBeenCalledWith();
+    expect(req.auth).toMatchObject({
+      id: "user-1",
+      companyId: "company-a",
+      permissions: ["dashboard:read"],
+      sessionKind: "portfolio"
+    });
+  });
+
   it("rejects access tokens revoked during logout", async () => {
     const token = signAccessToken(user());
 
