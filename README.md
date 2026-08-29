@@ -151,5 +151,6 @@ Deploy database migrations before application instances, verify `/health` and `/
 
 ## Licence
 
-The project declares `UNLICENSED`. Publication of the source code does not grant
-an open-source licence or redistribution rights.
+Shift-Flow is licensed under the [MIT Licence](LICENSE).
+
+Copyright (c) 2026 Bruno Araújo - DegsTerin.

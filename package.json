@@ -65,8 +65,8 @@
     "seed:realistic": "node prisma/realistic-seed.mjs"
   },
   "keywords": [],
-  "author": "",
-  "license": "UNLICENSED",
+  "author": "Bruno Araújo - DegsTerin",
+  "license": "MIT",
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "^7.10.0",
