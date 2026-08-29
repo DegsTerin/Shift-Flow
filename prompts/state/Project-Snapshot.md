@@ -65,6 +65,12 @@
 - One executable development entry point provides read-only diagnosis, locked
   setup, `NON_GATE` quick feedback, deterministic plans and a canonical
   runtime-credential-free core gate shared with GitHub Actions.
+- The source is published at `DegsTerin/Shift-Flow`, and a free same-origin
+  Render demonstration is live at
+  `https://shift-flow-degsterin.onrender.com`. It runs the incumbent Next.js and
+  Express applications with a new synthetic PostgreSQL dataset; this does not
+  promote the ASP.NET Core/Redis/Nginx migration profile or create production
+  approval.
 - The whole-project corrective audit is locally complete at implementation
   commit `7e7fcdb5a0a75d1fbda3d9528d86f76f20f7a92e`. Tenant/global identity and RBAC
   mutation boundaries, transactional activity/task-board/dashboard evidence,
@@ -92,7 +98,8 @@
 
 ## Active risks and external dependencies
 
-- Remote Git configuration and external deployment targets depend on environment information outside this repository.
+- The public GitHub remote and free Render demonstration are configured, but
+  production source, CI/CD and hosting authority remain unselected.
 - Azure versus AWS and the OAuth 2.0/OpenID Connect provider are undecided.
   Provider-specific IaC, managed-service configuration, external identity
   linking and deployment are therefore not implemented or authorised.

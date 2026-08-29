@@ -34,9 +34,15 @@ migration profile is not promoted.
 The demonstration build and start commands are:
 
 ```text
-npm ci --ignore-scripts --no-audit --no-fund && npm run build:render
+npm ci --include=dev --ignore-scripts --no-audit --no-fund && npm run build:render
+npx prisma migrate deploy
 npm run start:render
 ```
+
+The build explicitly includes development dependencies because TypeScript
+compilation requires the locked type declarations and build tooling even when
+the runtime environment sets `NODE_ENV=production`. The migration command is
+the service pre-deploy command; it is not part of application startup.
 
 The service binds `0.0.0.0:$PORT`. `/health` is the liveness path and `/ready`
 is the PostgreSQL-backed readiness path. Render owns public TLS termination;
@@ -55,6 +61,17 @@ controlled migration action.
 Free-tier sleep, retention and database-lifetime limits are provider policy and
 must be rechecked before each release. Their expiry is loss of a demonstration
 environment, not an authorised production recovery event.
+
+The demonstration created on 2026-08-28 is available at
+`https://shift-flow-degsterin.onrender.com`. Render service
+`srv-da928hpf2nfc73e2840g` and PostgreSQL database
+`dpg-da923v9f2nfc73e1rtvg-a` use the free Virginia plans. Approved commit
+`d9abc5d1ab2c7791e42063e1130b12fa262e550c` passed GitHub release-gate run
+`33222010756`; Render deploy `dep-da929e8n74is73eimf80` then reached `live`.
+Public Web, liveness, readiness, authenticated login and dashboard requests all
+returned HTTP `200`. The database contains 12 approved migrations and 124
+controlled synthetic activities, and its external IP allow-list was cleared
+after deployment. Demonstration credentials remain private.
 
 ## Required Environment Variables
 
@@ -178,7 +195,9 @@ healthcheck and the internally invoked migrated-route smoke both pass.
 
 ## Current Open Operational Items
 
-- Configure the real Git remote.
+- Keep the public GitHub and Render targets classified as demonstration
+  surfaces; production source, delivery and hosting authority remain
+  unselected.
 - Select Azure or AWS and define the real production host, CI/CD deployment
   target and provider-specific infrastructure authority.
 - Select the OAuth 2.0/OpenID Connect provider and approve the account-linking

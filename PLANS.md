@@ -9,7 +9,7 @@
 | Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Plan ID        | `PLAN-PUBLIC-DEMO-RELEASE-20260828-01`                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Status         | `REMOTE_E2E_REMEDIATION`; public GitHub repository exists; initial-push handling passed remotely, but the disposable Playwright job exposed stale default-state expectations and one dark-mode contrast defect; no Render resource or deployment exists yet                                                                                                                                                                                                                                       |
+| Status         | `COMPLETED_DEMONSTRATION_PASS`; public GitHub repository and free Render demonstration are live; local and remote release gates, provider deployment, public readiness and authenticated smoke evidence passed; no production approval or lifecycle transition is inferred                                                                                                                                                                                                                        |
 | Baseline       | Clean `main@177a4d002dd8857f5755847684c0009c78c6f52c`; prompt-system `6.0.0`; no Git remote                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Authority      | Owner request to publish only the system sources, prepare a professional en-GB README with a real product GIF, then publish through GitHub CLI and deploy through Render CLI                                                                                                                                                                                                                                                                                                                      |
 | Current state  | `STATE-08 PRODUCTION_RELEASE`; authorised release preparation plus target-specific demonstration hosting maintenance; no lifecycle transition                                                                                                                                                                                                                                                                                                                                                     |
@@ -62,11 +62,12 @@
   read. No tracked private-key, environment, database, dump, backup, log or
   media filename was found; the canonical secret scanner remains required on
   the final candidate.
-- GitHub CLI `2.98.0` is authenticated with the required repository/workflow
-  scopes. The selected account has no existing Shift-Flow repository.
+- GitHub CLI `2.98.0` was authenticated with the required
+  repository/workflow scopes. At entry, the selected account had no existing
+  Shift-Flow repository.
 - Render CLI `2.25.0` was installed from the official release after its
   published SHA-256 was verified. Its existing credential is valid, exactly one
-  workspace exists and no Shift-Flow resource currently exists.
+  workspace exists and no Shift-Flow resource existed at entry.
 - The Render target is a cost-free public demonstration, not a production
   environment. Its database expires under the provider's current free-tier
   policy, the service may spin down while idle, client-IP attribution remains
@@ -131,8 +132,29 @@
   actual dark-to-light-to-dark and en-GB-to-pt-BR-to-en-GB transitions, and the
   dark primary foreground uses `#0f2a27`, measured at approximately `8.17:1`
   against the existing accent. The complete local `Full` passed 542 Node and 19
-  .NET tests plus all builds and controls; a fresh remote run remains required.
-  Both failed GitHub runs remain immutable evidence.
+  .NET tests plus all builds and controls. Corrective commit
+  `d9abc5d1ab2c7791e42063e1130b12fa262e550c` then passed GitHub release-gate
+  run `33222010756`, including Node 22, Node 24, .NET, disposable migrations,
+  integration and homologation seeds, 14 Playwright scenarios, load stress and
+  the ASP.NET Core strangler runtime gate. Both earlier failed GitHub runs
+  remain immutable evidence.
+- Render CLI created free Virginia PostgreSQL
+  `dpg-da923v9f2nfc73e1rtvg-a`, applied all 12 approved migrations and seeded
+  124 controlled synthetic activities. External access was temporarily limited
+  to the deployment host, then disabled after validation; credentials were not
+  printed or committed.
+- Render CLI created free same-origin Web Service
+  `srv-da928hpf2nfc73e2840g` at
+  `https://shift-flow-degsterin.onrender.com`. Initial deploy
+  `dep-da928i9f2nfc73e2851g` failed because `NODE_ENV=production` caused npm to
+  omit build-time type and test dependencies. The service build command now
+  passes npm's `--include=dev` flag; successor deploy
+  `dep-da929e8n74is73eimf80` of the same approved SHA reached `live`.
+- Public Web, `/health`, `/ready`, authenticated login and dashboard requests
+  all returned HTTP `200`, with authentication mode `required`. The final demo
+  credential was delivered privately through the local clipboard, the GitHub
+  repository homepage now points to the live demonstration, and this result
+  remains demonstration evidence rather than production approval.
 
 ## In-app notification centre — 2026-08-28
 
