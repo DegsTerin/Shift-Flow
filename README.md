@@ -52,6 +52,8 @@ REST remains the canonical public contract. GraphQL and an external OAuth 2.0 / 
 ## Repository layout
 
 ```text
+.config/       Centralised Prisma and Vitest configuration
+.github/       GitHub automation, ownership and community health files
 apps/
   api/         Express API and shared infrastructure
   api-dotnet/  ASP.NET Core compatibility host and focused tests
@@ -140,14 +142,14 @@ It creates isolated credentials and infrastructure, tests real routed behaviour 
 - API responses carry request-correlation identifiers and structured operational logs.
 - Unsafe requests are protected by the same-origin and CSRF contract.
 - Production secrets belong in the deployment provider's secret store and are excluded from Git.
-- Suspected vulnerabilities should follow [SECURITY.md](SECURITY.md), not a public issue.
+- Suspected vulnerabilities should follow [.github/SECURITY.md](.github/SECURITY.md), not a public issue.
 
 Deploy database migrations before application instances, verify `/health` and `/ready` after release, and retain a tested rollback path for the application and database.
 
 ## Repository guidance
 
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
+- [Contributing](.github/CONTRIBUTING.md)
+- [Security policy](.github/SECURITY.md)
 
 ## Licence
 

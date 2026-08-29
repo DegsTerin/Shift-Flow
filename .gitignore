@@ -29,8 +29,8 @@ pnpm-debug.log*
 prompts/
 *.md
 !/README.md
-!/CONTRIBUTING.md
-!/SECURITY.md
+!/.github/CONTRIBUTING.md
+!/.github/SECURITY.md
 
 /generated/prisma
 .next

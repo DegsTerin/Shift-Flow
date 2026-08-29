@@ -7,7 +7,8 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 FROM dependencies AS generated
 ENV DATABASE_URL=postgresql://shiftflow:container-build@127.0.0.1:1/shiftflow_build?schema=public
 COPY prisma ./prisma
-COPY prisma.config.ts tsconfig.json ./
+COPY .config/prisma.ts ./.config/prisma.ts
+COPY tsconfig.json ./
 RUN npm run prisma:generate
 
 FROM dependencies AS production-dependencies

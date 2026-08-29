@@ -16,6 +16,9 @@ $workflowPath = Join-Path $repositoryRoot '.github/workflows/release-gates.yml'
 $composePath = Join-Path $repositoryRoot 'docker-compose.yml'
 $nodeDockerfilePath = Join-Path $repositoryRoot 'infra/docker/node.Dockerfile'
 $dotnetDockerfilePath = Join-Path $repositoryRoot 'apps/api-dotnet/Dockerfile'
+$prismaConfigPath = Join-Path $repositoryRoot '.config/prisma.ts'
+$unitVitestConfigPath = Join-Path $repositoryRoot '.config/vitest.config.ts'
+$postgresVitestConfigPath = Join-Path $repositoryRoot '.config/vitest.postgres.config.ts'
 $workflowEnvironmentPath = Join-Path $PSScriptRoot 'workflow.env'
 $postgresRegressionPath = Join-Path $repositoryRoot 'prisma/users-tenant-isolation.postgres.test.mjs'
 $stranglerFixturePath = Join-Path $repositoryRoot 'prisma/strangler-integration-seed.mjs'
@@ -258,9 +261,37 @@ Assert-Plan -Task 'Full' -Offline -Expected @(
     'STEP|1|eng/ci.ps1 -Offline'
 )
 
+foreach ($centralConfigPath in @(
+        $prismaConfigPath,
+        $unitVitestConfigPath,
+        $postgresVitestConfigPath
+    )) {
+    if (-not (Test-Path -LiteralPath $centralConfigPath -PathType Leaf)) {
+        throw "Central configuration file is missing: $centralConfigPath"
+    }
+}
+foreach ($obsoleteRootConfig in @(
+        'prisma.config.ts',
+        'vitest.config.ts',
+        'vitest.postgres.config.ts',
+        '.prettierrc'
+    )) {
+    if (Test-Path -LiteralPath (Join-Path $repositoryRoot $obsoleteRootConfig)) {
+        throw "Configuration file must not return to the repository root: $obsoleteRootConfig"
+    }
+}
+if ($package.scripts.'test:unit' -cne
+    'vitest run --config .config/vitest.config.ts') {
+    throw 'The unit-test gate must use the central Vitest configuration.'
+}
 if ($package.scripts.'test:postgres:users' -cne
-    'vitest run --config vitest.postgres.config.ts') {
+    'vitest run --config .config/vitest.postgres.config.ts') {
     throw 'The PostgreSQL User regression must use its dedicated opt-in Vitest configuration.'
+}
+if (-not $nodeDockerfile.Contains(
+        'COPY .config/prisma.ts ./.config/prisma.ts',
+        [System.StringComparison]::Ordinal)) {
+    throw 'The Node.js container build must copy the central Prisma configuration.'
 }
 if (-not $postgresRegression.Contains(
         'if (process.env.SHIFTFLOW_POSTGRES_INTEGRATION !== "1") {',

@@ -21,9 +21,9 @@
     "apps/**/*.tsx",
     "eslint.config.mjs",
     "playwright.config.ts",
-    "vitest*.config.ts",
+    ".config/vitest*.config.ts",
     "tests/**/*.ts",
-    "prisma.config.ts"
+    ".config/prisma.ts"
   ],
   "exclude": ["node_modules", ".next", "dist", "generated"]
 }

@@ -42,7 +42,6 @@ const commentableConfigurationFiles = new Set([
   "infra/nginx/shiftflow-proxy.conf"
 ]);
 const strictOrGeneratedFiles = new Set([
-  ".prettierrc",
   "apps/web/next-env.d.ts",
   "global.json",
   "package-lock.json",
