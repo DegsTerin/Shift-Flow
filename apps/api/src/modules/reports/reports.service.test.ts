@@ -44,7 +44,7 @@ function repositoryHarness(initialStatus: ReportStatus, synchroniseFirstTwoReads
     summary: "Initial summary"
   };
   let readCount = 0;
-  let releaseReads = () => undefined;
+  let releaseReads: () => void = () => undefined;
   const bothReadsReady = new Promise<void>((resolve) => {
     releaseReads = resolve;
   });
@@ -131,10 +131,14 @@ describe("ReportsService lifecycle", () => {
     const harness = repositoryHarness("DRAFT");
     const service = new ReportsService(harness.repository);
 
-    await expect(service.update(request(), reportId, { status: "APPROVED" })).rejects.toMatchObject({
-      code: "BAD_REQUEST"
-    });
-    await expect(service.update(request(), reportId, { authorId: "attacker" })).rejects.toMatchObject({
+    await expect(service.update(request(), reportId, { status: "APPROVED" })).rejects.toMatchObject(
+      {
+        code: "BAD_REQUEST"
+      }
+    );
+    await expect(
+      service.update(request(), reportId, { authorId: "attacker" })
+    ).rejects.toMatchObject({
       code: "BAD_REQUEST"
     });
 

@@ -59,16 +59,12 @@ describe("pagination", () => {
     expect(searchableListQuerySchema.safeParse({ search: "x".repeat(200) }).success).toBe(true);
   });
 
-  it.each([
-    true,
-    42,
-    null,
-    ["needle"],
-    { value: "needle" },
-    "x".repeat(201)
-  ])("rejects an invalid present search value", (search) => {
-    expect(() => toBoundedSearch({ search })).toThrow(
-      expect.objectContaining({ statusCode: 400, code: "BAD_REQUEST" })
-    );
-  });
+  it.each([true, 42, null, ["needle"], { value: "needle" }, "x".repeat(201)])(
+    "rejects an invalid present search value",
+    (search) => {
+      expect(() => toBoundedSearch({ search })).toThrow(
+        expect.objectContaining({ statusCode: 400, code: "BAD_REQUEST" })
+      );
+    }
+  );
 });

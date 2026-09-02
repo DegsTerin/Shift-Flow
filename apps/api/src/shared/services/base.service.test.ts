@@ -1,6 +1,7 @@
 // en-GB: Verifies search composition and atomic audited writes without weakening tenant scope.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../http/request-types.js";
+import type * as PrismaModule from "../lib/prisma.js";
 import { BaseRepository } from "../repositories/base.repository.js";
 import { BaseService } from "./base.service.js";
 
@@ -10,7 +11,7 @@ const persistence = vi.hoisted(() => ({
 }));
 
 vi.mock("../lib/prisma.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../lib/prisma.js")>()),
+  ...(await importOriginal<typeof PrismaModule>()),
   getDelegate: persistence.getDelegate,
   withPrismaTransaction: persistence.transaction
 }));
@@ -167,7 +168,7 @@ describe("BaseService searchable lists", () => {
       count: vi.fn().mockResolvedValue(0)
     };
     const objectOrder = { name: "desc" };
-    const arrayOrder = [{ name: "asc" }, { id: "desc" }];
+    const arrayOrder: Array<Record<string, string>> = [{ name: "asc" }, { id: "desc" }];
     const emptyOrder: Array<Record<string, string>> = [];
 
     await new BaseService(repository as unknown as BaseRepository, "Client", {

@@ -5,14 +5,11 @@ import { badRequest } from "../errors/app-error.js";
 export const maxPage = 10_000;
 
 function boundedDecimalInteger(defaultValue: number, maximum: number) {
-  return z.preprocess(
-    (value) => {
-      if (value === undefined || typeof value === "number") return value;
-      if (typeof value === "string" && /^[1-9]\d*$/.test(value)) return Number(value);
-      return value;
-    },
-    z.number().int().min(1).max(maximum).default(defaultValue)
-  );
+  return z.preprocess((value) => {
+    if (value === undefined || typeof value === "number") return value;
+    if (typeof value === "string" && /^[1-9]\d*$/.test(value)) return Number(value);
+    return value;
+  }, z.number().int().min(1).max(maximum).default(defaultValue));
 }
 
 export const paginationSchema = z.object({
