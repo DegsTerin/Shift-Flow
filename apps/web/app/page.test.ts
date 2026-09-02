@@ -93,6 +93,7 @@ vi.mock("./lib/page-data", () => ({
 }));
 
 import Page from "./page";
+import { PageWorkspace } from "./components/page-workspace";
 import { ActivityList, ManagementTable } from "./components/lists";
 import { FilterBar, IconToggle, ReferenceSelectInput, Select } from "./components/controls";
 import { NotificationCentre } from "./components/notification-centre";
@@ -210,7 +211,7 @@ class HookRuntime {
     this.cursor = 0;
     this.pendingLayoutEffects = [];
     this.pendingPassiveEffects = [];
-    const tree = Page();
+    const tree = renderPage();
     const layoutEffects = this.pendingLayoutEffects;
     this.pendingLayoutEffects = [];
     layoutEffects.forEach((effect) => effect());
@@ -227,7 +228,7 @@ class HookRuntime {
     this.cursor = 0;
     this.pendingLayoutEffects = [];
     this.pendingPassiveEffects = [];
-    const tree = Page();
+    const tree = renderPage();
     this.pendingLayoutEffects = [];
     this.pendingPassiveEffects = [];
     return tree;
@@ -285,6 +286,16 @@ async function flushPromises() {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
+}
+
+let latestRawPage: ReactElement | null = null;
+
+function renderPage() {
+  const tree = Page();
+  latestRawPage = tree;
+  return tree.type === PageWorkspace
+    ? PageWorkspace(tree.props as Parameters<typeof PageWorkspace>[0])
+    : tree;
 }
 
 function elements(node: unknown): ReactElement[] {
@@ -457,6 +468,7 @@ describe("Page request lifecycle", () => {
 
   beforeEach(() => {
     clearApiSession();
+    latestRawPage = null;
     runtime = new HookRuntime();
     clock = new FakeClock();
     hookBridge.useState = runtime.useState.bind(runtime);
@@ -502,6 +514,146 @@ describe("Page request lifecycle", () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("keys the authenticated workspace to the active API session epoch", async () => {
+    await authenticate(scopedSession(["dashboard:read"], "user-a"));
+    const firstEpoch = captureApiSessionEpoch();
+    const firstWorkspace = latestRawPage;
+
+    expect(firstWorkspace?.type).toBe(PageWorkspace);
+    expect(firstWorkspace?.key).toBe(String(firstEpoch));
+
+    setApiSession(scopedSession(["dashboard:read"], "user-b"));
+    await flushPromises();
+    runtime.render();
+    await flushPromises();
+    runtime.render();
+    const secondEpoch = captureApiSessionEpoch();
+    const secondWorkspace = latestRawPage;
+
+    expect(secondWorkspace?.type).toBe(PageWorkspace);
+    expect(secondWorkspace?.key).toBe(String(secondEpoch));
+    expect(secondWorkspace?.key).not.toBe(firstWorkspace?.key);
+  });
+
+  it("keeps workspace structure, shell classes and callback arguments at the presenter boundary", async () => {
+    await authenticate(
+      scopedSession([
+        "dashboard:read",
+        "dashboard:write",
+        "rbac:read",
+        "rbac:write",
+        "activities:read",
+        "activities:write"
+      ])
+    );
+    if (!latestRawPage || latestRawPage.type !== PageWorkspace) {
+      throw new Error("Authenticated workspace boundary was not rendered");
+    }
+
+    const baseProps = latestRawPage.props as Parameters<typeof PageWorkspace>[0];
+    const selectView = vi.fn();
+    const setSearch = vi.fn();
+    const resetDashboardLayout = vi.fn().mockResolvedValue(layouts.MAIN);
+    const openDetail = vi.fn().mockResolvedValue(undefined);
+    const assignRolePermission = vi.fn().mockResolvedValue(undefined);
+    const removeRolePermission = vi.fn().mockResolvedValue(undefined);
+    const setModal = vi.fn();
+    const reloadAfterModalMutation = vi.fn().mockResolvedValue(undefined);
+    const dashboardTree = PageWorkspace({
+      ...baseProps,
+      authorisedView: "dashboard",
+      can: () => true,
+      canCreateRecord: () => true,
+      drawerOpen: true,
+      monitorMode: false,
+      navCollapsed: true,
+      openDetail,
+      resetDashboardLayout,
+      selectView,
+      setSearch,
+      view: "dashboard"
+    });
+
+    expect((dashboardTree.props as { className: string }).className).toBe(
+      "app-shell nav-collapsed drawer-open"
+    );
+    const shellChildren = (
+      (dashboardTree.props as { children: unknown[] }).children as Array<ReactElement | null>
+    ).filter((child): child is ReactElement => child !== null);
+    expect(shellChildren.map((child) => child.type)).toEqual(["a", "button", "aside", "main"]);
+
+    const firstMenuItem = baseProps.availableMenu[0];
+    if (!firstMenuItem) throw new Error("Expected at least one authorised menu item");
+    (findButton(dashboardTree, baseProps.t.dashboard).props as { onClick: () => void }).onClick();
+    expect(selectView).toHaveBeenCalledWith(firstMenuItem.id);
+
+    const searchInput = elements(dashboardTree).find(
+      (element) =>
+        element.type === "input" &&
+        (element.props as { "aria-label"?: string })["aria-label"] === baseProps.t.search
+    );
+    (searchInput?.props as { onChange: (event: { target: { value: string } }) => void }).onChange({
+      target: { value: "x".repeat(250) }
+    });
+    expect(setSearch).toHaveBeenCalledWith("x".repeat(200));
+
+    const mainDashboard = findByType(dashboardTree, MainDashboard);
+    await (mainDashboard.props as { onResetLayout: () => Promise<unknown> }).onResetLayout();
+    expect(resetDashboardLayout).toHaveBeenCalledWith("MAIN");
+    const record = activity("boundary-record");
+    (mainDashboard.props as { onOpen: (item: ActivityItem) => void }).onOpen(record);
+    expect(openDetail).toHaveBeenCalledWith("activities", record);
+
+    const roleTree = PageWorkspace({
+      ...baseProps,
+      assignRolePermission,
+      authorisedView: "roles",
+      can: () => true,
+      rbacLoading: false,
+      removeRolePermission,
+      view: "roles"
+    });
+    const roleManagement = findByType(roleTree, RoleManagementView);
+    (
+      roleManagement.props as {
+        onAssignPermission: (roleId: string, permissionId: string) => void;
+        onRemovePermission: (roleId: string, permissionId: string) => void;
+      }
+    ).onAssignPermission("role-a", "permission-a");
+    (
+      roleManagement.props as {
+        onRemovePermission: (roleId: string, permissionId: string) => void;
+      }
+    ).onRemovePermission("role-b", "permission-b");
+    expect(assignRolePermission).toHaveBeenCalledWith("role-a", "permission-a");
+    expect(removeRolePermission).toHaveBeenCalledWith("role-b", "permission-b");
+
+    const modalTree = PageWorkspace({
+      ...baseProps,
+      authorisedView: "dashboard",
+      modal: { entity: "activities", mode: "create" },
+      reloadAfterModalMutation,
+      setModal
+    });
+    const modal = findByType(modalTree, RecordModal);
+    (modal.props as { onClose: () => void }).onClose();
+    expect(setModal).toHaveBeenCalledWith(null);
+    expect((modal.props as { onReload: unknown }).onReload).toBe(reloadAfterModalMutation);
+
+    const monitorTree = PageWorkspace({
+      ...baseProps,
+      drawerOpen: true,
+      modal: null,
+      monitorMode: true,
+      navCollapsed: true
+    });
+    expect((monitorTree.props as { className: string }).className).toBe("app-shell monitor-mode");
+    const monitorChildren = (
+      (monitorTree.props as { children: unknown[] }).children as Array<ReactElement | null>
+    ).filter((child): child is ReactElement => child !== null);
+    expect(monitorChildren.map((child) => child.type)).toEqual(["a", "main"]);
   });
 
   it("shows fixed portfolio fields and signs in without sending a credential", async () => {

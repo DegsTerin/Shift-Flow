@@ -1,33 +1,11 @@
 // en-GB: Orchestrates the main ShiftFlow interface while preserving state, navigation, and API behaviour.
 "use client";
 
-import {
-  Globe2,
-  LayoutGrid,
-  LockKeyhole,
-  LogOut,
-  Maximize2,
-  Menu,
-  Moon,
-  RefreshCcw,
-  Search,
-  Sun,
-  Workflow
-} from "lucide-react";
+import { LockKeyhole, Moon, Sun, Workflow } from "lucide-react";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FilterBar, IconToggle, SegmentedControl } from "./components/controls";
-import { ActivityList, ManagementTable, shiftCells, TeamsView } from "./components/lists";
-import { NotificationCentre } from "./components/notification-centre";
-import { RecordModal } from "./components/record-modal";
-import { RoleManagementView } from "./components/role-management-view";
-import {
-  KanbanBoard,
-  MainDashboard,
-  ReportsView,
-  SettingsView,
-  TeamDashboard
-} from "./components/views";
+import { IconToggle, SegmentedControl } from "./components/controls";
+import { PageWorkspace } from "./components/page-workspace";
 import {
   apiRequest,
   captureApiSessionEpoch,
@@ -81,14 +59,7 @@ import type {
   UserRef,
   View
 } from "./lib/types";
-import {
-  emptyFilters,
-  hasInvertedDateRange,
-  hasPermission,
-  productAssignableRoles,
-  roleUpdatePayload,
-  userRoleName
-} from "./lib/utils";
+import { emptyFilters, hasInvertedDateRange, hasPermission, roleUpdatePayload } from "./lib/utils";
 
 function parseStoredJson(value: string | null) {
   if (!value) return null;
@@ -123,15 +94,6 @@ const emptyReportActivitySummary: ReportActivitySummary = {
   byStatus: [],
   byPriority: []
 };
-
-const reportFilterKeys: ReadonlySet<keyof Filters> = new Set([
-  "clientId",
-  "teamId",
-  "shiftId",
-  "status",
-  "from",
-  "to"
-]);
 
 const searchableViews: ReadonlySet<View> = new Set([
   "dashboard",
@@ -1513,388 +1475,109 @@ export default function Page() {
   const topbarContext = session.user.displayName ?? session.user.email;
 
   return (
-    <div
+    <PageWorkspace
       key={captureApiSessionEpoch() ?? "anonymous"}
-      className={`${monitorMode ? "app-shell monitor-mode" : "app-shell"}${!monitorMode && navCollapsed ? " nav-collapsed" : ""}${!monitorMode && drawerOpen ? " drawer-open" : ""}`}
-      data-theme={theme}
-      lang={locale}
-    >
-      <a className="skip-link" href="#main-content">
-        {t.skipToMainContent}
-      </a>
-      {!monitorMode ? (
-        <button
-          aria-label={t.closeNavigation}
-          className="drawer-backdrop"
-          onClick={() => setDrawerOpen(false)}
-          type="button"
-        />
-      ) : null}
-      {!monitorMode ? (
-        <aside className="sidebar" aria-label={t.navigation}>
-          <header className="sidebar-brand">
-            <div className="brand-mark">
-              <Workflow size={26} />
-              <span>{t.app}</span>
-            </div>
-            <IconToggle
-              label={navCollapsed ? t.expandNavigation : t.collapseNavigation}
-              icon={Menu}
-              onClick={toggleNavigation}
-            />
-          </header>
-          <nav aria-label={t.navigation}>
-            {availableMenu.map((item) => {
-              const Icon = item.icon;
-              const key = item.id === "team-dashboard" ? "teamDashboard" : item.id;
-              return (
-                <button
-                  className={view === item.id ? "nav-button active" : "nav-button"}
-                  key={item.id}
-                  onClick={() => selectView(item.id)}
-                  title={t[key]}
-                  type="button"
-                >
-                  <Icon size={18} />
-                  <span>{t[key]}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-      ) : null}
-      <main
-        aria-busy={loading}
-        className="workspace"
-        data-theme={theme}
-        id="main-content"
-        tabIndex={-1}
-      >
-        <header className="topbar">
-          {!monitorMode ? (
-            <div className="mobile-nav-trigger">
-              <IconToggle
-                label={navCollapsed ? t.expandNavigation : t.collapseNavigation}
-                icon={Menu}
-                onClick={toggleNavigation}
-              />
-            </div>
-          ) : null}
-          <div className="topbar-title">
-            <p className="eyebrow">{topbarContext}</p>
-            <h1 id="page-title">{activeTitleKey ? t[activeTitleKey] : t.app}</h1>
-          </div>
-          <div className="topbar-actions">
-            {authorisedView ? (
-              <>
-                {searchableViews.has(authorisedView) ? (
-                  <div className="search-box">
-                    <Search size={16} />
-                    <input
-                      aria-label={t.search}
-                      maxLength={200}
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value.slice(0, 200))}
-                      placeholder={t.search}
-                    />
-                  </div>
-                ) : null}
-                <IconToggle
-                  label={t.refresh}
-                  icon={RefreshCcw}
-                  onClick={() => void refreshCurrent()}
-                />
-                {can("notifications", "read") ? (
-                  <NotificationCentre
-                    t={t}
-                    locale={locale}
-                    open={notificationsOpen}
-                    unread={unread}
-                    items={notificationItems}
-                    loading={notificationsLoading}
-                    error={notificationsError}
-                    canMarkRead={can("notifications", "write")}
-                    pendingId={notificationPendingId}
-                    onToggle={toggleNotifications}
-                    onClose={() => setNotificationsOpen(false)}
-                    onMarkRead={(id) => void markNotificationsRead(id)}
-                    onMarkAllRead={() => void markNotificationsRead()}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            <IconToggle
-              label={theme === "light" ? t.dark : t.light}
-              icon={theme === "light" ? Moon : Sun}
-              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            />
-            <IconToggle
-              label={locale}
-              icon={Globe2}
-              onClick={() => setLocale(locale === "pt-BR" ? "en-GB" : "pt-BR")}
-            />
-            {!monitorMode &&
-            (authorisedView === "dashboard" || authorisedView === "team-dashboard") &&
-            can("dashboard", "write") &&
-            (authorisedView === "dashboard" ? mainDashboardReady : teamDashboardReady) ? (
-              <IconToggle
-                label={t.customizeDashboard}
-                icon={LayoutGrid}
-                onClick={customizeDashboard}
-              />
-            ) : null}
-            {authorisedView ? (
-              <IconToggle label={t.tvMode} icon={Maximize2} onClick={toggleMonitorMode} />
-            ) : null}
-            {session.authenticationMode !== "demo" ? (
-              <IconToggle label={t.signOut} icon={LogOut} onClick={() => void logout()} />
-            ) : null}
-          </div>
-        </header>
-        {visibleError ? (
-          <p className="form-error app-message" role="alert">
-            {visibleError}
-          </p>
-        ) : null}
-        {loading ? <p className="guard-note app-message">{t.loading}</p> : null}
-        <section className="content-grid" aria-labelledby="page-title">
-          {!availableMenu.length ? (
-            <p className="empty-state full-width">{t.noAuthorisedViews}</p>
-          ) : null}
-          {authorisedView ? (
-            <>
-              {["dashboard", "team-dashboard", "activities", "kanban", "reports"].includes(view) ? (
-                <FilterBar
-                  t={t}
-                  filters={filters}
-                  setFilters={changeFilters}
-                  clients={clients}
-                  teams={teamDirectory}
-                  shifts={shifts}
-                  users={users}
-                  token={token}
-                  referenceAccess={referenceAccess}
-                  visibleFilters={view === "reports" ? reportFilterKeys : undefined}
-                />
-              ) : null}
-              {view === "dashboard" && (
-                <MainDashboard
-                  t={t}
-                  summary={summary}
-                  charts={charts}
-                  teams={teamDirectory}
-                  activities={operationalActivities}
-                  locale={locale}
-                  layout={dashboardLayouts.MAIN}
-                  onSaveLayout={saveDashboardLayout}
-                  onResetLayout={() => resetDashboardLayout("MAIN")}
-                  canConfigure={can("dashboard", "write") && mainDashboardReady}
-                  pagination={{
-                    page: teamDirectoryDisplayedPage,
-                    pageSize: teamDirectoryDisplayedPageSize,
-                    total: teamDirectoryTotal,
-                    onPage: changeTeamDirectoryPage
-                  }}
-                  onNew={canCreateRecord("activities") ? () => openCreate("activities") : undefined}
-                  onOpen={
-                    can("activities", "read")
-                      ? (item) => void openDetail("activities", item)
-                      : undefined
-                  }
-                />
-              )}
-              {view === "team-dashboard" && (
-                <TeamDashboard
-                  t={t}
-                  teams={teamDirectory}
-                  pagination={{
-                    page: teamDirectoryDisplayedPage,
-                    pageSize: teamDirectoryDisplayedPageSize,
-                    total: teamDirectoryTotal,
-                    onPage: changeTeamDirectoryPage
-                  }}
-                  charts={charts}
-                  activities={operationalActivities}
-                  locale={locale}
-                  layout={dashboardLayouts.TEAM}
-                  onSaveLayout={saveDashboardLayout}
-                  onResetLayout={() => resetDashboardLayout("TEAM")}
-                  canConfigure={can("dashboard", "write") && teamDashboardReady}
-                  onNew={canCreateRecord("activities") ? () => openCreate("activities") : undefined}
-                  onOpen={
-                    can("activities", "read")
-                      ? (item) => void openDetail("activities", item)
-                      : undefined
-                  }
-                />
-              )}
-              {view === "users" && !managementLoading && (
-                <ManagementTable
-                  title={t.users}
-                  rows={managementUsers}
-                  columns={[t.name, t.role, t.email, t.filterStatus]}
-                  cells={(user) => [
-                    user.displayName ?? "-",
-                    userRoleName(user),
-                    user.email ?? "-",
-                    user.status ?? "-"
-                  ]}
-                  t={t}
-                  pagination={{
-                    page: managementSnapshot.page,
-                    pageSize: managementSnapshot.pageSize,
-                    total: managementSnapshot.total,
-                    onPage: changeManagementPage
-                  }}
-                  onNew={canCreateRecord("users") ? () => openCreate("users") : undefined}
-                  newDisabledReason={
-                    can("users", "write") && !canCreateRecord("users")
-                      ? creationBlockReason("users")
-                      : undefined
-                  }
-                  onOpen={(row) => void openDetail("users", row)}
-                />
-              )}
-              {view === "clients" && !managementLoading && (
-                <ManagementTable
-                  title={t.clients}
-                  rows={managementClients}
-                  columns={[t.name, t.code, t.filterStatus]}
-                  cells={(client) => [client.name ?? "-", client.code ?? "-", client.status ?? "-"]}
-                  t={t}
-                  pagination={{
-                    page: managementSnapshot.page,
-                    pageSize: managementSnapshot.pageSize,
-                    total: managementSnapshot.total,
-                    onPage: changeManagementPage
-                  }}
-                  onNew={canCreateRecord("clients") ? () => openCreate("clients") : undefined}
-                  onOpen={(row) => void openDetail("clients", row)}
-                />
-              )}
-              {view === "teams" && !managementLoading && (
-                <TeamsView
-                  t={t}
-                  teams={managementTeams}
-                  pagination={{
-                    page: managementSnapshot.page,
-                    pageSize: managementSnapshot.pageSize,
-                    total: managementSnapshot.total,
-                    onPage: changeManagementPage
-                  }}
-                  onNew={canCreateRecord("teams") ? () => openCreate("teams") : undefined}
-                  onOpen={(team) => void openDetail("teams", team)}
-                />
-              )}
-              {view === "roles" && !rbacLoading && (
-                <RoleManagementView
-                  t={t}
-                  roles={roles}
-                  permissions={rbacPermissions}
-                  busy={actionLoading || rbacLoading}
-                  canWrite={can("rbac", "write")}
-                  canDelete={can("rbac", "delete")}
-                  pagination={{
-                    page: rbacDisplayedPage,
-                    pageSize: rbacDisplayedPageSize,
-                    total: rbacTotal,
-                    onPage: changeRbacPage
-                  }}
-                  onCreateRole={createRole}
-                  onUpdateRole={updateRole}
-                  onAssignPermission={(roleId, permissionId) =>
-                    void assignRolePermission(roleId, permissionId)
-                  }
-                  onRemovePermission={(roleId, permissionId) =>
-                    void removeRolePermission(roleId, permissionId)
-                  }
-                  onDuplicateRole={(roleId) => void duplicateRole(roleId)}
-                  onDeleteRole={(roleId) => void deleteRole(roleId)}
-                />
-              )}
-              {view === "shifts" && !managementLoading && (
-                <ManagementTable
-                  title={t.shifts}
-                  rows={managementShifts}
-                  columns={[t.name, t.start, t.end, t.filterStatus]}
-                  cells={shiftCells(locale)}
-                  t={t}
-                  pagination={{
-                    page: managementSnapshot.page,
-                    pageSize: managementSnapshot.pageSize,
-                    total: managementSnapshot.total,
-                    onPage: changeManagementPage
-                  }}
-                  onNew={canCreateRecord("shifts") ? () => openCreate("shifts") : undefined}
-                  onOpen={(row) => void openDetail("shifts", row)}
-                />
-              )}
-              {view === "activities" && (
-                <ActivityList
-                  t={t}
-                  activities={activities}
-                  locale={locale}
-                  pagination={{
-                    page: activityDisplayedPage,
-                    pageSize: activityDisplayedPageSize,
-                    total: activityTotal,
-                    onPage: changeActivityPage
-                  }}
-                  onNew={canCreateRecord("activities") ? () => openCreate("activities") : undefined}
-                  newDisabledReason={
-                    can("activities", "write") && !canCreateRecord("activities")
-                      ? creationBlockReason("activities")
-                      : undefined
-                  }
-                  onOpen={(item) => void openDetail("activities", item)}
-                />
-              )}
-              {view === "kanban" && (
-                <KanbanBoard
-                  t={t}
-                  activities={kanbanActivities}
-                  dragged={dragged}
-                  setDragged={setDragged}
-                  canMove={can("activities", "write")}
-                  onMove={moveActivity}
-                  onOpen={(item) => void openDetail("activities", item)}
-                  pagination={{
-                    page: kanbanDisplayedPage,
-                    pageSize: kanbanDisplayedPageSize,
-                    total: kanbanTotal,
-                    onPage: changeKanbanPage
-                  }}
-                />
-              )}
-              {view === "reports" && <ReportsView t={t} summary={reportSummary} />}
-              {view === "settings" && (
-                <SettingsView
-                  t={t}
-                  canOpen={(candidate) => availableViews.has(candidate)}
-                  onNavigate={selectView}
-                />
-              )}
-            </>
-          ) : null}
-        </section>
-      </main>
-      {modal && authorisedView ? (
-        <RecordModal
-          state={modal}
-          t={t}
-          token={token}
-          locale={locale}
-          clients={clients}
-          users={users}
-          teams={teams}
-          shifts={shifts}
-          roles={productAssignableRoles(roles)}
-          referenceAccess={referenceAccess}
-          capabilities={modalCapabilities}
-          onClose={() => setModal(null)}
-          onReload={reloadAfterModalMutation}
-        />
-      ) : null}
-    </div>
+      activeTitleKey={activeTitleKey}
+      actionLoading={actionLoading}
+      activities={activities}
+      activityDisplayedPage={activityDisplayedPage}
+      activityDisplayedPageSize={activityDisplayedPageSize}
+      activityTotal={activityTotal}
+      authorisedView={authorisedView}
+      availableMenu={availableMenu}
+      availableViews={availableViews}
+      charts={charts}
+      clients={clients}
+      dashboardLayouts={dashboardLayouts}
+      dragged={dragged}
+      drawerOpen={drawerOpen}
+      filters={filters}
+      kanbanActivities={kanbanActivities}
+      kanbanDisplayedPage={kanbanDisplayedPage}
+      kanbanDisplayedPageSize={kanbanDisplayedPageSize}
+      kanbanTotal={kanbanTotal}
+      loading={loading}
+      locale={locale}
+      mainDashboardReady={mainDashboardReady}
+      managementClients={managementClients}
+      managementLoading={managementLoading}
+      managementShifts={managementShifts}
+      managementSnapshot={managementSnapshot}
+      managementTeams={managementTeams}
+      managementUsers={managementUsers}
+      modal={modal}
+      modalCapabilities={modalCapabilities}
+      monitorMode={monitorMode}
+      navCollapsed={navCollapsed}
+      notificationItems={notificationItems}
+      notificationPendingId={notificationPendingId}
+      notificationsError={notificationsError}
+      notificationsLoading={notificationsLoading}
+      notificationsOpen={notificationsOpen}
+      operationalActivities={operationalActivities}
+      rbacDisplayedPage={rbacDisplayedPage}
+      rbacDisplayedPageSize={rbacDisplayedPageSize}
+      rbacLoading={rbacLoading}
+      rbacPermissions={rbacPermissions}
+      rbacTotal={rbacTotal}
+      referenceAccess={referenceAccess}
+      reportSummary={reportSummary}
+      roles={roles}
+      search={search}
+      searchableViews={searchableViews}
+      session={session}
+      shifts={shifts}
+      summary={summary}
+      t={t}
+      teamDashboardReady={teamDashboardReady}
+      teamDirectory={teamDirectory}
+      teamDirectoryDisplayedPage={teamDirectoryDisplayedPage}
+      teamDirectoryDisplayedPageSize={teamDirectoryDisplayedPageSize}
+      teamDirectoryTotal={teamDirectoryTotal}
+      teams={teams}
+      theme={theme}
+      token={token}
+      topbarContext={topbarContext}
+      unread={unread}
+      users={users}
+      view={view}
+      visibleError={visibleError}
+      assignRolePermission={assignRolePermission}
+      can={can}
+      canCreateRecord={canCreateRecord}
+      changeActivityPage={changeActivityPage}
+      changeFilters={changeFilters}
+      changeKanbanPage={changeKanbanPage}
+      changeManagementPage={changeManagementPage}
+      changeRbacPage={changeRbacPage}
+      changeTeamDirectoryPage={changeTeamDirectoryPage}
+      createRole={createRole}
+      creationBlockReason={creationBlockReason}
+      customizeDashboard={customizeDashboard}
+      deleteRole={deleteRole}
+      duplicateRole={duplicateRole}
+      logout={logout}
+      markNotificationsRead={markNotificationsRead}
+      moveActivity={moveActivity}
+      openCreate={openCreate}
+      openDetail={openDetail}
+      refreshCurrent={refreshCurrent}
+      reloadAfterModalMutation={reloadAfterModalMutation}
+      removeRolePermission={removeRolePermission}
+      resetDashboardLayout={resetDashboardLayout}
+      saveDashboardLayout={saveDashboardLayout}
+      selectView={selectView}
+      setDragged={setDragged}
+      setDrawerOpen={setDrawerOpen}
+      setLocale={setLocale}
+      setModal={setModal}
+      setNotificationsOpen={setNotificationsOpen}
+      setSearch={setSearch}
+      setTheme={setTheme}
+      toggleMonitorMode={toggleMonitorMode}
+      toggleNavigation={toggleNavigation}
+      toggleNotifications={toggleNotifications}
+      updateRole={updateRole}
+    />
   );
 }
