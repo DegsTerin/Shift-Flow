@@ -9,6 +9,7 @@ $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $developmentPath = Join-Path $PSScriptRoot 'development.ps1'
 $buildPath = Join-Path $PSScriptRoot 'build.ps1'
 $ciPath = Join-Path $PSScriptRoot 'ci.ps1'
+$agentContractPath = Join-Path $PSScriptRoot 'test-agent-contract.ps1'
 $environmentExamplePath = Join-Path $repositoryRoot '.env.example'
 $nvmPath = Join-Path $repositoryRoot '.nvmrc'
 $packagePath = Join-Path $repositoryRoot 'package.json'
@@ -25,6 +26,10 @@ $stranglerFixturePath = Join-Path $repositoryRoot 'prisma/strangler-integration-
 $stranglerSecurityControlPath = Join-Path $repositoryRoot 'prisma/strangler-security-control.mjs'
 $stranglerSmokePath = Join-Path $PSScriptRoot 'smoke-strangler.ps1'
 $stranglerRuntimePath = Join-Path $PSScriptRoot 'strangler-runtime.ps1'
+
+if (-not (Test-Path -LiteralPath $agentContractPath -PathType Leaf)) {
+    throw "The project-scoped agent contract validator is missing: $agentContractPath"
+}
 
 function Assert-Plan {
     [CmdletBinding()]
@@ -244,21 +249,22 @@ Assert-Plan -Task 'Setup' -Offline -Expected @(
 Assert-Plan -Task 'Quick' -Expected @(
     'PLAN|version=1|task=Quick|mode=Online|classification=NON_GATE',
     'STEP|1|Validate repository root, toolchains, package lock and prepared dependencies',
-    'STEP|2|npm run quality',
-    'STEP|3|npm run test:unit',
-    'STEP|4|npm run build',
-    'STEP|5|eng/dotnet.ps1 -SkipRestore -SkipAudit',
-    'STEP|6|git diff --check for worktree and index'
+    'STEP|2|eng/test-agent-contract.ps1',
+    'STEP|3|npm run quality',
+    'STEP|4|npm run test:unit',
+    'STEP|5|npm run build',
+    'STEP|6|eng/dotnet.ps1 -SkipRestore -SkipAudit',
+    'STEP|7|git diff --check for worktree and index'
 )
 
 Assert-Plan -Task 'Full' -Expected @(
     'PLAN|version=1|task=Full|mode=Online|classification=WORKFLOW',
-    'STEP|1|eng/ci.ps1'
+    'STEP|1|eng/ci.ps1 (includes eng/test-agent-contract.ps1)'
 )
 
 Assert-Plan -Task 'Full' -Offline -Expected @(
     'PLAN|version=1|task=Full|mode=Offline|classification=INCOMPLETE_NON_GATE',
-    'STEP|1|eng/ci.ps1 -Offline'
+    'STEP|1|eng/ci.ps1 -Offline (includes eng/test-agent-contract.ps1)'
 )
 
 foreach ($centralConfigPath in @(
@@ -325,6 +331,51 @@ foreach ($requiredQuickDiffContract in @(
     }
 }
 
+if ([regex]::Matches(
+        $quickFunction,
+        '(?m)^\s*& \$agentContractPath\s*$').Count -ne 1) {
+    throw 'Quick must invoke the project-scoped agent contract exactly once before product checks.'
+}
+
+$requiredQuickSteps = @(
+    @{
+        Name = 'npm quality'
+        Pattern = '(?m)^\s*npm run quality\s*$'
+    },
+    @{
+        Name = 'unit tests'
+        Pattern = '(?m)^\s*npm run test:unit\s*$'
+    },
+    @{
+        Name = 'application build'
+        Pattern = '(?m)^\s*npm run build\s*$'
+    },
+    @{
+        Name = '.NET checks'
+        Pattern = '(?m)^\s*& \$dotnetEntrypoint -SkipRestore -SkipAudit\s*$'
+    }
+)
+foreach ($requiredQuickStep in $requiredQuickSteps) {
+    if ([regex]::Matches(
+            $quickFunction,
+            $requiredQuickStep.Pattern).Count -ne 1) {
+        throw "Quick must invoke $($requiredQuickStep.Name) exactly once."
+    }
+}
+
+$quickStepPatterns = @(
+    '(?m)^\s*& \$agentContractPath\s*$'
+) + @($requiredQuickSteps | ForEach-Object { $_.Pattern })
+$quickStepIndexes = @($quickStepPatterns | ForEach-Object {
+        [regex]::Match($quickFunction, $_).Index
+    })
+for ($index = 0; $index -lt ($quickStepIndexes.Count - 1); $index++) {
+    if ($quickStepIndexes[$index] -lt 0 -or
+        $quickStepIndexes[$index] -ge $quickStepIndexes[$index + 1]) {
+        throw 'Quick must run the agent contract, npm quality, unit tests, build and .NET checks in strict order.'
+    }
+}
+
 foreach ($forbiddenCoreOperation in @(
         'migrate deploy',
         'seed:integration',
@@ -344,12 +395,20 @@ if ([regex]::Matches(
         [regex]::Escape('test-development-workflow.ps1')).Count -ne 1) {
     throw 'CI must invoke the development workflow policy test exactly once.'
 }
+if ([regex]::Matches(
+        $ciScript,
+        '(?m)^\s*& \$agentContractPath\s*$').Count -ne 1) {
+    throw 'CI must invoke the project-scoped agent contract exactly once.'
+}
 
 $ciScrub = $ciScript.IndexOf(
     'Remove-Item -LiteralPath "Env:$variableName" -ErrorAction SilentlyContinue',
     [System.StringComparison]::Ordinal)
 $ciPolicy = $ciScript.IndexOf(
     "& (Join-Path `$PSScriptRoot 'test-development-workflow.ps1')",
+    [System.StringComparison]::Ordinal)
+$ciAgentContract = $ciScript.IndexOf(
+    '& $agentContractPath',
     [System.StringComparison]::Ordinal)
 $ciPreflight = $ciScript.IndexOf(
     '& $developmentEntrypoint Doctor -CorePreflightOnly -CoreComponent $Component',
@@ -367,12 +426,14 @@ $ciDependenciesReady = $ciScript.IndexOf(
     [System.StringComparison]::Ordinal)
 if ($ciScrub -lt 0 -or
     $ciPreflight -lt 0 -or
+    $ciAgentContract -lt 0 -or
     $ciPolicy -lt 0 -or
     $ciInstallBranch -lt 0 -or
     $ciGenerate -lt 0 -or
     $ciDependenciesReady -lt 0 -or
     $ciScrub -gt $ciPreflight -or
-    $ciPreflight -gt $ciPolicy -or
+    $ciPreflight -gt $ciAgentContract -or
+    $ciAgentContract -gt $ciPolicy -or
     $ciPolicy -gt $ciInstallBranch -or
     $ciInstallBranch -gt $ciGenerate -or
     $ciGenerate -gt $ciDependenciesReady -or
