@@ -2,7 +2,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["*.*.*.*"]
+  allowedDevOrigins: ["*.*.*.*"],
+  ...(process.env.VISUAL_REGRESSION === "1" ? { devIndicators: false } : {})
 };
 
 export default nextConfig;

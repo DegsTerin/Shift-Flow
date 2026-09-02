@@ -55,6 +55,8 @@
     "security:secrets": "node scripts/security-scan.mjs",
     "audit:overrides": "node scripts/verify-overrides.mjs",
     "test:e2e": "npm run e2e:prepare && playwright test",
+    "test:visual": "pwsh -NoLogo -NoProfile -File ./eng/visual-regression.ps1",
+    "test:visual:update": "pwsh -NoLogo -NoProfile -File ./eng/visual-regression.ps1 -UpdateSnapshots",
     "e2e:prepare": "prisma migrate deploy && npm run seed:integration && npm run homologation:seed",
     "test:a11y": "playwright test tests/e2e/state07-accessibility.spec.ts",
     "test:load": "playwright test tests/e2e/state07-load.spec.ts",
