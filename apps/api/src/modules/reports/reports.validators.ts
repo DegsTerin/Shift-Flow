@@ -30,10 +30,14 @@ export const reportFilterSchema = z
     }
   });
 
-export const shiftReportSchema = z.object({
-  shiftId: z.string().uuid(),
-  teamId: z.string().uuid(),
-  summary: z.string().min(1).max(20000),
-  pendingNotes: z.string().max(10000).optional(),
-  metrics: z.record(z.string(), z.unknown()).optional()
-});
+export const shiftReportSchema = z
+  .object({
+    shiftId: z.string().uuid(),
+    teamId: z.string().uuid(),
+    summary: z.string().min(1).max(20000),
+    pendingNotes: z.string().max(10000).optional(),
+    metrics: z.record(z.string(), z.unknown()).optional()
+  })
+  .strict();
+
+export const shiftReportUpdateSchema = shiftReportSchema.partial().strict();
