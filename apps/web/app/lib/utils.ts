@@ -259,12 +259,18 @@ export function teamPayload(form: FormData) {
   };
 }
 
-export function shiftPayload(form: FormData) {
+function shiftContentPayload(form: FormData) {
   return {
     name: String(form.get("name") ?? ""),
     startsAt: String(form.get("startsAt") ?? ""),
     endsAt: String(form.get("endsAt") ?? ""),
-    timezone: String(form.get("timezone") || "America/Sao_Paulo"),
+    timezone: String(form.get("timezone") || "America/Sao_Paulo")
+  };
+}
+
+export function shiftPayload(form: FormData) {
+  return {
+    ...shiftContentPayload(form),
     status: String(form.get("status") || "OPEN")
   };
 }
@@ -287,7 +293,7 @@ export function recordPayload(
   if (entity === "users") return userPayload(form);
   if (entity === "clients") return clientPayload(form);
   if (entity === "teams") return teamPayload(form);
-  if (entity === "shifts") return shiftPayload(form);
+  if (entity === "shifts") return shiftContentPayload(form);
   if (entity === "activities" || entity === "kanban")
     return {
       ...activityPayload(form),

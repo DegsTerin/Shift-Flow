@@ -945,7 +945,7 @@ function ShiftDetail({
         <SelectInput
           name="status"
           value={shift.status ?? "OPEN"}
-          disabled={!editing}
+          disabled
           options={shiftStatuses.map((item) => [item, item])}
         />
       </label>

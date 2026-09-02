@@ -213,4 +213,33 @@ describe("GenericDetail capability matrix", () => {
     expect(roleSelect?.props).toMatchObject({ value: "role-a" });
     expect((roleSelect?.props as { placeholder?: string }).placeholder).toBeUndefined();
   });
+
+  it("keeps Shift lifecycle status read-only while content fields are editable", () => {
+    const tree = GenericDetail({
+      entity: "shifts",
+      record: recordFor("shifts"),
+      t: messages["en-GB"],
+      users: [],
+      roles: [],
+      editing: true,
+      busy: false,
+      capabilities: { ...none, canWrite: true },
+      setEditing: vi.fn(),
+      onSubmit: vi.fn(),
+      onRemove: vi.fn(),
+      onAddTeamMember: vi.fn(async () => undefined),
+      onRemoveTeamMember: vi.fn(async () => undefined)
+    });
+    const controls = expandedElements(tree);
+    const nameInput = controls.find(
+      (element) => element.type === "input" && (element.props as { name?: string }).name === "name"
+    );
+    const statusSelect = controls.find(
+      (element) =>
+        element.type === "select" && (element.props as { name?: string }).name === "status"
+    );
+
+    expect((nameInput?.props as { disabled?: boolean }).disabled).toBe(false);
+    expect((statusSelect?.props as { disabled?: boolean }).disabled).toBe(true);
+  });
 });

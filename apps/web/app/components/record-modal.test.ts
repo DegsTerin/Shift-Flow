@@ -43,6 +43,7 @@ vi.mock("../lib/api", async (importOriginal) => {
 import { clearApiSession, setApiSession } from "../lib/api";
 import { messages } from "../lib/i18n";
 import { ActivityDetail } from "./record-modal-activity-detail";
+import { CreateForm } from "./record-modal-create-form";
 import { GenericDetail, RecordModal } from "./record-modal";
 
 type StateSlot = { kind: "state"; value: unknown };
@@ -662,5 +663,97 @@ describe("RecordModal mutation lifecycle", () => {
       slaDueAt: null
     });
     expect(props.onReload).toHaveBeenCalledOnce();
+  });
+
+  it("keeps lifecycle status in the Shift create payload", async () => {
+    const form = new FormData();
+    form.set("name", "Night shift");
+    form.set("startsAt", "2026-09-02T22:00");
+    form.set("endsAt", "2026-09-03T06:00");
+    form.set("timezone", "Europe/London");
+    form.set("status", "PLANNED");
+    function FormDataForTest() {
+      return form;
+    }
+    vi.stubGlobal("FormData", FormDataForTest);
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "shift-a" });
+    const props = {
+      ...modalProps({ ...none, canWrite: true }),
+      state: { mode: "create" as const, entity: "shifts" as const }
+    };
+    const tree = runtime.render(props);
+    const createForm = elements(tree).find((element) => element.type === CreateForm);
+    if (!createForm) throw new Error("Shift create form was not found");
+
+    await (
+      createForm.props as {
+        onSubmit: (event: { preventDefault: () => void; currentTarget: unknown }) => Promise<void>;
+      }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+
+    expect(apiBridge.apiRequest).toHaveBeenCalledWith(
+      "/api/shifts",
+      session.accessToken,
+      expect.objectContaining({ method: "POST" })
+    );
+    const request = apiBridge.apiRequest.mock.calls[0]?.[2] as { body?: string };
+    expect(JSON.parse(request.body ?? "{}")).toEqual({
+      name: "Night shift",
+      startsAt: "2026-09-02T22:00",
+      endsAt: "2026-09-03T06:00",
+      timezone: "Europe/London",
+      status: "PLANNED"
+    });
+  });
+
+  it("omits lifecycle status from the Shift content PATCH payload", async () => {
+    const form = new FormData();
+    form.set("name", "Updated night shift");
+    form.set("startsAt", "2026-09-02T21:00");
+    form.set("endsAt", "2026-09-03T05:00");
+    form.set("timezone", "Europe/London");
+    form.set("status", "CLOSED");
+    function FormDataForTest() {
+      return form;
+    }
+    vi.stubGlobal("FormData", FormDataForTest);
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "shift-a" });
+    const props = {
+      ...modalProps({ ...none, canWrite: true }),
+      state: {
+        mode: "detail" as const,
+        entity: "shifts" as const,
+        record: {
+          id: "shift-a",
+          name: "Night shift",
+          startsAt: "2026-09-02T22:00:00.000Z",
+          endsAt: "2026-09-03T06:00:00.000Z",
+          timezone: "Europe/London",
+          status: "OPEN"
+        }
+      }
+    };
+    const tree = runtime.render(props);
+    const detail = elements(tree).find((element) => element.type === GenericDetail);
+    if (!detail) throw new Error("Shift detail was not found");
+
+    await (
+      detail.props as {
+        onSubmit: (event: { preventDefault: () => void; currentTarget: unknown }) => Promise<void>;
+      }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+
+    expect(apiBridge.apiRequest).toHaveBeenCalledWith(
+      "/api/shifts/shift-a",
+      session.accessToken,
+      expect.objectContaining({ method: "PATCH" })
+    );
+    const request = apiBridge.apiRequest.mock.calls[0]?.[2] as { body?: string };
+    expect(JSON.parse(request.body ?? "{}")).toEqual({
+      name: "Updated night shift",
+      startsAt: "2026-09-02T21:00",
+      endsAt: "2026-09-03T05:00",
+      timezone: "Europe/London"
+    });
   });
 });
