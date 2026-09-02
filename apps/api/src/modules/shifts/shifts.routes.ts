@@ -5,7 +5,7 @@ import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
 import { searchableListQuerySchema } from "../../shared/http/pagination.js";
 import { ShiftsController } from "./shifts.controller.js";
-import { coverageSchema, shiftSchema } from "./shifts.validators.js";
+import { coverageSchema, shiftCreateSchema, shiftUpdateSchema } from "./shifts.validators.js";
 
 export const shiftRoutes = Router();
 
@@ -19,14 +19,14 @@ shiftRoutes.get(
 shiftRoutes.post(
   "/",
   requirePermission("shifts", "write"),
-  validate("body", shiftSchema),
+  validate("body", shiftCreateSchema),
   ShiftsController.create
 );
 shiftRoutes.get("/:id", requirePermission("shifts", "read"), ShiftsController.get);
 shiftRoutes.patch(
   "/:id",
   requirePermission("shifts", "write"),
-  validate("body", shiftSchema.partial()),
+  validate("body", shiftUpdateSchema),
   ShiftsController.update
 );
 shiftRoutes.delete("/:id", requirePermission("shifts", "delete"), ShiftsController.remove);

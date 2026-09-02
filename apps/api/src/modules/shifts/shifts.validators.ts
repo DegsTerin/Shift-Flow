@@ -1,13 +1,24 @@
 // en-GB: Validates shifts input so malformed data cannot cross the module boundary.
 import { z } from "zod";
 
-export const shiftSchema = z.object({
+const shiftContentSchema = z.object({
   name: z.string().min(2).max(160),
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date(),
-  timezone: z.string().min(3).max(64).optional(),
+  timezone: z.string().min(3).max(64).optional()
+});
+
+export const shiftCreateSchema = shiftContentSchema.extend({
   status: z.enum(["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"]).optional()
 });
+
+// Keep the established create-schema export for existing internal consumers.
+export const shiftSchema = shiftCreateSchema;
+
+export const shiftUpdateSchema = shiftContentSchema
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, "At least one shift field is required");
 
 export const coverageSchema = z.object({
   userId: z.string().uuid(),
