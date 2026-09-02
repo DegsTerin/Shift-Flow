@@ -111,6 +111,119 @@ describe("RBAC scope evaluation", () => {
     ).resolves.toBe(false);
   });
 
+  it("rejects portfolio permissions outside the signed ceiling before persistence", async () => {
+    const serviceClass = RbacService as unknown as {
+      repository: { findAssignmentsForUser: ReturnType<typeof vi.fn> };
+    };
+    const originalRepository = serviceClass.repository;
+    const findAssignmentsForUser = vi.fn();
+    serviceClass.repository = { findAssignmentsForUser };
+
+    try {
+      await expect(
+        RbacService.hasPermission(
+          {
+            id: "user-a",
+            email: "portfolio@example.com",
+            companyId: "company-a",
+            sessionKind: "portfolio",
+            permissions: ["dashboard:read"]
+          },
+          rule
+        )
+      ).resolves.toBe(false);
+    } finally {
+      serviceClass.repository = originalRepository;
+    }
+
+    expect(findAssignmentsForUser).not.toHaveBeenCalled();
+  });
+
+  it("requires both the portfolio ceiling and live RBAC authority", async () => {
+    const serviceClass = RbacService as unknown as {
+      repository: { findAssignmentsForUser: ReturnType<typeof vi.fn> };
+    };
+    const originalRepository = serviceClass.repository;
+    const findAssignmentsForUser = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([assignment()]);
+    serviceClass.repository = { findAssignmentsForUser };
+    const user = {
+      id: "user-a",
+      email: "portfolio@example.com",
+      companyId: "company-a",
+      sessionKind: "portfolio" as const,
+      permissions: ["activities:read"]
+    };
+
+    try {
+      await expect(RbacService.hasPermission(user, rule)).resolves.toBe(false);
+      await expect(RbacService.hasPermission(user, rule)).resolves.toBe(true);
+    } finally {
+      serviceClass.repository = originalRepository;
+    }
+
+    expect(findAssignmentsForUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a signed portfolio wildcard as a ceiling, not a live authority grant", async () => {
+    const serviceClass = RbacService as unknown as {
+      repository: { findAssignmentsForUser: ReturnType<typeof vi.fn> };
+    };
+    const originalRepository = serviceClass.repository;
+    const findAssignmentsForUser = vi
+      .fn()
+      .mockResolvedValueOnce([assignment()])
+      .mockResolvedValueOnce([]);
+    serviceClass.repository = { findAssignmentsForUser };
+    const user = {
+      id: "user-a",
+      email: "portfolio@example.com",
+      companyId: "company-a",
+      sessionKind: "portfolio" as const,
+      permissions: ["*:*"]
+    };
+
+    try {
+      await expect(RbacService.hasPermission(user, rule)).resolves.toBe(true);
+      await expect(RbacService.hasPermission(user, rule)).resolves.toBe(false);
+    } finally {
+      serviceClass.repository = originalRepository;
+    }
+
+    expect(findAssignmentsForUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves live RBAC for conventional sessions and forwards the active transaction", async () => {
+    const serviceClass = RbacService as unknown as {
+      repository: { findAssignmentsForUser: ReturnType<typeof vi.fn> };
+    };
+    const originalRepository = serviceClass.repository;
+    const findAssignmentsForUser = vi.fn().mockResolvedValue([assignment()]);
+    const transaction = { marker: "permission-transaction" } as unknown as PrismaTransactionClient;
+    serviceClass.repository = { findAssignmentsForUser };
+
+    try {
+      await expect(
+        RbacService.hasPermission(
+          {
+            id: "user-a",
+            email: "user@example.com",
+            companyId: "company-a",
+            permissions: []
+          },
+          rule,
+          transaction
+        )
+      ).resolves.toBe(true);
+    } finally {
+      serviceClass.repository = originalRepository;
+    }
+
+    expect(findAssignmentsForUser).toHaveBeenCalledWith("user-a", "company-a", transaction);
+  });
+
   it("lists roles with tenant search, matching count scope and stable ordering", async () => {
     const service = RbacService.roles as unknown as {
       repository: {

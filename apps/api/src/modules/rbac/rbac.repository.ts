@@ -1,6 +1,11 @@
 // en-GB: Encapsulates rbac persistence so data access remains consistent and testable.
 import { badRequest, notFound } from "../../shared/errors/app-error.js";
-import { getDelegate, getPrisma } from "../../shared/lib/prisma.js";
+import {
+  getDelegate,
+  getDelegateFrom,
+  getPrisma,
+  type PrismaTransactionClient
+} from "../../shared/lib/prisma.js";
 import { BaseRepository } from "../../shared/repositories/base.repository.js";
 
 type AssignmentDelegate = {
@@ -97,9 +102,16 @@ export class RbacRepository {
     return getDelegate<UserCompanyDelegate>("userCompany");
   }
 
-  async findAssignmentsForUser(userId: string, companyId: string) {
+  async findAssignmentsForUser(
+    userId: string,
+    companyId: string,
+    transaction?: PrismaTransactionClient
+  ) {
     const now = new Date();
-    return (await this.assignments()).findMany({
+    const delegate = transaction
+      ? getDelegateFrom<AssignmentDelegate>(transaction, "userRoleAssignment")
+      : await this.assignments();
+    return delegate.findMany({
       where: {
         userId,
         companyId,

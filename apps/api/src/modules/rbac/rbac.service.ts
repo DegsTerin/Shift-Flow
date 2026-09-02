@@ -8,6 +8,7 @@ import { toBoundedSearch, toPagination, toSkipTake } from "../../shared/http/pag
 import { badRequest, forbidden, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { buildAuditData } from "../../shared/services/audit-writer.js";
+import type { PrismaTransactionClient } from "../../shared/lib/prisma.js";
 import { RbacRepository } from "./rbac.repository.js";
 
 type PermissionRule = {
@@ -220,7 +221,20 @@ export class RbacService {
   static roles = new RolesService(RbacService.repository);
   static permissions = new PermissionsService(RbacService.repository);
 
-  static async hasPermission(user: AuthenticatedUser, rule: PermissionRule) {
+  static async hasPermission(
+    user: AuthenticatedUser,
+    rule: PermissionRule,
+    transaction?: PrismaTransactionClient
+  ) {
+    const requiredPermission = `${rule.resource}:${rule.action}`;
+    if (
+      user.sessionKind === "portfolio" &&
+      !user.permissions?.includes(requiredPermission) &&
+      !user.permissions?.includes(superAdminPermission)
+    ) {
+      return false;
+    }
+
     if (rule.tenant?.companyId && rule.tenant.companyId !== user.companyId) {
       return false;
     }
@@ -231,7 +245,8 @@ export class RbacService {
 
     const assignments = (await RbacService.repository.findAssignmentsForUser(
       user.id,
-      companyId
+      companyId,
+      transaction
     )) as Assignment[];
 
     return assignments.some((assignment) =>

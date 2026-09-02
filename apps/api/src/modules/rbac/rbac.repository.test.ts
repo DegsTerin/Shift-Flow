@@ -1,5 +1,6 @@
 // en-GB: Verifies that protected Role mutations lock, revalidate and audit within one transaction.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PrismaTransactionClient } from "../../shared/lib/prisma.js";
 import { RbacRepository } from "./rbac.repository.js";
 
 const persistence = vi.hoisted(() => ({
@@ -40,6 +41,24 @@ describe("RbacRepository protected Role mutations", () => {
     persistence.transaction.mockImplementation(
       async (callback: (tx: ReturnType<typeof transactionClient>) => Promise<unknown>) =>
         callback(transactionClient())
+    );
+  });
+
+  it("uses the supplied transaction delegate for live assignment reads", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const transaction = {
+      userRoleAssignment: { findMany }
+    } as unknown as PrismaTransactionClient;
+    const repository = new RbacRepository();
+
+    await expect(
+      repository.findAssignmentsForUser("user-a", "company-a", transaction)
+    ).resolves.toEqual([]);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: "user-a", companyId: "company-a" })
+      })
     );
   });
 
