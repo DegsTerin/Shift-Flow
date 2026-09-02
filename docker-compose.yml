@@ -92,6 +92,7 @@ services:
     build:
       context: .
       dockerfile: apps/api-dotnet/Dockerfile
+      target: runtime
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       API_RATE_LIMIT_WINDOW_MS: "600000"

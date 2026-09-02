@@ -26,9 +26,28 @@ $stranglerFixturePath = Join-Path $repositoryRoot 'prisma/strangler-integration-
 $stranglerSecurityControlPath = Join-Path $repositoryRoot 'prisma/strangler-security-control.mjs'
 $stranglerSmokePath = Join-Path $PSScriptRoot 'smoke-strangler.ps1'
 $stranglerRuntimePath = Join-Path $PSScriptRoot 'strangler-runtime.ps1'
+$ociVerifierPath = Join-Path $repositoryRoot 'scripts/verify-oci-supply-chain.mjs'
+$ociVerifierTestPath = Join-Path $repositoryRoot 'scripts/verify-oci-supply-chain.test.mjs'
+$ociTargetsPath = Join-Path $PSScriptRoot 'oci-targets.json'
+$ociExceptionsPath = Join-Path $PSScriptRoot 'oci-cve-exceptions.json'
+$ociSpdxSchemaPath = Join-Path $PSScriptRoot 'spdx-2.3-schema.json'
+$gitAttributesPath = Join-Path $repositoryRoot '.gitattributes'
 
 if (-not (Test-Path -LiteralPath $agentContractPath -PathType Leaf)) {
     throw "The project-scoped agent contract validator is missing: $agentContractPath"
+}
+
+foreach ($ociPolicyPath in @(
+        $ociVerifierPath,
+        $ociVerifierTestPath,
+        $ociTargetsPath,
+        $ociExceptionsPath,
+        $ociSpdxSchemaPath,
+        $gitAttributesPath
+    )) {
+    if (-not (Test-Path -LiteralPath $ociPolicyPath -PathType Leaf)) {
+        throw "The local OCI policy precursor file is missing: $ociPolicyPath"
+    }
 }
 
 function Assert-Plan {
@@ -79,6 +98,26 @@ function Get-DeclaredIsolatedVariables {
             Sort-Object -Unique)
 }
 
+function Assert-ExactObjectProperties {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Value,
+
+        [Parameter(Mandatory)]
+        [string[]]$Expected,
+
+        [Parameter(Mandatory)]
+        [string]$Location
+    )
+
+    $observedProperties = @($Value.PSObject.Properties.Name | Sort-Object)
+    $expectedProperties = @($Expected | Sort-Object)
+    if (($observedProperties -join "`n") -cne ($expectedProperties -join "`n")) {
+        throw "The local OCI policy object '$Location' has unexpected or missing properties."
+    }
+}
+
 $developmentScript = Get-Content -LiteralPath $developmentPath -Raw
 $buildScript = Get-Content -LiteralPath $buildPath -Raw
 $ciScript = Get-Content -LiteralPath $ciPath -Raw
@@ -92,6 +131,10 @@ $stranglerFixture = Get-Content -LiteralPath $stranglerFixturePath -Raw
 $stranglerSecurityControl = Get-Content -LiteralPath $stranglerSecurityControlPath -Raw
 $stranglerSmoke = Get-Content -LiteralPath $stranglerSmokePath -Raw
 $stranglerRuntime = Get-Content -LiteralPath $stranglerRuntimePath -Raw
+$ociVerifier = Get-Content -LiteralPath $ociVerifierPath -Raw
+$ociTargets = Get-Content -LiteralPath $ociTargetsPath -Raw | ConvertFrom-Json
+$ociExceptions = Get-Content -LiteralPath $ociExceptionsPath -Raw | ConvertFrom-Json
+$gitAttributes = Get-Content -LiteralPath $gitAttributesPath -Raw
 $documentedProjectVariables = @(
     Get-Content -LiteralPath $environmentExamplePath |
         ForEach-Object {
@@ -215,6 +258,185 @@ if ($package.scripts.build -cne 'pwsh -NoLogo -NoProfile -File ./eng/build.ps1' 
     $developmentScript.Contains('build:application', [System.StringComparison]::Ordinal) -or
     $ciScript.Contains('build:application', [System.StringComparison]::Ordinal)) {
     throw 'Quick and Full must reach the raw application build only through the canonical metadata-preserving wrapper.'
+}
+
+$expectedOciPolicyScript = 'node scripts/verify-oci-supply-chain.mjs --policy-only --targets eng/oci-targets.json --exceptions eng/oci-cve-exceptions.json'
+$expectedQualityScript = 'npm run format:check && npm run comments:verify && npm run platform:workflow:test && npm run lint && npm run typecheck && npm run prisma:validate && npm run audit:overrides && npm run security:oci-policy && npm run security:secrets && npm run security:production-config'
+$qualityScript = [string]$package.scripts.quality
+$overrideGatePosition = $qualityScript.IndexOf(
+    'npm run audit:overrides',
+    [System.StringComparison]::Ordinal)
+$ociPolicyGatePosition = $qualityScript.IndexOf(
+    'npm run security:oci-policy',
+    [System.StringComparison]::Ordinal)
+$secretGatePosition = $qualityScript.IndexOf(
+    'npm run security:secrets',
+    [System.StringComparison]::Ordinal)
+if ($qualityScript -cne $expectedQualityScript -or
+    $package.scripts.'security:oci-policy' -cne $expectedOciPolicyScript -or
+    [regex]::Matches(
+        $qualityScript,
+        [regex]::Escape('npm run security:oci-policy')).Count -ne 1 -or
+    $overrideGatePosition -lt 0 -or
+    $ociPolicyGatePosition -lt $overrideGatePosition -or
+    $secretGatePosition -lt $ociPolicyGatePosition) {
+    throw 'Quality must execute the exact local OCI policy precursor once, after override audit and before secret scanning.'
+}
+foreach ($forbiddenOciOperation in @(
+        'node:child_process',
+        'node:http',
+        'node:https',
+        'node:net',
+        'node:tls',
+        'fetch(',
+        'docker build',
+        'docker compose')) {
+    if ($ociVerifier.Contains($forbiddenOciOperation, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "The local OCI policy precursor must not perform external operation '$forbiddenOciOperation'."
+    }
+}
+if (-not (Get-Content -LiteralPath $unitVitestConfigPath -Raw).Contains(
+        '"scripts/**/*.test.mjs"',
+        [System.StringComparison]::Ordinal)) {
+    throw 'The central unit-test configuration must discover the local OCI policy regression.'
+}
+
+Assert-ExactObjectProperties -Value $ociTargets -Expected @(
+    'schemaVersion',
+    'classification',
+    'policy',
+    'targets'
+) -Location 'targets'
+Assert-ExactObjectProperties -Value $ociTargets.policy -Expected @(
+    'platform',
+    'minimumBlockedSeverity',
+    'blockUnknownSeverity',
+    'maximumEvidenceAgeHours',
+    'maximumScannerDatabaseAgeHours',
+    'maximumExceptionLifetimeDays',
+    'sbomFormat',
+    'sbomProfile',
+    'sbomSchema',
+    'scanFormat',
+    'attestationPredicateType'
+) -Location 'targets.policy'
+Assert-ExactObjectProperties -Value $ociTargets.policy.sbomSchema -Expected @(
+    'path',
+    'sha256',
+    'source',
+    'sourceSha256',
+    'normalisation'
+) -Location 'targets.policy.sbomSchema'
+if ($ociTargets.schemaVersion -cne 'shiftflow.oci-targets/v1' -or
+    $ociTargets.classification -cne 'LOCAL_UNSIGNED_PRECURSOR' -or
+    $ociTargets.policy.platform -cne 'linux/amd64' -or
+    $ociTargets.policy.minimumBlockedSeverity -cne 'MEDIUM' -or
+    $ociTargets.policy.blockUnknownSeverity -cne $true -or
+    $ociTargets.policy.maximumEvidenceAgeHours -ne 24 -or
+    $ociTargets.policy.maximumScannerDatabaseAgeHours -ne 24 -or
+    $ociTargets.policy.maximumExceptionLifetimeDays -ne 30 -or
+    $ociTargets.policy.sbomFormat -cne 'spdx-2.3-json' -or
+    $ociTargets.policy.sbomProfile -cne 'shiftflow.spdx-2.3-oci-package-profile/v1' -or
+    $ociTargets.policy.sbomSchema.path -cne 'eng/spdx-2.3-schema.json' -or
+    $ociTargets.policy.sbomSchema.sha256 -cne 'sha256:3ec6cd5b8ba0c9a3e821da48536fa1b814567dc7e4376efe98d3e7b2a7a8d230' -or
+    $ociTargets.policy.sbomSchema.source -cne 'https://raw.githubusercontent.com/spdx/spdx-spec/v2.3/schemas/spdx-schema.json' -or
+    $ociTargets.policy.sbomSchema.sourceSha256 -cne 'sha256:239208b7ac287b3cf5d9a9af23f9d69863971102a5e1587a27a398b43490b89b' -or
+    $ociTargets.policy.sbomSchema.normalisation -cne 'terminal-lf-appended' -or
+    $ociTargets.policy.scanFormat -cne 'shiftflow.oci-scan/v1' -or
+    $ociTargets.policy.attestationPredicateType -cne 'urn:shiftflow:attestation:oci-supply-chain:v1') {
+    throw 'The local OCI policy precursor must preserve its exact fail-closed policy values.'
+}
+$observedSpdxSchemaHash = 'sha256:' + (Get-FileHash -LiteralPath $ociSpdxSchemaPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($observedSpdxSchemaHash -cne $ociTargets.policy.sbomSchema.sha256 -or
+    $package.devDependencies.ajv -cne '6.15.0') {
+    throw 'The local OCI policy precursor must pin its exact SPDX 2.3 schema bytes and direct validator dependency.'
+}
+foreach ($strictAjvOption in @(
+        'coerceTypes: false',
+        'ownProperties: true',
+        'removeAdditional: false',
+        'strictDefaults: true',
+        'strictKeywords: true',
+        'strictNumbers: true',
+        'useDefaults: false',
+        'validateSchema: true')) {
+    if ([regex]::Matches(
+            $ociVerifier,
+            [regex]::Escape($strictAjvOption)).Count -ne 1) {
+        throw "The local OCI policy precursor must compile SPDX with exact Ajv option '$strictAjvOption'."
+    }
+}
+if ($ociVerifier.Contains('unknownFormats:', [System.StringComparison]::Ordinal)) {
+    throw 'The local OCI policy precursor must not ignore unknown schema formats.'
+}
+$byteHashedOciPaths = @(
+    'docker-compose[.]yml',
+    'apps/api-dotnet/Dockerfile',
+    'infra/docker/node[.]Dockerfile',
+    'eng/spdx-2[.]3-schema[.]json'
+)
+foreach ($byteHashedOciPath in $byteHashedOciPaths) {
+    if ([regex]::Matches(
+            $gitAttributes,
+            "(?m)^$byteHashedOciPath text eol=lf\s*$").Count -ne 1) {
+        throw 'Every byte-hashed OCI source definition must retain LF bytes on every supported checkout platform.'
+    }
+}
+
+$expectedOciTargets = @(
+    [ordered]@{
+        id = 'api-dotnet'; composeService = 'api-dotnet'; sourceKind = 'build'; context = '.'
+        dockerfile = 'apps/api-dotnet/Dockerfile'; target = 'runtime'
+    },
+    [ordered]@{
+        id = 'legacy-api'; composeService = 'legacy-api'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/node.Dockerfile'; target = 'legacy-api'
+    },
+    [ordered]@{
+        id = 'migration'; composeService = 'migrate'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/node.Dockerfile'; target = 'migration'
+    },
+    [ordered]@{
+        id = 'nginx'; composeService = 'nginx'; sourceKind = 'registry'
+        image = 'nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8'
+    },
+    [ordered]@{
+        id = 'postgres'; composeService = 'postgres'; sourceKind = 'registry'
+        image = 'postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685'
+    },
+    [ordered]@{
+        id = 'redis'; composeService = 'redis'; sourceKind = 'registry'
+        image = 'redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232'
+    },
+    [ordered]@{
+        id = 'web'; composeService = 'web'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/node.Dockerfile'; target = 'web'
+    }
+)
+$observedOciTargets = @($ociTargets.targets)
+if ($observedOciTargets.Count -ne $expectedOciTargets.Count) {
+    throw 'The local OCI policy precursor must contain exactly seven image targets.'
+}
+for ($targetIndex = 0; $targetIndex -lt $expectedOciTargets.Count; $targetIndex++) {
+    $expectedTarget = $expectedOciTargets[$targetIndex]
+    $observedTarget = $observedOciTargets[$targetIndex]
+    Assert-ExactObjectProperties -Value $observedTarget -Expected @($expectedTarget.Keys) -Location "targets[$targetIndex]"
+    foreach ($propertyName in $expectedTarget.Keys) {
+        $observedValue = [string]$observedTarget.PSObject.Properties[$propertyName].Value
+        if ($observedValue -cne [string]$expectedTarget[$propertyName]) {
+            throw "The local OCI policy target at index $targetIndex does not match '$propertyName'."
+        }
+    }
+}
+Assert-ExactObjectProperties -Value $ociExceptions -Expected @(
+    'schemaVersion',
+    'exceptions'
+) -Location 'exceptions'
+if ($ociExceptions.schemaVersion -cne 'shiftflow.oci-cve-exceptions/v1' -or
+    $null -eq $ociExceptions.exceptions -or
+    $ociExceptions.exceptions -isnot [System.Collections.IList] -or
+    @($ociExceptions.exceptions).Count -ne 0) {
+    throw 'The tracked local OCI exception register must start empty and use its exact schema.'
 }
 
 foreach ($requiredBuildRestoration in @(
@@ -498,6 +720,7 @@ $expectedScripts = @{
     'build:dotnet' = 'dotnet build apps/api-dotnet/ShiftFlow.slnx --configuration Release'
     'test:dotnet' = 'dotnet test apps/api-dotnet/ShiftFlow.slnx --configuration Release'
     'test:runtime:strangler' = 'pwsh -NoLogo -NoProfile -File ./eng/strangler-runtime.ps1'
+    'security:oci-policy' = 'node scripts/verify-oci-supply-chain.mjs --policy-only --targets eng/oci-targets.json --exceptions eng/oci-cve-exceptions.json'
 }
 foreach ($scriptName in $expectedScripts.Keys) {
     if ($package.scripts.$scriptName -cne $expectedScripts[$scriptName]) {
