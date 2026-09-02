@@ -42,6 +42,9 @@ export class ReportsService extends BaseService {
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
+    if (Object.keys(data).length === 0) {
+      throw badRequest("At least one report field is required");
+    }
     for (const field of Object.keys(data)) {
       if (!editableFields.has(field)) {
         throw badRequest(`Report field '${field}' cannot be changed through PATCH`);

@@ -40,4 +40,7 @@ export const shiftReportSchema = z
   })
   .strict();
 
-export const shiftReportUpdateSchema = shiftReportSchema.partial().strict();
+export const shiftReportUpdateSchema = shiftReportSchema
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, "At least one report field is required");

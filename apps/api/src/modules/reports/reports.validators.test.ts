@@ -20,4 +20,8 @@ describe("reportFilterSchema", () => {
     expect(shiftReportUpdateSchema.safeParse({ status: "APPROVED" }).success).toBe(false);
     expect(shiftReportUpdateSchema.safeParse({ approvedAt: new Date() }).success).toBe(false);
   });
+
+  it("rejects an empty generic report patch", () => {
+    expect(shiftReportUpdateSchema.safeParse({}).success).toBe(false);
+  });
 });

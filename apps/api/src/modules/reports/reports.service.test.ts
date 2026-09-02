@@ -115,6 +115,18 @@ describe("ReportsService.activitySummary", () => {
 });
 
 describe("ReportsService lifecycle", () => {
+  it("rejects an empty patch before persistence", async () => {
+    const harness = repositoryHarness("DRAFT");
+    const service = new ReportsService(harness.repository);
+
+    await expect(service.update(request(), reportId, {})).rejects.toMatchObject({
+      code: "BAD_REQUEST"
+    });
+
+    expect(harness.spies.withTransaction).not.toHaveBeenCalled();
+    expect(writeAudit).not.toHaveBeenCalled();
+  });
+
   it("rejects lifecycle and ownership fields before a generic patch reaches persistence", async () => {
     const harness = repositoryHarness("DRAFT");
     const service = new ReportsService(harness.repository);
