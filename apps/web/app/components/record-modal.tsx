@@ -522,7 +522,12 @@ function FormActions({
   return (
     <div className="modal-actions span-2">
       {canWrite ? (
-        <button className="compact-button" type="button" onClick={() => setEditing(!editing)}>
+        <button
+          className="compact-button"
+          disabled={busy}
+          type="button"
+          onClick={() => setEditing(!editing)}
+        >
           <Save size={16} />
           {editing ? t.close : t.edit}
         </button>

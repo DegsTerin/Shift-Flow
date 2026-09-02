@@ -54,7 +54,8 @@ function recordFor(entity: View) {
 
 function renderGeneric(
   entity: "users" | "clients" | "teams" | "shifts",
-  capabilities: RecordModalCapabilities
+  capabilities: RecordModalCapabilities,
+  busy = false
 ) {
   return GenericDetail({
     entity,
@@ -66,7 +67,7 @@ function renderGeneric(
     ],
     roles: [],
     editing: false,
-    busy: false,
+    busy,
     capabilities,
     setEditing: vi.fn(),
     onSubmit: vi.fn(),
@@ -126,6 +127,18 @@ describe("GenericDetail capability matrix", () => {
 
     expect(text).not.toContain(messages["en-GB"].add);
     expect(text).not.toContain(messages["en-GB"].remove);
+  });
+
+  it("freezes the generic edit-state toggle while a modal mutation is pending", () => {
+    const idleTree = renderGeneric("clients", { ...none, canWrite: true });
+    const busyTree = renderGeneric("clients", { ...none, canWrite: true }, true);
+    const editButton = (tree: unknown) =>
+      expandedElements(tree).find(
+        (element) => element.type === "button" && textOf(element).includes(messages["en-GB"].edit)
+      );
+
+    expect((editButton(idleTree)?.props as { disabled?: boolean }).disabled).toBe(false);
+    expect((editButton(busyTree)?.props as { disabled?: boolean }).disabled).toBe(true);
   });
 
   it("separates member addition from removal authority", () => {
