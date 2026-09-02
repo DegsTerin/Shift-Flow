@@ -32,6 +32,7 @@ $ociTargetsPath = Join-Path $PSScriptRoot 'oci-targets.json'
 $ociExceptionsPath = Join-Path $PSScriptRoot 'oci-cve-exceptions.json'
 $ociSpdxSchemaPath = Join-Path $PSScriptRoot 'spdx-2.3-schema.json'
 $gitAttributesPath = Join-Path $repositoryRoot '.gitattributes'
+$dockerDesktopHelperPath = Join-Path $repositoryRoot 'scripts/docker-desktop.ps1'
 
 if (-not (Test-Path -LiteralPath $agentContractPath -PathType Leaf)) {
     throw "The project-scoped agent contract validator is missing: $agentContractPath"
@@ -135,6 +136,7 @@ $ociVerifier = Get-Content -LiteralPath $ociVerifierPath -Raw
 $ociTargets = Get-Content -LiteralPath $ociTargetsPath -Raw | ConvertFrom-Json
 $ociExceptions = Get-Content -LiteralPath $ociExceptionsPath -Raw | ConvertFrom-Json
 $gitAttributes = Get-Content -LiteralPath $gitAttributesPath -Raw
+$dockerDesktopHelper = Get-Content -LiteralPath $dockerDesktopHelperPath -Raw
 $documentedProjectVariables = @(
     Get-Content -LiteralPath $environmentExamplePath |
         ForEach-Object {
@@ -160,6 +162,16 @@ $expectedRuntimeVariables = @(
     'SMOKE_CREDENTIAL_VERSION',
     'SMOKE_JWT_ID'
 )
+
+$perUserDockerDesktopPath = 'Join-Path $basePath "Programs/DockerDesktop/Docker Desktop.exe"'
+$legacyPerUserDockerDesktopPath = 'Join-Path $basePath "Programs/Docker/Docker/Docker Desktop.exe"'
+if ([regex]::Matches(
+        $dockerDesktopHelper,
+        [regex]::Escape($perUserDockerDesktopPath)).Count -ne 1 -or
+    $dockerDesktopHelper.IndexOf($perUserDockerDesktopPath, [System.StringComparison]::Ordinal) -gt
+    $dockerDesktopHelper.IndexOf($legacyPerUserDockerDesktopPath, [System.StringComparison]::Ordinal)) {
+    throw 'The Docker Desktop helper must prefer the supported per-user installation path.'
+}
 $observedRuntimeVariables = @(
     [regex]::Matches($runtimeEnvironmentBoundary.Groups['body'].Value, "'(?<name>[A-Z0-9_]+)'") |
         ForEach-Object { $_.Groups['name'].Value } |
