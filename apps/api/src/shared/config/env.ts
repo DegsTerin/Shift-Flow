@@ -3,24 +3,34 @@ import { z } from "zod";
 import { parseTrustedProxy } from "./trusted-proxy.js";
 
 const booleanFromString = z
-  .union([z.boolean(), z.string()])
-  .optional()
-  .transform((value) => {
-    if (value === undefined) return undefined;
-    if (typeof value === "boolean") return value;
-    return value.toLowerCase() === "true";
-  });
+  .union([
+    z.boolean(),
+    z
+      .string()
+      .regex(/^(true|false)$/i, "must be true or false")
+      .transform((value) => value.toLowerCase() === "true")
+  ])
+  .optional();
 
-const positiveInteger = (fallback: number) =>
-  z
-    .string()
-    .optional()
-    .transform((value) => {
-      const parsed = Number.parseInt(value ?? "", 10);
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-    });
+const maximumCounter = 2_147_483_647;
+const maximumTimerDelayMs = 2_147_483_647;
+const maximumRefreshDays = 36_500;
+
+/** Creates a schema whose default applies only when the variable is absent. */
+const positiveInteger = (fallback: number, maximum: number) =>
+  z.preprocess(
+    (value) => (value === undefined ? String(fallback) : value),
+    z
+      .string()
+      .regex(/^[0-9]+$/, "must be a positive decimal integer")
+      .transform(Number)
+      .refine((value) => Number.isSafeInteger(value) && value > 0 && value <= maximum, {
+        message: `must be between 1 and ${maximum}`
+      })
+  );
 
 const placeholderValuePattern = /(replace|example|test|valid|invalid|missing|shiftflow)/i;
+type EnvironmentInput = Readonly<Record<string, unknown>>;
 
 function isPlaceholderValue(value: string | undefined) {
   return Boolean(value && placeholderValuePattern.test(value));
@@ -37,22 +47,22 @@ function getDatabasePassword(databaseUrl: string | undefined) {
 
 const envSchema = z
   .object({
-    API_INSTANCE_COUNT: positiveInteger(1),
-    API_PORT: positiveInteger(3001),
-    API_RATE_LIMIT_MAX: positiveInteger(600),
-    API_RATE_LIMIT_WINDOW_MS: positiveInteger(60_000),
-    AUTH_LOCKOUT_MAX_ATTEMPTS: positiveInteger(5),
-    AUTH_LOCKOUT_WINDOW_MS: positiveInteger(15 * 60_000),
+    API_INSTANCE_COUNT: positiveInteger(1, maximumCounter),
+    API_PORT: positiveInteger(3001, 65_535),
+    API_RATE_LIMIT_MAX: positiveInteger(600, maximumCounter),
+    API_RATE_LIMIT_WINDOW_MS: positiveInteger(60_000, maximumTimerDelayMs),
+    AUTH_LOCKOUT_MAX_ATTEMPTS: positiveInteger(5, maximumCounter),
+    AUTH_LOCKOUT_WINDOW_MS: positiveInteger(15 * 60_000, maximumTimerDelayMs),
     AUTH_MODE: z.enum(["required", "demo"]).optional(),
     AUTH_DEMO_EMAIL: z.string().email().default("demo@shiftflow.local"),
-    AUTH_RATE_LIMIT_MAX: positiveInteger(10),
-    AUTH_RATE_LIMIT_WINDOW_MS: positiveInteger(15 * 60_000),
+    AUTH_RATE_LIMIT_MAX: positiveInteger(10, maximumCounter),
+    AUTH_RATE_LIMIT_WINDOW_MS: positiveInteger(15 * 60_000, maximumTimerDelayMs),
     CORS_ORIGIN: z.string().optional(),
     DATABASE_URL: z.string().optional(),
     JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
     JWT_ACCESS_SECRET: z.string().optional(),
     JWT_ISSUER: z.string().default("shiftflow"),
-    JWT_REFRESH_EXPIRES_DAYS: positiveInteger(30),
+    JWT_REFRESH_EXPIRES_DAYS: positiveInteger(30, maximumRefreshDays),
     JWT_SECRET: z.string().optional(),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -65,6 +75,15 @@ const envSchema = z
   .superRefine((env, ctx) => {
     const isProduction = env.NODE_ENV === "production";
     const accessSecret = env.JWT_ACCESS_SECRET ?? env.JWT_SECRET;
+
+    if (env.RATE_LIMIT_STORE === "external") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["RATE_LIMIT_STORE"],
+        message:
+          "RATE_LIMIT_STORE=external is not supported because no shared rate-limit backend is configured"
+      });
+    }
 
     if (isProduction && !env.DATABASE_URL) {
       ctx.addIssue({
@@ -137,17 +156,27 @@ const envSchema = z
       });
     }
 
-    if (isProduction && env.API_INSTANCE_COUNT > 1 && env.RATE_LIMIT_STORE !== "external") {
+    if (isProduction && env.API_INSTANCE_COUNT > 1) {
       ctx.addIssue({
         code: "custom",
-        path: ["RATE_LIMIT_STORE"],
+        path: ["API_INSTANCE_COUNT"],
         message:
-          "RATE_LIMIT_STORE=external is required when production API_INSTANCE_COUNT is greater than 1"
+          "API_INSTANCE_COUNT must be 1 in production until a shared rate-limit backend is implemented"
       });
     }
   });
 
-export const env = envSchema.parse(process.env);
+/**
+ * Parses one environment snapshot without silently replacing malformed values.
+ * @param input Environment variables to validate.
+ * @returns The validated and normalised application configuration.
+ * @throws {ZodError} When a supplied value is malformed or selects an unavailable capability.
+ */
+export function parseEnvironment(input: EnvironmentInput = process.env) {
+  return envSchema.parse(input);
+}
+
+export const env = parseEnvironment();
 
 export const configuredCorsOrigins = env.CORS_ORIGIN
   ? env.CORS_ORIGIN.split(",")
