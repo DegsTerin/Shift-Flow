@@ -1,6 +1,8 @@
 // en-GB: Exercises fail-closed RBAC scope evaluation so omitted tenant context cannot widen access.
 import { describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import type { PrismaTransactionClient } from "../../shared/lib/prisma.js";
+import type { BaseRepository } from "../../shared/repositories/base.repository.js";
 import { assignmentGrantsPermission, RbacService } from "./rbac.service.js";
 
 vi.mock("../../shared/services/audit-writer.js", () => ({
@@ -203,12 +205,24 @@ describe("RBAC scope evaluation", () => {
 
   it("discards protected fields even when the service is called without HTTP validation", async () => {
     const service = RbacService.roles as unknown as {
-      repository: { create(data: Record<string, unknown>): Promise<unknown> };
+      repository: BaseRepository;
       create(req: ApiRequest, data: Record<string, unknown>): Promise<unknown>;
     };
     const originalRepository = service.repository;
     const create = vi.fn().mockResolvedValue({ id: "role-a" });
-    service.repository = { create };
+    const transaction = { marker: "role-transaction" } as unknown as PrismaTransactionClient;
+    const repository = {
+      create,
+      withTransaction: vi.fn(
+        async (
+          operation: (
+            value: BaseRepository,
+            valueTransaction: PrismaTransactionClient
+          ) => Promise<unknown>
+        ) => operation(repository as unknown as BaseRepository, transaction)
+      )
+    };
+    service.repository = repository as unknown as BaseRepository;
 
     try {
       await service.create(

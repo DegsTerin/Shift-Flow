@@ -1,6 +1,7 @@
 // en-GB: Exercises comments behaviour so regressions at this boundary are detected automatically.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import type { PrismaTransactionClient } from "../../shared/lib/prisma.js";
 import { RbacService } from "../rbac/rbac.service.js";
 import type { CommentsRepository } from "./comments.repository.js";
 import { CommentsService } from "./comments.service.js";
@@ -24,7 +25,16 @@ function makeRequest(permissions: string[] = []): ApiRequest {
 }
 
 function serviceWithRepository(authorId: string) {
+  const transaction = { marker: "comments-transaction" } as unknown as PrismaTransactionClient;
   const repository = {
+    withTransaction: vi.fn(
+      async (
+        operation: (
+          value: CommentsRepository,
+          valueTransaction: PrismaTransactionClient
+        ) => Promise<unknown>
+      ) => operation(repository as unknown as CommentsRepository, transaction)
+    ),
     findMutationContext: vi.fn().mockResolvedValue({
       id: "comment-1",
       authorId,
