@@ -121,6 +121,199 @@ public sealed class AuditEndpointTests
     }
 
     [TestMethod]
+    public async Task AuditRejectsAmbiguousCompanyHeaderRepresentations()
+    {
+        await using var factory = new CompatibilityHostFactory();
+
+        using var repeatedClient = AuthenticatedClient(factory);
+        Assert.IsTrue(repeatedClient.DefaultRequestHeaders.TryAddWithoutValidation(
+            "x-company-id",
+            [
+                CompatibilityHostFactory.CompanyId.ToString(),
+                CompatibilityHostFactory.CompanyId.ToString()
+            ]));
+        using var repeated = await repeatedClient.GetAsync(new Uri("/api/audit", UriKind.Relative));
+        Assert.AreEqual(HttpStatusCode.Forbidden, repeated.StatusCode);
+
+        using var commaSeparatedClient = AuthenticatedClient(factory);
+        Assert.IsTrue(commaSeparatedClient.DefaultRequestHeaders.TryAddWithoutValidation(
+            "x-company-id",
+            $"{CompatibilityHostFactory.CompanyId},{CompatibilityHostFactory.CompanyId}"));
+        using var commaSeparated = await commaSeparatedClient.GetAsync(
+            new Uri("/api/audit", UriKind.Relative));
+        Assert.AreEqual(HttpStatusCode.Forbidden, commaSeparated.StatusCode);
+
+        using var singleClient = AuthenticatedClient(factory);
+        singleClient.DefaultRequestHeaders.Add(
+            "x-company-id",
+            CompatibilityHostFactory.CompanyId.ToString());
+        using var single = await singleClient.GetAsync(new Uri("/api/audit", UriKind.Relative));
+        Assert.AreEqual(HttpStatusCode.OK, single.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task AuditRequiresTheSignedPortfolioCeilingAndCurrentPermission()
+    {
+        await using var factory = new CompatibilityHostFactory();
+
+        using var outsideCeilingClient = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "portfolio",
+                permissions: ["dashboard:read"]));
+        using var outsideCeiling = await outsideCeilingClient.GetAsync(
+            new Uri("/api/audit", UriKind.Relative));
+        Assert.AreEqual(HttpStatusCode.Forbidden, outsideCeiling.StatusCode);
+
+        factory.Security.PermissionGranted = false;
+        using var revokedLiveClient = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "portfolio",
+                permissions: ["audit:read"]));
+        using var revokedLive = await revokedLiveClient.GetAsync(
+            new Uri("/api/audit", UriKind.Relative));
+        Assert.AreEqual(HttpStatusCode.Forbidden, revokedLive.StatusCode);
+
+        factory.Security.PermissionGranted = true;
+        using var intersectedClient = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "portfolio",
+                permissions: ["audit:read"]));
+        using var intersected = await intersectedClient.GetAsync(
+            new Uri("/api/audit", UriKind.Relative));
+        Assert.AreEqual(HttpStatusCode.OK, intersected.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task AuditIgnoresInjectedTrustedPortfolioClaims()
+    {
+        await using var factory = new CompatibilityHostFactory();
+        using var client = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "portfolio",
+                permissions: ["dashboard:read"],
+                additionalClaims: new Dictionary<string, object?>
+                {
+                    ["urn:shiftflow:trusted-session-kind"] = "portfolio",
+                    ["urn:shiftflow:trusted-portfolio-permission"] = "audit:read"
+                }));
+
+        using var response = await client.GetAsync(new Uri("/api/audit", UriKind.Relative));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task AuditRejectsPortfolioSessionsWithoutAPermissionsArray()
+    {
+        await using var factory = new CompatibilityHostFactory();
+        using var missingClient = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "portfolio",
+                includePermissions: false));
+        using var missing = await missingClient.GetAsync(new Uri("/api/audit", UriKind.Relative));
+        Assert.AreEqual(HttpStatusCode.Unauthorized, missing.StatusCode);
+        Assert.AreEqual(0, factory.Security.PrincipalValidationCalls);
+
+        using var invalidClient = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "portfolio",
+                permissionsPayload: "audit:read"));
+        using var invalid = await invalidClient.GetAsync(new Uri("/api/audit", UriKind.Relative));
+        Assert.AreEqual(HttpStatusCode.Unauthorized, invalid.StatusCode);
+        Assert.AreEqual(0, factory.Security.PrincipalValidationCalls);
+    }
+
+    [TestMethod]
+    public async Task AuditRejectsEveryMixedPortfolioPermissionArrayBeforePrincipalLookup()
+    {
+        await using var factory = new CompatibilityHostFactory();
+        object?[][] malformedPayloads =
+        [
+            ["audit:read", 7, new { permission = "audit:read" }, null],
+            [null, new { permission = "audit:read" }, 7, "audit:read"]
+        ];
+
+        foreach (var malformedPayload in malformedPayloads)
+        {
+            using var client = AuthenticatedClient(
+                factory,
+                LegacyTokenFactory.Create(
+                    sessionKind: "portfolio",
+                    permissionsPayload: malformedPayload));
+            using var response = await client.GetAsync(new Uri("/api/audit", UriKind.Relative));
+
+            Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.AreEqual(0, factory.Security.PrincipalValidationCalls);
+        }
+    }
+
+    [TestMethod]
+    public async Task AuditTreatsAnEmptyPortfolioPermissionArrayAsAnEmptyCeiling()
+    {
+        await using var factory = new CompatibilityHostFactory();
+        using var client = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "portfolio",
+                permissions: Array.Empty<string>()));
+
+        using var response = await client.GetAsync(new Uri("/api/audit", UriKind.Relative));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task AuditAcceptsThePortfolioWildcardWhenCurrentPermissionAllows()
+    {
+        await using var factory = new CompatibilityHostFactory();
+        using var client = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "portfolio",
+                permissions: ["*:*"]));
+
+        using var response = await client.GetAsync(new Uri("/api/audit", UriKind.Relative));
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task AuditDoesNotTrustPermissionClaimsForConventionalSessions()
+    {
+        await using var factory = new CompatibilityHostFactory();
+        factory.Security.PermissionGranted = false;
+        using var client = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(permissions: ["audit:read"]));
+
+        using var response = await client.GetAsync(new Uri("/api/audit", UriKind.Relative));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task AuditRejectsAnUnknownSessionKindBeforePrincipalLookup()
+    {
+        await using var factory = new CompatibilityHostFactory();
+        using var client = AuthenticatedClient(
+            factory,
+            LegacyTokenFactory.Create(
+                sessionKind: "future-session",
+                permissions: ["audit:read"]));
+
+        using var response = await client.GetAsync(new Uri("/api/audit", UriKind.Relative));
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.AreEqual(0, factory.Security.PrincipalValidationCalls);
+    }
+
+    [TestMethod]
     public async Task AuditPreservesTheGlobalRateLimitContractAcrossReplicas()
     {
         await using var factory = new CompatibilityHostFactory();
@@ -258,11 +451,13 @@ public sealed class AuditEndpointTests
                 .GetProperty("schema").GetProperty("$ref").GetString());
     }
 
-    private static HttpClient AuthenticatedClient(CompatibilityHostFactory factory)
+    private static HttpClient AuthenticatedClient(
+        CompatibilityHostFactory factory,
+        string? token = null)
     {
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", LegacyTokenFactory.Create());
+            new AuthenticationHeaderValue("Bearer", token ?? LegacyTokenFactory.Create());
         return client;
     }
 }
