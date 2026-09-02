@@ -9,7 +9,7 @@ const packageLock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
 const expectedOverrides = {
   "deepmerge-ts": "8.0.0",
-  mysql2: "3.22.0",
+  mysql2: "3.23.1",
   postcss: "$postcss"
 };
 
