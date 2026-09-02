@@ -1,4 +1,5 @@
 // en-GB: Verifies that the real seed orchestration cleans and populates through one atomic transaction.
+/* global structuredClone */
 import { describe, expect, it, vi } from "vitest";
 import { runRealisticSeed } from "./realistic-seed.mjs";
 import { destructiveSeedTransactionOptions } from "./seed-safety.mjs";
