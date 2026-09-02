@@ -325,6 +325,43 @@ describe("ActivityTaskBoardRepository", () => {
     });
   });
 
+  it("keeps a populated column within the same canonical completion classification", async () => {
+    persistence.columnFindFirst.mockResolvedValue(columns.done);
+    const repository = new ActivityTaskBoardRepository();
+
+    await repository.updateColumn(context, columns.done.id, { name: "  done  " });
+
+    expect(persistence.taskFindFirst).not.toHaveBeenCalled();
+    expect(persistence.columnUpdate).toHaveBeenCalledWith({
+      where: { id: columns.done.id },
+      data: { name: "  done  " }
+    });
+  });
+
+  it("completes a task created in a trimmed decomposed completion column", async () => {
+    persistence.columnFindFirst.mockResolvedValue({
+      ...columns.done,
+      name: "  CONCLUI\u0301DO  "
+    });
+    const repository = new ActivityTaskBoardRepository();
+
+    await repository.createTask(context, {
+      columnId: columns.done.id,
+      title: "Publish report"
+    });
+
+    expect(persistence.taskCreate).toHaveBeenCalledWith({
+      data: {
+        title: "Publish report",
+        companyId: context.companyId,
+        activityId: context.activityId,
+        columnId: columns.done.id,
+        position: 0,
+        completedAt: expect.any(Date)
+      }
+    });
+  });
+
   it("creates a task, locks its references and writes history through the same transaction", async () => {
     persistence.columnFindFirst.mockResolvedValue(columns.done);
     persistence.taskFindMany.mockResolvedValue([

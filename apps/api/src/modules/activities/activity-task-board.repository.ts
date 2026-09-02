@@ -58,7 +58,12 @@ function boundedPosition(value: unknown, length: number) {
 }
 
 function isDoneColumn(column: EntityRecord) {
-  return DONE_COLUMN_NAMES.has(String(column.name ?? "").toLowerCase());
+  return DONE_COLUMN_NAMES.has(
+    String(column.name ?? "")
+      .trim()
+      .normalize("NFC")
+      .toLowerCase()
+  );
 }
 
 function comparable(value: unknown): unknown {
