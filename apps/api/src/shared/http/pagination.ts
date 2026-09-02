@@ -4,9 +4,20 @@ import { badRequest } from "../errors/app-error.js";
 
 export const maxPage = 10_000;
 
+function boundedDecimalInteger(defaultValue: number, maximum: number) {
+  return z.preprocess(
+    (value) => {
+      if (value === undefined || typeof value === "number") return value;
+      if (typeof value === "string" && /^[1-9]\d*$/.test(value)) return Number(value);
+      return value;
+    },
+    z.number().int().min(1).max(maximum).default(defaultValue)
+  );
+}
+
 export const paginationSchema = z.object({
-  page: z.coerce.number().int().positive().max(maxPage).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25)
+  page: boundedDecimalInteger(1, maxPage),
+  pageSize: boundedDecimalInteger(25, 100)
 });
 
 export const searchableListQuerySchema = z.object({
@@ -31,8 +42,19 @@ export function toSkipTake({ page, pageSize }: Pagination) {
 }
 
 export function toBoundedSearch(query: unknown) {
-  if (!query || typeof query !== "object" || !("search" in query)) return "";
-  return String((query as { search?: unknown }).search ?? "")
-    .trim()
-    .slice(0, 200);
+  if (
+    !query ||
+    typeof query !== "object" ||
+    !Object.prototype.hasOwnProperty.call(query, "search")
+  ) {
+    return "";
+  }
+
+  const result = searchableListQuerySchema.safeParse({
+    search: (query as { search?: unknown }).search
+  });
+  if (!result.success) {
+    throw badRequest("Invalid search", result.error.flatten());
+  }
+  return result.data.search ?? "";
 }

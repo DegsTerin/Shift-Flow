@@ -146,6 +146,72 @@ describe("BaseService searchable lists", () => {
     });
     expect(repository.count).toHaveBeenCalledWith(where);
   });
+
+  it("adds a stable id tie-breaker to the default list order", async () => {
+    const repository = {
+      list: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0)
+    };
+    const service = new BaseService(repository as unknown as BaseRepository, "Client");
+
+    await service.list(request());
+
+    expect(repository.list).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ updatedAt: "desc" }, { id: "asc" }] })
+    );
+  });
+
+  it("normalises configured ordering without mutation or duplicate id terms", async () => {
+    const repository = {
+      list: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0)
+    };
+    const objectOrder = { name: "desc" };
+    const arrayOrder = [{ name: "asc" }, { id: "desc" }];
+    const emptyOrder: Array<Record<string, string>> = [];
+
+    await new BaseService(repository as unknown as BaseRepository, "Client", {
+      orderBy: objectOrder
+    }).list(request());
+    await new BaseService(repository as unknown as BaseRepository, "Client", {
+      orderBy: arrayOrder
+    }).list(request());
+    await new BaseService(repository as unknown as BaseRepository, "Client", {
+      orderBy: emptyOrder
+    }).list(request());
+
+    expect(repository.list).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ orderBy: [{ name: "desc" }, { id: "asc" }] })
+    );
+    expect(repository.list).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ orderBy: [{ name: "asc" }, { id: "desc" }] })
+    );
+    expect(repository.list).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ orderBy: [{ id: "asc" }] })
+    );
+    expect(objectOrder).toEqual({ name: "desc" });
+    expect(arrayOrder).toEqual([{ name: "asc" }, { id: "desc" }]);
+    expect(emptyOrder).toEqual([]);
+  });
+
+  it("rejects invalid query values before either repository operation", async () => {
+    for (const query of [{ page: true }, { search: ["unexpected"] }]) {
+      const repository = {
+        list: vi.fn().mockResolvedValue([]),
+        count: vi.fn().mockResolvedValue(0)
+      };
+      const service = new BaseService(repository as unknown as BaseRepository, "Client");
+
+      await expect(
+        service.list({ ...request(), query } as unknown as ApiRequest)
+      ).rejects.toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
+      expect(repository.list).not.toHaveBeenCalled();
+      expect(repository.count).not.toHaveBeenCalled();
+    }
+  });
 });
 
 describe("BaseService audited writes", () => {

@@ -16,6 +16,16 @@ type BaseServiceOptions = {
   searchFields?: string[];
 };
 
+function normaliseOrderBy(
+  orderBy: Record<string, string> | Array<Record<string, string>>
+): Array<Record<string, string>> {
+  const terms = (Array.isArray(orderBy) ? orderBy : [orderBy]).map((term) => ({ ...term }));
+  if (!terms.some((term) => Object.prototype.hasOwnProperty.call(term, "id"))) {
+    terms.push({ id: "asc" });
+  }
+  return terms;
+}
+
 export class BaseService {
   private readonly options: Required<BaseServiceOptions>;
 
@@ -29,7 +39,7 @@ export class BaseService {
       deletedAtFilter: options.deletedAtFilter ?? true,
       userStamps: options.userStamps ?? false,
       auditWrites: options.auditWrites ?? true,
-      orderBy: options.orderBy ?? { updatedAt: "desc" },
+      orderBy: normaliseOrderBy(options.orderBy ?? { updatedAt: "desc" }),
       searchFields: options.searchFields ?? []
     };
   }

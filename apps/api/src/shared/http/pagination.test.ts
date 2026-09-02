@@ -12,30 +12,63 @@ describe("pagination", () => {
     const pagination = toPagination({});
 
     expect(pagination).toEqual({ page: 1, pageSize: 25 });
+    expect(toPagination({ page: undefined, pageSize: undefined })).toEqual({
+      page: 1,
+      pageSize: 25
+    });
     expect(toSkipTake({ page: 3, pageSize: 10 })).toEqual({ skip: 20, take: 10 });
   });
 
-  it("accepts the maximum bounded page", () => {
-    expect(toPagination({ page: "10000" })).toEqual({ page: 10_000, pageSize: 25 });
+  it("accepts decimal strings and internal integers at exact bounds", () => {
+    expect(toPagination({ page: "10000", pageSize: "100" })).toEqual({
+      page: 10_000,
+      pageSize: 100
+    });
+    expect(toPagination({ page: 2, pageSize: 1 })).toEqual({ page: 2, pageSize: 1 });
   });
 
   it.each([
     { page: "0" },
+    { page: "" },
+    { page: "01" },
     { page: "1.5" },
+    { page: "1e2" },
+    { page: "0x10" },
     { page: "10001" },
     { page: String(Number.MAX_SAFE_INTEGER) },
+    { page: true },
+    { page: null },
+    { page: ["2"] },
+    { page: { value: "2" } },
     { pageSize: "0" },
     { pageSize: "101" },
-    { pageSize: "not-a-number" }
+    { pageSize: "not-a-number" },
+    { pageSize: false },
+    { pageSize: ["25", "50"] }
   ])("rejects invalid pagination as a bad request", (query) => {
     expect(() => toPagination(query)).toThrow(
       expect.objectContaining({ statusCode: 400, code: "BAD_REQUEST" })
     );
   });
 
-  it("bounds defensive search parsing and validates the public query contract", () => {
-    expect(toBoundedSearch({ search: `  ${"x".repeat(220)}  ` })).toHaveLength(200);
+  it("uses one strict search contract while preserving absence and trimming", () => {
     expect(toBoundedSearch({})).toBe("");
-    expect(searchableListQuerySchema.safeParse({ search: "x".repeat(201) }).success).toBe(false);
+    expect(toBoundedSearch({ search: undefined })).toBe("");
+    expect(toBoundedSearch({ search: "  needle  " })).toBe("needle");
+    expect(toBoundedSearch({ search: "x".repeat(200) })).toHaveLength(200);
+    expect(searchableListQuerySchema.safeParse({ search: "x".repeat(200) }).success).toBe(true);
+  });
+
+  it.each([
+    true,
+    42,
+    null,
+    ["needle"],
+    { value: "needle" },
+    "x".repeat(201)
+  ])("rejects an invalid present search value", (search) => {
+    expect(() => toBoundedSearch({ search })).toThrow(
+      expect.objectContaining({ statusCode: 400, code: "BAD_REQUEST" })
+    );
   });
 });
