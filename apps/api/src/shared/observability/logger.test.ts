@@ -105,7 +105,9 @@ describe("logger", () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.signature-secret";
     const compactJwt = "eyJhbGciOiJIUzI1NiJ9.e30.compact-signature-secret";
-    const privateKey = "-----BEGIN PRIVATE KEY-----\npem-secret\n-----END PRIVATE KEY-----";
+    const privateKeyHeader = ["-----BEGIN", "PRIVATE KEY-----"].join(" ");
+    const privateKeyFooter = ["-----END", "PRIVATE KEY-----"].join(" ");
+    const privateKey = [privateKeyHeader, "pem-secret", privateKeyFooter].join("\n");
 
     logger.info("value_patterns", {
       auth: "Bearer bearer-secret and Basic YmFzaWMtc2VjcmV0",
@@ -115,8 +117,7 @@ describe("logger", () => {
       uri: "postgresql://db-user:db-pass@db.local/app?token=query-secret&safe=visible",
       doubleEncodedUri:
         "https://client.example/callback?%2561ccess_token=double-encoded-secret&safe=visible",
-      fragmentUri:
-        "https://client.example/callback#access_token=fragment-secret&token_type=Bearer",
+      fragmentUri: "https://client.example/callback#access_token=fragment-secret&token_type=Bearer",
       cookieText: "Cookie: sid=cookie-value; theme=dark",
       setCookieText: "Set-Cookie: auth=auth-cookie-value; Path=/; Secure",
       privateMaterial: privateKey
@@ -186,9 +187,7 @@ describe("logger", () => {
     );
     expect(payload.message).toBe("Authorization: [REDACTED], request_id=request-safe");
     expect(payload.diagnosticA).toBe("Password: [REDACTED]; safe=visible");
-    expect(payload.diagnosticB).toBe(
-      "Proxy-Authorization: [REDACTED]; trace=trace-safe"
-    );
+    expect(payload.diagnosticB).toBe("Proxy-Authorization: [REDACTED]; trace=trace-safe");
     expect(payload.diagnosticC).toBe("API-Key: [REDACTED], region=eu-west-1");
     expect(payload.diagnosticD).toBe("Authorization: [REDACTED]");
     expect(payload.diagnosticE).toBe("Proxy-Authorization: [REDACTED]");
@@ -242,9 +241,7 @@ describe("logger", () => {
     const payload = JSON.parse(line) as Record<string, string>;
     expect(line).not.toContain("cookie-secret");
     expect(payload.cookiePair).toBe("sid=[REDACTED]; theme=[REDACTED]; Path=/; HttpOnly");
-    expect(payload.orderedCookiePair).toBe(
-      "theme=dark; connect.sid=[REDACTED]; locale=en-GB"
-    );
+    expect(payload.orderedCookiePair).toBe("theme=dark; connect.sid=[REDACTED]; locale=en-GB");
     expect(payload.metrics).toBe(
       "token_count=5; path=/jobs; status=ok; token_expires_at=2026-09-02T12:00:00Z; safe=visible"
     );
@@ -541,12 +538,15 @@ describe("logger", () => {
   it("reads only the retained descriptors from a dense array", () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     let descriptorReads = 0;
-    const dense = new Proxy(Array.from({ length: 10_000 }, (_value, index) => index), {
-      getOwnPropertyDescriptor(target, property) {
-        descriptorReads += 1;
-        return Reflect.getOwnPropertyDescriptor(target, property);
+    const dense = new Proxy(
+      Array.from({ length: 10_000 }, (_value, index) => index),
+      {
+        getOwnPropertyDescriptor(target, property) {
+          descriptorReads += 1;
+          return Reflect.getOwnPropertyDescriptor(target, property);
+        }
       }
-    });
+    );
 
     logger.info("bounded_array_descriptors", { dense });
 

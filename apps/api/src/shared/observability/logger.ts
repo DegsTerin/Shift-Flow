@@ -32,22 +32,20 @@ const dateToISOString = Date.prototype.toISOString;
 
 const PEM_PATTERN =
   /-----BEGIN [A-Z0-9][A-Z0-9 ]*-----[\s\S]*?(?:-----END [A-Z0-9][A-Z0-9 ]*-----|$)/gi;
-const LABELLED_DIGEST_AUTH_PATTERN =
-  /\b((?:proxy-)?authorization)(\s*:\s*)Digest\b[^\r\n]*/gi;
+const LABELLED_DIGEST_AUTH_PATTERN = /\b((?:proxy-)?authorization)(\s*:\s*)Digest\b[^\r\n]*/gi;
 const AUTH_PATTERN = /\b(Bearer|Basic)\s+[^\r\n,;&})]+/gi;
 const REDACTED_AUTH_VALUE_PATTERN = /^(?:Bearer|Basic)\s+\[REDACTED\]/i;
 const JWT_PATTERN =
   /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{8,}(?![A-Za-z0-9_-])/g;
 const URI_USERINFO_PATTERN = /([a-z][a-z0-9+.-]*:\/\/)([^/\s?#@]+)@/gi;
 const TRUNCATED_URI_USERINFO_PATTERN = /([a-z][a-z0-9+.-]*:\/\/)[^/\s?#@]*$/i;
-const TRUNCATED_JWT_PATTERN =
-  /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{1,}(?:\.[A-Za-z0-9_-]*)?$/;
+const TRUNCATED_JWT_PATTERN = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{1,}(?:\.[A-Za-z0-9_-]*)?$/;
 const URI_QUERY_PATTERN = /([?&#])([^=&#\s]+)=([^&#\s]*)/g;
 const LABELLED_COOKIE_PATTERN = /\b((?:set-)?cookie)\s*:\s*[^\r\n]*/gi;
 const COOKIE_PAIR_PATTERN = /(^|;\s*)([A-Za-z0-9!#$%&'*+.^_`|~-]+)=([^;\r\n]*)/g;
 const FIRST_COOKIE_PAIR_PATTERN = /^([A-Za-z0-9!#$%&'*+.^_`|~-]+)=/;
 const ASSIGNMENT_LABEL_PATTERN =
-  /(^|[\s,;&{(\[])(["']?)([A-Za-z_][A-Za-z0-9_. -]{0,63})\2\s*[:=]\s*/g;
+  /(^|[\s,;&{(\x5b])(["']?)([A-Za-z_][A-Za-z0-9_. -]{0,63})\2\s*[:=]\s*/g;
 const COOKIE_ATTRIBUTES = new Set(["domain", "expires", "maxage", "path", "samesite"]);
 const COOKIE_SECRET_NAMES = new Set([
   "accesstoken",
@@ -433,8 +431,7 @@ class Sanitiser {
     const output = createObject();
     return this.track(source, output, () => {
       const keys = Reflect.ownKeys(descriptors).filter(
-        (key): key is string =>
-          typeof key === "string" && descriptors[key]?.enumerable === true
+        (key): key is string => typeof key === "string" && descriptors[key]?.enumerable === true
       );
       this.copy(output, descriptors, keys, depth);
     });
@@ -454,9 +451,7 @@ class Sanitiser {
         const retained = length > MAX_ARRAY_ITEMS ? MAX_ARRAY_ITEMS - 1 : length;
         for (let index = 0; index < retained; index += 1) {
           const descriptor = Object.getOwnPropertyDescriptor(source, String(index));
-          output.push(
-            descriptor ? this.descriptor(descriptor, depth + 1) : "[Empty array item]"
-          );
+          output.push(descriptor ? this.descriptor(descriptor, depth + 1) : "[Empty array item]");
         }
         if (length > retained) output.push(`[${length - retained} array items omitted]`);
       });
@@ -487,9 +482,7 @@ class Sanitiser {
       if (errorName === "AggregateError") reserved.add("errors");
       const custom = Reflect.ownKeys(descriptors).filter(
         (key): key is string =>
-          typeof key === "string" &&
-          !reserved.has(key) &&
-          descriptors[key]?.enumerable === true
+          typeof key === "string" && !reserved.has(key) && descriptors[key]?.enumerable === true
       );
       this.copy(output, descriptors, custom, depth);
     });
