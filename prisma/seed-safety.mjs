@@ -2,6 +2,10 @@
 import { URL } from "node:url";
 
 export const destructiveSeedConfirmation = "DELETE_CONFIRMED_LOCAL_SHIFTFLOW_DATA";
+export const destructiveSeedTransactionOptions = Object.freeze({
+  maxWait: 10_000,
+  timeout: 120_000
+});
 
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const allowedDatabasePattern = /^shiftflow(?:[_-][a-z0-9_-]+)?$/i;
@@ -89,4 +93,18 @@ export function assertSafeDestructiveSeed({ databaseUrl, nodeEnv, confirmation, 
   }
 
   return { host: target.hostname, databaseName };
+}
+
+export async function runAtomicDestructiveSeed(databaseClient, seedOperation) {
+  if (!databaseClient || typeof databaseClient.$transaction !== "function") {
+    throw new TypeError("A database client with transaction support is required.");
+  }
+  if (typeof seedOperation !== "function") {
+    throw new TypeError("The destructive seed operation must be a function.");
+  }
+
+  return databaseClient.$transaction(
+    async (transactionClient) => seedOperation(transactionClient),
+    destructiveSeedTransactionOptions
+  );
 }

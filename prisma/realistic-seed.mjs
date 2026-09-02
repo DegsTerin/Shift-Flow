@@ -3,32 +3,14 @@
 
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
-import { assertSafeDestructiveSeed } from "./seed-safety.mjs";
-
-const explicitDestructiveConfirmation = process.env.SHIFTFLOW_DESTRUCTIVE_SEED_CONFIRMATION;
-dotenv.config();
-
-const connectionString = process.env.DATABASE_URL;
+import { assertSafeDestructiveSeed, runAtomicDestructiveSeed } from "./seed-safety.mjs";
 
 const now = new Date();
 const timezone = "America/Sao_Paulo";
-const seedPassword = process.env.REALISTIC_SEED_PASSWORD ?? process.env.E2E_PASSWORD;
-const adminEmail =
-  process.env.REALISTIC_SEED_EMAIL ?? process.env.E2E_EMAIL ?? "admin.operacoes@shiftflow.local";
-const password = seedPassword;
-
-assertSafeDestructiveSeed({
-  databaseUrl: connectionString,
-  nodeEnv: process.env.NODE_ENV,
-  confirmation: explicitDestructiveConfirmation,
-  password
-});
-
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString })
-});
 
 function bcryptRounds() {
   const rounds = Number(process.env.SEED_BCRYPT_ROUNDS ?? 12);
@@ -52,42 +34,41 @@ function shiftWindow(days, startHour, durationHours) {
   return { startsAt, endsAt };
 }
 
-async function cleanDatabase() {
-  await prisma.$transaction([
-    prisma.accessTokenRevocation.deleteMany(),
-    prisma.authLoginAttempt.deleteMany(),
-    prisma.refreshToken.deleteMany(),
-    prisma.auditLog.deleteMany(),
-    prisma.shiftReportActivity.deleteMany(),
-    prisma.shiftReport.deleteMany(),
-    prisma.notification.deleteMany(),
-    prisma.attachment.deleteMany(),
-    prisma.comment.deleteMany(),
-    prisma.activityTaskHistory.deleteMany(),
-    prisma.activityTask.deleteMany(),
-    prisma.activityTaskColumn.deleteMany(),
-    prisma.activityHistory.deleteMany(),
-    prisma.activity.deleteMany(),
-    prisma.shiftCoverage.deleteMany(),
-    prisma.shift.deleteMany(),
-    prisma.dashboardWidget.deleteMany(),
-    prisma.dashboardConfiguration.deleteMany(),
-    prisma.userRoleAssignment.deleteMany(),
-    prisma.rolePermission.deleteMany(),
-    prisma.permission.deleteMany(),
-    prisma.role.deleteMany(),
-    prisma.teamMember.deleteMany(),
-    prisma.teamClient.deleteMany(),
-    prisma.userClient.deleteMany(),
-    prisma.team.deleteMany(),
-    prisma.client.deleteMany(),
-    prisma.userCompany.deleteMany(),
-    prisma.user.deleteMany(),
-    prisma.company.deleteMany()
-  ]);
+async function cleanDatabase(database) {
+  await database.accessTokenRevocation.deleteMany();
+  await database.authLoginAttempt.deleteMany();
+  await database.refreshToken.deleteMany();
+  await database.auditLog.deleteMany();
+  await database.shiftReportActivity.deleteMany();
+  await database.shiftReport.deleteMany();
+  await database.notification.deleteMany();
+  await database.attachment.deleteMany();
+  await database.comment.deleteMany();
+  await database.activityTaskHistory.deleteMany();
+  await database.activityTask.deleteMany();
+  await database.activityTaskColumn.deleteMany();
+  await database.activityHistory.deleteMany();
+  await database.activity.deleteMany();
+  await database.shiftCoverage.deleteMany();
+  await database.shift.deleteMany();
+  await database.dashboardWidget.deleteMany();
+  await database.dashboardConfiguration.deleteMany();
+  await database.userRoleAssignment.deleteMany();
+  await database.rolePermission.deleteMany();
+  await database.permission.deleteMany();
+  await database.role.deleteMany();
+  await database.teamMember.deleteMany();
+  await database.teamClient.deleteMany();
+  await database.userClient.deleteMany();
+  await database.team.deleteMany();
+  await database.client.deleteMany();
+  await database.userCompany.deleteMany();
+  await database.user.deleteMany();
+  await database.company.deleteMany();
 }
 
-async function createUser(passwordHash, data) {
+async function createUser(database, passwordHash, data) {
+  const prisma = database;
   return prisma.user.create({
     data: {
       passwordHash,
@@ -101,7 +82,8 @@ async function createUser(passwordHash, data) {
   });
 }
 
-async function createRole(companyId, role) {
+async function createRole(database, companyId, role) {
+  const prisma = database;
   return prisma.role.create({
     data: {
       companyId,
@@ -113,7 +95,8 @@ async function createRole(companyId, role) {
   });
 }
 
-async function linkPermissions(companyId, role, permissionsByKey, permissionKeys) {
+async function linkPermissions(database, companyId, role, permissionsByKey, permissionKeys) {
+  const prisma = database;
   await prisma.rolePermission.createMany({
     data: permissionKeys.map((key) => ({
       companyId,
@@ -123,7 +106,8 @@ async function linkPermissions(companyId, role, permissionsByKey, permissionKeys
   });
 }
 
-async function createDashboard(companyId, userId, dashboardType, widgets, teamId = null) {
+async function createDashboard(database, companyId, userId, dashboardType, widgets, teamId = null) {
+  const prisma = database;
   const configuration = await prisma.dashboardConfiguration.create({
     data: {
       companyId,
@@ -163,7 +147,8 @@ async function createDashboard(companyId, userId, dashboardType, widgets, teamId
   return configuration;
 }
 
-async function createActivityScenario(context, spec, index) {
+async function createActivityScenario(database, context, spec, index) {
+  const prisma = database;
   const { company, usersByKey, clientsByKey, teamsByKey, shiftsByKey } = context;
   const assignee = usersByKey.get(spec.assigneeKey);
   const reporter = usersByKey.get(spec.reporterKey);
@@ -356,10 +341,9 @@ async function createActivityScenario(context, spec, index) {
   return activity;
 }
 
-async function main() {
-  await cleanDatabase();
-
-  const passwordHash = await bcrypt.hash(password, bcryptRounds());
+export async function seedDatabase(database, passwordHash, adminEmail) {
+  const prisma = database;
+  await cleanDatabase(prisma);
 
   const company = await prisma.company.create({
     data: {
@@ -372,33 +356,33 @@ async function main() {
   });
 
   const users = await Promise.all([
-    createUser(passwordHash, {
+    createUser(prisma, passwordHash, {
       email: adminEmail,
       displayName: "Marina Azevedo",
       jobTitle: "Gerente de Operacoes",
       preferredTheme: "DARK",
       lastLoginAt: hoursFromNow(-2)
     }),
-    createUser(passwordHash, {
+    createUser(prisma, passwordHash, {
       email: "supervisor.noc@shiftflow.local",
       displayName: "Rafael Lima",
       jobTitle: "Supervisor NOC",
       lastLoginAt: hoursFromNow(-4)
     }),
-    createUser(passwordHash, {
+    createUser(prisma, passwordHash, {
       email: "analista.pagamentos@shiftflow.local",
       displayName: "Camila Rocha",
       jobTitle: "Analista de Pagamentos",
       preferredTheme: "LIGHT",
       lastLoginAt: hoursFromNow(-6)
     }),
-    createUser(passwordHash, {
+    createUser(prisma, passwordHash, {
       email: "analista.identidade@shiftflow.local",
       displayName: "Thiago Nunes",
       jobTitle: "Analista IAM",
       lastLoginAt: hoursFromNow(-9)
     }),
-    createUser(passwordHash, {
+    createUser(prisma, passwordHash, {
       email: "observador.executivo@shiftflow.local",
       displayName: "Helena Torres",
       jobTitle: "Diretora de Atendimento",
@@ -616,35 +600,36 @@ async function main() {
     permissions.map((permission) => [`${permission.resource}:${permission.action}`, permission])
   );
 
-  const adminRole = await createRole(company.id, {
+  const adminRole = await createRole(prisma, company.id, {
     name: "Administrador Operacional",
     description: "Acesso completo para parametrizacao, operacao e auditoria.",
     color: "#dc2626",
     isSystem: true
   });
-  const supervisorRole = await createRole(company.id, {
+  const supervisorRole = await createRole(prisma, company.id, {
     name: "Supervisor de Turno",
     description: "Coordena turnos, aprova relatorios e acompanha SLA.",
     color: "#2563eb"
   });
-  const analystRole = await createRole(company.id, {
+  const analystRole = await createRole(prisma, company.id, {
     name: "Analista Operacional",
     description: "Atua em atividades, comentarios, tarefas e notificacoes.",
     color: "#16a34a"
   });
-  const viewerRole = await createRole(company.id, {
+  const viewerRole = await createRole(prisma, company.id, {
     name: "Executivo Leitura",
     description: "Acesso de leitura para paineis e relatorios.",
     color: "#7c3aed"
   });
 
   await linkPermissions(
+    prisma,
     company.id,
     adminRole,
     permissionsByKey,
     permissions.map((permission) => `${permission.resource}:${permission.action}`)
   );
-  await linkPermissions(company.id, supervisorRole, permissionsByKey, [
+  await linkPermissions(prisma, company.id, supervisorRole, permissionsByKey, [
     "dashboard:read",
     "clients:read",
     "users:read",
@@ -665,7 +650,7 @@ async function main() {
     "reports:approve",
     "audit:read"
   ]);
-  await linkPermissions(company.id, analystRole, permissionsByKey, [
+  await linkPermissions(prisma, company.id, analystRole, permissionsByKey, [
     "dashboard:read",
     "clients:read",
     "teams:read",
@@ -679,7 +664,7 @@ async function main() {
     "reports:read",
     "reports:write"
   ]);
-  await linkPermissions(company.id, viewerRole, permissionsByKey, [
+  await linkPermissions(prisma, company.id, viewerRole, permissionsByKey, [
     "dashboard:read",
     "clients:read",
     "users:read",
@@ -1137,6 +1122,7 @@ async function main() {
   for (const [index, spec] of activitySpecs.entries()) {
     activities.push(
       await createActivityScenario(
+        prisma,
         { company, usersByKey, clientsByKey, teamsByKey, shiftsByKey },
         spec,
         index + 1
@@ -1284,16 +1270,24 @@ async function main() {
     gridHeight
   }));
 
-  await createDashboard(company.id, admin.id, "MAIN", mainWidgets);
-  await createDashboard(company.id, admin.id, "TEAM", teamWidgets, teamsByKey.get("noc").id);
+  await createDashboard(prisma, company.id, admin.id, "MAIN", mainWidgets);
   await createDashboard(
+    prisma,
+    company.id,
+    admin.id,
+    "TEAM",
+    teamWidgets,
+    teamsByKey.get("noc").id
+  );
+  await createDashboard(
+    prisma,
     company.id,
     supervisor.id,
     "TEAM",
     teamWidgets,
     teamsByKey.get("pagamentos").id
   );
-  await createDashboard(company.id, executiveViewer.id, "EXECUTIVE", mainWidgets);
+  await createDashboard(prisma, company.id, executiveViewer.id, "EXECUTIVE", mainWidgets);
 
   const counts = {
     companies: await prisma.company.count(),
@@ -1319,26 +1313,61 @@ async function main() {
     })
   };
 
-  console.log(
-    JSON.stringify(
-      {
-        status: "ok",
-        message: "Banco limpo e populado com dados realistas em portugues.",
-        login: {
-          email: adminEmail,
-          passwordSource: "environment"
-        },
-        companyId: company.id,
-        counts
-      },
-      null,
-      2
-    )
-  );
+  return {
+    status: "ok",
+    message: "Banco limpo e populado com dados realistas em portugues.",
+    login: {
+      email: adminEmail,
+      passwordSource: "environment"
+    },
+    companyId: company.id,
+    counts
+  };
 }
 
-try {
+export async function runRealisticSeed({ databaseClient, passwordHash, adminEmail, report }) {
+  const result = await runAtomicDestructiveSeed(databaseClient, (database) =>
+    seedDatabase(database, passwordHash, adminEmail)
+  );
+  report(result);
+  return result;
+}
+
+async function main() {
+  const explicitDestructiveConfirmation = process.env.SHIFTFLOW_DESTRUCTIVE_SEED_CONFIRMATION;
+  dotenv.config();
+
+  const connectionString = process.env.DATABASE_URL;
+  const password = process.env.REALISTIC_SEED_PASSWORD ?? process.env.E2E_PASSWORD;
+  const adminEmail =
+    process.env.REALISTIC_SEED_EMAIL ?? process.env.E2E_EMAIL ?? "admin.operacoes@shiftflow.local";
+
+  assertSafeDestructiveSeed({
+    databaseUrl: connectionString,
+    nodeEnv: process.env.NODE_ENV,
+    confirmation: explicitDestructiveConfirmation,
+    password
+  });
+
+  const rootPrisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString })
+  });
+
+  try {
+    const passwordHash = await bcrypt.hash(password, bcryptRounds());
+    await runRealisticSeed({
+      databaseClient: rootPrisma,
+      passwordHash,
+      adminEmail,
+      report: (result) => console.log(JSON.stringify(result, null, 2))
+    });
+  } finally {
+    await rootPrisma.$disconnect();
+  }
+}
+
+const isDirectExecution =
+  process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
+if (isDirectExecution) {
   await main();
-} finally {
-  await prisma.$disconnect();
 }
