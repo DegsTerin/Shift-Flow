@@ -120,7 +120,7 @@ jobs:
         shell: bash
         run: mkdir -p oci-evidence
 
-      - name: Build local subject with provenance metadata
+      - name: Build local subject and capture Buildx metadata
         id: build_subject
         if: matrix.sourceKind == 'build'
         shell: bash

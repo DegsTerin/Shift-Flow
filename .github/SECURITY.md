@@ -153,21 +153,27 @@ addresses are configured.
 ## Secret and OCI Evidence Gates
 
 The secret gate scans exact staged-index blobs, any differing worktree or
-untracked bytes, and all reachable history blobs. ASCII signatures remain
-detectable in NUL-bearing content. Reads are size bounded and Git blobs are
-processed in cumulative-size batches. Historical exceptions come only from the
-exact indexed `eng/secret-history-allowlist.json` blob. They may name secret
-detectors, but cannot suppress oversized blobs, incomplete coverage, stale
-entries or other structural failures. Findings never contain detected values or
-source lines, and placeholders are a small exact literal set rather than a
-prefix exemption.
+untracked bytes, and every blob reachable from Git refs without depending on a
+path or object name. ASCII signatures remain detectable in NUL-bearing content.
+Reads are size bounded, worktree bytes are verified from the same open file
+descriptor, and Git blobs are processed in cumulative-size batches. Historical
+exceptions come only from the exact indexed
+`eng/secret-history-allowlist.json` blob. Version 2 entries identify an exact
+secret-detector finding by its opaque identifier; they cannot suppress
+oversized blobs, incomplete coverage, stale entries or other structural
+failures. Public findings contain only detector, scope, origin, line and a
+stable opaque identifier. They never contain a raw path, Git object identifier,
+detected value or source line, and placeholders are a small exact literal set
+rather than a prefix exemption.
 
-Build OCI evidence is tied to the workflow checkout: `git rev-parse HEAD` must
-equal `GITHUB_SHA`, the local image tag embeds that exact commit and validation
-requires the same `--source-commit`. Registry evidence remains digest pinned and
-cannot carry build-only commit metadata. The Trivy reports currently lack
-authenticated vulnerability-database freshness metadata; no database-age claim
-is made until verifiable evidence is available.
+OCI evidence is correlated with the workflow checkout: `git rev-parse HEAD`
+must equal `GITHUB_SHA`, the local image tag embeds that exact commit and
+validation requires the same `--source-commit`. These are unsigned,
+self-reported correlation inputs, not cryptographic provenance or an external
+attestation. Registry evidence remains digest pinned and cannot carry
+build-only commit metadata. The Trivy reports currently lack authenticated
+vulnerability-database freshness metadata; no database-age claim is made until
+verifiable evidence is available.
 
 ## Required Review Areas
 
