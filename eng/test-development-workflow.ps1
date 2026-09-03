@@ -524,9 +524,12 @@ if ($package.scripts.'test:unit' -cne
     'vitest run --config .config/vitest.config.ts') {
     throw 'The unit-test gate must use the central Vitest configuration.'
 }
-if ($package.scripts.'test:postgres:users' -cne
+if ($package.scripts.'test:postgres:integration' -cne
     'vitest run --config .config/vitest.postgres.config.ts') {
-    throw 'The PostgreSQL User regression must use its dedicated opt-in Vitest configuration.'
+    throw 'The PostgreSQL integration gate must use its dedicated opt-in Vitest configuration.'
+}
+if ($package.scripts.'test:postgres:users' -cne 'npm run test:postgres:integration') {
+    throw 'The legacy PostgreSQL User script must remain a compatibility alias.'
 }
 if (-not $nodeDockerfile.Contains(
         'COPY .config/prisma.ts ./.config/prisma.ts',
@@ -764,7 +767,7 @@ $remoteMigration = $workflow.IndexOf(
     'run: npx prisma migrate deploy',
     [System.StringComparison]::Ordinal)
 $remotePostgresIntegration = $workflow.IndexOf(
-    'run: npm run test:postgres:users',
+    'run: npm run test:postgres:integration',
     [System.StringComparison]::Ordinal)
 $remoteIntegrationSeed = $workflow.IndexOf(
     'run: node prisma/integration-seed.mjs',
@@ -798,13 +801,13 @@ foreach ($dotnetWorkflowContract in @(
 }
 if ([regex]::Matches(
         $workflow,
-        '(?m)^\s*run:\s*npm run test:postgres:users\s*$').Count -ne 1 -or
+        '(?m)^\s*run:\s*npm run test:postgres:integration\s*$').Count -ne 1 -or
     -not $workflow.Contains('SHIFTFLOW_POSTGRES_INTEGRATION: "1"', [System.StringComparison]::Ordinal) -or
     $remotePostgresIntegration -lt 0 -or
     $remoteIntegrationSeed -lt 0 -or
     $remotePostgresIntegration -lt $remoteMigration -or
     $remotePostgresIntegration -gt $remoteIntegrationSeed) {
-    throw 'The disposable runtime must execute the opt-in User aggregate PostgreSQL regression after migrations and before shared seed data.'
+    throw 'The disposable runtime must execute the opt-in PostgreSQL integration gate after migrations and before shared seed data.'
 }
 if ([regex]::Matches(
         $workflow,
