@@ -308,19 +308,6 @@ export class AuthService {
   async login(req: ApiRequest, input: LoginDto) {
     const emailHash = hashIdentifier(input.email);
     const ipHash = hashIdentifier(req.context?.ipAddress);
-    const attempt = (await this.repository.findLoginAttempt(emailHash)) as DbLoginAttempt | null;
-    if (attempt?.lockedUntil && attempt.lockedUntil.getTime() > Date.now()) {
-      await this.repository.writeAuthAudit({
-        action: "LOGIN_LOCKED",
-        emailHash,
-        requestId: req.context?.requestId,
-        ipAddress: req.context?.ipAddress,
-        userAgent: req.context?.userAgent,
-        detail: { lockedUntil: attempt.lockedUntil.toISOString() }
-      });
-      throw unauthorized("Invalid credentials");
-    }
-
     const user = (await this.repository.findUserByEmail(input.email)) as DbUser | null;
     if (!user || user.status !== "ACTIVE") {
       await bcrypt.compare(input.password, unavailablePrincipalHash);

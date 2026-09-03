@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -53,6 +54,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
@@ -62,9 +64,134 @@ jobs:
       - name: Canonical ASP.NET Core gate
         run: pwsh -NoProfile -File eng/ci.ps1 -Component DotNet -BaseRef '${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}'
 
+  oci-evidence-gate:
+    name: OCI evidence (${{ matrix.id }})
+    needs: [core-gate, dotnet-gate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: api-dotnet
+            sourceKind: build
+            dockerfile: apps/api-dotnet/Dockerfile
+            target: runtime
+          - id: legacy-api
+            sourceKind: build
+            dockerfile: infra/docker/node.Dockerfile
+            target: legacy-api
+          - id: migration
+            sourceKind: build
+            dockerfile: infra/docker/node.Dockerfile
+            target: migration
+          - id: nginx
+            sourceKind: registry
+            image: nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8
+          - id: postgres
+            sourceKind: registry
+            image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+          - id: redis
+            sourceKind: registry
+            image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
+          - id: web
+            sourceKind: build
+            dockerfile: infra/docker/node.Dockerfile
+            target: web
+
+    steps:
+      - name: Checkout complete candidate history
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Setup Docker Buildx
+        if: matrix.sourceKind == 'build'
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+
+      - name: Prepare ephemeral evidence directory
+        shell: bash
+        run: mkdir -p oci-evidence
+
+      - name: Build local subject with provenance metadata
+        id: build_subject
+        if: matrix.sourceKind == 'build'
+        shell: bash
+        env:
+          BUILDX_METADATA_PROVENANCE: max
+        run: |
+          subject_ref="shiftflow-local/${{ matrix.id }}:${GITHUB_SHA}"
+          docker buildx build \
+            --file '${{ matrix.dockerfile }}' \
+            --load \
+            --metadata-file 'oci-evidence/${{ matrix.id }}.provenance.json' \
+            --platform linux/amd64 \
+            --provenance=mode=max \
+            --tag "$subject_ref" \
+            --target '${{ matrix.target }}' \
+            .
+          echo "image_ref=$subject_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Select digest-pinned registry subject
+        id: registry_subject
+        if: matrix.sourceKind == 'registry'
+        shell: bash
+        run: echo 'image_ref=${{ matrix.image }}' >> "$GITHUB_OUTPUT"
+
+      - name: Generate local SPDX evidence
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        with:
+          image-ref: ${{ steps.build_subject.outputs.image_ref || steps.registry_subject.outputs.image_ref }}
+          scan-type: image
+          scanners: vuln
+          format: spdx-json
+          output: oci-evidence/${{ matrix.id }}.spdx.json
+          exit-code: "0"
+          ignore-unfixed: "false"
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          cache: "false"
+
+      - name: Generate and enforce vulnerability evidence
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        with:
+          image-ref: ${{ steps.build_subject.outputs.image_ref || steps.registry_subject.outputs.image_ref }}
+          scan-type: image
+          scanners: vuln
+          vuln-type: os,library
+          format: json
+          output: oci-evidence/${{ matrix.id }}.scan.json
+          exit-code: "1"
+          ignore-unfixed: "false"
+          severity: UNKNOWN,MEDIUM,HIGH,CRITICAL
+          skip-setup-trivy: "true"
+          cache: "false"
+
+      - name: Validate evidence bindings without publication
+        shell: bash
+        run: |
+          arguments=(
+            --targets eng/oci-targets.json
+            --target-id '${{ matrix.id }}'
+            --source-kind '${{ matrix.sourceKind }}'
+            --subject-ref '${{ steps.build_subject.outputs.image_ref || steps.registry_subject.outputs.image_ref }}'
+            --sbom 'oci-evidence/${{ matrix.id }}.spdx.json'
+            --scan 'oci-evidence/${{ matrix.id }}.scan.json'
+          )
+          if [[ '${{ matrix.sourceKind }}' == 'build' ]]; then
+            arguments+=(--provenance 'oci-evidence/${{ matrix.id }}.provenance.json')
+          fi
+          node scripts/verify-oci-runtime-evidence.mjs "${arguments[@]}"
+
   runtime-gates:
     name: Disposable runtime gates (Node.js 22)
-    needs: [core-gate, dotnet-gate]
+    needs: [core-gate, dotnet-gate, oci-evidence-gate]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
@@ -92,6 +219,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -150,6 +279,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Run canonical disposable strangler gate
         shell: pwsh

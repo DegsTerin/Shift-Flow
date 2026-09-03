@@ -51,6 +51,7 @@
     "platform:workflow:test": "pwsh -NoLogo -NoProfile -File ./eng/test-platform-workflow.ps1",
     "security:audit": "npm audit --audit-level=moderate",
     "security:oci-policy": "node scripts/verify-oci-supply-chain.mjs --policy-only --targets eng/oci-targets.json --exceptions eng/oci-cve-exceptions.json",
+    "security:oci-evidence": "node scripts/verify-oci-runtime-evidence.mjs",
     "security:production-config": "tsx scripts/verify-production-config.mjs",
     "security:secrets": "node scripts/security-scan.mjs",
     "audit:overrides": "node scripts/verify-overrides.mjs",

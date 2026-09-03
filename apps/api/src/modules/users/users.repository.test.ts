@@ -4,9 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const persistence = vi.hoisted(() => ({
   transaction: vi.fn(),
   queryRaw: vi.fn(),
+  lockCompany: vi.fn(),
+  lockAuthorityUser: vi.fn(),
   lockUser: vi.fn(),
   lockMemberships: vi.fn(),
   lockRole: vi.fn(),
+  lockPermissionGraph: vi.fn(),
+  lockAuthorityAssignments: vi.fn(),
   lockAssignments: vi.fn(),
   userCreate: vi.fn(),
   userFindFirst: vi.fn(),
@@ -51,18 +55,48 @@ const auditData = (before: unknown, after: unknown) => ({
   after
 });
 
+const delegation = { actorId: "actor-a" };
+const delegatedRole = (roleId: string) => ({ roleId, roleDelegation: delegation });
+
 describe("UsersRepository aggregate mutations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    persistence.lockCompany.mockResolvedValue([{ id: "company-a" }]);
+    persistence.lockAuthorityUser.mockResolvedValue([{ id: "actor-a" }]);
     persistence.lockUser.mockResolvedValue([{ id: "user-1", passwordChangedAt: null }]);
     persistence.lockMemberships.mockResolvedValue([{ companyId: "company-a", deletedAt: null }]);
-    persistence.lockRole.mockResolvedValue([{ id: "role-a" }]);
+    persistence.lockRole.mockImplementation((_query: string, roleId: string) => [
+      {
+        id: roleId,
+        companyId: "company-a",
+        scope: "COMPANY",
+        isActive: true
+      }
+    ]);
+    persistence.lockPermissionGraph.mockImplementation((_query: string, roleId: string) =>
+      roleId === "actor-role" ? [{ roleId: "actor-role", resource: "*", action: "*" }] : []
+    );
+    persistence.lockAuthorityAssignments.mockResolvedValue([
+      { id: "actor-assignment", roleId: "actor-role" }
+    ]);
     persistence.lockAssignments.mockResolvedValue([]);
     persistence.queryRaw.mockImplementation((query: string, ...values: unknown[]) => {
+      if (query.includes('FROM "companies"')) {
+        return persistence.lockCompany(query, ...values);
+      }
+      if (query.includes('INNER JOIN "user_companies"')) {
+        return persistence.lockAuthorityUser(query, ...values);
+      }
       if (query.includes('FROM "user_companies"')) {
         return persistence.lockMemberships(query, ...values);
       }
+      if (query.includes('FROM "role_permissions"')) {
+        return persistence.lockPermissionGraph(query, ...values);
+      }
       if (query.includes('FROM "user_role_assignments"')) {
+        if (query.includes('"roleId"') && query.includes("FOR SHARE")) {
+          return persistence.lockAuthorityAssignments(query, ...values);
+        }
         return persistence.lockAssignments(query, ...values);
       }
       if (query.includes('FROM "roles"')) return persistence.lockRole(query, ...values);
@@ -96,6 +130,7 @@ describe("UsersRepository aggregate mutations", () => {
         { email: "new@example.com", passwordHash: "hash", displayName: "New" },
         "company-a",
         "role-a",
+        delegation,
         createAudit
       )
     ).resolves.toMatchObject({ id: "user-1" });
@@ -127,9 +162,9 @@ describe("UsersRepository aggregate mutations", () => {
     persistence.userCompanyCreate.mockRejectedValueOnce(new Error("membership failed"));
     const repository = new UsersRepository();
 
-    await expect(repository.createAggregate({}, "company-a", "role-a", auditData)).rejects.toThrow(
-      "membership failed"
-    );
+    await expect(
+      repository.createAggregate({}, "company-a", "role-a", delegation, auditData)
+    ).rejects.toThrow("membership failed");
 
     expect(persistence.assignmentCreate).not.toHaveBeenCalled();
     expect(persistence.auditCreate).not.toHaveBeenCalled();
@@ -216,7 +251,7 @@ describe("UsersRepository aggregate mutations", () => {
       )
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
-      repository.updateAggregate("user-1", "company-a", { roleId: "role-a" }, auditData)
+      repository.updateAggregate("user-1", "company-a", delegatedRole("role-a"), auditData)
     ).resolves.toMatchObject({ id: "user-1" });
 
     expect(persistence.assignmentUpdateMany).toHaveBeenCalledWith({
@@ -275,8 +310,8 @@ describe("UsersRepository aggregate mutations", () => {
     const repository = new UsersRepository();
 
     await Promise.all([
-      repository.updateAggregate("user-1", "company-a", { roleId: "role-a" }, auditData),
-      repository.updateAggregate("user-1", "company-a", { roleId: "role-b" }, auditData)
+      repository.updateAggregate("user-1", "company-a", delegatedRole("role-a"), auditData),
+      repository.updateAggregate("user-1", "company-a", delegatedRole("role-b"), auditData)
     ]);
 
     expect(permanentRole).toBe("role-b");
@@ -287,7 +322,7 @@ describe("UsersRepository aggregate mutations", () => {
     persistence.assignmentFindMany.mockResolvedValueOnce([{ id: "assignment-a" }]);
     const repository = new UsersRepository();
 
-    await repository.updateAggregate("user-1", "company-a", { roleId: "role-a" }, auditData);
+    await repository.updateAggregate("user-1", "company-a", delegatedRole("role-a"), auditData);
 
     expect(persistence.assignmentCreate).not.toHaveBeenCalled();
     expect(persistence.auditCreate).toHaveBeenCalledOnce();
@@ -301,7 +336,7 @@ describe("UsersRepository aggregate mutations", () => {
     ]);
     const repository = new UsersRepository();
 
-    await repository.updateAggregate("user-1", "company-a", { roleId: "role-a" }, auditData);
+    await repository.updateAggregate("user-1", "company-a", delegatedRole("role-a"), auditData);
 
     expect(persistence.assignmentCreate).not.toHaveBeenCalled();
     expect(persistence.assignmentUpdateMany).toHaveBeenNthCalledWith(2, {
@@ -316,10 +351,41 @@ describe("UsersRepository aggregate mutations", () => {
     const repository = new UsersRepository();
 
     await expect(
-      repository.updateAggregate("user-1", "company-a", { roleId: "role-a" }, auditData)
+      repository.updateAggregate("user-1", "company-a", delegatedRole("role-a"), auditData)
     ).rejects.toThrow("assignment failed");
 
     expect(persistence.auditCreate).not.toHaveBeenCalled();
     expect(persistence.transaction).toHaveBeenCalledOnce();
+  });
+
+  it("rejects profile delegation after current actor authority is revoked", async () => {
+    persistence.lockAuthorityAssignments.mockResolvedValueOnce([]);
+    const repository = new UsersRepository();
+
+    await expect(
+      repository.updateAggregate("user-1", "company-a", delegatedRole("role-a"), auditData)
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    expect(persistence.assignmentUpdateMany).not.toHaveBeenCalled();
+    expect(persistence.assignmentCreate).not.toHaveBeenCalled();
+    expect(persistence.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a target profile expanded beyond the transactionally locked authority", async () => {
+    persistence.lockPermissionGraph.mockImplementation((_query: string, roleId: string) => {
+      if (roleId === "actor-role") {
+        return [{ roleId, resource: "users", action: "write" }];
+      }
+      return [{ roleId, resource: "rbac", action: "write" }];
+    });
+    const repository = new UsersRepository();
+
+    await expect(
+      repository.updateAggregate("user-1", "company-a", delegatedRole("role-a"), auditData)
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    expect(persistence.assignmentUpdateMany).not.toHaveBeenCalled();
+    expect(persistence.assignmentCreate).not.toHaveBeenCalled();
+    expect(persistence.auditCreate).not.toHaveBeenCalled();
   });
 });

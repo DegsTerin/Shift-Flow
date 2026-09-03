@@ -54,6 +54,13 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     };
   }
 
+  function delegatedRole(roleId) {
+    return {
+      roleId,
+      roleDelegation: { actorId: state.rbacActor.id }
+    };
+  }
+
   function observe(promise) {
     return promise.then(
       (value) => ({ value }),
@@ -125,7 +132,8 @@ describe("User and Role aggregate PostgreSQL integration", () => {
                   return Reflect.get(target, property, receiver);
                 }
                 return async (query, ...values) => {
-                  const userLock = query.includes('FROM "users"');
+                  const userLock =
+                    query.includes('FROM "users" AS u') && query.includes("FOR UPDATE OF u, uc");
                   if (!userLock) return target.$queryRawUnsafe(query, ...values);
                   if (transactionNumber === 1) {
                     const result = await target.$queryRawUnsafe(query, ...values);
@@ -274,6 +282,28 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     }));
   }
 
+  function userDelegationAttemptRepository(roleId, race) {
+    return new UsersRepository(async () => ({
+      $transaction: (callback) =>
+        prisma.$transaction(async (tx) => {
+          const lockingTx = new Proxy(tx, {
+            get(target, property, receiver) {
+              if (property !== "$queryRawUnsafe") {
+                return Reflect.get(target, property, receiver);
+              }
+              return async (query, ...values) => {
+                if (query.includes('FROM "roles"') && values[0] === roleId) {
+                  return race.runWaitingQuery(target, query, values);
+                }
+                return target.$queryRawUnsafe(query, ...values);
+              };
+            }
+          });
+          return callback(lockingTx);
+        })
+    }));
+  }
+
   function pausedRoleMutationRepository(race) {
     return new RbacRepository(async () => ({
       $transaction: (callback) =>
@@ -340,6 +370,14 @@ describe("User and Role aggregate PostgreSQL integration", () => {
         description: `${scope}-rbac-delete`
       }
     });
+    state.usersWrite = await prisma.permission.create({
+      data: {
+        companyId: state.companyA.id,
+        resource: "users",
+        action: "write",
+        description: `${scope}-users-write`
+      }
+    });
     await prisma.rolePermission.createMany({
       data: [
         {
@@ -351,6 +389,11 @@ describe("User and Role aggregate PostgreSQL integration", () => {
           companyId: state.companyA.id,
           roleId: state.controlRole.id,
           permissionId: state.rbacDelete.id
+        },
+        {
+          companyId: state.companyA.id,
+          roleId: state.controlRole.id,
+          permissionId: state.usersWrite.id
         }
       ]
     });
@@ -482,13 +525,13 @@ describe("User and Role aggregate PostgreSQL integration", () => {
       overlap.repository.updateAggregate(
         state.soleUser.id,
         state.companyA.id,
-        { roleId: state.roleA.id },
+        delegatedRole(state.roleA.id),
         auditData(state.soleUser.id)
       ),
       overlap.repository.updateAggregate(
         state.soleUser.id,
         state.companyA.id,
-        { roleId: state.roleB.id },
+        delegatedRole(state.roleB.id),
         auditData(state.soleUser.id)
       )
     ]).finally(overlap.dispose);
@@ -591,6 +634,89 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     await expect(prisma.auditLog.count({ where: { entityId: role.id } })).resolves.toBe(1);
   });
 
+  it("rejects user-profile delegation after a concurrent actor revocation commits", async () => {
+    const overlap = roleLockRace();
+    const mutationRepository = pausedRoleMutationRepository(overlap);
+    let mutationOutcome;
+    let delegationOutcome;
+    try {
+      const mutation = observe(
+        mutationRepository.mutateRole(
+          rbacContext("rbac:write"),
+          state.controlRole.id,
+          { isActive: false },
+          "UPDATE"
+        )
+      );
+      await overlap.holderReady;
+
+      const delegationRepository = userDelegationAttemptRepository(state.controlRole.id, overlap);
+      const delegationAttempt = observe(
+        delegationRepository.updateAggregate(
+          state.soleUser.id,
+          state.companyA.id,
+          delegatedRole(state.roleA.id),
+          auditData(state.soleUser.id)
+        )
+      );
+      [mutationOutcome, delegationOutcome] = await Promise.all([mutation, delegationAttempt]);
+    } finally {
+      overlap.dispose();
+      await prisma.role.update({ where: { id: state.controlRole.id }, data: { isActive: true } });
+    }
+
+    expect(overlap.holderReached()).toBe(true);
+    expect(overlap.waitingLockAttempted()).toBe(true);
+    expect(overlap.waitingWasBlocked()).toBe(true);
+    expect(unwrap(mutationOutcome)).toMatchObject({ id: state.controlRole.id, isActive: false });
+    expect(delegationOutcome.error).toMatchObject({ code: "FORBIDDEN", statusCode: 403 });
+  });
+
+  it("rejects user-profile delegation after a concurrent target profile change commits", async () => {
+    const targetRole = await prisma.role.create({
+      data: {
+        companyId: state.companyA.id,
+        name: `${scope}-target-role-race`,
+        scope: "COMPANY"
+      }
+    });
+    const overlap = roleLockRace();
+    const mutationRepository = pausedRoleMutationRepository(overlap);
+    let mutationOutcome;
+    let delegationOutcome;
+    try {
+      const mutation = observe(
+        mutationRepository.mutateRole(
+          rbacContext("rbac:write"),
+          targetRole.id,
+          { scope: "CLIENT" },
+          "UPDATE"
+        )
+      );
+      await overlap.holderReady;
+
+      const delegationRepository = userDelegationAttemptRepository(targetRole.id, overlap);
+      const delegationAttempt = observe(
+        delegationRepository.updateAggregate(
+          state.soleUser.id,
+          state.companyA.id,
+          delegatedRole(targetRole.id),
+          auditData(state.soleUser.id)
+        )
+      );
+      [mutationOutcome, delegationOutcome] = await Promise.all([mutation, delegationAttempt]);
+    } finally {
+      overlap.dispose();
+      await prisma.role.update({ where: { id: targetRole.id }, data: { scope: "COMPANY" } });
+    }
+
+    expect(overlap.holderReached()).toBe(true);
+    expect(overlap.waitingLockAttempted()).toBe(true);
+    expect(overlap.waitingWasBlocked()).toBe(true);
+    expect(unwrap(mutationOutcome)).toMatchObject({ id: targetRole.id, scope: "CLIENT" });
+    expect(delegationOutcome.error).toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
+  });
+
   it("rolls the identity update back when aggregate evidence cannot be persisted", async () => {
     const [userBefore, assignmentsBefore, auditCountBefore] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: state.soleUser.id } }),
@@ -617,7 +743,10 @@ describe("User and Role aggregate PostgreSQL integration", () => {
       repository.updateAggregate(
         state.soleUser.id,
         state.companyA.id,
-        { data: { displayName: "Must Roll Back" }, roleId: replacementRoleId },
+        {
+          data: { displayName: "Must Roll Back" },
+          ...delegatedRole(replacementRoleId)
+        },
         (before, after) => {
           plannedEvidence = {
             before: evidenceSnapshot(before),
@@ -685,7 +814,7 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     await repository.updateAggregate(
       state.soleUser.id,
       state.companyA.id,
-      { roleId: state.roleA.id },
+      delegatedRole(state.roleA.id),
       auditData(state.soleUser.id)
     );
 

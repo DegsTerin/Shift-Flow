@@ -1,6 +1,25 @@
 // en-GB: Proves secret findings contain location metadata only so the scanner cannot echo detected credentials.
-import { describe, expect, it } from "vitest";
-import { scanContent } from "./security-scan-lib.mjs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { scanContent, scanGitHistory } from "./security-scan-lib.mjs";
+
+const temporaryRoots = [];
+
+afterEach(() => {
+  for (const root of temporaryRoots.splice(0)) {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+function git(root, ...argumentsList) {
+  return execFileSync("git", ["-C", root, ...argumentsList], {
+    encoding: "utf8",
+    windowsHide: true
+  });
+}
 
 describe("secret scan redaction", () => {
   it("reports a recognised token without returning its value or source line", () => {
@@ -47,4 +66,34 @@ describe("secret scan redaction", () => {
 
     expect(result).toEqual([]);
   });
+
+  it("detects a redacted secret that remains only in reachable Git history", () => {
+    const root = mkdtempSync(join(tmpdir(), "shiftflow-secret-history-"));
+    temporaryRoots.push(root);
+    git(root, "init");
+    git(root, "config", "user.email", "security-test@shiftflow.local");
+    git(root, "config", "user.name", "ShiftFlow security test");
+    const secret = `ghp_${"H".repeat(40)}`;
+    const sourceLine = `const retiredCredential = "${secret}";`;
+    writeFileSync(join(root, "historic.ts"), `${sourceLine}\n`, "utf8");
+    git(root, "add", "historic.ts");
+    git(root, "commit", "-m", "Add historical fixture");
+    writeFileSync(join(root, "historic.ts"), "export const active = true;\n", "utf8");
+    git(root, "commit", "-am", "Remove historical fixture");
+
+    const result = scanGitHistory(root);
+    const serialised = JSON.stringify(result);
+
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        name: "GitHub classic token",
+        file: "historic.ts",
+        line: 1,
+        source: "git-history"
+      })
+    );
+    expect(result.scannedBlobs).toBeGreaterThanOrEqual(2);
+    expect(serialised).not.toContain(secret);
+    expect(serialised).not.toContain(sourceLine);
+  }, 15_000);
 });

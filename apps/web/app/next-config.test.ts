@@ -22,4 +22,22 @@ describe("Next.js configuration", () => {
 
     expect(nextConfig.devIndicators).toBe(false);
   });
+
+  it("denies framing through response headers for every web route", async () => {
+    const { default: nextConfig } = await import("../next.config");
+
+    await expect(nextConfig.headers?.()).resolves.toEqual([
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+          },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" }
+        ]
+      }
+    ]);
+  });
 });

@@ -158,7 +158,7 @@ describe("UsersService product role assignment", () => {
     expect(repository.updateAggregate).toHaveBeenCalledWith(
       "user-a",
       "company-a",
-      { roleId: "company-role" },
+      { roleId: "company-role", roleDelegation: { actorId: "actor-a" } },
       expect.any(Function)
     );
   });
@@ -264,7 +264,7 @@ describe("UsersService product role assignment", () => {
     expect(repository.updateAggregate).toHaveBeenCalledWith(
       "user-a",
       "company-a",
-      { roleId: "company-role" },
+      { roleId: "company-role", roleDelegation: { actorId: "actor-a" } },
       expect.any(Function)
     );
   });

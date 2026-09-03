@@ -1,6 +1,5 @@
 // en-GB: Defines the rate limit implementation so this project responsibility remains explicit and maintainable.
 import crypto from "node:crypto";
-import { isIP } from "node:net";
 import type { NextFunction, Response } from "express";
 import { env } from "../config/env.js";
 import type { ApiRequest } from "../http/request-types.js";
@@ -30,12 +29,6 @@ function defaultRateLimitKey(req: ApiRequest) {
 }
 
 export function rateLimitClientAddress(req: ApiRequest) {
-  if (process.env.RENDER === "true") {
-    const cloudflareAddress = req.header("cf-connecting-ip")?.trim();
-    if (cloudflareAddress && isIP(cloudflareAddress)) {
-      return cloudflareAddress;
-    }
-  }
   return req.ip ?? "unknown";
 }
 

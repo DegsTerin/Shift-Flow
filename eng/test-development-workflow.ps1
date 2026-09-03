@@ -28,9 +28,12 @@ $stranglerSmokePath = Join-Path $PSScriptRoot 'smoke-strangler.ps1'
 $stranglerRuntimePath = Join-Path $PSScriptRoot 'strangler-runtime.ps1'
 $ociVerifierPath = Join-Path $repositoryRoot 'scripts/verify-oci-supply-chain.mjs'
 $ociVerifierTestPath = Join-Path $repositoryRoot 'scripts/verify-oci-supply-chain.test.mjs'
+$ociRuntimeVerifierPath = Join-Path $repositoryRoot 'scripts/verify-oci-runtime-evidence.mjs'
+$ociRuntimeVerifierTestPath = Join-Path $repositoryRoot 'scripts/verify-oci-runtime-evidence.test.mjs'
 $ociTargetsPath = Join-Path $PSScriptRoot 'oci-targets.json'
 $ociExceptionsPath = Join-Path $PSScriptRoot 'oci-cve-exceptions.json'
 $ociSpdxSchemaPath = Join-Path $PSScriptRoot 'spdx-2.3-schema.json'
+$secretHistoryAllowlistPath = Join-Path $PSScriptRoot 'secret-history-allowlist.json'
 $gitAttributesPath = Join-Path $repositoryRoot '.gitattributes'
 $dockerDesktopHelperPath = Join-Path $repositoryRoot 'scripts/docker-desktop.ps1'
 
@@ -41,9 +44,12 @@ if (-not (Test-Path -LiteralPath $agentContractPath -PathType Leaf)) {
 foreach ($ociPolicyPath in @(
         $ociVerifierPath,
         $ociVerifierTestPath,
+        $ociRuntimeVerifierPath,
+        $ociRuntimeVerifierTestPath,
         $ociTargetsPath,
         $ociExceptionsPath,
         $ociSpdxSchemaPath,
+        $secretHistoryAllowlistPath,
         $gitAttributesPath
     )) {
     if (-not (Test-Path -LiteralPath $ociPolicyPath -PathType Leaf)) {
@@ -133,10 +139,21 @@ $stranglerSecurityControl = Get-Content -LiteralPath $stranglerSecurityControlPa
 $stranglerSmoke = Get-Content -LiteralPath $stranglerSmokePath -Raw
 $stranglerRuntime = Get-Content -LiteralPath $stranglerRuntimePath -Raw
 $ociVerifier = Get-Content -LiteralPath $ociVerifierPath -Raw
+$ociRuntimeVerifier = Get-Content -LiteralPath $ociRuntimeVerifierPath -Raw
 $ociTargets = Get-Content -LiteralPath $ociTargetsPath -Raw | ConvertFrom-Json
 $ociExceptions = Get-Content -LiteralPath $ociExceptionsPath -Raw | ConvertFrom-Json
 $gitAttributes = Get-Content -LiteralPath $gitAttributesPath -Raw
 $dockerDesktopHelper = Get-Content -LiteralPath $dockerDesktopHelperPath -Raw
+$checkoutCount = [regex]::Matches(
+    $workflow,
+    '(?m)^\s*uses:\s*actions/checkout@[0-9a-f]{40}\s*$').Count
+$nonPersistentCheckoutCount = [regex]::Matches(
+    $workflow,
+    '(?m)^\s*persist-credentials:\s*false\s*$').Count
+if ($checkoutCount -ne 5 -or $nonPersistentCheckoutCount -ne $checkoutCount -or
+    $workflow -match '(?m)^\s*persist-credentials:\s*true\s*$') {
+    throw 'Every release-gate checkout must remove its Git credential before later steps run.'
+}
 $documentedProjectVariables = @(
     Get-Content -LiteralPath $environmentExamplePath |
         ForEach-Object {
@@ -273,6 +290,7 @@ if ($package.scripts.build -cne 'pwsh -NoLogo -NoProfile -File ./eng/build.ps1' 
 }
 
 $expectedOciPolicyScript = 'node scripts/verify-oci-supply-chain.mjs --policy-only --targets eng/oci-targets.json --exceptions eng/oci-cve-exceptions.json'
+$expectedOciEvidenceScript = 'node scripts/verify-oci-runtime-evidence.mjs'
 $expectedQualityScript = 'npm run format:check && npm run comments:verify && npm run platform:workflow:test && npm run lint && npm run typecheck && npm run prisma:validate && npm run audit:overrides && npm run security:oci-policy && npm run security:secrets && npm run security:production-config'
 $qualityScript = [string]$package.scripts.quality
 $overrideGatePosition = $qualityScript.IndexOf(
@@ -286,6 +304,7 @@ $secretGatePosition = $qualityScript.IndexOf(
     [System.StringComparison]::Ordinal)
 if ($qualityScript -cne $expectedQualityScript -or
     $package.scripts.'security:oci-policy' -cne $expectedOciPolicyScript -or
+    $package.scripts.'security:oci-evidence' -cne $expectedOciEvidenceScript -or
     [regex]::Matches(
         $qualityScript,
         [regex]::Escape('npm run security:oci-policy')).Count -ne 1 -or
@@ -306,6 +325,83 @@ foreach ($forbiddenOciOperation in @(
     if ($ociVerifier.Contains($forbiddenOciOperation, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "The local OCI policy precursor must not perform external operation '$forbiddenOciOperation'."
     }
+}
+foreach ($forbiddenRuntimeVerifierOperation in @(
+        'node:child_process',
+        'node:http',
+        'node:https',
+        'node:net',
+        'node:tls',
+        'fetch(')) {
+    if ($ociRuntimeVerifier.Contains(
+            $forbiddenRuntimeVerifierOperation,
+            [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "The OCI runtime evidence verifier must not perform external operation '$forbiddenRuntimeVerifierOperation'."
+    }
+}
+
+$ociWorkflow = [regex]::Match(
+    $workflow,
+    '(?ms)^  oci-evidence-gate:\s*$.*?(?=^  runtime-gates:\s*$)')
+if (-not $ociWorkflow.Success) {
+    throw 'The release workflow must contain the blocking OCI evidence job.'
+}
+$ociWorkflowText = $ociWorkflow.Value
+foreach ($targetId in @('api-dotnet', 'legacy-api', 'migration', 'nginx', 'postgres', 'redis', 'web')) {
+    if ([regex]::Matches(
+            $ociWorkflowText,
+            "(?m)^\s*- id:\s*$([regex]::Escape($targetId))\s*$").Count -ne 1) {
+        throw "The OCI evidence matrix must cover target '$targetId' exactly once."
+    }
+}
+$ociTargetContracts = [ordered]@{
+    'api-dotnet' = @('sourceKind: build', 'dockerfile: apps/api-dotnet/Dockerfile', 'target: runtime')
+    'legacy-api' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: legacy-api')
+    'migration' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: migration')
+    'nginx' = @('sourceKind: registry', 'image: nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8')
+    'postgres' = @('sourceKind: registry', 'image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685')
+    'redis' = @('sourceKind: registry', 'image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232')
+    'web' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: web')
+}
+foreach ($targetId in $ociTargetContracts.Keys) {
+    $targetBlock = [regex]::Match(
+        $ociWorkflowText,
+        '(?ms)^          - id: ' + [regex]::Escape($targetId) + '\r?$' +
+        '(?<body>.*?)(?=^          - id: |^    steps:)')
+    if (-not $targetBlock.Success) {
+        throw "The OCI evidence matrix is missing the exact block for '$targetId'."
+    }
+    foreach ($targetContract in $ociTargetContracts[$targetId]) {
+        if ([regex]::Matches(
+                $targetBlock.Value,
+                '(?m)^            ' + [regex]::Escape($targetContract) + '\s*$').Count -ne 1) {
+            throw "OCI evidence target '$targetId' is missing contract '$targetContract'."
+        }
+    }
+}
+foreach ($requiredOciWorkflowContract in @(
+        'uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
+        'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8',
+        '--metadata-file ''oci-evidence/${{ matrix.id }}.provenance.json''',
+        '--provenance=mode=max',
+        'format: spdx-json',
+        'format: json',
+        'severity: UNKNOWN,MEDIUM,HIGH,CRITICAL',
+        'node scripts/verify-oci-runtime-evidence.mjs "${arguments[@]}"')) {
+    if (-not $ociWorkflowText.Contains(
+            $requiredOciWorkflowContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The OCI evidence job is missing contract '$requiredOciWorkflowContract'."
+    }
+}
+if ([regex]::Matches(
+        $ociWorkflowText,
+        'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8').Count -ne 2 -or
+    [regex]::Matches($ociWorkflowText, '(?m)^          cache: "false"\s*$').Count -ne 2 -or
+    $ociWorkflowText -match '(?mi)^\s*(?:push:\s*true|uses:\s*actions/upload-artifact@)' -or
+    $ociWorkflowText -match '(?i)--push(?:\s|$)' -or
+    $workflow -notmatch '(?m)^\s*needs:\s*\[core-gate, dotnet-gate, oci-evidence-gate\]\s*$') {
+    throw 'OCI evidence must be generated and enforced locally without publishing or bypassing downstream gates.'
 }
 if (-not (Get-Content -LiteralPath $unitVitestConfigPath -Raw).Contains(
         '"scripts/**/*.test.mjs"',
@@ -736,6 +832,7 @@ $expectedScripts = @{
     'test:dotnet' = 'dotnet test apps/api-dotnet/ShiftFlow.slnx --configuration Release'
     'test:runtime:strangler' = 'pwsh -NoLogo -NoProfile -File ./eng/strangler-runtime.ps1'
     'security:oci-policy' = 'node scripts/verify-oci-supply-chain.mjs --policy-only --targets eng/oci-targets.json --exceptions eng/oci-cve-exceptions.json'
+    'security:oci-evidence' = 'node scripts/verify-oci-runtime-evidence.mjs'
 }
 foreach ($scriptName in $expectedScripts.Keys) {
     if ($package.scripts.$scriptName -cne $expectedScripts[$scriptName]) {
@@ -843,7 +940,7 @@ if ($stranglerJob -lt 0 -or
     throw 'The strangler runtime job must run the canonical disposable gate exactly once and only after the existing runtime gate.'
 }
 
-if ([regex]::Matches($workflow, '(?m)^\s*runs-on:\s*ubuntu-24[.]04\s*$').Count -ne 4 -or
+if ([regex]::Matches($workflow, '(?m)^\s*runs-on:\s*ubuntu-24[.]04\s*$').Count -ne 5 -or
     $workflow.Contains('ubuntu-latest', [System.StringComparison]::Ordinal) -or
     [regex]::Matches($workflow, [regex]::Escape('Write-Output "::add-mask::$e2ePassword"')).Count -ne 1 -or
     [regex]::Matches($workflow, [regex]::Escape('Write-Output "::add-mask::$jwtSecret"')).Count -ne 1) {

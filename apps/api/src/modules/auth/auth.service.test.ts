@@ -402,22 +402,25 @@ describe("AuthService", () => {
     );
   });
 
-  it("rejects locked login attempts before password verification", async () => {
+  it("does not let anonymous failures block a correct password", async () => {
     const mockRepository = repository({
       findLoginAttempt: vi.fn().mockResolvedValue({ failedCount: 5, lockedUntil: future })
     });
     const service = new AuthService(mockRepository as unknown as AuthRepository);
+    vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
 
     await expect(
       service.login(request(), {
         email: "user@example.com",
         password: "test-login-password"
       })
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    ).resolves.toMatchObject({ user: { id: "user-1" } });
 
-    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(mockRepository.findLoginAttempt).not.toHaveBeenCalled();
+    expect(mockRepository.findUserByEmail).toHaveBeenCalledWith("user@example.com");
+    expect(mockRepository.recordSuccessfulLogin).toHaveBeenCalledWith(expect.any(String));
     expect(mockRepository.writeAuthAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "LOGIN_LOCKED" })
+      expect.objectContaining({ action: "LOGIN_SUCCESS", userId: "user-1" })
     );
   });
 
