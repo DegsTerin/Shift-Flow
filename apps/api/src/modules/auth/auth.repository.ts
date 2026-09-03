@@ -326,6 +326,18 @@ export class AuthRepository {
     });
   }
 
+  async findLoginCredentialByEmail(email: string) {
+    return (await this.users()).findFirst({
+      where: { email, status: "ACTIVE", deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        passwordChangedAt: true
+      }
+    });
+  }
+
   async updateLastLogin(userId: string) {
     return (await this.users()).update({
       where: { id: userId },

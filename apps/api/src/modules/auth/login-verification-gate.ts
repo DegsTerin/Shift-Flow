@@ -13,8 +13,8 @@ type QueuedPasswordOperation<T> = {
 const defaultMaximumConcurrentPasswordChecks = 4;
 const defaultMaximumActiveIdentities = 128;
 const defaultMaximumQueuedPasswordChecks = 128;
-const defaultUnknownAuditWindowMs = 60_000;
-const defaultUnknownBackoffBuckets = 256;
+const defaultTelemetryWindowMs = 60_000;
+const defaultFailureDelayBuckets = 256;
 const maximumAggregatedEventCount = 2_147_483_647;
 export const authenticationBackoffMaximumMs = 30_000;
 const authenticationBackoffBaseMs = 1_000;
@@ -34,9 +34,9 @@ function authenticationBusy() {
   );
 }
 
-/** Admits one operation per identity and schedules bcrypt work through one global FIFO budget. */
+/** Bounds pre-verification work and releases identity admission when its bcrypt work settles. */
 export class LoginVerificationGate {
-  private readonly activeIdentities = new Set<string>();
+  private readonly admittedIdentities = new Set<string>();
   private readonly passwordQueue: Array<QueuedPasswordOperation<unknown>> = [];
   private activePasswordChecks = 0;
 
@@ -61,17 +61,35 @@ export class LoginVerificationGate {
     operation: (withPasswordBudget: PasswordBudgetOperation) => Promise<T>
   ): Promise<T> {
     if (
-      this.activeIdentities.has(key) ||
-      this.activeIdentities.size >= this.maximumActiveIdentities
+      this.admittedIdentities.has(key) ||
+      this.admittedIdentities.size >= this.maximumActiveIdentities
     ) {
       throw authenticationBusy();
     }
+    this.admittedIdentities.add(key);
+    let passwordBudgetUsed = false;
+    let released = false;
+    const releaseIdentity = () => {
+      if (!released) {
+        released = true;
+        this.admittedIdentities.delete(key);
+      }
+    };
 
-    this.activeIdentities.add(key);
     try {
-      return await operation((passwordOperation) => this.withPasswordBudget(passwordOperation));
+      return await operation(async (passwordOperation) => {
+        if (passwordBudgetUsed) {
+          throw new Error("Login verification permits one password comparison per operation");
+        }
+        passwordBudgetUsed = true;
+        try {
+          return await this.withPasswordBudget(passwordOperation);
+        } finally {
+          releaseIdentity();
+        }
+      });
     } finally {
-      this.activeIdentities.delete(key);
+      releaseIdentity();
     }
   }
 
@@ -84,7 +102,11 @@ export class LoginVerificationGate {
     }
 
     return new Promise<T>((resolve, reject) => {
-      this.passwordQueue.push({ operation, resolve, reject } as QueuedPasswordOperation<unknown>);
+      this.passwordQueue.push({
+        operation,
+        resolve,
+        reject
+      } as QueuedPasswordOperation<unknown>);
     });
   }
 
@@ -102,18 +124,14 @@ export class LoginVerificationGate {
   }
 }
 
-type LoginFailureKind = "known" | "unknown";
 type FailureAggregate = { pendingFailures: number; nextEmissionAt?: number };
 
-/** Coalesces login failures into two fixed process-wide telemetry samples. */
+/** Coalesces all login failures into one fixed process-wide telemetry sample. */
 export class LoginFailureAuditGate {
-  private readonly aggregates: Record<LoginFailureKind, FailureAggregate> = {
-    known: { pendingFailures: 0 },
-    unknown: { pendingFailures: 0 }
-  };
+  private readonly aggregate: FailureAggregate = { pendingFailures: 0 };
 
   constructor(
-    private readonly windowMs = defaultUnknownAuditWindowMs,
+    private readonly windowMs = defaultTelemetryWindowMs,
     private readonly now: () => number = Date.now
   ) {
     if (!Number.isSafeInteger(windowMs) || windowMs < 1) {
@@ -121,8 +139,8 @@ export class LoginFailureAuditGate {
     }
   }
 
-  takeAggregate(kind: LoginFailureKind): number | undefined {
-    const aggregate = this.aggregates[kind];
+  takeAggregate(): number | undefined {
+    const aggregate = this.aggregate;
     aggregate.pendingFailures = Math.min(
       aggregate.pendingFailures + 1,
       maximumAggregatedEventCount
@@ -145,7 +163,7 @@ export class LoginSuccessTelemetryGate {
   private nextEmissionAt?: number;
 
   constructor(
-    private readonly windowMs = defaultUnknownAuditWindowMs,
+    private readonly windowMs = defaultTelemetryWindowMs,
     private readonly now: () => number = Date.now
   ) {
     if (!Number.isSafeInteger(windowMs) || windowMs < 1) {
@@ -167,34 +185,28 @@ export class LoginSuccessTelemetryGate {
   }
 }
 
-type UnknownBackoffBucket = {
+type LoginFailureDelayBucket = {
   failedCount: number;
   lastFailureAt: number;
   lockedUntil?: number;
 };
 
-/** Gives unknown principals equivalent bounded backoff without attacker-cardinality storage. */
-export class UnknownLoginBackoffGate {
-  private readonly buckets: Array<UnknownBackoffBucket | undefined>;
+/** Gives every failed principal the same bounded response delay without cardinality growth. */
+export class LoginFailureDelayGate {
+  private readonly buckets: Array<LoginFailureDelayBucket | undefined>;
 
   constructor(
-    bucketCount = defaultUnknownBackoffBuckets,
+    bucketCount = defaultFailureDelayBuckets,
     private readonly secret: Uint8Array = crypto.randomBytes(32),
     private readonly now: () => number = Date.now
   ) {
     if (!Number.isSafeInteger(bucketCount) || bucketCount < 1) {
-      throw new Error("Unknown-login backoff bucket count must be a positive integer");
+      throw new Error("Login-failure delay bucket count must be a positive integer");
     }
     if (secret.byteLength < 32) {
-      throw new Error("Unknown-login backoff secret must contain at least 32 bytes");
+      throw new Error("Login-failure delay secret must contain at least 32 bytes");
     }
-    this.buckets = new Array<UnknownBackoffBucket | undefined>(bucketCount);
-  }
-
-  currentBackoffUntil(key: string, windowMs: number): Date | undefined {
-    const index = this.bucketIndex(key);
-    const bucket = this.currentBucket(index, windowMs);
-    return bucket?.lockedUntil === undefined ? undefined : new Date(bucket.lockedUntil);
+    this.buckets = new Array<LoginFailureDelayBucket | undefined>(bucketCount);
   }
 
   recordFailure(key: string, threshold: number, windowMs: number): Date | undefined {
@@ -228,4 +240,4 @@ export class UnknownLoginBackoffGate {
 export const loginVerificationGate = new LoginVerificationGate();
 export const loginFailureAuditGate = new LoginFailureAuditGate();
 export const loginSuccessTelemetryGate = new LoginSuccessTelemetryGate();
-export const unknownLoginBackoffGate = new UnknownLoginBackoffGate();
+export const loginFailureDelayGate = new LoginFailureDelayGate();

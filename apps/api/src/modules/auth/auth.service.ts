@@ -21,13 +21,13 @@ import type { LoginDto } from "./auth.dto.js";
 import {
   authenticationBackoffMaximumMs,
   loginFailureAuditGate,
+  loginFailureDelayGate,
   loginSuccessTelemetryGate,
   loginVerificationGate,
+  type LoginFailureDelayGate,
   type LoginFailureAuditGate,
   type LoginSuccessTelemetryGate,
-  type LoginVerificationGate,
-  unknownLoginBackoffGate,
-  type UnknownLoginBackoffGate
+  type LoginVerificationGate
 } from "./login-verification-gate.js";
 
 type DbUser = {
@@ -70,6 +70,8 @@ type DbUser = {
   }>;
 };
 
+type DbLoginCredential = Pick<DbUser, "id" | "email" | "passwordHash" | "passwordChangedAt">;
+
 type DbRefreshToken = {
   id: string;
   userId: string;
@@ -80,11 +82,6 @@ type DbRefreshToken = {
   revokedAt?: Date | null;
   createdAt: Date;
   user?: DbUser;
-};
-
-type DbLoginAttempt = {
-  failedCount: number;
-  lockedUntil?: Date | null;
 };
 
 const unavailablePrincipalHash = "$2b$12$2sfkfoyzJU1PG2MrSc47RuF7z.ieyVDzKzMHRJCQkYBZirsBtuN9q";
@@ -232,10 +229,10 @@ export class AuthService {
       LoginFailureAuditGate,
       "takeAggregate"
     > = loginFailureAuditGate,
-    private readonly unknownBackoffGate: Pick<
-      UnknownLoginBackoffGate,
-      "currentBackoffUntil" | "recordFailure"
-    > = unknownLoginBackoffGate,
+    private readonly failureDelayGate: Pick<
+      LoginFailureDelayGate,
+      "recordFailure"
+    > = loginFailureDelayGate,
     private readonly successTelemetryGate: Pick<
       LoginSuccessTelemetryGate,
       "takeAggregate"
@@ -355,10 +352,12 @@ export class AuthService {
     }
 
     const companyId = resolveCompany(user);
-    return this.issueSession(req, user, companyId, undefined, false, {
+    const session = await this.issueSession(req, user, companyId, undefined, false, {
       sessionKind: "DEMO",
       emailHash: hashIdentifier(user.email)
     });
+    this.recordSuccessfulLoginTelemetry();
+    return session;
   }
 
   async openPortfolioSession(req: ApiRequest) {
@@ -379,10 +378,12 @@ export class AuthService {
       throw unauthorized("Portfolio access is not safely provisioned");
     }
 
-    return this.issueSession(req, user, companyId, permissions, true, {
+    const session = await this.issueSession(req, user, companyId, permissions, true, {
       sessionKind: "PORTFOLIO",
       emailHash: hashIdentifier(user.email)
     });
+    this.recordSuccessfulLoginTelemetry();
+    return session;
   }
 
   async login(req: ApiRequest, input: LoginDto) {
@@ -391,59 +392,60 @@ export class AuthService {
     const verified = await this.verificationGate.run(emailHash, async (withPasswordBudget) => {
       const startedAt = Date.now();
       let failureBackoffUntil: Date | undefined;
+      let failureRecorded = false;
       let sessionIssued = false;
+      const recordFailure = () => {
+        failureRecorded = true;
+        return this.recordLoginFailure(emailHash);
+      };
       try {
-        const [candidateValue, persistedAttemptValue] = await Promise.all([
-          this.repository.findUserByEmail(input.email),
-          this.repository.findLoginAttempt(emailHash)
-        ]);
-        const candidate = candidateValue as DbUser | null;
-        const persistedAttempt = persistedAttemptValue as DbLoginAttempt | null;
-        await this.waitForPersistedBackoff(persistedAttempt);
-        if (!candidate || candidate.status !== "ACTIVE") {
-          await this.waitForUnknownBackoff(emailHash);
-          await withPasswordBudget(() => bcrypt.compare(input.password, unavailablePrincipalHash));
-          failureBackoffUntil = this.recordUnknownLoginFailure(emailHash);
-          throw unauthorized("Invalid credentials");
-        }
-
+        const credential = (await this.repository.findLoginCredentialByEmail(
+          input.email
+        )) as DbLoginCredential | null;
         const validPassword = await withPasswordBudget(() =>
-          bcrypt.compare(input.password, candidate.passwordHash)
+          bcrypt.compare(input.password, credential?.passwordHash ?? unavailablePrincipalHash)
         );
-        if (!validPassword) {
-          failureBackoffUntil = await this.recordKnownLoginFailure(
-            req,
-            emailHash,
-            ipHash,
-            "INVALID_PASSWORD",
-            candidate.id
-          );
+        if (!credential || !validPassword) {
+          failureBackoffUntil = recordFailure();
           throw unauthorized("Invalid credentials");
         }
 
-        const company = resolveLoginCompany(candidate, input.companyId);
+        const hydratedCandidate = (await this.repository.findUserByEmail(
+          input.email
+        )) as DbUser | null;
+        if (!hydratedCandidate || hydratedCandidate.id !== credential.id) {
+          failureBackoffUntil = recordFailure();
+          throw unauthorized("Invalid credentials");
+        }
+        const activeCandidate = {
+          ...hydratedCandidate,
+          passwordChangedAt: credential.passwordChangedAt
+        };
+
+        const company = resolveLoginCompany(activeCandidate, input.companyId);
         if (!company.companyId) {
-          failureBackoffUntil = await this.recordKnownLoginFailure(
-            req,
-            emailHash,
-            ipHash,
-            company.reason ?? "INVALID_COMPANY_SELECTION",
-            candidate.id
-          );
+          failureBackoffUntil = recordFailure();
           throw unauthorized("Invalid credentials");
         }
 
         let result: Awaited<ReturnType<AuthService["issueSession"]>>;
         try {
-          result = await this.issueSession(req, candidate, company.companyId, undefined, false, {
-            sessionKind: "PASSWORD",
-            emailHash,
-            ipHash
-          });
+          result = await this.issueSession(
+            req,
+            activeCandidate,
+            company.companyId,
+            undefined,
+            false,
+            {
+              sessionKind: "PASSWORD",
+              emailHash,
+              ipHash
+            }
+          );
         } catch (error) {
           logger.error("authentication_session_issue_failed", {
             requestId: req.context?.requestId,
-            userId: candidate.id,
+            userId: activeCandidate.id,
             companyId: company.companyId,
             error
           });
@@ -454,6 +456,9 @@ export class AuthService {
         return { result };
       } finally {
         if (!sessionIssued) {
+          if (!failureRecorded) {
+            failureBackoffUntil = recordFailure();
+          }
           await this.waitForFailureBackoff(failureBackoffUntil, startedAt);
         }
       }
@@ -644,61 +649,22 @@ export class AuthService {
     return { loggedOut: true };
   }
 
-  private async recordKnownLoginFailure(
-    req: ApiRequest,
-    emailHash: string,
-    ipHash: string,
-    reason: string,
-    userId?: string
-  ) {
-    let outcome: DbLoginAttempt;
-    try {
-      outcome = (await this.repository.recordFailedLogin({
-        emailHash,
-        maxAttempts: env.AUTH_LOCKOUT_MAX_ATTEMPTS,
-        lockoutWindowMs: env.AUTH_LOCKOUT_WINDOW_MS,
-        ipHash,
-        userAgent: req.context?.userAgent
-      })) as DbLoginAttempt;
-    } catch (error) {
-      logger.error("authentication_failure_state_write_failed", {
-        requestId: req.context?.requestId,
-        userId,
-        reason,
-        error
-      });
-      return new Date(Date.now() + authenticationBackoffMaximumMs);
-    }
-
-    const failedCount = outcome.failedCount;
-    const lockedUntil = outcome.lockedUntil ?? undefined;
-    this.recordFailureTelemetry("known", {
-      reason,
-      failedCount,
-      backoffMs: Math.max(0, (lockedUntil?.getTime() ?? 0) - Date.now())
-    });
-    return lockedUntil;
-  }
-
-  private recordUnknownLoginFailure(emailHash: string) {
-    const lockedUntil = this.unknownBackoffGate.recordFailure(
+  private recordLoginFailure(emailHash: string) {
+    const lockedUntil = this.failureDelayGate.recordFailure(
       emailHash,
       env.AUTH_LOCKOUT_MAX_ATTEMPTS,
       env.AUTH_LOCKOUT_WINDOW_MS
     );
-    this.recordFailureTelemetry("unknown", {
+    this.recordFailureTelemetry({
       backoffMs: Math.max(0, (lockedUntil?.getTime() ?? 0) - Date.now())
     });
     return lockedUntil;
   }
 
-  private recordFailureTelemetry(
-    principalKind: "known" | "unknown",
-    fields: Record<string, unknown>
-  ) {
-    const attemptCount = this.failureAuditGate.takeAggregate(principalKind);
+  private recordFailureTelemetry(fields: Record<string, unknown>) {
+    const attemptCount = this.failureAuditGate.takeAggregate();
     if (attemptCount !== undefined) {
-      logger.warn("authentication_failures", { principalKind, attemptCount, ...fields });
+      logger.warn("authentication_failures", { attemptCount, ...fields });
     }
   }
 
@@ -706,30 +672,6 @@ export class AuthService {
     const successCount = this.successTelemetryGate.takeAggregate();
     if (successCount !== undefined) {
       logger.info("authentication_successes", { successCount });
-    }
-  }
-
-  private async waitForPersistedBackoff(attempt: DbLoginAttempt | null) {
-    const delayMs = Math.min(
-      Math.max(0, (attempt?.lockedUntil?.getTime() ?? 0) - Date.now()),
-      authenticationBackoffMaximumMs
-    );
-    if (delayMs > 0) {
-      await this.delay(delayMs);
-    }
-  }
-
-  private async waitForUnknownBackoff(emailHash: string) {
-    const lockedUntil = this.unknownBackoffGate.currentBackoffUntil(
-      emailHash,
-      env.AUTH_LOCKOUT_WINDOW_MS
-    );
-    const delayMs = Math.min(
-      Math.max(0, (lockedUntil?.getTime() ?? 0) - Date.now()),
-      authenticationBackoffMaximumMs
-    );
-    if (delayMs > 0) {
-      await this.delay(delayMs);
     }
   }
 

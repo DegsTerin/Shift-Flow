@@ -230,6 +230,35 @@ describe("RecordModal mutation lifecycle", () => {
     setApiSession(session);
   });
 
+  it("wires UTF-8 byte validation into new-user password input", () => {
+    const tree = CreateForm({
+      entity: "users",
+      t: messages["en-GB"],
+      clients: [],
+      users: [],
+      teams: [],
+      shifts: [],
+      roles: [],
+      busy: false,
+      onSubmit: vi.fn()
+    });
+    const password = elements(tree).find(
+      (element) =>
+        element.type === "input" && (element.props as { name?: string }).name === "password"
+    );
+    const setCustomValidity = vi.fn();
+
+    expect(password?.props).toMatchObject({ maxLength: 72, required: true });
+    (
+      password?.props as {
+        onInput: (event: {
+          currentTarget: { value: string; setCustomValidity: typeof setCustomValidity };
+        }) => void;
+      }
+    ).onInput({ currentTarget: { value: `Aa1!${"é".repeat(35)}`, setCustomValidity } });
+    expect(setCustomValidity).toHaveBeenCalledWith(messages["en-GB"].passwordUtf8Limit);
+  });
+
   afterEach(() => {
     runtime.cleanup();
     clearApiSession();

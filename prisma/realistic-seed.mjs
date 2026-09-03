@@ -7,15 +7,14 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
-import { assertSafeDestructiveSeed, runAtomicDestructiveSeed } from "./seed-safety.mjs";
+import {
+  assertSafeDestructiveSeed,
+  runAtomicDestructiveSeed,
+  seedBcryptRounds
+} from "./seed-safety.mjs";
 
 const now = new Date();
 const timezone = "America/Sao_Paulo";
-
-function bcryptRounds() {
-  const rounds = Number(process.env.SEED_BCRYPT_ROUNDS ?? 12);
-  return Number.isFinite(rounds) && rounds >= 10 ? rounds : 12;
-}
 
 function hoursFromNow(hours) {
   return new Date(now.getTime() + hours * 60 * 60 * 1000);
@@ -1354,7 +1353,7 @@ async function main() {
   });
 
   try {
-    const passwordHash = await bcrypt.hash(password, bcryptRounds());
+    const passwordHash = await bcrypt.hash(password, seedBcryptRounds);
     await runRealisticSeed({
       databaseClient: rootPrisma,
       passwordHash,

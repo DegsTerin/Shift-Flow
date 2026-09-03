@@ -16,6 +16,7 @@ import type {
   View
 } from "../lib/types";
 import { shiftStatuses, userRoleId, userRoleOptions } from "../lib/utils";
+import { applyNewPasswordByteValidity, maximumNewPasswordUtf8Bytes } from "../lib/password-input";
 import { ReferenceSelectInput, SelectInput } from "./controls";
 
 export function GenericDetail({
@@ -287,6 +288,10 @@ function UserDetail({
           type="password"
           disabled={!editing}
           placeholder={t.newPasswordHint}
+          maxLength={maximumNewPasswordUtf8Bytes}
+          onInput={(event) =>
+            applyNewPasswordByteValidity(event.currentTarget, t.passwordUtf8Limit)
+          }
         />
       </label>
       <FormActions

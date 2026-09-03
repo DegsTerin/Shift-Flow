@@ -6,16 +6,24 @@ import type { ApiRequest } from "../../shared/http/request-types.js";
 import type { LoginDto } from "./auth.dto.js";
 import { PortfolioSessionCapacityError, type AuthRepository } from "./auth.repository.js";
 import { logger } from "../../shared/observability/logger.js";
+import { env } from "../../shared/config/env.js";
 import {
   authenticationBackoffMs,
   LoginFailureAuditGate,
-  LoginSuccessTelemetryGate,
-  LoginVerificationGate,
-  UnknownLoginBackoffGate
+  LoginFailureDelayGate,
+  LoginVerificationGate
 } from "./login-verification-gate.js";
 
 const past = new Date(Date.now() - 60_000);
 const future = new Date(Date.now() + 60_000);
+
+function deferred() {
+  let resolve: () => void = () => undefined;
+  const promise = new Promise<void>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
 
 function membership(companyId: string, isDefault = false) {
   return {
@@ -71,8 +79,19 @@ function activeUser(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function loginCredential(overrides: Record<string, unknown> = {}) {
+  const user = activeUser(overrides);
+  return {
+    id: user.id,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    passwordChangedAt: user.passwordChangedAt
+  };
+}
+
 function repository(overrides: Record<string, unknown> = {}) {
   return {
+    findLoginCredentialByEmail: vi.fn().mockResolvedValue(loginCredential()),
     findUserByEmail: vi.fn().mockResolvedValue(activeUser()),
     findLoginAttempt: vi.fn().mockResolvedValue(null),
     createRefreshToken: vi.fn().mockResolvedValue(true),
@@ -491,10 +510,11 @@ describe("AuthService", () => {
     );
   });
 
-  it("does not create a companyless session", async () => {
-    const mockRepository = repository({
-      findUserByEmail: vi.fn().mockResolvedValue(activeUser({ companies: [] }))
-    });
+  it.each([
+    { name: "companyless account", user: activeUser({ companies: [] }), companyId: undefined },
+    { name: "invalid company", user: activeUser(), companyId: "company-not-linked" }
+  ])("keeps $name inside the generic pre-session failure boundary", async ({ user, companyId }) => {
+    const mockRepository = repository({ findUserByEmail: vi.fn().mockResolvedValue(user) });
     const delay = vi.fn().mockResolvedValue(undefined);
     const service = new AuthService(
       mockRepository as unknown as AuthRepository,
@@ -502,40 +522,8 @@ describe("AuthService", () => {
       undefined,
       new LoginVerificationGate(),
       delay,
-      new LoginFailureAuditGate()
-    );
-    vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
-
-    await expect(
-      service.login(request(), {
-        email: "user@example.com",
-        password: "test-login-password"
-      })
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED", message: "Invalid credentials" });
-
-    expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalledWith(
-      "authentication_failures",
-      expect.objectContaining({
-        principalKind: "known",
-        reason: "NO_ACTIVE_COMPANY_MEMBERSHIP"
-      })
-    );
-    expect(delay).toHaveBeenCalledOnce();
-    expect(delay.mock.calls[0]?.[0]).toBeGreaterThanOrEqual(900);
-  });
-
-  it("does not reveal a correct password through an invalid company selection", async () => {
-    const mockRepository = repository();
-    const delay = vi.fn().mockResolvedValue(undefined);
-    const service = new AuthService(
-      mockRepository as unknown as AuthRepository,
-      undefined,
-      undefined,
-      new LoginVerificationGate(),
-      delay,
-      new LoginFailureAuditGate()
+      new LoginFailureAuditGate(),
+      new LoginFailureDelayGate()
     );
     vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
@@ -544,71 +532,128 @@ describe("AuthService", () => {
       service.login(request(), {
         email: "user@example.com",
         password: "test-login-password",
-        companyId: "company-not-linked"
+        ...(companyId ? { companyId } : {})
       })
     ).rejects.toMatchObject({ code: "UNAUTHORIZED", message: "Invalid credentials" });
 
     expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
+    expect(mockRepository.findLoginAttempt).not.toHaveBeenCalled();
+    expect(mockRepository.recordFailedLogin).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(
       "authentication_failures",
-      expect.objectContaining({ principalKind: "known", reason: "INVALID_COMPANY_SELECTION" })
+      expect.objectContaining({ attemptCount: 1 })
     );
-    expect(delay).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]?.[1]).not.toHaveProperty("principalKind");
     expect(delay.mock.calls[0]?.[0]).toBeGreaterThanOrEqual(900);
   });
 
-  it("uses a dummy hash without persisting attacker-controlled unknown identities", async () => {
+  it("uses one dummy bcrypt comparison and no principal-specific persistence for unknown input", async () => {
     const mockRepository = repository({
-      findUserByEmail: vi.fn().mockResolvedValue(null)
+      findLoginCredentialByEmail: vi.fn().mockResolvedValue(null)
     });
-    const failureAudit = new LoginFailureAuditGate();
-    const unknownBackoff = new UnknownLoginBackoffGate();
     const service = new AuthService(
       mockRepository as unknown as AuthRepository,
       undefined,
       undefined,
       new LoginVerificationGate(),
       vi.fn().mockResolvedValue(undefined),
-      failureAudit,
-      unknownBackoff
+      new LoginFailureAuditGate(),
+      new LoginFailureDelayGate()
     );
     const compare = vi.spyOn(bcrypt, "compare").mockImplementation(async () => false);
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
 
     await expect(
       service.login(request(), { email: "missing@example.com", password: "wrong-password" })
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 
-    expect(mockRepository.findLoginAttempt).toHaveBeenCalledOnce();
+    expect(mockRepository.findLoginAttempt).not.toHaveBeenCalled();
     expect(mockRepository.recordFailedLogin).not.toHaveBeenCalled();
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(compare).toHaveBeenCalledOnce();
     expect(compare).toHaveBeenCalledWith(
       "wrong-password",
       expect.stringMatching(/^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/)
     );
-    expect(warn).toHaveBeenCalledWith(
-      "authentication_failures",
-      expect.objectContaining({ principalKind: "unknown", attemptCount: 1 })
-    );
   });
 
-  it("keeps durable unknown-identity state at zero across thousands of e-mails", async () => {
-    const mockRepository = repository({
-      findUserByEmail: vi.fn().mockResolvedValue(null)
-    });
-    const failureAudit = new LoginFailureAuditGate(60_000, () => 1_000);
-    const unknownBackoff = new UnknownLoginBackoffGate(
-      256,
-      new Uint8Array(32).fill(7),
-      () => 1_000
-    );
+  it("hydrates membership and authority only after the credential is valid", async () => {
+    const mockRepository = repository();
     const service = new AuthService(
       mockRepository as unknown as AuthRepository,
       undefined,
       undefined,
       new LoginVerificationGate(),
       vi.fn().mockResolvedValue(undefined),
-      failureAudit,
-      unknownBackoff
+      new LoginFailureAuditGate(),
+      new LoginFailureDelayGate()
+    );
+    vi.spyOn(bcrypt, "compare")
+      .mockImplementationOnce(async () => false)
+      .mockImplementationOnce(async () => true);
+
+    await expect(
+      service.login(request(), {
+        email: "user@example.com",
+        password: "wrong-password"
+      })
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+
+    await expect(
+      service.login(request(), {
+        email: "user@example.com",
+        password: "correct-password"
+      })
+    ).resolves.toMatchObject({ user: { id: "user-1" } });
+    expect(mockRepository.findLoginCredentialByEmail).toHaveBeenCalledTimes(2);
+    expect(mockRepository.findUserByEmail).toHaveBeenCalledOnce();
+  });
+
+  it("uses one real cost-12 bcrypt comparison for both known and unknown principals", async () => {
+    const passwordHash = await bcrypt.hash("known-password", 12);
+    const knownRepository = repository({
+      findLoginCredentialByEmail: vi.fn().mockResolvedValue(loginCredential({ passwordHash }))
+    });
+    const unknownRepository = repository({
+      findLoginCredentialByEmail: vi.fn().mockResolvedValue(null)
+    });
+    const compare = vi.spyOn(bcrypt, "compare");
+    const delay = vi.fn().mockResolvedValue(undefined);
+
+    for (const candidateRepository of [knownRepository, unknownRepository]) {
+      const service = new AuthService(
+        candidateRepository as unknown as AuthRepository,
+        undefined,
+        undefined,
+        new LoginVerificationGate(),
+        delay,
+        new LoginFailureAuditGate(),
+        new LoginFailureDelayGate()
+      );
+      await expect(
+        service.login(request(), {
+          email: "principal@example.com",
+          password: "wrong-password"
+        })
+      ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    }
+
+    expect(compare).toHaveBeenCalledTimes(2);
+    expect(compare.mock.calls.map((call) => bcrypt.getRounds(call[1]))).toEqual([12, 12]);
+  });
+
+  it("keeps durable failure state at zero across thousands of attacker identities", async () => {
+    const mockRepository = repository({
+      findLoginCredentialByEmail: vi.fn().mockResolvedValue(null)
+    });
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(),
+      vi.fn().mockResolvedValue(undefined),
+      new LoginFailureAuditGate(60_000, () => 1_000),
+      new LoginFailureDelayGate(256, new Uint8Array(32).fill(7), () => 1_000)
     );
     vi.spyOn(bcrypt, "compare").mockImplementation(async () => false);
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
@@ -622,48 +667,20 @@ describe("AuthService", () => {
       ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     }
 
-    expect(mockRepository.findUserByEmail).toHaveBeenCalledTimes(2_000);
-    expect(mockRepository.findLoginAttempt).toHaveBeenCalledTimes(2_000);
+    expect(mockRepository.findLoginCredentialByEmail).toHaveBeenCalledTimes(2_000);
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(mockRepository.findLoginAttempt).not.toHaveBeenCalled();
     expect(mockRepository.recordFailedLogin).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledOnce();
   });
 
-  it("uses the same persisted-state read boundary for known and unknown principals", async () => {
-    const stateFailure = new Error("synthetic authentication-state read failure");
-    const compare = vi.spyOn(bcrypt, "compare").mockImplementation(async () => false);
-
-    for (const candidate of [activeUser(), null]) {
-      const mockRepository = repository({
-        findUserByEmail: vi.fn().mockResolvedValue(candidate),
-        findLoginAttempt: vi.fn().mockRejectedValue(stateFailure)
-      });
-      const service = new AuthService(
-        mockRepository as unknown as AuthRepository,
-        undefined,
-        undefined,
-        new LoginVerificationGate(),
-        vi.fn().mockResolvedValue(undefined)
-      );
-
-      await expect(
-        service.login(request(), { email: "principal@example.com", password: "wrong-password" })
-      ).rejects.toBe(stateFailure);
-      expect(mockRepository.findUserByEmail).toHaveBeenCalledOnce();
-      expect(mockRepository.findLoginAttempt).toHaveBeenCalledOnce();
-    }
-
-    expect(compare).not.toHaveBeenCalled();
-  });
-
-  it("keeps known, unknown and company-selection failures on the same capped timing curve", async () => {
+  it("keeps known, unknown and company-selection failures on one controlled timing curve", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-03T12:00:00.000Z"));
     vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     vi.spyOn(bcrypt, "compare").mockImplementation(async (password) => password === "correct");
 
     async function measure(kind: "known" | "unknown" | "wrong-company" | "companyless") {
-      let failedCount = 0;
-      let lockedUntil: Date | undefined;
+      vi.setSystemTime(new Date("2026-09-03T12:00:00.000Z"));
       const candidate =
         kind === "unknown"
           ? null
@@ -673,19 +690,10 @@ describe("AuthService", () => {
               ...(kind === "companyless" ? { companies: [] } : {})
             });
       const mockRepository = repository({
-        findUserByEmail: vi.fn().mockResolvedValue(candidate),
-        findLoginAttempt: vi.fn().mockImplementation(async () => ({
-          failedCount,
-          lockedUntil
-        })),
-        recordFailedLogin: vi.fn().mockImplementation(async (data) => {
-          failedCount += 1;
-          lockedUntil =
-            failedCount < data.maxAttempts
-              ? undefined
-              : new Date(Date.now() + authenticationBackoffMs(failedCount, data.maxAttempts));
-          return { failedCount, lockedUntil };
-        })
+        findLoginCredentialByEmail: vi
+          .fn()
+          .mockResolvedValue(candidate ? loginCredential(candidate) : null),
+        findUserByEmail: vi.fn().mockResolvedValue(candidate)
       });
       const delay = vi.fn().mockImplementation(async (milliseconds: number) => {
         vi.setSystemTime(Date.now() + milliseconds);
@@ -697,7 +705,7 @@ describe("AuthService", () => {
         new LoginVerificationGate(),
         delay,
         new LoginFailureAuditGate(60_000, Date.now),
-        new UnknownLoginBackoffGate(256, new Uint8Array(32).fill(5), Date.now)
+        new LoginFailureDelayGate(256, new Uint8Array(32).fill(5), Date.now)
       );
       const durations: number[] = [];
 
@@ -713,6 +721,8 @@ describe("AuthService", () => {
         durations.push(Date.now() - startedAt);
       }
 
+      expect(mockRepository.findLoginAttempt).not.toHaveBeenCalled();
+      expect(mockRepository.recordFailedLogin).not.toHaveBeenCalled();
       return durations;
     }
 
@@ -722,9 +732,11 @@ describe("AuthService", () => {
       const wrongCompany = await measure("wrong-company");
       const companyless = await measure("companyless");
 
-      expect(known).toEqual([
-        1_000, 1_000, 1_000, 1_000, 1_000, 2_000, 4_000, 8_000, 16_000, 30_000
-      ]);
+      expect(known).toEqual(
+        Array.from({ length: 10 }, (_, index) =>
+          authenticationBackoffMs(index + 1, env.AUTH_LOCKOUT_MAX_ATTEMPTS)
+        )
+      );
       expect(unknown).toEqual(known);
       expect(wrongCompany).toEqual(known);
       expect(companyless).toEqual(known);
@@ -733,208 +745,46 @@ describe("AuthService", () => {
     }
   });
 
-  it("aggregates sustained known-principal failures without append-only audit growth", async () => {
-    const mockRepository = repository();
+  it("emits one bounded telemetry stream for password, demo and portfolio sessions", async () => {
+    const telemetry = { takeAggregate: vi.fn().mockReturnValue(undefined) };
+    const provisionedUser = activeUser({
+      roleAssignments: [assignment("company-a", "dashboard", "read")]
+    });
+    const mockRepository = repository({
+      findUserByEmail: vi.fn().mockResolvedValue(provisionedUser)
+    });
     const service = new AuthService(
       mockRepository as unknown as AuthRepository,
-      undefined,
-      undefined,
-      new LoginVerificationGate(),
-      vi.fn().mockResolvedValue(undefined),
-      new LoginFailureAuditGate(60_000, () => 1_000),
-      new UnknownLoginBackoffGate()
-    );
-    vi.spyOn(bcrypt, "compare").mockImplementation(async () => false);
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
-
-    for (let index = 0; index < 2_000; index += 1) {
-      await expect(
-        service.login(request(), {
-          email: "user@example.com",
-          password: `wrong-password-${index}`
-        })
-      ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
-    }
-
-    expect(mockRepository.recordFailedLogin).toHaveBeenCalledTimes(2_000);
-    expect(warn).toHaveBeenCalledTimes(1);
-  });
-
-  it("coalesces process telemetry independently of canonical per-login audit writes", async () => {
-    const mockRepository = repository();
-    const service = new AuthService(
-      mockRepository as unknown as AuthRepository,
-      undefined,
-      undefined,
+      { enabled: true, email: "demo@shiftflow.local" },
+      { enabled: true, email: "portfolio@shiftflow.local" },
       new LoginVerificationGate(),
       vi.fn().mockResolvedValue(undefined),
       new LoginFailureAuditGate(),
-      new UnknownLoginBackoffGate(),
-      new LoginSuccessTelemetryGate(60_000, () => 1_000)
+      new LoginFailureDelayGate(),
+      telemetry
     );
     vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
-    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
 
-    for (let index = 0; index < 2_000; index += 1) {
-      await service.login(request(), {
-        email: "user@example.com",
-        password: "correct-password"
-      });
-    }
-
-    expect(mockRepository.createRefreshToken).toHaveBeenCalledTimes(2_000);
-    expect(info).toHaveBeenCalledOnce();
-    expect(info).toHaveBeenCalledWith("authentication_successes", { successCount: 1 });
-  });
-
-  it("waits out persisted backoff and still accepts a correct password", async () => {
-    vi.useFakeTimers();
-    const now = new Date("2026-09-03T12:00:00.000Z");
-    vi.setSystemTime(now);
-    const mockRepository = repository({
-      findLoginAttempt: vi
-        .fn()
-        .mockResolvedValue({ failedCount: 5, lockedUntil: new Date(now.getTime() + 1_000) })
+    await service.openDemoSession(request());
+    await service.openPortfolioSession(request());
+    await service.login(request(), {
+      email: "user@example.com",
+      password: "correct-password"
     });
-    const service = new AuthService(mockRepository as unknown as AuthRepository);
-    const compare = vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
 
-    try {
-      const login = service.login(request(), {
-        email: "user@example.com",
-        password: "test-login-password"
-      });
-      await vi.waitFor(() => expect(mockRepository.findLoginAttempt).toHaveBeenCalledOnce());
-      expect(compare).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(1_000);
-      await expect(login).resolves.toMatchObject({ user: { id: "user-1" } });
-
-      expect(mockRepository.findUserByEmail).toHaveBeenCalledWith("user@example.com");
-      expect(mockRepository.createRefreshToken).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.any(Object),
-        expect.objectContaining({
-          emailHash: expect.any(String),
-          ipHash: expect.any(String),
-          userId: "user-1",
-          companyId: "company-a",
-          requestId: "request-1",
-          ipAddress: "127.0.0.1",
-          userAgent: "test-agent"
-        })
-      );
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(telemetry.takeAggregate).toHaveBeenCalledTimes(3);
+    expect(mockRepository.createRefreshToken).toHaveBeenCalledTimes(3);
   });
 
-  it("rejects overlapping rotating-IP work and accepts the correct password after failures", async () => {
+  it("accepts a correct credential while an earlier same-identity failure is still delayed", async () => {
     const mockRepository = repository();
-    const gate = new LoginVerificationGate(1, 8, 8);
-    const delay = vi.fn().mockResolvedValue(undefined);
+    const releaseDelay = deferred();
+    const delay = vi.fn().mockImplementation(async () => releaseDelay.promise);
     const service = new AuthService(
       mockRepository as unknown as AuthRepository,
       undefined,
       undefined,
-      gate,
-      delay
-    );
-    vi.spyOn(logger, "error").mockImplementation(() => undefined);
-    let releaseFailure: () => void = () => undefined;
-    const failureBlocked = new Promise<void>((resolve) => {
-      releaseFailure = resolve;
-    });
-    const compare = vi
-      .spyOn(bcrypt, "compare")
-      .mockImplementationOnce(async () => {
-        await failureBlocked;
-        return false;
-      })
-      .mockImplementationOnce(async () => false)
-      .mockImplementationOnce(async () => true);
-
-    const firstAttack = service.login(request("198.51.100.10"), {
-      email: "user@example.com",
-      password: "wrong-password"
-    });
-    await vi.waitFor(() => expect(compare).toHaveBeenCalledTimes(1));
-    const secondAttack = service.login(request("192.0.2.30"), {
-      email: "user@example.com",
-      password: "another-wrong-password"
-    });
-    await expect(secondAttack).rejects.toMatchObject({ code: "AUTHENTICATION_BUSY" });
-    expect(compare).toHaveBeenCalledTimes(1);
-
-    releaseFailure();
-    await expect(firstAttack).rejects.toMatchObject({ code: "UNAUTHORIZED" });
-    await expect(
-      service.login(request("192.0.2.30"), {
-        email: "user@example.com",
-        password: "another-wrong-password"
-      })
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
-    const legitimate = service.login(request("203.0.113.20"), {
-      email: "user@example.com",
-      password: "test-login-password"
-    });
-    await expect(legitimate).resolves.toMatchObject({ user: { id: "user-1" } });
-    expect(compare).toHaveBeenCalledTimes(3);
-    expect(delay).toHaveBeenCalledTimes(2);
-  });
-
-  it("rejects a saturated verification lane without mutating account state", async () => {
-    const mockRepository = repository();
-    const gate = new LoginVerificationGate(1, 1, 1);
-    const service = new AuthService(
-      mockRepository as unknown as AuthRepository,
-      undefined,
-      undefined,
-      gate,
-      vi.fn().mockResolvedValue(undefined)
-    );
-    let release: () => void = () => undefined;
-    const blocked = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    vi.spyOn(bcrypt, "compare").mockImplementationOnce(async () => {
-      await blocked;
-      return true;
-    });
-    const admitted = service.login(request("198.51.100.10"), {
-      email: "first@example.com",
-      password: "test-login-password"
-    });
-    await vi.waitFor(() => expect(mockRepository.findLoginAttempt).toHaveBeenCalledOnce());
-
-    await expect(
-      service.login(request("203.0.113.20"), {
-        email: "second@example.com",
-        password: "test-login-password"
-      })
-    ).rejects.toMatchObject({ code: "AUTHENTICATION_BUSY", statusCode: 429 });
-    expect(mockRepository.recordFailedLogin).not.toHaveBeenCalled();
-
-    release();
-    await admitted;
-  });
-
-  it("keeps the verification lane delayed when failed-login persistence rolls back", async () => {
-    const persistenceFailure = new Error("synthetic persistence rollback");
-    const mockRepository = repository({
-      recordFailedLogin: vi.fn().mockRejectedValue(persistenceFailure)
-    });
-    vi.spyOn(logger, "error").mockImplementation(() => undefined);
-    const gate = new LoginVerificationGate(1, 4, 4);
-    let releaseDelay: () => void = () => undefined;
-    const delayed = new Promise<void>((resolve) => {
-      releaseDelay = resolve;
-    });
-    const delay = vi.fn().mockImplementation(async () => delayed);
-    const service = new AuthService(
-      mockRepository as unknown as AuthRepository,
-      undefined,
-      undefined,
-      gate,
+      new LoginVerificationGate(1, 8, 8),
       delay
     );
     const compare = vi
@@ -942,7 +792,7 @@ describe("AuthService", () => {
       .mockImplementationOnce(async () => false)
       .mockImplementationOnce(async () => true);
 
-    const failed = service
+    const hostile = service
       .login(request("198.51.100.10"), {
         email: "user@example.com",
         password: "wrong-password"
@@ -952,143 +802,120 @@ describe("AuthService", () => {
         (error: unknown) => error
       );
     await vi.waitFor(() => expect(delay).toHaveBeenCalledOnce());
-    expect(delay.mock.calls[0]?.[0]).toBeGreaterThanOrEqual(29_900);
-    const legitimate = service.login(request("203.0.113.20"), {
-      email: "user@example.com",
-      password: "test-login-password"
-    });
-    await expect(legitimate).rejects.toMatchObject({ code: "AUTHENTICATION_BUSY" });
-    expect(compare).toHaveBeenCalledTimes(1);
 
-    releaseDelay();
-    await expect(failed).resolves.toMatchObject({
-      code: "UNAUTHORIZED",
-      message: "Invalid credentials"
-    });
     await expect(
       service.login(request("203.0.113.20"), {
         email: "user@example.com",
-        password: "test-login-password"
+        password: "correct-password"
       })
     ).resolves.toMatchObject({ user: { id: "user-1" } });
     expect(compare).toHaveBeenCalledTimes(2);
+    let hostileSettled = false;
+    void hostile.finally(() => {
+      hostileSettled = true;
+    });
+    await Promise.resolve();
+    expect(hostileSettled).toBe(false);
+
+    releaseDelay.resolve();
+    await expect(hostile).resolves.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
-  it.each([
-    {
-      name: "principal lookup",
-      overrides: { findUserByEmail: vi.fn().mockRejectedValue(new Error("lookup failed")) },
-      compare: async (): Promise<boolean> => true
-    },
-    {
-      name: "persisted backoff lookup",
-      overrides: { findLoginAttempt: vi.fn().mockRejectedValue(new Error("state read failed")) },
-      compare: async (): Promise<boolean> => true
-    },
-    {
-      name: "password comparison",
-      overrides: {},
-      compare: async (): Promise<boolean> => {
-        throw new Error("comparison failed");
-      }
-    },
-    {
-      name: "session issuance",
-      overrides: { createRefreshToken: vi.fn().mockResolvedValue(false) },
-      compare: async (): Promise<boolean> => true
-    }
-  ])(
-    "holds the identity admission during fail-closed cooldown after $name failure",
-    async (testCase) => {
-      const mockRepository = repository(testCase.overrides);
-      let releaseDelay: () => void = () => undefined;
-      const delayed = new Promise<void>((resolve) => {
-        releaseDelay = resolve;
-      });
-      const delay = vi.fn().mockImplementation(async () => delayed);
-      const service = new AuthService(
-        mockRepository as unknown as AuthRepository,
-        undefined,
-        undefined,
-        new LoginVerificationGate(1, 4, 4),
-        delay
-      );
-      vi.spyOn(bcrypt, "compare").mockImplementation(testCase.compare);
-
-      const failed = service
-        .login(request("198.51.100.10"), {
-          email: "user@example.com",
-          password: "test-login-password"
+  it("does not let 128 delayed unknown flows retain bcrypt admission capacity", async () => {
+    const releaseDelays = deferred();
+    const mockRepository = repository({
+      findLoginCredentialByEmail: vi
+        .fn()
+        .mockImplementation(async (email: string) =>
+          email.startsWith("unknown-") ? null : loginCredential()
+        )
+    });
+    const delay = vi.fn().mockImplementation(async () => releaseDelays.promise);
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(4, 128, 128),
+      delay
+    );
+    vi.spyOn(bcrypt, "compare").mockImplementation(async (password) => password === "correct");
+    const hostile = Array.from({ length: 128 }, (_, index) =>
+      service
+        .login(request(), {
+          email: `unknown-${index}@example.com`,
+          password: "wrong"
         })
         .then(
           () => undefined,
           (error: unknown) => error
-        );
-      await vi.waitFor(() => expect(delay).toHaveBeenCalledOnce());
-      expect(delay.mock.calls[0]?.[0]).toBeGreaterThanOrEqual(900);
-
-      await expect(
-        service.login(request("203.0.113.20"), {
-          email: "user@example.com",
-          password: "test-login-password"
-        })
-      ).rejects.toMatchObject({ code: "AUTHENTICATION_BUSY" });
-
-      releaseDelay();
-      await expect(failed).resolves.toBeDefined();
-    }
-  );
-
-  it("holds identity admission when the global password budget rejects work", async () => {
-    let active = false;
-    const budgetError = new Error("password budget unavailable");
-    const gate = {
-      async run<T>(
-        _key: string,
-        operation: (
-          withPasswordBudget: <R>(passwordOperation: () => Promise<R>) => Promise<R>
-        ) => Promise<T>
-      ) {
-        if (active) {
-          throw Object.assign(new Error("busy"), { code: "AUTHENTICATION_BUSY", statusCode: 429 });
-        }
-        active = true;
-        try {
-          return await operation(async () => {
-            throw budgetError;
-          });
-        } finally {
-          active = false;
-        }
-      }
-    };
-    let releaseDelay: () => void = () => undefined;
-    const delayed = new Promise<void>((resolve) => {
-      releaseDelay = resolve;
-    });
-    const delay = vi.fn().mockImplementation(async () => delayed);
-    const service = new AuthService(
-      repository() as unknown as AuthRepository,
-      undefined,
-      undefined,
-      gate,
-      delay
+        )
     );
+    await vi.waitFor(() => expect(delay).toHaveBeenCalledTimes(128));
 
-    const failed = service
-      .login(request(), { email: "user@example.com", password: "test-login-password" })
-      .then(
-        () => undefined,
-        (error: unknown) => error
-      );
-    await vi.waitFor(() => expect(delay).toHaveBeenCalledOnce());
-    expect(delay.mock.calls[0]?.[0]).toBeGreaterThanOrEqual(900);
     await expect(
-      service.login(request(), { email: "user@example.com", password: "test-login-password" })
-    ).rejects.toMatchObject({ code: "AUTHENTICATION_BUSY", statusCode: 429 });
+      service.login(request(), { email: "user@example.com", password: "correct" })
+    ).resolves.toMatchObject({ user: { id: "user-1" } });
 
-    releaseDelay();
-    await expect(failed).resolves.toBe(budgetError);
+    releaseDelays.resolve();
+    const hostileResults = await Promise.all(hostile);
+    expect(hostileResults).toHaveLength(128);
+    expect(
+      hostileResults.every(
+        (result) =>
+          typeof result === "object" &&
+          result !== null &&
+          "code" in result &&
+          result.code === "UNAUTHORIZED"
+      )
+    ).toBe(true);
+  });
+
+  it("rejects a saturated bcrypt budget without durable failure-state mutation", async () => {
+    const mockRepository = repository();
+    const blocked = deferred();
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(1, 1, 1),
+      vi.fn().mockResolvedValue(undefined)
+    );
+    vi.spyOn(bcrypt, "compare").mockImplementationOnce(async () => {
+      await blocked.promise;
+      return true;
+    });
+    const admitted = service.login(request(), {
+      email: "user@example.com",
+      password: "correct-password"
+    });
+    await vi.waitFor(() => expect(bcrypt.compare).toHaveBeenCalledOnce());
+
+    await expect(
+      service.login(request(), {
+        email: "second@example.com",
+        password: "correct-password"
+      })
+    ).rejects.toMatchObject({ code: "AUTHENTICATION_BUSY", statusCode: 429 });
+    expect(mockRepository.recordFailedLogin).not.toHaveBeenCalled();
+
+    blocked.resolve();
+    await admitted;
+  });
+
+  it("keeps legacy passwords above 72 UTF-8 bytes verifiable without rehashing", async () => {
+    const legacyPassword = "é".repeat(37);
+    const mockRepository = repository();
+    const compare = vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
+    const hash = vi.spyOn(bcrypt, "hash");
+    const service = new AuthService(mockRepository as unknown as AuthRepository);
+
+    await expect(
+      service.login(request(), { email: "user@example.com", password: legacyPassword })
+    ).resolves.toMatchObject({ user: { id: "user-1" } });
+
+    expect(new TextEncoder().encode(legacyPassword)).toHaveLength(74);
+    expect(compare).toHaveBeenCalledWith(legacyPassword, "stored-bcrypt-password-hash");
+    expect(hash).not.toHaveBeenCalled();
   });
 
   it("rotates a valid refresh token in its persisted company", async () => {

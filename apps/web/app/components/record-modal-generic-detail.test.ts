@@ -101,6 +101,25 @@ function textOf(node: unknown): string {
 }
 
 describe("GenericDetail capability matrix", () => {
+  it("wires UTF-8 byte validation into edited user passwords", () => {
+    const tree = renderGeneric("users", { ...none, canWrite: true });
+    const password = expandedElements(tree).find(
+      (element) =>
+        element.type === "input" && (element.props as { name?: string }).name === "password"
+    );
+    const setCustomValidity = vi.fn();
+
+    expect(password?.props).toMatchObject({ maxLength: 72 });
+    (
+      password?.props as {
+        onInput: (event: {
+          currentTarget: { value: string; setCustomValidity: typeof setCustomValidity };
+        }) => void;
+      }
+    ).onInput({ currentTarget: { value: `Aa1!${"é".repeat(35)}`, setCustomValidity } });
+    expect(setCustomValidity).toHaveBeenCalledWith(messages["en-GB"].passwordUtf8Limit);
+  });
+
   for (const entity of ["users", "clients", "teams", "shifts"] as const) {
     it(`keeps ${entity} read-only without write or delete controls`, () => {
       const text = textOf(renderGeneric(entity, none));

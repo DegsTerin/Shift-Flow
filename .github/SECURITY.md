@@ -23,7 +23,7 @@ Do not open public issues for suspected vulnerabilities. Report privately to the
 - Access-token logout revocation is persisted until token expiry.
 - Reused refresh tokens retained inside the bounded tombstone window revoke active successors only
   in the affected user/company/session-kind/rotation-family scope.
-- Failed account logins are tracked by exact hashed identity and receive bounded backoff without account lockout.
+- Failed login responses use fixed secret-HMAC delay buckets without persistent account lockout.
 - API responses include `x-request-id` for incident correlation.
 - Caller request identifiers are accepted only as 1–120 safe ASCII characters; invalid values are
   replaced with an internal UUID before reflection or persistence.
@@ -42,21 +42,29 @@ Do not open public issues for suspected vulnerabilities. Report privately to the
 
 ## Authentication Abuse Controls
 
-Password login admits one operation per exact persisted e-mail identity and uses
-a single global FIFO budget of four concurrent bcrypt comparisons. At most 128
-identities and 128 queued password comparisons are admitted, so
-attacker-controlled e-mails and rotating IPs cannot create extra CPU capacity or
-unbounded queues. Saturation returns `AUTHENTICATION_BUSY` (HTTP 429) before
-account state is mutated. The global per-IP HTTP limiter remains a high
+Password login uses a single global FIFO budget of four concurrent bcrypt
+comparisons. An exact e-mail identity can have only one comparison active or
+queued, with at most 128 admitted identities and an independently enforced
+128-entry queue ceiling. Identity admission is acquired before the relational
+credential lookup. That lookup selects only credential-version fields;
+memberships and role assignments are hydrated only after a valid password.
+Identity admission is released as soon as the comparison settles; session
+persistence and failed-response delay do not retain it. Saturation returns
+`AUTHENTICATION_BUSY` (HTTP 429)
+without durable failure-state mutation. The global per-IP HTTP limiter remains a high
 emergency ceiling; the lower 10-request direct-access limiter applies only to
 demo and portfolio endpoints, so unrelated failures behind a NAT do not create
 a 15-minute password lockout.
 
-For real accounts, PostgreSQL keeps one mutable failure row and an exponential
-1,000–30,000 ms backoff. Unknown principals use 256 fixed, secret-HMAC decoy
-buckets with window expiry and the same timing curve; attacker-controlled
-identities therefore create no PostgreSQL or append-only audit rows. Known and
-unknown failures emit only two fixed, windowed aggregate telemetry streams.
+All admitted pre-session credential failures use the same 256 fixed, secret-HMAC response-delay
+buckets, 1,000–30,000 ms curve and window expiry. No login failure reads or
+writes principal-specific PostgreSQL state, so account existence does not select
+a distinct state boundary and attacker-controlled identities create no database
+or append-only audit rows. Failures emit one fixed, windowed aggregate telemetry
+stream without an existence classification. This delay shapes the public
+failure response; it is deliberately not a pre-verification account lock and
+therefore cannot deny a later correct credential while an earlier response is
+still delayed.
 Successful password login updates mutable `lastSuccessAt`, hashed source-IP and
 user-agent state for the exact principal, plus one fixed, windowed aggregate
 telemetry stream and a canonical append-only `LOGIN_SUCCESS` audit event.
@@ -73,7 +81,7 @@ retention never updates or deletes it. The bounded table is not a substitute for
 durable security audit or compliance retention; operators must configure and
 verify downstream retention before claiming longer-term granular session history.
 Historical demo and portfolio audit rows remain untouched. Prospectively, those
-public session-open flows use bounded observations and aggregate telemetry rather
+public session-open flows use bounded observations and the same aggregate success telemetry rather
 than canonical compliance audit so public traffic cannot amplify append-only
 storage. They must not be represented as complete audit history.
 
@@ -112,12 +120,12 @@ next admission. This keeps the database pool bounded while allowing far more tha
 five simultaneous visitors. Distributed traffic can still exhaust the pool for
 at most its one-hour lifetime, so upstream bot controls remain necessary.
 
-Failure latency is measured from admission rather than added after database
-work. The identity remains admitted until the applicable delay completes, and a
-failed PostgreSQL state write uses the 30,000 ms maximum fallback. Correct
-credentials are still compared after prior backoff and cannot be rejected by a
-persisted account lock; a concurrent attempt or global capacity exhaustion can
-still receive a transient HTTP 429 and must retry.
+Failure latency is measured from request processing rather than added after
+database work. Every principal class uses the same fixed HMAC-bucket curve, and
+no identity, queue or bcrypt slot remains held while a response is delayed.
+Correct credentials are compared without a persisted account lock; only a
+simultaneous comparison for that exact identity or global capacity exhaustion
+can receive a transient HTTP 429 and must retry.
 
 Rate-limit state has an isolated fixed 10,000-bucket cap per limiter and
 periodic TTL cleanup. The two current stores therefore permit at most 20,000
@@ -134,9 +142,20 @@ These lanes are process-local. Production therefore rejects
 Without MFA, a user-facing challenge or independently verified upstream bot
 mitigation, application controls cannot eliminate distributed credential
 stuffing or volumetric denial of service. Fixed decoy-bucket collisions can also
-delay unrelated unknown identities. Upstream connection controls, monitoring
-and a reviewed challenge/MFA design remain necessary before claiming general
-bot resistance.
+change failure-response delay for unrelated identities, and process restart
+resets those delay buckets. Delayed HTTP responses still rely on upstream
+connection and request controls for volumetric bounds. Upstream monitoring and a
+reviewed challenge/MFA design remain necessary before claiming general bot
+resistance.
+
+New passwords are limited to 72 UTF-8 bytes in API create/update writers, seed
+preflights and administration UI controls so bcrypt cannot silently truncate
+them. New API and seed credentials use bcrypt cost 12. Login retains the
+existing 160-character transport ceiling and passes legacy credentials through
+verification unchanged; it does not silently rehash or rewrite them. Existing
+non-cost-12 hashes therefore require an offline inventory and reviewed migration
+before operators can claim an identical bcrypt work factor for every historical
+account.
 
 ## Proxy Trust
 

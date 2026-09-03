@@ -20,6 +20,7 @@ import {
   statusLabel,
   toDateInputValue
 } from "../lib/utils";
+import { applyNewPasswordByteValidity, maximumNewPasswordUtf8Bytes } from "../lib/password-input";
 import { ReferenceSelectInput, SelectInput } from "./controls";
 
 export function CreateForm({
@@ -100,7 +101,15 @@ export function CreateForm({
         </div>
         <label>
           {t.password}
-          <input name="password" type="password" required />
+          <input
+            name="password"
+            type="password"
+            required
+            maxLength={maximumNewPasswordUtf8Bytes}
+            onInput={(event) =>
+              applyNewPasswordByteValidity(event.currentTarget, t.passwordUtf8Limit)
+            }
+          />
         </label>
         <button className="primary-button span-2" disabled={busy} type="submit">
           <Save size={16} />

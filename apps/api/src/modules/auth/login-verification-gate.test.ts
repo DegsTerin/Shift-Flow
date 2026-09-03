@@ -2,13 +2,21 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   LoginFailureAuditGate,
+  LoginFailureDelayGate,
   LoginSuccessTelemetryGate,
-  LoginVerificationGate,
-  UnknownLoginBackoffGate
+  LoginVerificationGate
 } from "./login-verification-gate.js";
 
+function deferred() {
+  let resolve: () => void = () => undefined;
+  const promise = new Promise<void>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
+
 describe("LoginVerificationGate", () => {
-  it("admits only one operation for the same exact identity", async () => {
+  it("admits only one scheduled bcrypt operation for the same exact identity", async () => {
     const gate = new LoginVerificationGate(2, 4, 4);
     let release: () => void = () => undefined;
     const blocked = new Promise<void>((resolve) => {
@@ -24,6 +32,27 @@ describe("LoginVerificationGate", () => {
       )
     ).rejects.toMatchObject({ statusCode: 429, code: "AUTHENTICATION_BUSY" });
     release();
+    await first;
+  });
+
+  it("releases the identity as soon as bcrypt finishes while the outer flow remains active", async () => {
+    const gate = new LoginVerificationGate(1, 4, 4);
+    const passwordFinished = deferred();
+    const releaseOuterFlow = deferred();
+    const first = gate.run("identity-a", async (withPasswordBudget) => {
+      await withPasswordBudget(async () => undefined);
+      passwordFinished.resolve();
+      await releaseOuterFlow.promise;
+    });
+
+    await passwordFinished.promise;
+    await expect(
+      gate.run("identity-a", async (withPasswordBudget) =>
+        withPasswordBudget(async () => "legitimate")
+      )
+    ).resolves.toBe("legitimate");
+
+    releaseOuterFlow.resolve();
     await first;
   });
 
@@ -55,20 +84,64 @@ describe("LoginVerificationGate", () => {
     expect(order).toEqual(["first-started", "first-finished", "second-started"]);
   });
 
-  it("bounds attacker-controlled identity cardinality", async () => {
+  it("bounds attacker-controlled scheduled identity cardinality", async () => {
     const gate = new LoginVerificationGate(1, 1, 1);
     let release: () => void = () => undefined;
     const blocked = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const admitted = gate.run("identity-a", async () => blocked);
+    const admitted = gate.run("identity-a", async (withPasswordBudget) =>
+      withPasswordBudget(async () => blocked)
+    );
 
-    await expect(gate.run("identity-b", async () => undefined)).rejects.toMatchObject({
+    await expect(
+      gate.run("identity-b", async (withPasswordBudget) =>
+        withPasswordBudget(async () => undefined)
+      )
+    ).rejects.toMatchObject({ statusCode: 429, code: "AUTHENTICATION_BUSY" });
+    release();
+    await admitted;
+  });
+
+  it("bounds relational lookup work before an identity reaches bcrypt", async () => {
+    const gate = new LoginVerificationGate(4, 128, 128);
+    const releaseLookups = deferred();
+    const lookups = Array.from({ length: 128 }, (_, index) =>
+      gate.run(`unknown-${index}`, async () => releaseLookups.promise)
+    );
+
+    await expect(gate.run("overflow", async () => undefined)).rejects.toMatchObject({
       statusCode: 429,
       code: "AUTHENTICATION_BUSY"
     });
-    release();
-    await admitted;
+
+    releaseLookups.resolve();
+    await Promise.all(lookups);
+    await expect(gate.run("overflow", async () => "recovered")).resolves.toBe("recovered");
+  });
+
+  it("does not count completed bcrypt work from 128 still-active unknown flows", async () => {
+    const gate = new LoginVerificationGate(4, 128, 128);
+    const releaseOuterFlows = deferred();
+    let completedPasswordChecks = 0;
+    const hostileFlows = Array.from({ length: 128 }, (_, index) =>
+      gate.run(`unknown-${index}`, async (withPasswordBudget) => {
+        await withPasswordBudget(async () => {
+          completedPasswordChecks += 1;
+        });
+        await releaseOuterFlows.promise;
+      })
+    );
+
+    await vi.waitFor(() => expect(completedPasswordChecks).toBe(128));
+    await expect(
+      gate.run("legitimate", async (withPasswordBudget) =>
+        withPasswordBudget(async () => "admitted")
+      )
+    ).resolves.toBe("admitted");
+
+    releaseOuterFlows.resolve();
+    await Promise.all(hostileFlows);
   });
 
   it("releases an identity after its operation rejects", async () => {
@@ -107,19 +180,16 @@ describe("LoginVerificationGate", () => {
 });
 
 describe("LoginFailureAuditGate", () => {
-  it("coalesces unbounded identities into two fixed-window aggregates", () => {
+  it("coalesces unbounded identities into one fixed-window aggregate", () => {
     let now = 1_000;
     const gate = new LoginFailureAuditGate(60_000, () => now);
 
-    expect(gate.takeAggregate("known")).toBe(1);
-    expect(gate.takeAggregate("unknown")).toBe(1);
+    expect(gate.takeAggregate()).toBe(1);
     for (let index = 0; index < 2_000; index += 1) {
-      expect(gate.takeAggregate("known")).toBeUndefined();
-      expect(gate.takeAggregate("unknown")).toBeUndefined();
+      expect(gate.takeAggregate()).toBeUndefined();
     }
     now += 60_000;
-    expect(gate.takeAggregate("known")).toBe(2_001);
-    expect(gate.takeAggregate("unknown")).toBe(2_001);
+    expect(gate.takeAggregate()).toBe(2_001);
   });
 });
 
@@ -137,13 +207,12 @@ describe("LoginSuccessTelemetryGate", () => {
   });
 });
 
-describe("UnknownLoginBackoffGate", () => {
+describe("LoginFailureDelayGate", () => {
   it("applies the same capped progression and expires fixed decoy state", () => {
     let now = 1_000;
-    const gate = new UnknownLoginBackoffGate(8, new Uint8Array(32).fill(7), () => now);
-    const key = "unknown-identity-hash";
+    const gate = new LoginFailureDelayGate(8, new Uint8Array(32).fill(7), () => now);
+    const key = "principal-identity-hash";
 
-    expect(gate.currentBackoffUntil(key, 60_000)).toBeUndefined();
     expect(gate.recordFailure(key, 3, 60_000)).toBeUndefined();
     expect(gate.recordFailure(key, 3, 60_000)).toBeUndefined();
     expect(gate.recordFailure(key, 3, 60_000)?.getTime()).toBe(now + 1_000);
@@ -154,17 +223,16 @@ describe("UnknownLoginBackoffGate", () => {
     expect(gate.recordFailure(key, 3, 60_000)?.getTime()).toBe(now + 4_000);
 
     now += 60_000;
-    expect(gate.currentBackoffUntil(key, 60_000)).toBeUndefined();
     expect(gate.recordFailure(key, 3, 60_000)).toBeUndefined();
   });
 
   it("keeps attacker-controlled identities inside a fixed HMAC bucket set", () => {
-    const gate = new UnknownLoginBackoffGate(1, new Uint8Array(32).fill(9), () => 1_000);
+    const gate = new LoginFailureDelayGate(1, new Uint8Array(32).fill(9), () => 1_000);
 
     for (let index = 0; index < 2_000; index += 1) {
       gate.recordFailure(`identity-${index}`, 5, 60_000);
     }
 
-    expect(gate.currentBackoffUntil("any-identity", 60_000)?.getTime()).toBe(31_000);
+    expect(gate.recordFailure("any-identity", 5, 60_000)?.getTime()).toBe(31_000);
   });
 });

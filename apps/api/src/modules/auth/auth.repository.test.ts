@@ -328,6 +328,27 @@ describe("AuthRepository", () => {
     ]);
   });
 
+  it("loads only credential fields before password verification", async () => {
+    userFindFirst.mockResolvedValue(null);
+    const repository = new AuthRepository();
+
+    await repository.findLoginCredentialByEmail("user@example.com");
+
+    expect(userFindFirst).toHaveBeenCalledWith({
+      where: {
+        email: "user@example.com",
+        status: "ACTIVE",
+        deletedAt: null
+      },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        passwordChangedAt: true
+      }
+    });
+  });
+
   it("keeps invalid refresh principals observable for fail-closed family revocation", async () => {
     refreshFindFirst.mockResolvedValue(null);
     const repository = new AuthRepository();

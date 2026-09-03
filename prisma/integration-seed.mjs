@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { assertBcryptPasswordLength, seedBcryptRounds } from "./seed-safety.mjs";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -25,15 +26,11 @@ function requiredSeedEnv(name) {
   return value;
 }
 
-function bcryptRounds() {
-  const rounds = Number(process.env.SEED_BCRYPT_ROUNDS ?? 12);
-  return Number.isFinite(rounds) && rounds >= 10 ? rounds : 12;
-}
-
 const integrationUser = {
   email: requiredSeedEnv("E2E_EMAIL"),
   password: requiredSeedEnv("E2E_PASSWORD")
 };
+assertBcryptPasswordLength(integrationUser.password, "integration seed");
 
 function hashIdentifier(value) {
   return crypto
@@ -87,11 +84,11 @@ async function main() {
     }
   );
 
-  const passwordHash = await bcrypt.hash(integrationUser.password, bcryptRounds());
+  const passwordHash = await bcrypt.hash(integrationUser.password, seedBcryptRounds);
 
   async function syncSeedPassword(user) {
     const passwordMatches = await bcrypt.compare(integrationUser.password, user.passwordHash);
-    if (passwordMatches) return user;
+    if (passwordMatches && bcrypt.getRounds(user.passwordHash) === seedBcryptRounds) return user;
 
     return prisma.user.update({
       where: { id: user.id },

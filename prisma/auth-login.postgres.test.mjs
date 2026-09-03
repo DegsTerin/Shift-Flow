@@ -6,14 +6,14 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import express from "express";
 import request from "supertest";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthController } from "../apps/api/src/modules/auth/auth.controller.ts";
 import { AuthRepository } from "../apps/api/src/modules/auth/auth.repository.ts";
 import { AuthService } from "../apps/api/src/modules/auth/auth.service.ts";
 import {
   LoginFailureAuditGate,
-  LoginVerificationGate,
-  UnknownLoginBackoffGate
+  LoginFailureDelayGate,
+  LoginVerificationGate
 } from "../apps/api/src/modules/auth/login-verification-gate.ts";
 import { loginSchema, refreshTokenSchema } from "../apps/api/src/modules/auth/auth.validators.ts";
 import { errorHandler } from "../apps/api/src/shared/middlewares/error-handler.ts";
@@ -122,13 +122,17 @@ describe("authentication PostgreSQL integration", () => {
       new LoginVerificationGate(1, 8, 8),
       undefined,
       new LoginFailureAuditGate(),
-      new UnknownLoginBackoffGate()
+      new LoginFailureDelayGate()
     );
     app = loginApplication(service);
   }, 30_000);
 
   beforeEach(() => {
     resetRateLimitBuckets();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   afterAll(async () => {
@@ -191,7 +195,7 @@ describe("authentication PostgreSQL integration", () => {
 
     expect(
       await prisma.authLoginAttempt.count({
-        where: { emailHash: identifierHash(unknownEmail) }
+        where: { emailHash: { in: [identifierHash(unknownEmail), identifierHash(exactEmail)] } }
       })
     ).toBe(0);
     expect(
@@ -318,7 +322,7 @@ describe("authentication PostgreSQL integration", () => {
         new LoginVerificationGate(1, 8, 8),
         async () => undefined,
         new LoginFailureAuditGate(),
-        new UnknownLoginBackoffGate()
+        new LoginFailureDelayGate()
       )
     );
 
@@ -346,7 +350,7 @@ describe("authentication PostgreSQL integration", () => {
       new LoginVerificationGate(1, 8, 8),
       async () => undefined,
       new LoginFailureAuditGate(),
-      new UnknownLoginBackoffGate()
+      new LoginFailureDelayGate()
     );
     await expect(failingDemoService.openDemoSession(apiRequest())).rejects.toThrow(
       "synthetic session observation failure"
@@ -402,7 +406,7 @@ describe("authentication PostgreSQL integration", () => {
         new LoginVerificationGate(1, 8, 8),
         async () => undefined,
         new LoginFailureAuditGate(),
-        new UnknownLoginBackoffGate()
+        new LoginFailureDelayGate()
       )
     );
 
@@ -457,7 +461,7 @@ describe("authentication PostgreSQL integration", () => {
         new LoginVerificationGate(1, 16, 16),
         async () => undefined,
         new LoginFailureAuditGate(),
-        new UnknownLoginBackoffGate()
+        new LoginFailureDelayGate()
       )
     );
 
@@ -473,36 +477,25 @@ describe("authentication PostgreSQL integration", () => {
     expect(cookieHeader(legitimate.headers["set-cookie"])).toContain("shiftflow_refresh=");
   }, 30_000);
 
-  it("returns bounded HTTP 429 without cookies and recovers after identity admission releases", async () => {
-    const lookupStarted = Promise.withResolvers();
-    const releaseLookup = Promise.withResolvers();
-    let blockNextLookup = true;
-    const blockingRepository = new Proxy(repository, {
-      get(target, property, receiver) {
-        if (property === "findUserByEmail") {
-          return async (...args) => {
-            const user = await target.findUserByEmail(...args);
-            if (blockNextLookup) {
-              blockNextLookup = false;
-              lookupStarted.resolve();
-              await releaseLookup.promise;
-            }
-            return user;
-          };
-        }
-        const value = Reflect.get(target, property, receiver);
-        return typeof value === "function" ? value.bind(target) : value;
-      }
+  it("returns bounded HTTP 429 only while the same identity has bcrypt work scheduled", async () => {
+    const bcryptStarted = Promise.withResolvers();
+    const releaseBcrypt = Promise.withResolvers();
+    const originalCompare = bcrypt.compare;
+    const compare = vi.spyOn(bcrypt, "compare").mockImplementation(originalCompare);
+    compare.mockImplementationOnce(async (...arguments_) => {
+      bcryptStarted.resolve();
+      await releaseBcrypt.promise;
+      return originalCompare(...arguments_);
     });
     const blockingApp = loginApplication(
       new AuthService(
-        blockingRepository,
+        repository,
         undefined,
         undefined,
         new LoginVerificationGate(1, 1, 1),
         undefined,
         new LoginFailureAuditGate(),
-        new UnknownLoginBackoffGate()
+        new LoginFailureDelayGate()
       )
     );
 
@@ -510,7 +503,7 @@ describe("authentication PostgreSQL integration", () => {
       .post("/login")
       .send({ email: exactEmail, password })
       .then((response) => response);
-    await lookupStarted.promise;
+    await bcryptStarted.promise;
 
     const saturated = await request(blockingApp)
       .post("/login")
@@ -526,13 +519,58 @@ describe("authentication PostgreSQL integration", () => {
     expect(saturated.headers["retry-after"]).toBe("30");
     expect(saturated.headers["set-cookie"]).toBeUndefined();
 
-    releaseLookup.resolve();
+    releaseBcrypt.resolve();
     expect((await admitted).status).toBe(200);
     const recovered = await request(blockingApp)
       .post("/login")
       .send({ email: exactEmail, password });
     expect(recovered.status).toBe(200);
     expect(cookieHeader(recovered.headers["set-cookie"])).toContain("shiftflow_refresh=");
+  }, 30_000);
+
+  it("admits a correct HTTP login while an earlier same-identity failure is still delayed", async () => {
+    const delayStarted = Promise.withResolvers();
+    const releaseDelay = Promise.withResolvers();
+    const delayedApp = loginApplication(
+      new AuthService(
+        repository,
+        undefined,
+        undefined,
+        new LoginVerificationGate(1, 8, 8),
+        async () => {
+          delayStarted.resolve();
+          await releaseDelay.promise;
+        },
+        new LoginFailureAuditGate(),
+        new LoginFailureDelayGate()
+      )
+    );
+    let hostileSettled = false;
+    const hostile = request(delayedApp)
+      .post("/login")
+      .send({ email: exactEmail, password: "wrong-password" })
+      .then((response) => {
+        hostileSettled = true;
+        return response;
+      });
+    await delayStarted.promise;
+
+    try {
+      const legitimate = await request(delayedApp)
+        .post("/login")
+        .send({ email: exactEmail, password });
+      expect(legitimate.status).toBe(200);
+      expect(cookieHeader(legitimate.headers["set-cookie"])).toContain("shiftflow_refresh=");
+      expect(hostileSettled).toBe(false);
+    } finally {
+      releaseDelay.resolve();
+    }
+
+    const failed = await hostile;
+    expect(failed.status).toBe(401);
+    expect(failed.body).toEqual({
+      error: { code: "UNAUTHORIZED", message: "Invalid credentials" }
+    });
   }, 30_000);
 
   it("serialises concurrent session creation and invalidates the displaced oldest session", async () => {
