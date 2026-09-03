@@ -1,6 +1,8 @@
 // en-GB: Verifies User aggregate isolation and transaction semantics against an explicitly authorised PostgreSQL runtime.
 import { randomUUID } from "node:crypto";
+import { performance } from "node:perf_hooks";
 import process from "node:process";
+import { clearTimeout, setTimeout } from "node:timers";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RbacRepository } from "../apps/api/src/modules/rbac/rbac.repository.ts";
@@ -43,6 +45,41 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     });
   }
 
+  function rbacContext(requiredControlPermission) {
+    return {
+      companyId: state.companyA.id,
+      actorId: state.rbacActor.id,
+      requiredControlPermission,
+      auditData: (event) => ({ companyId: state.companyA.id, ...event })
+    };
+  }
+
+  function observe(promise) {
+    return promise.then(
+      (value) => ({ value }),
+      (error) => ({ error })
+    );
+  }
+
+  function unwrap(outcome) {
+    if (outcome.error) throw outcome.error;
+    return outcome.value;
+  }
+
+  async function backendWasBlocked(backendPid, completed) {
+    if (!Number.isInteger(backendPid)) return false;
+    const deadline = performance.now() + 1_500;
+    do {
+      const blockers = await prisma.$queryRawUnsafe(
+        'SELECT cardinality(pg_blocking_pids($1::int))::int AS "blockerCount"',
+        backendPid
+      );
+      if (blockers[0]?.blockerCount > 0 && !completed()) return true;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    } while (performance.now() < deadline);
+    return false;
+  }
+
   function lockingRepository(expectedTransactions) {
     let arrivals = 0;
     let releaseTransactions;
@@ -59,10 +96,23 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     });
     let heldUserLocks = 0;
     let blockedUserLockAttempts = 0;
+    let secondUserLockCompleted = false;
+    let secondBackendPid;
+    const watchdog = setTimeout(() => {
+      releaseTransactions();
+      announceFirstUserLock();
+      announceSecondUserLockAttempt();
+    }, 2_000);
     return {
       arrivals: () => arrivals,
       heldUserLocks: () => heldUserLocks,
       blockedUserLockAttempts: () => blockedUserLockAttempts,
+      dispose: () => {
+        clearTimeout(watchdog);
+        releaseTransactions();
+        announceFirstUserLock();
+        announceSecondUserLockAttempt();
+      },
       repository: new UsersRepository(async () => ({
         $transaction: (callback) =>
           prisma.$transaction(async (tx) => {
@@ -82,12 +132,21 @@ describe("User and Role aggregate PostgreSQL integration", () => {
                     heldUserLocks += 1;
                     announceFirstUserLock();
                     await secondUserLockAttempt;
+                    blockedUserLockAttempts = Number(
+                      await backendWasBlocked(secondBackendPid, () => secondUserLockCompleted)
+                    );
                     return result;
                   }
                   await firstUserLock;
-                  blockedUserLockAttempts += 1;
+                  const backend = await target.$queryRawUnsafe(
+                    'SELECT pg_backend_pid()::int AS "pid"'
+                  );
+                  secondBackendPid = backend[0].pid;
+                  const pending = target.$queryRawUnsafe(query, ...values);
                   announceSecondUserLockAttempt();
-                  return target.$queryRawUnsafe(query, ...values);
+                  const result = await pending;
+                  secondUserLockCompleted = true;
+                  return result;
                 };
               }
             });
@@ -97,7 +156,58 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     };
   }
 
-  function roleMutationRepository(announceLockAttempt) {
+  function roleLockRace() {
+    let holderReached = false;
+    let waitingLockAttempted = false;
+    let waitingLockCompleted = false;
+    let waitingWasBlocked = false;
+    let waitingBackendPid;
+    let announceHolder;
+    let announceWaitingAttempt;
+    const holderReady = new Promise((resolve) => {
+      announceHolder = resolve;
+    });
+    const waitingAttempt = new Promise((resolve) => {
+      announceWaitingAttempt = resolve;
+    });
+    const watchdog = setTimeout(() => {
+      announceHolder();
+      announceWaitingAttempt();
+    }, 2_000);
+
+    return {
+      holderReady,
+      holderReached: () => holderReached,
+      waitingLockAttempted: () => waitingLockAttempted,
+      waitingWasBlocked: () => waitingWasBlocked,
+      holdUntilWaitingLockIsObserved: async () => {
+        holderReached = true;
+        announceHolder();
+        await waitingAttempt;
+        waitingWasBlocked = await backendWasBlocked(waitingBackendPid, () => waitingLockCompleted);
+      },
+      runWaitingQuery: async (target, query, values) => {
+        await holderReady;
+        const backend = await target.$queryRawUnsafe('SELECT pg_backend_pid()::int AS "pid"');
+        waitingBackendPid = backend[0].pid;
+        waitingLockAttempted = true;
+        const pending = target.$queryRawUnsafe(query, ...values);
+        announceWaitingAttempt();
+        try {
+          return await pending;
+        } finally {
+          waitingLockCompleted = true;
+        }
+      },
+      dispose: () => {
+        clearTimeout(watchdog);
+        announceHolder();
+        announceWaitingAttempt();
+      }
+    };
+  }
+
+  function roleMutationRepository(roleId, race) {
     return new RbacRepository(async () => ({
       $transaction: (callback) =>
         prisma.$transaction(async (tx) => {
@@ -107,7 +217,9 @@ describe("User and Role aggregate PostgreSQL integration", () => {
                 return Reflect.get(target, property, receiver);
               }
               return async (query, ...values) => {
-                if (query.includes('FROM "roles"')) announceLockAttempt();
+                if (query.includes('FROM "roles"') && values[0] === roleId) {
+                  return race.runWaitingQuery(target, query, values);
+                }
                 return target.$queryRawUnsafe(query, ...values);
               };
             }
@@ -117,7 +229,7 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     }));
   }
 
-  function pausedRoleAssignmentRepository(announceShareLock, releaseAfterShareLock) {
+  function pausedRoleAssignmentRepository(roleId, race) {
     return new RbacRepository(async () => ({
       $transaction: (callback) =>
         prisma.$transaction(async (tx) => {
@@ -128,9 +240,8 @@ describe("User and Role aggregate PostgreSQL integration", () => {
               }
               return async (query, ...values) => {
                 const result = await target.$queryRawUnsafe(query, ...values);
-                if (query.includes('FROM "roles"')) {
-                  announceShareLock();
-                  await releaseAfterShareLock;
+                if (query.includes('FROM "roles"') && values[0] === roleId) {
+                  await race.holdUntilWaitingLockIsObserved();
                 }
                 return result;
               };
@@ -141,7 +252,7 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     }));
   }
 
-  function assignmentAttemptRepository(announceLockAttempt) {
+  function assignmentAttemptRepository(roleId, race) {
     return new RbacRepository(async () => ({
       $transaction: (callback) =>
         prisma.$transaction(async (tx) => {
@@ -151,7 +262,9 @@ describe("User and Role aggregate PostgreSQL integration", () => {
                 return Reflect.get(target, property, receiver);
               }
               return async (query, ...values) => {
-                if (query.includes('FROM "roles"')) announceLockAttempt();
+                if (query.includes('FROM "roles"') && values[0] === roleId) {
+                  return race.runWaitingQuery(target, query, values);
+                }
                 return target.$queryRawUnsafe(query, ...values);
               };
             }
@@ -161,7 +274,7 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     }));
   }
 
-  function pausedRoleMutationRepository(announceReadyToCommit, releaseCommit) {
+  function pausedRoleMutationRepository(race) {
     return new RbacRepository(async () => ({
       $transaction: (callback) =>
         prisma.$transaction(async (tx) => {
@@ -172,8 +285,7 @@ describe("User and Role aggregate PostgreSQL integration", () => {
               }
               return {
                 create: async (args) => {
-                  announceReadyToCommit();
-                  await releaseCommit;
+                  await race.holdUntilWaitingLockIsObserved();
                   return target.auditLog.create(args);
                 }
               };
@@ -209,6 +321,39 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     state.roleB = await prisma.role.create({
       data: { companyId: state.companyA.id, name: `${scope}-role-b`, scope: "COMPANY" }
     });
+    state.controlRole = await prisma.role.create({
+      data: { companyId: state.companyA.id, name: `${scope}-control-role`, scope: "COMPANY" }
+    });
+    state.rbacWrite = await prisma.permission.create({
+      data: {
+        companyId: state.companyA.id,
+        resource: "rbac",
+        action: "write",
+        description: `${scope}-rbac-write`
+      }
+    });
+    state.rbacDelete = await prisma.permission.create({
+      data: {
+        companyId: state.companyA.id,
+        resource: "rbac",
+        action: "delete",
+        description: `${scope}-rbac-delete`
+      }
+    });
+    await prisma.rolePermission.createMany({
+      data: [
+        {
+          companyId: state.companyA.id,
+          roleId: state.controlRole.id,
+          permissionId: state.rbacWrite.id
+        },
+        {
+          companyId: state.companyA.id,
+          roleId: state.controlRole.id,
+          permissionId: state.rbacDelete.id
+        }
+      ]
+    });
     state.sharedUser = await prisma.user.create({
       data: {
         email: `${scope}-shared@shiftflow.local`,
@@ -225,12 +370,21 @@ describe("User and Role aggregate PostgreSQL integration", () => {
         status: "ACTIVE"
       }
     });
+    state.rbacActor = await prisma.user.create({
+      data: {
+        email: `${scope}-rbac-actor@shiftflow.local`,
+        passwordHash: "not-used-by-this-integration-test",
+        displayName: "RBAC Actor",
+        status: "ACTIVE"
+      }
+    });
 
     await prisma.userCompany.createMany({
       data: [
         { companyId: state.companyA.id, userId: state.sharedUser.id, isDefault: true },
         { companyId: state.companyB.id, userId: state.sharedUser.id },
-        { companyId: state.companyA.id, userId: state.soleUser.id, isDefault: true }
+        { companyId: state.companyA.id, userId: state.soleUser.id, isDefault: true },
+        { companyId: state.companyA.id, userId: state.rbacActor.id, isDefault: true }
       ]
     });
     await prisma.userRoleAssignment.create({
@@ -240,18 +394,26 @@ describe("User and Role aggregate PostgreSQL integration", () => {
         roleId: state.roleInitial.id
       }
     });
+    await prisma.userRoleAssignment.create({
+      data: {
+        companyId: state.companyA.id,
+        userId: state.rbacActor.id,
+        roleId: state.controlRole.id
+      }
+    });
   }, 30_000);
 
   afterAll(async () => {
     if (!prisma) return;
 
     const companyIds = [state.companyA?.id, state.companyB?.id].filter(Boolean);
-    const userIds = [state.sharedUser?.id, state.soleUser?.id].filter(Boolean);
+    const userIds = [state.sharedUser?.id, state.soleUser?.id, state.rbacActor?.id].filter(Boolean);
     try {
       await prisma.auditLog.deleteMany({ where: { companyId: { in: companyIds } } });
       await prisma.userRoleAssignment.deleteMany({ where: { companyId: { in: companyIds } } });
       await prisma.userCompany.deleteMany({ where: { companyId: { in: companyIds } } });
       await prisma.role.deleteMany({ where: { companyId: { in: companyIds } } });
+      await prisma.permission.deleteMany({ where: { companyId: { in: companyIds } } });
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
       await prisma.company.deleteMany({ where: { id: { in: companyIds } } });
     } finally {
@@ -329,7 +491,7 @@ describe("User and Role aggregate PostgreSQL integration", () => {
         { roleId: state.roleB.id },
         auditData(state.soleUser.id)
       )
-    ]);
+    ]).finally(overlap.dispose);
 
     const [activeAssignments, auditCountAfter] = await Promise.all([
       prisma.userRoleAssignment.findMany({
@@ -358,43 +520,29 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     const role = await prisma.role.create({
       data: { companyId: state.companyA.id, name: `${scope}-role-race`, scope: "COMPANY" }
     });
-    let announceShareLock;
-    let announceMutationAttempt;
-    const shareLockAcquired = new Promise((resolve) => {
-      announceShareLock = resolve;
-    });
-    const mutationAttempted = new Promise((resolve) => {
-      announceMutationAttempt = resolve;
-    });
-    const assignmentRepository = pausedRoleAssignmentRepository(
-      announceShareLock,
-      mutationAttempted
-    );
-    const assignment = assignmentRepository.assignRole({
-      companyId: state.companyA.id,
-      userId: state.soleUser.id,
-      roleId: role.id
-    });
-    await shareLockAcquired;
-
-    const roleRepository = roleMutationRepository(announceMutationAttempt);
-    const mutation = roleRepository.mutateRole(
-      role.id,
-      state.companyA.id,
-      { scope: "CLIENT" },
-      "UPDATE",
-      (before, after) => ({
-        companyId: state.companyA.id,
-        entityType: "Role",
-        entityId: role.id,
-        action: "UPDATE",
-        before,
-        after
+    const overlap = roleLockRace();
+    const assignmentRepository = pausedRoleAssignmentRepository(role.id, overlap);
+    const assignment = observe(
+      assignmentRepository.assignRole(rbacContext("rbac:write"), {
+        userId: state.soleUser.id,
+        roleId: role.id
       })
     );
+    await overlap.holderReady;
 
-    await assignment;
-    await expect(mutation).rejects.toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
+    const roleRepository = roleMutationRepository(role.id, overlap);
+    const mutation = observe(
+      roleRepository.mutateRole(rbacContext("rbac:write"), role.id, { scope: "CLIENT" }, "UPDATE")
+    );
+
+    const [assignmentOutcome, mutationOutcome] = await Promise.all([assignment, mutation]).finally(
+      overlap.dispose
+    );
+    expect(overlap.holderReached()).toBe(true);
+    expect(overlap.waitingLockAttempted()).toBe(true);
+    expect(overlap.waitingWasBlocked()).toBe(true);
+    expect(() => unwrap(assignmentOutcome)).not.toThrow();
+    expect(mutationOutcome.error).toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
     await expect(prisma.role.findUniqueOrThrow({ where: { id: role.id } })).resolves.toMatchObject({
       scope: "COMPANY",
       deletedAt: null
@@ -409,43 +557,34 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     const role = await prisma.role.create({
       data: { companyId: state.companyA.id, name: `${scope}-role-delete-race`, scope: "COMPANY" }
     });
-    let announceReadyToCommit;
-    let announceAssignmentAttempt;
-    const readyToCommit = new Promise((resolve) => {
-      announceReadyToCommit = resolve;
-    });
-    const assignmentAttempted = new Promise((resolve) => {
-      announceAssignmentAttempt = resolve;
-    });
-    const mutationRepository = pausedRoleMutationRepository(
-      announceReadyToCommit,
-      assignmentAttempted
+    const overlap = roleLockRace();
+    const mutationRepository = pausedRoleMutationRepository(overlap);
+    const mutation = observe(
+      mutationRepository.mutateRole(
+        rbacContext("rbac:delete"),
+        role.id,
+        { deletedAt: new Date() },
+        "SOFT_DELETE"
+      )
     );
-    const mutation = mutationRepository.mutateRole(
-      role.id,
-      state.companyA.id,
-      { deletedAt: new Date() },
-      "SOFT_DELETE",
-      (before, after) => ({
-        companyId: state.companyA.id,
-        entityType: "Role",
-        entityId: role.id,
-        action: "SOFT_DELETE",
-        before,
-        after
+    await overlap.holderReady;
+
+    const assignmentRepository = assignmentAttemptRepository(role.id, overlap);
+    const assignment = observe(
+      assignmentRepository.assignRole(rbacContext("rbac:write"), {
+        userId: state.soleUser.id,
+        roleId: role.id
       })
     );
-    await readyToCommit;
 
-    const assignmentRepository = assignmentAttemptRepository(announceAssignmentAttempt);
-    const assignment = assignmentRepository.assignRole({
-      companyId: state.companyA.id,
-      userId: state.soleUser.id,
-      roleId: role.id
-    });
-
-    await expect(mutation).resolves.toMatchObject({ id: role.id, deletedAt: expect.any(Date) });
-    await expect(assignment).rejects.toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
+    const [mutationOutcome, assignmentOutcome] = await Promise.all([mutation, assignment]).finally(
+      overlap.dispose
+    );
+    expect(overlap.holderReached()).toBe(true);
+    expect(overlap.waitingLockAttempted()).toBe(true);
+    expect(overlap.waitingWasBlocked()).toBe(true);
+    expect(unwrap(mutationOutcome)).toMatchObject({ id: role.id, deletedAt: expect.any(Date) });
+    expect(assignmentOutcome.error).toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
     await expect(
       prisma.userRoleAssignment.count({ where: { roleId: role.id, deletedAt: null } })
     ).resolves.toBe(0);
@@ -531,12 +670,14 @@ describe("User and Role aggregate PostgreSQL integration", () => {
         {
           companyId: state.companyA.id,
           userId: state.soleUser.id,
-          roleId: state.roleA.id
+          roleId: state.roleA.id,
+          startsAt: new Date("2026-09-01T00:00:00.000Z")
         },
         {
           companyId: state.companyA.id,
           userId: state.soleUser.id,
-          roleId: state.roleA.id
+          roleId: state.roleA.id,
+          startsAt: new Date("2026-09-01T00:00:01.000Z")
         }
       ]
     });

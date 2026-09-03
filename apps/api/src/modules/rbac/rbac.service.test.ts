@@ -2,10 +2,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import type { PrismaTransactionClient } from "../../shared/lib/prisma.js";
-import type { BaseRepository } from "../../shared/repositories/base.repository.js";
 import { assignmentGrantsPermission, RbacService } from "./rbac.service.js";
 
 vi.mock("../../shared/services/audit-writer.js", () => ({
+  buildAuditData: vi.fn((_req: unknown, input: unknown) => input),
   writeAudit: vi.fn().mockResolvedValue(undefined)
 }));
 
@@ -316,26 +316,32 @@ describe("RBAC scope evaluation", () => {
     expect(count).toHaveBeenCalledWith(where);
   });
 
+  it("blocks generic permission updates and removals", async () => {
+    const service = RbacService.permissions;
+    const req = {
+      auth: { id: "user-a", email: "user@example.com", companyId: "company-a" },
+      tenant: { companyId: "company-a" },
+      query: {}
+    } as unknown as ApiRequest;
+
+    await expect(service.update(req, "permission-a", { action: "write" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      statusCode: 403
+    });
+    await expect(service.remove(req, "permission-a")).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      statusCode: 403
+    });
+  });
+
   it("discards protected fields even when the service is called without HTTP validation", async () => {
     const service = RbacService.roles as unknown as {
-      repository: BaseRepository;
+      rbacRepository: { createRole(...args: unknown[]): Promise<unknown> };
       create(req: ApiRequest, data: Record<string, unknown>): Promise<unknown>;
     };
-    const originalRepository = service.repository;
-    const create = vi.fn().mockResolvedValue({ id: "role-a" });
-    const transaction = { marker: "role-transaction" } as unknown as PrismaTransactionClient;
-    const repository = {
-      create,
-      withTransaction: vi.fn(
-        async (
-          operation: (
-            value: BaseRepository,
-            valueTransaction: PrismaTransactionClient
-          ) => Promise<unknown>
-        ) => operation(repository as unknown as BaseRepository, transaction)
-      )
-    };
-    service.repository = repository as unknown as BaseRepository;
+    const originalRepository = service.rbacRepository;
+    const createRole = vi.fn().mockResolvedValue({ id: "role-a" });
+    service.rbacRepository = { createRole };
 
     try {
       await service.create(
@@ -350,13 +356,18 @@ describe("RBAC scope evaluation", () => {
         }
       );
     } finally {
-      service.repository = originalRepository;
+      service.rbacRepository = originalRepository;
     }
 
-    expect(create).toHaveBeenCalledWith({
-      name: "Operator",
-      companyId: "company-a"
-    });
+    expect(createRole).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-a",
+        actorId: "user-a",
+        requiredControlPermission: "rbac:write",
+        auditData: expect.any(Function)
+      }),
+      { name: "Operator" }
+    );
   });
 
   it("delegates scope changes to the locked aggregate mutation", async () => {
@@ -389,11 +400,15 @@ describe("RBAC scope evaluation", () => {
     }
 
     expect(mutateRole).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-a",
+        actorId: "user-a",
+        requiredControlPermission: "rbac:write",
+        auditData: expect.any(Function)
+      }),
       "role-a",
-      "company-a",
       { scope: "CLIENT" },
-      "UPDATE",
-      expect.any(Function)
+      "UPDATE"
     );
   });
 
@@ -407,13 +422,8 @@ describe("RBAC scope evaluation", () => {
     const originalRepository = service.rbacRepository;
     const rejection = Object.assign(new Error("system profile"), { code: "BAD_REQUEST" });
     const repository = {
-      findRole: vi.fn().mockResolvedValue({
-        id: "system-role",
-        scope: "COMPANY",
-        isSystem: true
-      }),
       mutateRole: vi.fn().mockRejectedValue(rejection),
-      duplicateRole: vi.fn()
+      duplicateRole: vi.fn().mockRejectedValue(rejection)
     };
     service.rbacRepository = repository;
     const req = {
@@ -436,77 +446,121 @@ describe("RBAC scope evaluation", () => {
     }
 
     expect(repository.mutateRole).toHaveBeenCalledTimes(2);
-    expect(repository.duplicateRole).not.toHaveBeenCalled();
+    expect(repository.duplicateRole).toHaveBeenCalledOnce();
   });
 
-  it("blocks permission changes for system profiles", async () => {
+  it("delegates permission mutation checks to the transactional repository", async () => {
     const serviceClass = RbacService as unknown as {
       repository: Record<string, ReturnType<typeof vi.fn>>;
     };
     const originalRepository = serviceClass.repository;
+    const rejection = Object.assign(new Error("system profile"), { code: "BAD_REQUEST" });
     const repository = {
-      findRole: vi.fn().mockResolvedValue({ id: "system-role", isSystem: true }),
-      findPermission: vi.fn().mockResolvedValue({ id: "permission-a" }),
-      assignPermission: vi.fn(),
-      removePermission: vi.fn()
+      assignPermission: vi.fn().mockRejectedValue(rejection),
+      removePermission: vi.fn().mockRejectedValue(rejection)
     };
     serviceClass.repository = repository;
-    const actor = { id: "user-a", email: "user@example.com", companyId: "company-a" };
-    const tenant = { companyId: "company-a" };
+    const req = {
+      auth: { id: "user-a", email: "user@example.com", companyId: "company-a" },
+      tenant: { companyId: "company-a" }
+    } as unknown as ApiRequest;
 
     try {
       await expect(
-        RbacService.assignPermission(actor, tenant, "system-role", "permission-a")
+        RbacService.assignPermission(req, "system-role", "permission-a")
       ).rejects.toMatchObject({ code: "BAD_REQUEST" });
       await expect(
-        RbacService.removePermission(actor, tenant, "system-role", "permission-a")
+        RbacService.removePermission(req, "system-role", "permission-a")
       ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     } finally {
       serviceClass.repository = originalRepository;
     }
 
-    expect(repository.assignPermission).not.toHaveBeenCalled();
-    expect(repository.removePermission).not.toHaveBeenCalled();
+    expect(repository.assignPermission).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: "company-a", actorId: "user-a" }),
+      "system-role",
+      "permission-a"
+    );
+    expect(repository.removePermission).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: "company-a", actorId: "user-a" }),
+      "system-role",
+      "permission-a"
+    );
   });
 
-  it("rejects incomplete or cross-company scoped assignments before creation", async () => {
+  it("normalises assignments and passes the complete command context", async () => {
     const serviceClass = RbacService as unknown as {
       repository: Record<string, ReturnType<typeof vi.fn>>;
     };
     const originalRepository = serviceClass.repository;
+    const startsAt = new Date("2026-09-02T08:00:00.000Z");
+    const endsAt = new Date("2026-09-02T16:00:00.000Z");
     const repository = {
-      findRole: vi.fn().mockResolvedValue({ id: "role-a", scope: "CLIENT", isActive: true }),
-      findUserCompany: vi.fn().mockResolvedValue({ id: "membership-a" }),
-      findClient: vi.fn().mockResolvedValue(null),
-      findTeam: vi.fn().mockResolvedValue(null),
-      assignRole: vi.fn()
+      assignRole: vi.fn().mockResolvedValue({ id: "assignment-a" })
     };
     serviceClass.repository = repository;
-    const actor = { id: "user-a", email: "user@example.com", companyId: "company-a" };
-    const tenant = { companyId: "company-a" };
+    const req = {
+      auth: {
+        id: "user-a",
+        email: "user@example.com",
+        companyId: "company-a",
+        sessionKind: "portfolio",
+        permissions: ["rbac:write", "users:read"]
+      },
+      tenant: { companyId: "company-a" }
+    } as unknown as ApiRequest;
 
     try {
       await expect(
-        RbacService.assignRole(actor, tenant, {
-          userId: "target-user",
-          roleId: "role-a"
-        })
-      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-
-      repository.findRole.mockResolvedValue({ id: "role-a", scope: "COMPANY", isActive: true });
-      await expect(
-        RbacService.assignRole(actor, tenant, {
+        RbacService.assignRole(req, {
           userId: "target-user",
           roleId: "role-a",
-          clientId: "foreign-client"
+          clientId: "client-a",
+          startsAt,
+          endsAt
         })
-      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      ).resolves.toMatchObject({ id: "assignment-a" });
+    } finally {
+      serviceClass.repository = originalRepository;
+    }
 
-      repository.findUserCompany.mockResolvedValue(null);
+    expect(repository.assignRole).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-a",
+        actorId: "user-a",
+        portfolioCeiling: ["rbac:write", "users:read"],
+        requiredControlPermission: "rbac:write",
+        auditData: expect.any(Function)
+      }),
+      {
+        userId: "target-user",
+        roleId: "role-a",
+        clientId: "client-a",
+        startsAt,
+        endsAt
+      }
+    );
+  });
+
+  it("rejects an invalid assignment period before opening a repository transaction", async () => {
+    const serviceClass = RbacService as unknown as {
+      repository: Record<string, ReturnType<typeof vi.fn>>;
+    };
+    const originalRepository = serviceClass.repository;
+    const repository = { assignRole: vi.fn() };
+    serviceClass.repository = repository;
+    const req = {
+      auth: { id: "user-a", email: "user@example.com", companyId: "company-a" },
+      tenant: { companyId: "company-a" }
+    } as unknown as ApiRequest;
+
+    try {
       await expect(
-        RbacService.assignRole(actor, tenant, {
-          userId: "foreign-user",
-          roleId: "role-a"
+        RbacService.assignRole(req, {
+          userId: "target-user",
+          roleId: "role-a",
+          startsAt: new Date("2026-09-02T16:00:00.000Z"),
+          endsAt: new Date("2026-09-02T08:00:00.000Z")
         })
       ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     } finally {
@@ -516,35 +570,28 @@ describe("RBAC scope evaluation", () => {
     expect(repository.assignRole).not.toHaveBeenCalled();
   });
 
-  it("rejects inactive roles before creating an assignment", async () => {
+  it("rejects conflicting company context before delegating a mutation", async () => {
     const serviceClass = RbacService as unknown as {
       repository: Record<string, ReturnType<typeof vi.fn>>;
     };
     const originalRepository = serviceClass.repository;
-    const repository = {
-      findRole: vi.fn().mockResolvedValue({
-        id: "inactive-role",
-        scope: "COMPANY",
-        isActive: false
-      }),
-      findUserCompany: vi.fn(),
-      assignRole: vi.fn()
-    };
+    const repository = { assignRole: vi.fn() };
     serviceClass.repository = repository;
 
     try {
       await expect(
         RbacService.assignRole(
-          { id: "user-a", email: "user@example.com", companyId: "company-a" },
-          { companyId: "company-a" },
-          { userId: "target-user", roleId: "inactive-role" }
+          {
+            auth: { id: "user-a", email: "user@example.com", companyId: "company-a" },
+            tenant: { companyId: "company-b" }
+          } as unknown as ApiRequest,
+          { userId: "target-user", roleId: "role-a" }
         )
-      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      ).rejects.toMatchObject({ code: "FORBIDDEN", statusCode: 403 });
     } finally {
       serviceClass.repository = originalRepository;
     }
 
-    expect(repository.findUserCompany).not.toHaveBeenCalled();
     expect(repository.assignRole).not.toHaveBeenCalled();
   });
 });
