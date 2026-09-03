@@ -1,20 +1,27 @@
 // en-GB: Encapsulates shifts persistence so data access remains consistent and testable.
 import { BaseRepository } from "../../shared/repositories/base.repository.js";
-import {
-  getDelegate,
-  getDelegateFrom,
-  type PrismaTransactionClient
-} from "../../shared/lib/prisma.js";
-import { conflict } from "../../shared/errors/app-error.js";
+import { getDelegateFrom, type PrismaTransactionClient } from "../../shared/lib/prisma.js";
+import { conflict, forbidden, notFound } from "../../shared/errors/app-error.js";
 
 export type ShiftStatus = "PLANNED" | "OPEN" | "CLOSED" | "REOPENED" | "CANCELLED";
 
 type CoverageDelegate = {
   create(args: unknown): Promise<unknown>;
+  findMany(args: unknown): Promise<Array<Record<string, unknown> & { id: string }>>;
 };
 
 type ShiftDelegate = {
   update(args: unknown): Promise<unknown>;
+};
+
+type CoverageMutationClient = {
+  $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
+  shiftCoverage: CoverageDelegate;
+};
+
+export type CoverageWriteResult = {
+  coverage: Record<string, unknown> & { id: string };
+  created: boolean;
 };
 
 function isRecordNotFoundError(cause: unknown) {
@@ -23,13 +30,92 @@ function isRecordNotFoundError(cause: unknown) {
   );
 }
 
+function canonicalUuid(value: string) {
+  return value.toLowerCase();
+}
+
 export class ShiftsRepository extends BaseRepository {
   constructor() {
     super("shift");
   }
 
-  async addCoverage(data: Record<string, unknown>) {
-    return (await getDelegate<CoverageDelegate>("shiftCoverage")).create({ data });
+  async addCoverageForUpdate(
+    transaction: PrismaTransactionClient,
+    data: Record<string, unknown>
+  ): Promise<CoverageWriteResult> {
+    const client = transaction as CoverageMutationClient;
+    const companyId = canonicalUuid(String(data.companyId));
+    const shiftId = canonicalUuid(String(data.shiftId));
+    const userId = canonicalUuid(String(data.userId));
+    const replacementForUserId = data.replacementForUserId
+      ? canonicalUuid(String(data.replacementForUserId))
+      : null;
+    const userIds = [
+      ...new Set([userId, replacementForUserId].filter((id): id is string => Boolean(id)))
+    ].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+    const normalisedData = {
+      ...data,
+      companyId,
+      shiftId,
+      userId,
+      replacementForUserId
+    };
+    const companies = await client.$queryRawUnsafe<Array<{ id: string }>>(
+      'SELECT "id" FROM "companies" WHERE "id" = $1::uuid AND "status" = \'ACTIVE\' AND "deletedAt" IS NULL FOR SHARE',
+      companyId
+    );
+    if (companies.length !== 1) {
+      throw forbidden("The active company is unavailable");
+    }
+
+    for (const userId of userIds) {
+      const memberships = await client.$queryRawUnsafe<Array<{ id: string }>>(
+        'SELECT u."id" FROM "users" AS u INNER JOIN "user_companies" AS uc ON uc."userId" = u."id" AND uc."companyId" = $2::uuid AND uc."deletedAt" IS NULL WHERE u."id" = $1::uuid AND u."status" = \'ACTIVE\' AND u."deletedAt" IS NULL FOR SHARE OF u, uc',
+        userId,
+        companyId
+      );
+      if (memberships.length !== 1) {
+        throw forbidden("User does not belong to the active company");
+      }
+    }
+
+    const shifts = await client.$queryRawUnsafe<Array<{ id: string }>>(
+      'SELECT "id" FROM "shifts" WHERE "id" = $1::uuid AND "companyId" = $2::uuid AND "deletedAt" IS NULL FOR UPDATE',
+      shiftId,
+      companyId
+    );
+    if (shifts.length !== 1) {
+      throw notFound("Shift not found in active company");
+    }
+
+    const duplicateWhere = {
+      companyId,
+      shiftId,
+      userId,
+      replacementForUserId,
+      type: data.type,
+      startsAt: data.startsAt,
+      endsAt: data.endsAt,
+      note: data.note ?? null,
+      deletedAt: null
+    };
+    const existing = await client.shiftCoverage.findMany({
+      where: duplicateWhere,
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: 2
+    });
+    if (existing.length > 1) {
+      throw conflict("Multiple active identical shift coverages require data repair");
+    }
+    if (existing[0]) {
+      return { coverage: existing[0], created: false };
+    }
+
+    const coverage = (await client.shiftCoverage.create({ data: normalisedData })) as Record<
+      string,
+      unknown
+    > & { id: string };
+    return { coverage, created: true };
   }
 
   async transitionStatus(

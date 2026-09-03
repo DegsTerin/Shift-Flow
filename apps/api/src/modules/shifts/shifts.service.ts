@@ -3,11 +3,7 @@ import type { ApiRequest } from "../../shared/http/request-types.js";
 import { badRequest, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { writeAudit } from "../../shared/services/audit-writer.js";
-import {
-  activeCompanyId,
-  assertShiftInCompany,
-  assertUserInCompany
-} from "../../shared/services/scope.service.js";
+import { activeCompanyId } from "../../shared/services/scope.service.js";
 import { ShiftsRepository, type ShiftStatus } from "./shifts.repository.js";
 
 const lifecycleFields = ["status", "closedAt", "reopenedAt"] as const;
@@ -65,18 +61,33 @@ export class ShiftsService extends BaseService {
   async addCoverage(req: ApiRequest, shiftId: string, data: Record<string, unknown>) {
     const companyId = activeCompanyId(req);
     this.assertPeriod(data.startsAt, data.endsAt);
-    await Promise.all([
-      assertShiftInCompany(shiftId, companyId),
-      assertUserInCompany(String(data.userId), companyId),
-      assertUserInCompany(
-        data.replacementForUserId ? String(data.replacementForUserId) : undefined,
-        companyId
-      )
-    ]);
-    return this.shiftsRepository.addCoverage({
-      ...data,
+    const coverageData = {
+      companyId,
       shiftId,
-      companyId
+      userId: String(data.userId),
+      replacementForUserId: data.replacementForUserId ? String(data.replacementForUserId) : null,
+      type: data.type ?? "REGULAR",
+      startsAt: data.startsAt,
+      endsAt: data.endsAt,
+      note: data.note ?? null
+    };
+    return this.shiftsRepository.withTransaction(async (_repository, transaction) => {
+      const result = await this.shiftsRepository.addCoverageForUpdate(transaction, coverageData);
+      if (result.created) {
+        await writeAudit(
+          req,
+          {
+            entityType: "ShiftCoverage",
+            entityId: result.coverage.id,
+            action: "CREATE",
+            after: result.coverage,
+            companyId,
+            shiftId
+          },
+          transaction
+        );
+      }
+      return result.coverage;
     });
   }
 
