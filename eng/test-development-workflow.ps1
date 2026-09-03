@@ -384,6 +384,8 @@ foreach ($requiredOciWorkflowContract in @(
         'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8',
         '--metadata-file ''oci-evidence/${{ matrix.id }}.provenance.json''',
         '--provenance=mode=max',
+        'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
+        '--source-commit "$GITHUB_SHA"',
         'format: spdx-json',
         'format: json',
         'severity: UNKNOWN,MEDIUM,HIGH,CRITICAL',

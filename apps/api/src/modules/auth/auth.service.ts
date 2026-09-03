@@ -9,10 +9,26 @@ import {
   portfolioAccessEnabled
 } from "../../shared/config/env.js";
 import type { ApiRequest, AuthenticatedUser } from "../../shared/http/request-types.js";
-import { forbidden, notFound, unauthorized } from "../../shared/errors/app-error.js";
+import { AppError, forbidden, notFound, unauthorized } from "../../shared/errors/app-error.js";
 import { signAccessToken } from "../../shared/middlewares/authenticate.js";
-import { AuthRepository } from "./auth.repository.js";
+import { logger } from "../../shared/observability/logger.js";
+import {
+  AuthRepository,
+  PortfolioSessionCapacityError,
+  type AuthenticationSessionKind
+} from "./auth.repository.js";
 import type { LoginDto } from "./auth.dto.js";
+import {
+  authenticationBackoffMaximumMs,
+  loginFailureAuditGate,
+  loginSuccessTelemetryGate,
+  loginVerificationGate,
+  type LoginFailureAuditGate,
+  type LoginSuccessTelemetryGate,
+  type LoginVerificationGate,
+  unknownLoginBackoffGate,
+  type UnknownLoginBackoffGate
+} from "./login-verification-gate.js";
 
 type DbUser = {
   id: string;
@@ -58,6 +74,8 @@ type DbRefreshToken = {
   id: string;
   userId: string;
   companyId?: string | null;
+  sessionKind?: AuthenticationSessionKind | null;
+  familyId?: string | null;
   expiresAt: Date;
   revokedAt?: Date | null;
   createdAt: Date;
@@ -71,6 +89,8 @@ type DbLoginAttempt = {
 
 const unavailablePrincipalHash = "$2b$12$2sfkfoyzJU1PG2MrSc47RuF7z.ieyVDzKzMHRJCQkYBZirsBtuN9q";
 const portfolioRefreshTokenPrefix = "portfolio.";
+const portfolioSessionLifetimeMs = 60 * 60 * 1_000;
+const minimumAuthenticationFailureDelayMs = 1_000;
 const portfolioPermissionAllowlist = new Set([
   "dashboard:read",
   "clients:read",
@@ -94,7 +114,7 @@ function createRefreshToken(portfolioSession = false) {
 function hashIdentifier(value: string | undefined) {
   return crypto
     .createHash("sha256")
-    .update(value?.trim().toLowerCase() ?? "unknown")
+    .update(value ?? "unknown")
     .digest("hex");
 }
 
@@ -170,6 +190,22 @@ function resolveCompany(user: DbUser, requestedCompanyId?: string) {
   return companyId;
 }
 
+function resolveLoginCompany(user: DbUser, requestedCompanyId?: string) {
+  if (requestedCompanyId) {
+    return isActiveMembership(user, requestedCompanyId)
+      ? { companyId: requestedCompanyId }
+      : { reason: "INVALID_COMPANY_SELECTION" };
+  }
+
+  const activeMemberships = user.companies?.filter((membership) =>
+    isActiveMembership(user, membership.companyId)
+  );
+  const companyId =
+    activeMemberships?.find((membership) => membership.isDefault)?.companyId ??
+    activeMemberships?.[0]?.companyId;
+  return companyId ? { companyId } : { reason: "NO_ACTIVE_COMPANY_MEMBERSHIP" };
+}
+
 function credentialVersion(user: DbUser) {
   return user.passwordChangedAt?.getTime() ?? 0;
 }
@@ -188,7 +224,22 @@ export class AuthService {
     private readonly portfolioAccess = {
       enabled: portfolioAccessEnabled,
       email: portfolioAccessEmail
-    }
+    },
+    private readonly verificationGate: Pick<LoginVerificationGate, "run"> = loginVerificationGate,
+    private readonly delay: (milliseconds: number) => Promise<void> = (milliseconds) =>
+      new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
+    private readonly failureAuditGate: Pick<
+      LoginFailureAuditGate,
+      "takeAggregate"
+    > = loginFailureAuditGate,
+    private readonly unknownBackoffGate: Pick<
+      UnknownLoginBackoffGate,
+      "currentBackoffUntil" | "recordFailure"
+    > = unknownLoginBackoffGate,
+    private readonly successTelemetryGate: Pick<
+      LoginSuccessTelemetryGate,
+      "takeAggregate"
+    > = loginSuccessTelemetryGate
   ) {}
 
   private portfolioPermissions(user: DbUser, companyId: string) {
@@ -202,8 +253,16 @@ export class AuthService {
     user: DbUser,
     companyId: string,
     permissions = permissionsFrom(user, companyId),
-    portfolioSession = false
+    portfolioSession = false,
+    sessionObservation?: {
+      sessionKind: AuthenticationSessionKind;
+      emailHash: string;
+      ipHash?: string;
+    }
   ) {
+    if (!sessionObservation) {
+      throw new Error("Session observation is required before issuing credentials");
+    }
     const authUser: AuthenticatedUser = {
       id: user.id,
       email: user.email,
@@ -214,27 +273,62 @@ export class AuthService {
     authUser.permissions = permissions;
     const accessToken = signAccessToken(authUser);
     const refreshToken = createRefreshToken(portfolioSession);
-    const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
-
-    const created = await this.repository.createRefreshToken(
-      {
-        userId: user.id,
-        companyId,
-        tokenHash: hashToken(refreshToken),
-        userAgent: req.context?.userAgent,
-        ipAddress: req.context?.ipAddress,
-        expiresAt
-      },
-      {
-        userId: user.id,
-        companyId,
-        passwordChangedAt: user.passwordChangedAt ?? null
-      }
+    const expiresAt = new Date(
+      Date.now() +
+        (portfolioSession
+          ? portfolioSessionLifetimeMs
+          : env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000)
     );
-    if (!created) {
-      throw unauthorized("Unable to establish session");
+
+    let created: boolean;
+    try {
+      created = await this.repository.createRefreshToken(
+        {
+          tokenHash: hashToken(refreshToken),
+          familyId: crypto.randomUUID(),
+          userAgent: req.context?.userAgent,
+          ipAddress: req.context?.ipAddress,
+          expiresAt
+        },
+        {
+          userId: user.id,
+          companyId,
+          sessionKind: sessionObservation.sessionKind,
+          passwordChangedAt: user.passwordChangedAt ?? null
+        },
+        {
+          ...sessionObservation,
+          userId: user.id,
+          companyId,
+          requestId: req.context?.requestId,
+          ipAddress: req.context?.ipAddress,
+          userAgent: req.context?.userAgent
+        }
+      );
+    } catch (error) {
+      if (error instanceof PortfolioSessionCapacityError) {
+        throw new AppError(
+          error.message,
+          429,
+          "AUTHENTICATION_BUSY",
+          undefined,
+          error.retryAfterSeconds
+        );
+      }
+      throw error;
     }
-    await this.repository.updateLastLogin(user.id);
+    if (!created) {
+      throw unauthorized("Invalid credentials");
+    }
+    try {
+      await this.repository.updateLastLogin(user.id);
+    } catch (error) {
+      logger.error("authentication_last_login_update_failed", {
+        requestId: req.context?.requestId,
+        userId: user.id,
+        error
+      });
+    }
 
     return {
       accessToken,
@@ -261,17 +355,10 @@ export class AuthService {
     }
 
     const companyId = resolveCompany(user);
-    const result = await this.issueSession(req, user, companyId);
-    await this.repository.writeAuthAudit({
-      action: "DEMO_SESSION_STARTED",
-      emailHash: hashIdentifier(user.email),
-      userId: user.id,
-      companyId,
-      requestId: req.context?.requestId,
-      ipAddress: req.context?.ipAddress,
-      userAgent: req.context?.userAgent
+    return this.issueSession(req, user, companyId, undefined, false, {
+      sessionKind: "DEMO",
+      emailHash: hashIdentifier(user.email)
     });
-    return result;
   }
 
   async openPortfolioSession(req: ApiRequest) {
@@ -292,49 +379,87 @@ export class AuthService {
       throw unauthorized("Portfolio access is not safely provisioned");
     }
 
-    const result = await this.issueSession(req, user, companyId, permissions, true);
-    await this.repository.writeAuthAudit({
-      action: "PORTFOLIO_SESSION_STARTED",
-      emailHash: hashIdentifier(user.email),
-      userId: user.id,
-      companyId,
-      requestId: req.context?.requestId,
-      ipAddress: req.context?.ipAddress,
-      userAgent: req.context?.userAgent
+    return this.issueSession(req, user, companyId, permissions, true, {
+      sessionKind: "PORTFOLIO",
+      emailHash: hashIdentifier(user.email)
     });
-    return result;
   }
 
   async login(req: ApiRequest, input: LoginDto) {
     const emailHash = hashIdentifier(input.email);
     const ipHash = hashIdentifier(req.context?.ipAddress);
-    const user = (await this.repository.findUserByEmail(input.email)) as DbUser | null;
-    if (!user || user.status !== "ACTIVE") {
-      await bcrypt.compare(input.password, unavailablePrincipalHash);
-      await this.recordFailedLogin(req, emailHash, ipHash, "UNKNOWN_OR_INACTIVE_USER");
-      throw unauthorized("Invalid credentials");
-    }
+    const verified = await this.verificationGate.run(emailHash, async (withPasswordBudget) => {
+      const startedAt = Date.now();
+      let failureBackoffUntil: Date | undefined;
+      let sessionIssued = false;
+      try {
+        const [candidateValue, persistedAttemptValue] = await Promise.all([
+          this.repository.findUserByEmail(input.email),
+          this.repository.findLoginAttempt(emailHash)
+        ]);
+        const candidate = candidateValue as DbUser | null;
+        const persistedAttempt = persistedAttemptValue as DbLoginAttempt | null;
+        await this.waitForPersistedBackoff(persistedAttempt);
+        if (!candidate || candidate.status !== "ACTIVE") {
+          await this.waitForUnknownBackoff(emailHash);
+          await withPasswordBudget(() => bcrypt.compare(input.password, unavailablePrincipalHash));
+          failureBackoffUntil = this.recordUnknownLoginFailure(emailHash);
+          throw unauthorized("Invalid credentials");
+        }
 
-    const validPassword = await bcrypt.compare(input.password, user.passwordHash);
-    if (!validPassword) {
-      await this.recordFailedLogin(req, emailHash, ipHash, "INVALID_PASSWORD", user.id);
-      throw unauthorized("Invalid credentials");
-    }
+        const validPassword = await withPasswordBudget(() =>
+          bcrypt.compare(input.password, candidate.passwordHash)
+        );
+        if (!validPassword) {
+          failureBackoffUntil = await this.recordKnownLoginFailure(
+            req,
+            emailHash,
+            ipHash,
+            "INVALID_PASSWORD",
+            candidate.id
+          );
+          throw unauthorized("Invalid credentials");
+        }
 
-    const companyId = resolveCompany(user, input.companyId);
-    const result = await this.issueSession(req, user, companyId);
-    await this.repository.recordSuccessfulLogin(emailHash);
-    await this.repository.writeAuthAudit({
-      action: "LOGIN_SUCCESS",
-      emailHash,
-      userId: user.id,
-      companyId,
-      requestId: req.context?.requestId,
-      ipAddress: req.context?.ipAddress,
-      userAgent: req.context?.userAgent
+        const company = resolveLoginCompany(candidate, input.companyId);
+        if (!company.companyId) {
+          failureBackoffUntil = await this.recordKnownLoginFailure(
+            req,
+            emailHash,
+            ipHash,
+            company.reason ?? "INVALID_COMPANY_SELECTION",
+            candidate.id
+          );
+          throw unauthorized("Invalid credentials");
+        }
+
+        let result: Awaited<ReturnType<AuthService["issueSession"]>>;
+        try {
+          result = await this.issueSession(req, candidate, company.companyId, undefined, false, {
+            sessionKind: "PASSWORD",
+            emailHash,
+            ipHash
+          });
+        } catch (error) {
+          logger.error("authentication_session_issue_failed", {
+            requestId: req.context?.requestId,
+            userId: candidate.id,
+            companyId: company.companyId,
+            error
+          });
+          throw unauthorized("Invalid credentials");
+        }
+        sessionIssued = true;
+        this.recordSuccessfulLoginTelemetry();
+        return { result };
+      } finally {
+        if (!sessionIssued) {
+          await this.waitForFailureBackoff(failureBackoffUntil, startedAt);
+        }
+      }
     });
 
-    return result;
+    return verified.result;
   }
 
   async refresh(req: ApiRequest, refreshToken?: string) {
@@ -348,13 +473,32 @@ export class AuthService {
     if (!stored || !stored.user) {
       throw unauthorized("Invalid refresh token");
     }
+    const hasPortfolioPrefix = refreshToken.startsWith(portfolioRefreshTokenPrefix);
+    if (
+      !stored.sessionKind ||
+      !stored.familyId ||
+      (stored.sessionKind === "PORTFOLIO") !== hasPortfolioPrefix
+    ) {
+      if (!stored.revokedAt) {
+        await this.repository.revokeRefreshToken(stored.id);
+      }
+      throw unauthorized("Invalid refresh token");
+    }
+    const sessionKind = stored.sessionKind;
 
     if (stored.expiresAt.getTime() <= Date.now()) {
       throw unauthorized("Invalid refresh token");
     }
 
     if (stored.revokedAt) {
-      await this.repository.revokeActiveRefreshTokensForUser(stored.userId, stored.companyId);
+      if (stored.companyId) {
+        await this.repository.revokeActiveRefreshTokenFamily(
+          stored.userId,
+          stored.companyId,
+          sessionKind,
+          stored.familyId
+        );
+      }
       throw unauthorized("Invalid refresh token");
     }
 
@@ -367,7 +511,16 @@ export class AuthService {
       (user.passwordChangedAt &&
         (!(stored.createdAt instanceof Date) || stored.createdAt < user.passwordChangedAt))
     ) {
-      await this.repository.revokeActiveRefreshTokensForUser(stored.userId, stored.companyId);
+      if (stored.companyId) {
+        await this.repository.revokeActiveRefreshTokenFamily(
+          stored.userId,
+          stored.companyId,
+          sessionKind,
+          stored.familyId
+        );
+      } else if (!stored.revokedAt) {
+        await this.repository.revokeRefreshToken(stored.id);
+      }
       throw unauthorized("Invalid refresh token");
     }
 
@@ -377,23 +530,34 @@ export class AuthService {
       email: user.email,
       companyId,
       credentialVersion: credentialVersion(user),
-      ...(refreshToken.startsWith(portfolioRefreshTokenPrefix)
-        ? { sessionKind: "portfolio" as const }
-        : {})
+      ...(sessionKind === "PORTFOLIO" ? { sessionKind: "portfolio" as const } : {})
     };
     const portfolioSession = authUser.sessionKind === "portfolio";
     authUser.permissions = portfolioSession
       ? this.portfolioPermissions(user, companyId)
       : permissionsFrom(user, companyId);
+    if (portfolioSession) {
+      return {
+        accessToken: signAccessToken(authUser),
+        refreshToken,
+        expiresAt: stored.expiresAt,
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          companyId: authUser.companyId,
+          permissions: authUser.permissions
+        }
+      };
+    }
     const nextRefreshToken = createRefreshToken(portfolioSession);
     const expiresAt = new Date(Date.now() + env.JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
 
     const rotated = await this.repository.rotateRefreshToken(
       stored.id,
       {
-        userId: user.id,
-        companyId,
         tokenHash: hashToken(nextRefreshToken),
+        familyId: stored.familyId,
         userAgent: req.context?.userAgent,
         ipAddress: req.context?.ipAddress,
         expiresAt
@@ -401,12 +565,32 @@ export class AuthService {
       {
         userId: user.id,
         companyId,
+        sessionKind,
         passwordChangedAt: user.passwordChangedAt ?? null
       }
     );
+    if (rotated === "TOO_SOON") {
+      return {
+        accessToken: signAccessToken(authUser),
+        refreshToken,
+        expiresAt: stored.expiresAt,
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          companyId: authUser.companyId,
+          permissions: authUser.permissions
+        }
+      };
+    }
     if (rotated !== "ROTATED") {
       if (["REUSED", "SESSION_STALE", "CONFLICT"].includes(rotated)) {
-        await this.repository.revokeActiveRefreshTokensForUser(stored.userId, stored.companyId);
+        await this.repository.revokeActiveRefreshTokenFamily(
+          stored.userId,
+          stored.companyId,
+          sessionKind,
+          stored.familyId
+        );
       }
       throw unauthorized("Invalid refresh token");
     }
@@ -435,39 +619,128 @@ export class AuthService {
     )) as DbRefreshToken | null;
 
     if (stored && stored.expiresAt.getTime() > Date.now()) {
+      const hasPortfolioPrefix = refreshToken.startsWith(portfolioRefreshTokenPrefix);
+      if (stored.sessionKind === "PORTFOLIO" && hasPortfolioPrefix) {
+        await this.repository.deletePortfolioRefreshToken(stored.id);
+        return { loggedOut: true };
+      }
       const revoked = !stored.revokedAt && (await this.repository.revokeRefreshToken(stored.id));
-      if (!revoked) {
-        await this.repository.revokeActiveRefreshTokensForUser(stored.userId, stored.companyId);
+      if (
+        !revoked &&
+        stored.companyId &&
+        stored.sessionKind &&
+        stored.familyId &&
+        (stored.sessionKind === "PORTFOLIO") === hasPortfolioPrefix
+      ) {
+        await this.repository.revokeActiveRefreshTokenFamily(
+          stored.userId,
+          stored.companyId,
+          stored.sessionKind,
+          stored.familyId
+        );
       }
     }
 
     return { loggedOut: true };
   }
 
-  private async recordFailedLogin(
+  private async recordKnownLoginFailure(
     req: ApiRequest,
     emailHash: string,
     ipHash: string,
     reason: string,
     userId?: string
   ) {
-    const outcome = (await this.repository.recordFailedLogin({
-      emailHash,
-      maxAttempts: env.AUTH_LOCKOUT_MAX_ATTEMPTS,
-      lockoutWindowMs: env.AUTH_LOCKOUT_WINDOW_MS,
-      ipHash,
-      userAgent: req.context?.userAgent
-    })) as DbLoginAttempt;
+    let outcome: DbLoginAttempt;
+    try {
+      outcome = (await this.repository.recordFailedLogin({
+        emailHash,
+        maxAttempts: env.AUTH_LOCKOUT_MAX_ATTEMPTS,
+        lockoutWindowMs: env.AUTH_LOCKOUT_WINDOW_MS,
+        ipHash,
+        userAgent: req.context?.userAgent
+      })) as DbLoginAttempt;
+    } catch (error) {
+      logger.error("authentication_failure_state_write_failed", {
+        requestId: req.context?.requestId,
+        userId,
+        reason,
+        error
+      });
+      return new Date(Date.now() + authenticationBackoffMaximumMs);
+    }
+
     const failedCount = outcome.failedCount;
     const lockedUntil = outcome.lockedUntil ?? undefined;
-    await this.repository.writeAuthAudit({
-      action: lockedUntil ? "LOGIN_LOCKED" : "LOGIN_FAILED",
-      emailHash,
-      userId,
-      requestId: req.context?.requestId,
-      ipAddress: req.context?.ipAddress,
-      userAgent: req.context?.userAgent,
-      detail: { reason, failedCount, lockedUntil: lockedUntil?.toISOString() }
+    this.recordFailureTelemetry("known", {
+      reason,
+      failedCount,
+      backoffMs: Math.max(0, (lockedUntil?.getTime() ?? 0) - Date.now())
     });
+    return lockedUntil;
+  }
+
+  private recordUnknownLoginFailure(emailHash: string) {
+    const lockedUntil = this.unknownBackoffGate.recordFailure(
+      emailHash,
+      env.AUTH_LOCKOUT_MAX_ATTEMPTS,
+      env.AUTH_LOCKOUT_WINDOW_MS
+    );
+    this.recordFailureTelemetry("unknown", {
+      backoffMs: Math.max(0, (lockedUntil?.getTime() ?? 0) - Date.now())
+    });
+    return lockedUntil;
+  }
+
+  private recordFailureTelemetry(
+    principalKind: "known" | "unknown",
+    fields: Record<string, unknown>
+  ) {
+    const attemptCount = this.failureAuditGate.takeAggregate(principalKind);
+    if (attemptCount !== undefined) {
+      logger.warn("authentication_failures", { principalKind, attemptCount, ...fields });
+    }
+  }
+
+  private recordSuccessfulLoginTelemetry() {
+    const successCount = this.successTelemetryGate.takeAggregate();
+    if (successCount !== undefined) {
+      logger.info("authentication_successes", { successCount });
+    }
+  }
+
+  private async waitForPersistedBackoff(attempt: DbLoginAttempt | null) {
+    const delayMs = Math.min(
+      Math.max(0, (attempt?.lockedUntil?.getTime() ?? 0) - Date.now()),
+      authenticationBackoffMaximumMs
+    );
+    if (delayMs > 0) {
+      await this.delay(delayMs);
+    }
+  }
+
+  private async waitForUnknownBackoff(emailHash: string) {
+    const lockedUntil = this.unknownBackoffGate.currentBackoffUntil(
+      emailHash,
+      env.AUTH_LOCKOUT_WINDOW_MS
+    );
+    const delayMs = Math.min(
+      Math.max(0, (lockedUntil?.getTime() ?? 0) - Date.now()),
+      authenticationBackoffMaximumMs
+    );
+    if (delayMs > 0) {
+      await this.delay(delayMs);
+    }
+  }
+
+  private async waitForFailureBackoff(lockedUntil: Date | undefined, startedAt: number) {
+    const minimumCompletionAt = startedAt + minimumAuthenticationFailureDelayMs;
+    const delayMs = Math.min(
+      Math.max(0, Math.max(minimumCompletionAt, lockedUntil?.getTime() ?? 0) - Date.now()),
+      authenticationBackoffMaximumMs
+    );
+    if (delayMs > 0) {
+      await this.delay(delayMs);
+    }
   }
 }

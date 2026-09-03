@@ -8,8 +8,6 @@ import { ok } from "../../shared/http/response.js";
 import { forbidden } from "../../shared/errors/app-error.js";
 import { revokeAccessToken } from "../../shared/middlewares/authenticate.js";
 import { AuthService } from "./auth.service.js";
-
-const service = new AuthService();
 const refreshCookieName = "shiftflow_refresh";
 const csrfCookieName = "shiftflow_csrf";
 
@@ -117,67 +115,71 @@ function withoutRefreshToken<T extends { refreshToken: string }>(
   return { ...payload, authenticationMode: mode };
 }
 
-export const AuthController = {
-  demo: asyncHandler(async (req: ApiRequest, res: Response) => {
-    const result = await service.openDemoSession(req);
-    const csrfToken = generateCsrfToken();
-    setRefreshCookie(res, result.refreshToken, result.expiresAt);
-    setCsrfCookie(res, csrfToken, result.expiresAt);
-    res.json(ok(withoutRefreshToken(result, "demo")));
-  }),
+export function createAuthController(service = new AuthService()) {
+  return {
+    demo: asyncHandler(async (req: ApiRequest, res: Response) => {
+      const result = await service.openDemoSession(req);
+      const csrfToken = generateCsrfToken();
+      setRefreshCookie(res, result.refreshToken, result.expiresAt);
+      setCsrfCookie(res, csrfToken, result.expiresAt);
+      res.json(ok(withoutRefreshToken(result, "demo")));
+    }),
 
-  portfolio: asyncHandler(async (req: ApiRequest, res: Response) => {
-    const result = await service.openPortfolioSession(req);
-    const csrfToken = generateCsrfToken();
-    setRefreshCookie(res, result.refreshToken, result.expiresAt);
-    setCsrfCookie(res, csrfToken, result.expiresAt);
-    res.json(ok(withoutRefreshToken(result, "portfolio")));
-  }),
+    portfolio: asyncHandler(async (req: ApiRequest, res: Response) => {
+      const result = await service.openPortfolioSession(req);
+      const csrfToken = generateCsrfToken();
+      setRefreshCookie(res, result.refreshToken, result.expiresAt);
+      setCsrfCookie(res, csrfToken, result.expiresAt);
+      res.json(ok(withoutRefreshToken(result, "portfolio")));
+    }),
 
-  login: asyncHandler(async (req: ApiRequest, res: Response) => {
-    const result = await service.login(req, req.body);
-    const csrfToken = generateCsrfToken();
-    setRefreshCookie(res, result.refreshToken, result.expiresAt);
-    setCsrfCookie(res, csrfToken, result.expiresAt);
-    res.json(ok(withoutRefreshToken(result)));
-  }),
-
-  refresh: asyncHandler(async (req: ApiRequest, res: Response) => {
-    try {
-      assertCookieCsrf(req);
-      const result = await service.refresh(req, cookieRefreshToken(req));
+    login: asyncHandler(async (req: ApiRequest, res: Response) => {
+      const result = await service.login(req, req.body);
       const csrfToken = generateCsrfToken();
       setRefreshCookie(res, result.refreshToken, result.expiresAt);
       setCsrfCookie(res, csrfToken, result.expiresAt);
       res.json(ok(withoutRefreshToken(result)));
-    } catch (error) {
-      clearRefreshCookie(res);
-      clearCsrfCookie(res);
-      throw error;
-    }
-  }),
+    }),
 
-  logout: asyncHandler(async (req: ApiRequest, res: Response) => {
-    try {
-      assertCookieCsrf(req);
-      let accessRevocationError: unknown;
+    refresh: asyncHandler(async (req: ApiRequest, res: Response) => {
       try {
-        await revokeAccessToken(bearerAccessToken(req), req);
+        assertCookieCsrf(req);
+        const result = await service.refresh(req, cookieRefreshToken(req));
+        const csrfToken = generateCsrfToken();
+        setRefreshCookie(res, result.refreshToken, result.expiresAt);
+        setCsrfCookie(res, csrfToken, result.expiresAt);
+        res.json(ok(withoutRefreshToken(result)));
       } catch (error) {
-        accessRevocationError = error;
+        clearRefreshCookie(res);
+        clearCsrfCookie(res);
+        throw error;
       }
-      const result = await service.logout(cookieRefreshToken(req));
-      if (accessRevocationError) {
-        throw accessRevocationError;
-      }
-      res.json(ok(result));
-    } finally {
-      clearRefreshCookie(res);
-      clearCsrfCookie(res);
-    }
-  }),
+    }),
 
-  me: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(req.auth));
-  })
-};
+    logout: asyncHandler(async (req: ApiRequest, res: Response) => {
+      try {
+        assertCookieCsrf(req);
+        let accessRevocationError: unknown;
+        try {
+          await revokeAccessToken(bearerAccessToken(req), req);
+        } catch (error) {
+          accessRevocationError = error;
+        }
+        const result = await service.logout(cookieRefreshToken(req));
+        if (accessRevocationError) {
+          throw accessRevocationError;
+        }
+        res.json(ok(result));
+      } finally {
+        clearRefreshCookie(res);
+        clearCsrfCookie(res);
+      }
+    }),
+
+    me: asyncHandler(async (req: ApiRequest, res: Response) => {
+      res.json(ok(req.auth));
+    })
+  };
+}
+
+export const AuthController = createAuthController();

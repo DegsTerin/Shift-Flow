@@ -3,11 +3,14 @@ import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { AuthController } from "./auth.controller.js";
+import { authRoutes } from "./auth.routes.js";
 import { AuthService } from "./auth.service.js";
 import { errorHandler } from "../../shared/middlewares/error-handler.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { logger } from "../../shared/observability/logger.js";
 import * as authenticateMiddleware from "../../shared/middlewares/authenticate.js";
+import { requestContext } from "../../shared/middlewares/request-context.js";
+import { rateLimit, resetRateLimitBuckets } from "../../shared/middlewares/rate-limit.js";
 
 function cookieHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value.join("; ") : (value ?? "");
@@ -15,6 +18,7 @@ function cookieHeader(value: string | string[] | undefined) {
 
 describe("AuthController", () => {
   afterEach(() => {
+    resetRateLimitBuckets();
     vi.restoreAllMocks();
   });
 
@@ -111,6 +115,39 @@ describe("AuthController", () => {
     expect(cookies).toContain("SameSite=Lax");
   });
 
+  it("keeps the current cookie when an immediate refresh reuses the valid token", async () => {
+    vi.spyOn(AuthService.prototype, "refresh").mockResolvedValue({
+      accessToken: "new-access-token",
+      refreshToken: "current-token",
+      expiresAt: new Date(Date.now() + 60_000),
+      user: {
+        id: "user-1",
+        email: "user@example.com",
+        displayName: "User",
+        companyId: "company-1",
+        permissions: ["dashboard:read"]
+      }
+    });
+
+    const app = express();
+    app.use(express.json());
+    app.post("/api/auth/refresh", AuthController.refresh);
+    app.use(errorHandler);
+
+    const response = await request(app)
+      .post("/api/auth/refresh")
+      .set("Cookie", "shiftflow_refresh=current-token; shiftflow_csrf=test-csrf")
+      .set("x-csrf-token", "test-csrf")
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.accessToken).toBe("new-access-token");
+    expect(response.body.data.refreshToken).toBeUndefined();
+    expect(cookieHeader(response.headers["set-cookie"])).toContain(
+      "shiftflow_refresh=current-token"
+    );
+  });
+
   it("always clears the refresh cookie on logout, even when revocation fails", async () => {
     vi.spyOn(logger, "error").mockImplementation(() => undefined);
     vi.spyOn(AuthService.prototype, "logout").mockRejectedValue(
@@ -192,5 +229,75 @@ describe("AuthController", () => {
 
     expect(response.status).toBe(401);
     expect(refresh).toHaveBeenCalledWith(expect.anything(), undefined);
+  });
+
+  it("does not let the low direct-access budget lock out a correct password behind NAT", async () => {
+    vi.spyOn(AuthService.prototype, "login").mockImplementation(async (_req, input) => {
+      if (input.email !== "user@example.com") {
+        throw new AppError("Invalid credentials", 401, "UNAUTHORIZED");
+      }
+      return {
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        user: {
+          id: "user-1",
+          email: input.email,
+          displayName: "User",
+          companyId: "company-1",
+          permissions: ["dashboard:read"]
+        }
+      };
+    });
+
+    const app = express();
+    app.use(express.json());
+    app.use(requestContext);
+    app.use(rateLimit);
+    app.use("/api/auth", authRoutes);
+    app.use(errorHandler);
+
+    for (let index = 0; index < 10; index += 1) {
+      const attack = await request(app)
+        .post("/api/auth/login")
+        .send({ email: `spray-${index}@example.com`, password: "wrong-password" });
+      expect(attack.status).toBe(401);
+    }
+
+    const legitimate = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "user@example.com", password: "correct-password" });
+    expect(legitimate.status).toBe(200);
+    expect(cookieHeader(legitimate.headers["set-cookie"])).toContain(
+      "shiftflow_refresh=refresh-token"
+    );
+  });
+
+  it("returns a bounded retry hint when password verification capacity is busy", async () => {
+    vi.spyOn(AuthService.prototype, "login").mockRejectedValue(
+      new AppError(
+        "Authentication capacity is temporarily busy",
+        429,
+        "AUTHENTICATION_BUSY",
+        undefined,
+        30
+      )
+    );
+    const app = express();
+    app.use(express.json());
+    app.post("/api/auth/login", AuthController.login);
+    app.use(errorHandler);
+
+    const response = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "user@example.com", password: "correct-password" });
+
+    expect(response.status).toBe(429);
+    expect(response.headers["retry-after"]).toBe("30");
+    expect(response.headers["set-cookie"]).toBeUndefined();
+    expect(response.body.error).toEqual({
+      code: "AUTHENTICATION_BUSY",
+      message: "Authentication capacity is temporarily busy"
+    });
   });
 });

@@ -15,7 +15,11 @@ const numericKeys = [
   "JWT_REFRESH_EXPIRES_DAYS"
 ] as const;
 
-const booleanKeys = ["PORTFOLIO_ACCESS_ENABLED", "REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS"] as const;
+const booleanKeys = [
+  "PORTFOLIO_ACCESS_ENABLED",
+  "RENDER",
+  "REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS"
+] as const;
 
 const numericBounds = [
   ["API_INSTANCE_COUNT", 2_147_483_647],
@@ -141,6 +145,28 @@ describe("parseEnvironment", () => {
     const issues = parseIssues(productionEnvironment({ API_INSTANCE_COUNT: "2" }));
     expect(issues.some((issue) => issue.path[0] === "API_INSTANCE_COUNT")).toBe(true);
   });
+
+  it("requires an explicit fail-closed proxy decision on Render", () => {
+    const missing = parseIssues(productionEnvironment({ RENDER: "true" }));
+    expect(missing.some((issue) => issue.path[0] === "TRUST_PROXY")).toBe(true);
+
+    expect(
+      parseEnvironment(productionEnvironment({ RENDER: "true", TRUST_PROXY: "false" }))
+    ).toMatchObject({ RENDER: true, TRUST_PROXY: "false" });
+    expect(
+      parseEnvironment(
+        productionEnvironment({ RENDER: "true", TRUST_PROXY: "192.0.2.10,2001:db8::10" })
+      )
+    ).toMatchObject({ RENDER: true });
+  });
+
+  it.each(["true", "*", "10.0.0.0/8", "proxy.internal"])(
+    "rejects an ambiguous proxy trust value %s during environment parsing",
+    (value) => {
+      const issues = parseIssues(productionEnvironment({ TRUST_PROXY: value }));
+      expect(issues.some((issue) => issue.path[0] === "TRUST_PROXY")).toBe(true);
+    }
+  );
 
   it("reports both unavailable storage and unsafe multi-instance production", () => {
     const issues = parseIssues(

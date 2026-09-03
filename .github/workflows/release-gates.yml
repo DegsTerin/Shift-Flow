@@ -127,6 +127,7 @@ jobs:
         env:
           BUILDX_METADATA_PROVENANCE: max
         run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           subject_ref="shiftflow-local/${{ matrix.id }}:${GITHUB_SHA}"
           docker buildx build \
             --file '${{ matrix.dockerfile }}' \
@@ -185,7 +186,10 @@ jobs:
             --scan 'oci-evidence/${{ matrix.id }}.scan.json'
           )
           if [[ '${{ matrix.sourceKind }}' == 'build' ]]; then
-            arguments+=(--provenance 'oci-evidence/${{ matrix.id }}.provenance.json')
+            arguments+=(
+              --source-commit "$GITHUB_SHA"
+              --provenance 'oci-evidence/${{ matrix.id }}.provenance.json'
+            )
           fi
           node scripts/verify-oci-runtime-evidence.mjs "${arguments[@]}"
 

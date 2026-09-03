@@ -17,8 +17,15 @@ type RateLimitOptions = {
   key: (req: ApiRequest) => string;
 };
 
-const buckets = new Map<string, RateLimitBucket>();
-const lastCleanupByLimiter = new Map<string, number>();
+type RateLimitStore = {
+  buckets: Map<string, RateLimitBucket>;
+  lastCleanupAt: number;
+  nextExpiryAt?: number;
+};
+
+const cleanupIntervalMs = 60_000;
+export const maximumRateLimitBuckets = 10_000;
+const rateLimitStores = new Map<string, RateLimitStore>();
 
 function hashKey(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 32);
@@ -32,44 +39,68 @@ export function rateLimitClientAddress(req: ApiRequest) {
   return req.ip ?? "unknown";
 }
 
-function loginRateLimitKey(req: ApiRequest) {
-  const email =
-    req.body && typeof req.body === "object" && "email" in req.body
-      ? String((req.body as { email?: unknown }).email ?? "")
-          .trim()
-          .toLowerCase()
-      : "";
-  return hashKey(`${rateLimitClientAddress(req)}:${email}`);
+function directAccessRateLimitKey(req: ApiRequest) {
+  return hashKey(rateLimitClientAddress(req));
 }
 
-function cleanupExpiredBuckets(name: string, now: number, cleanupIntervalMs: number) {
-  const lastCleanupAt = lastCleanupByLimiter.get(name) ?? 0;
-  if (now - lastCleanupAt < cleanupIntervalMs) {
+function cleanupExpiredBuckets(store: RateLimitStore, now: number) {
+  if (
+    now - store.lastCleanupAt < cleanupIntervalMs &&
+    (store.nextExpiryAt === undefined || store.nextExpiryAt > now)
+  ) {
     return;
   }
 
-  lastCleanupByLimiter.set(name, now);
-  for (const [key, bucket] of buckets.entries()) {
-    if (key.startsWith(`${name}:`) && bucket.resetAt <= now) {
-      buckets.delete(key);
+  store.lastCleanupAt = now;
+  let nextExpiryAt: number | undefined;
+  for (const [key, bucket] of store.buckets.entries()) {
+    if (bucket.resetAt <= now) {
+      store.buckets.delete(key);
+    } else {
+      nextExpiryAt = Math.min(nextExpiryAt ?? bucket.resetAt, bucket.resetAt);
     }
   }
+  store.nextExpiryAt = nextExpiryAt;
 }
 
 function createRateLimit({ name, windowMs, maxRequests, key }: RateLimitOptions) {
-  const cleanupIntervalMs = Math.max(windowMs, 60_000);
+  const store: RateLimitStore = { buckets: new Map(), lastCleanupAt: 0 };
+  rateLimitStores.set(name, store);
 
   return function rateLimitMiddleware(req: ApiRequest, res: Response, next: NextFunction) {
     const now = Date.now();
-    cleanupExpiredBuckets(name, now, cleanupIntervalMs);
+    cleanupExpiredBuckets(store, now);
 
     const keyValue = `${name}:${key(req)}`;
-    const current = buckets.get(keyValue);
+    const current = store.buckets.get(keyValue);
+    if (!current && store.buckets.size >= maximumRateLimitBuckets) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil(((store.nextExpiryAt ?? now + windowMs) - now) / 1_000)
+      );
+      res.setHeader("x-rate-limit-limit", String(maxRequests));
+      res.setHeader("x-rate-limit-remaining", "0");
+      res.setHeader("retry-after", String(retryAfterSeconds));
+      logger.warn("rate_limit_capacity_exceeded", {
+        requestId: req.context?.requestId,
+        limiter: name,
+        path: req.originalUrl.split("?")[0],
+        capacity: maximumRateLimitBuckets
+      });
+      res.status(429).json({
+        error: {
+          code: "RATE_LIMIT_CAPACITY",
+          message: "Too many requests"
+        }
+      });
+      return;
+    }
     const bucket =
       current && current.resetAt > now ? current : { count: 0, resetAt: now + windowMs };
 
     bucket.count += 1;
-    buckets.set(keyValue, bucket);
+    store.buckets.set(keyValue, bucket);
+    store.nextExpiryAt = Math.min(store.nextExpiryAt ?? bucket.resetAt, bucket.resetAt);
 
     res.setHeader("x-rate-limit-limit", String(maxRequests));
     res.setHeader("x-rate-limit-remaining", String(Math.max(maxRequests - bucket.count, 0)));
@@ -105,14 +136,22 @@ export const rateLimit = createRateLimit({
   key: defaultRateLimitKey
 });
 
-export const loginRateLimit = createRateLimit({
-  name: "auth-login",
+export const directAccessRateLimit = createRateLimit({
+  name: "auth-direct-access",
   windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
   maxRequests: env.AUTH_RATE_LIMIT_MAX,
-  key: loginRateLimitKey
+  key: directAccessRateLimitKey
 });
 
 export function resetRateLimitBuckets() {
-  buckets.clear();
-  lastCleanupByLimiter.clear();
+  for (const store of rateLimitStores.values()) {
+    store.buckets.clear();
+    store.lastCleanupAt = 0;
+    store.nextExpiryAt = undefined;
+  }
+}
+
+export function rateLimitBucketCountForTests(name?: "auth-direct-access" | "global") {
+  if (name) return rateLimitStores.get(name)?.buckets.size ?? 0;
+  return [...rateLimitStores.values()].reduce((total, store) => total + store.buckets.size, 0);
 }

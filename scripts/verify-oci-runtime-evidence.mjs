@@ -168,6 +168,7 @@ export function validateRuntimeEvidence({
   targets,
   targetId,
   sourceKind,
+  sourceCommit,
   subjectRef,
   sbom,
   scan,
@@ -181,16 +182,17 @@ export function validateRuntimeEvidence({
     fail("OCI_RUNTIME_TARGET_INVALID", "arguments.target-id");
   }
   if (sourceKind === "build") {
-    const expectedPrefix = `shiftflow-local/${targetId}:`;
-    const commit = subjectRef.startsWith(expectedPrefix)
-      ? subjectRef.slice(expectedPrefix.length)
-      : "";
-    if (!commitPattern.test(commit) || !provenance) {
+    if (
+      !commitPattern.test(sourceCommit ?? "") ||
+      subjectRef !== `shiftflow-local/${targetId}:${sourceCommit}` ||
+      !provenance
+    ) {
       fail("OCI_RUNTIME_SUBJECT_INVALID", "arguments.subject-ref");
     }
   } else if (sourceKind === "registry") {
     if (
       subjectRef !== target.image ||
+      sourceCommit !== undefined ||
       provenance !== undefined ||
       !digestPattern.test(subjectRef.slice(subjectRef.lastIndexOf("@") + 1))
     ) {
@@ -220,6 +222,7 @@ function parseArguments(argumentsList) {
     "--targets",
     "--target-id",
     "--source-kind",
+    "--source-commit",
     "--subject-ref",
     "--sbom",
     "--scan",
@@ -244,6 +247,13 @@ function parseArguments(argumentsList) {
   ]) {
     if (!values.has(required)) fail("OCI_RUNTIME_ARGUMENT_REQUIRED", `arguments.${required}`);
   }
+  const sourceKind = values.get("--source-kind");
+  if (sourceKind === "build" && !values.has("--source-commit")) {
+    fail("OCI_RUNTIME_ARGUMENT_REQUIRED", "arguments.--source-commit");
+  }
+  if (sourceKind !== "build" && values.has("--source-commit")) {
+    fail("OCI_RUNTIME_ARGUMENT_INVALID", "arguments.--source-commit");
+  }
   return values;
 }
 
@@ -258,6 +268,7 @@ export function runCli(
       targets: readJson(resolve(cwd, values.get("--targets")), "targets"),
       targetId: values.get("--target-id"),
       sourceKind: values.get("--source-kind"),
+      sourceCommit: values.get("--source-commit"),
       subjectRef: values.get("--subject-ref"),
       sbom: readJson(resolve(cwd, values.get("--sbom")), "sbom"),
       scan: readJson(resolve(cwd, values.get("--scan")), "scan"),

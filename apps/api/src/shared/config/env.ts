@@ -69,12 +69,31 @@ const envSchema = z
     PORTFOLIO_ACCESS_EMAIL: z.string().email().optional(),
     PORTFOLIO_ACCESS_ENABLED: booleanFromString,
     RATE_LIMIT_STORE: z.enum(["memory", "external"]).default("memory"),
+    RENDER: booleanFromString,
     REQUIRE_ORIGIN_ON_UNSAFE_REQUESTS: booleanFromString,
     TRUST_PROXY: z.string().optional()
   })
   .superRefine((env, ctx) => {
     const isProduction = env.NODE_ENV === "production";
     const accessSecret = env.JWT_ACCESS_SECRET ?? env.JWT_SECRET;
+
+    try {
+      parseTrustedProxy(env.TRUST_PROXY);
+    } catch {
+      ctx.addIssue({
+        code: "custom",
+        path: ["TRUST_PROXY"],
+        message: "TRUST_PROXY must be false or a comma-separated list of literal IP addresses"
+      });
+    }
+
+    if (isProduction && env.RENDER && env.TRUST_PROXY === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["TRUST_PROXY"],
+        message: "TRUST_PROXY must be explicitly configured for a production Render service"
+      });
+    }
 
     if (env.RATE_LIMIT_STORE === "external") {
       ctx.addIssue({

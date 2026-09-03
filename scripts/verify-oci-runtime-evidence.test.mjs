@@ -7,7 +7,8 @@ import {
 
 const digest = `sha256:${"a".repeat(64)}`;
 const configDigest = `sha256:${"b".repeat(64)}`;
-const subjectRef = `shiftflow-local/api-dotnet:${"c".repeat(40)}`;
+const sourceCommit = "c".repeat(40);
+const subjectRef = `shiftflow-local/api-dotnet:${sourceCommit}`;
 
 function fixture() {
   return {
@@ -17,6 +18,7 @@ function fixture() {
     },
     targetId: "api-dotnet",
     sourceKind: "build",
+    sourceCommit,
     subjectRef,
     sbom: {
       spdxVersion: "SPDX-2.3",
@@ -91,6 +93,21 @@ describe("OCI runtime evidence", () => {
     expect(() => validateRuntimeEvidence(evidence)).toThrowError("OCI_RUNTIME_PROVENANCE_INVALID");
   });
 
+  it("rejects a build tag that names a different commit", () => {
+    const evidence = fixture();
+    evidence.subjectRef = `shiftflow-local/api-dotnet:${"d".repeat(40)}`;
+    evidence.scan.ArtifactName = evidence.subjectRef;
+
+    expect(() => validateRuntimeEvidence(evidence)).toThrowError("OCI_RUNTIME_SUBJECT_INVALID");
+  });
+
+  it("rejects build evidence without the workflow source commit", () => {
+    const evidence = fixture();
+    delete evidence.sourceCommit;
+
+    expect(() => validateRuntimeEvidence(evidence)).toThrowError("OCI_RUNTIME_SUBJECT_INVALID");
+  });
+
   it("rejects an SPDX document describing a different image digest", () => {
     const evidence = fixture();
     evidence.sbom.packages[0].externalRefs[0].referenceLocator = `pkg:oci/api-dotnet@${encodeURIComponent(`sha256:${"e".repeat(64)}`)}`;
@@ -109,6 +126,7 @@ describe("OCI runtime evidence", () => {
     evidence.subjectRef = registrySubject;
     evidence.scan.ArtifactName = registrySubject;
     delete evidence.provenance;
+    delete evidence.sourceCommit;
 
     expect(validateRuntimeEvidence(evidence)).toMatchObject({
       result: "RUNTIME_EVIDENCE_VALID",
@@ -116,5 +134,18 @@ describe("OCI runtime evidence", () => {
       sourceKind: "registry",
       subjectRef: registrySubject
     });
+  });
+
+  it("rejects a registry subject carrying a build-only source commit", () => {
+    const evidence = fixture();
+    const registrySubject = `nginx:1.29.1-alpine@${digest}`;
+    evidence.targets.targets = [{ id: "nginx", sourceKind: "registry", image: registrySubject }];
+    evidence.targetId = "nginx";
+    evidence.sourceKind = "registry";
+    evidence.subjectRef = registrySubject;
+    evidence.scan.ArtifactName = registrySubject;
+    delete evidence.provenance;
+
+    expect(() => validateRuntimeEvidence(evidence)).toThrowError("OCI_RUNTIME_SUBJECT_INVALID");
   });
 });
