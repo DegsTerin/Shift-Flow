@@ -63,21 +63,25 @@ already started remains within the fixed identity admission bound until it
 settles; no bcrypt starts afterwards when the request was cancelled. Other
 already-started database work, an active bcrypt comparison and an atomic session
 transaction are deliberately allowed to settle before their work is released or
-observed. No credential or cookie is written to a closed response; a post-commit
-disconnect can leave one inaccessible, bounded refresh row until normal expiry
-or session eviction. This process-local cancellation hygiene bounds queued and
-expensive work without pretending to cancel a database operation already sent
-to PostgreSQL; it is not upstream bot mitigation.
+observed. An invalid comparison that settles after disconnect is counted once
+before cancellation, but no response-delay timer is retained for the closed
+transport. No credential or cookie is written to a closed response; a
+post-commit disconnect can leave one inaccessible, bounded refresh row until
+normal expiry or session eviction. This process-local cancellation hygiene
+bounds queued and expensive work without pretending to cancel a database
+operation already sent to PostgreSQL; it is not upstream bot mitigation.
 
-All admitted pre-session credential failures use the same 256 fixed, secret-HMAC response-delay
-buckets, 1,000–30,000 ms curve and window expiry. No login failure reads or
-writes principal-specific PostgreSQL state, so account existence does not select
-a distinct state boundary and attacker-controlled identities create no database
-or append-only audit rows. Failures emit one fixed, windowed aggregate telemetry
-stream without an existence classification. This delay shapes the public
-failure response; it is deliberately not a pre-verification account lock and
-therefore cannot deny a later correct credential while an earlier response is
-still delayed.
+All completed pre-session credential failures enter the same 256 fixed,
+secret-HMAC response-delay buckets, 1,000–30,000 ms curve and window expiry. No
+login failure reads or writes principal-specific PostgreSQL state, so account
+existence does not select a distinct state boundary and attacker-controlled
+identities create no database or append-only audit rows. Failures emit one
+fixed, windowed aggregate telemetry stream without an existence classification.
+For a live transport, this delay shapes the public failure response; a transport
+cancelled after comparison retains the accounting but skips its now-unobservable
+timer. It is deliberately not a pre-verification account lock and therefore
+cannot deny a later correct credential while an earlier response is still
+delayed.
 Successful password login updates mutable `lastSuccessAt`, hashed source-IP and
 user-agent state for the exact principal, plus one fixed, windowed aggregate
 telemetry stream and a canonical append-only `LOGIN_SUCCESS` audit event.

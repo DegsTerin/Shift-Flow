@@ -650,6 +650,41 @@ describe("AuthService", () => {
     expect(failureDelay.recordFailure).not.toHaveBeenCalled();
   });
 
+  it("records one settled bad-password failure when its active bcrypt outlives the socket", async () => {
+    const passwordResult = deferredResult<boolean>();
+    const mockRepository = repository();
+    const delay = vi.fn().mockResolvedValue(undefined);
+    const failureAudit = { takeAggregate: vi.fn().mockReturnValue(undefined) };
+    const failureDelay = { recordFailure: vi.fn().mockReturnValue(undefined) };
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(1, 1, 1),
+      delay,
+      failureAudit,
+      failureDelay
+    );
+    vi.spyOn(bcrypt, "compare").mockImplementation(async () => passwordResult.promise);
+    const cancellation = new AbortController();
+    const login = service.login(
+      request(),
+      { email: "user@example.com", password: "wrong-password" },
+      cancellation.signal
+    );
+    await vi.waitFor(() => expect(bcrypt.compare).toHaveBeenCalledOnce());
+
+    cancellation.abort();
+    passwordResult.resolve(false);
+    await expect(login).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+
+    expect(failureDelay.recordFailure).toHaveBeenCalledOnce();
+    expect(failureAudit.takeAggregate).toHaveBeenCalledOnce();
+    expect(delay).not.toHaveBeenCalled();
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
+  });
+
   it("checks cancellation immediately after bcrypt before authority hydration", async () => {
     const cancellation = new AbortController();
     const verificationGate = {

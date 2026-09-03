@@ -435,11 +435,12 @@ export class AuthService {
           const validPassword = await withPasswordBudget(() =>
             bcrypt.compare(input.password, credential?.passwordHash ?? unavailablePrincipalHash)
           );
-          throwIfAuthenticationRequestCancelled(signal);
           if (!credential || !validPassword) {
             failureBackoffUntil = recordFailure();
+            throwIfAuthenticationRequestCancelled(signal);
             throw unauthorized("Invalid credentials");
           }
+          throwIfAuthenticationRequestCancelled(signal);
 
           const hydratedCandidate = (await this.repository.findUserByEmail(
             input.email

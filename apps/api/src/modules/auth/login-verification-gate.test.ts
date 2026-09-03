@@ -16,6 +16,14 @@ function deferred() {
   return { promise, resolve };
 }
 
+function rejectedDeferred() {
+  let reject: (error: unknown) => void = () => undefined;
+  const promise = new Promise<never>((_resolve, fail) => {
+    reject = fail;
+  });
+  return { promise, reject };
+}
+
 describe("LoginVerificationGate", () => {
   it("rejects a pre-aborted request without admitting or executing it", async () => {
     const gate = new LoginVerificationGate(1, 1, 1);
@@ -190,6 +198,37 @@ describe("LoginVerificationGate", () => {
     await expect(active).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
     await queued;
     expect(order).toEqual(["active-started", "active-settled", "queued-started"]);
+  });
+
+  it("observes an aborted active bcrypt rejection before recovering capacity", async () => {
+    const gate = new LoginVerificationGate(1, 1, 1);
+    const passwordFailure = rejectedDeferred();
+    const passwordStarted = deferred();
+    const cancellation = new AbortController();
+    const active = gate.run(
+      "identity-active",
+      async (withPasswordBudget) =>
+        withPasswordBudget(async () => {
+          passwordStarted.resolve();
+          return passwordFailure.promise;
+        }),
+      cancellation.signal
+    );
+    await passwordStarted.promise;
+
+    cancellation.abort();
+    await expect(gate.run("identity-overflow", async () => undefined)).rejects.toMatchObject({
+      code: "AUTHENTICATION_BUSY"
+    });
+    const cancellationResult = expect(active).rejects.toBeInstanceOf(
+      AuthenticationRequestCancelledError
+    );
+    passwordFailure.reject(new Error("synthetic late bcrypt rejection"));
+    await cancellationResult;
+
+    await expect(gate.run("identity-recovered", async () => "recovered")).resolves.toBe(
+      "recovered"
+    );
   });
 
   it("bounds attacker-controlled scheduled identity cardinality", async () => {

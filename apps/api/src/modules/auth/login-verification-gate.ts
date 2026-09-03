@@ -126,7 +126,7 @@ export class LoginVerificationGate {
       return Promise.reject(error);
     }
     if (this.activePasswordChecks < this.maximumConcurrentPasswordChecks) {
-      return this.startPasswordOperation(operation, signal);
+      return this.startPasswordOperation(operation);
     }
     if (this.passwordQueue.length >= this.maximumQueuedPasswordChecks) {
       return Promise.reject(authenticationBusy());
@@ -165,20 +165,10 @@ export class LoginVerificationGate {
     });
   }
 
-  private async startPasswordOperation<T>(
-    operation: () => Promise<T>,
-    signal?: AbortSignal
-  ): Promise<T> {
+  private async startPasswordOperation<T>(operation: () => Promise<T>): Promise<T> {
     this.activePasswordChecks += 1;
     try {
-      try {
-        const result = await operation();
-        throwIfAuthenticationRequestCancelled(signal);
-        return result;
-      } catch (error) {
-        throwIfAuthenticationRequestCancelled(signal);
-        throw error;
-      }
+      return await operation();
     } finally {
       this.activePasswordChecks -= 1;
       let queued = this.passwordQueue.shift();
@@ -188,10 +178,7 @@ export class LoginVerificationGate {
       }
       if (queued) {
         queued.detachAbort();
-        this.startPasswordOperation(queued.operation, queued.signal).then(
-          queued.resolve,
-          queued.reject
-        );
+        this.startPasswordOperation(queued.operation).then(queued.resolve, queued.reject);
       }
     }
   }
