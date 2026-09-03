@@ -19,6 +19,7 @@ import {
 } from "./auth.repository.js";
 import type { LoginDto } from "./auth.dto.js";
 import {
+  AuthenticationRequestCancelledError,
   authenticationBackoffMaximumMs,
   loginFailureAuditGate,
   loginFailureDelayGate,
@@ -27,7 +28,8 @@ import {
   type LoginFailureDelayGate,
   type LoginFailureAuditGate,
   type LoginSuccessTelemetryGate,
-  type LoginVerificationGate
+  type LoginVerificationGate,
+  throwIfAuthenticationRequestCancelled
 } from "./login-verification-gate.js";
 
 type DbUser = {
@@ -113,6 +115,28 @@ function hashIdentifier(value: string | undefined) {
     .createHash("sha256")
     .update(value ?? "unknown")
     .digest("hex");
+}
+
+function delayWithAuthenticationAbort(milliseconds: number, signal?: AbortSignal) {
+  throwIfAuthenticationRequestCancelled(signal);
+
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const settle = (settlement: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      settlement();
+    };
+    const onAbort = () => settle(() => reject(new AuthenticationRequestCancelledError()));
+    const timer = setTimeout(() => settle(resolve), milliseconds);
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) {
+      onAbort();
+    }
+  });
 }
 
 function isActiveMembership(user: DbUser, companyId: string) {
@@ -223,8 +247,10 @@ export class AuthService {
       email: portfolioAccessEmail
     },
     private readonly verificationGate: Pick<LoginVerificationGate, "run"> = loginVerificationGate,
-    private readonly delay: (milliseconds: number) => Promise<void> = (milliseconds) =>
-      new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
+    private readonly delay: (
+      milliseconds: number,
+      signal?: AbortSignal
+    ) => Promise<void> = delayWithAuthenticationAbort,
     private readonly failureAuditGate: Pick<
       LoginFailureAuditGate,
       "takeAggregate"
@@ -386,83 +412,94 @@ export class AuthService {
     return session;
   }
 
-  async login(req: ApiRequest, input: LoginDto) {
+  async login(req: ApiRequest, input: LoginDto, signal?: AbortSignal) {
     const emailHash = hashIdentifier(input.email);
     const ipHash = hashIdentifier(req.context?.ipAddress);
-    const verified = await this.verificationGate.run(emailHash, async (withPasswordBudget) => {
-      const startedAt = Date.now();
-      let failureBackoffUntil: Date | undefined;
-      let failureRecorded = false;
-      let sessionIssued = false;
-      const recordFailure = () => {
-        failureRecorded = true;
-        return this.recordLoginFailure(emailHash);
-      };
-      try {
-        const credential = (await this.repository.findLoginCredentialByEmail(
-          input.email
-        )) as DbLoginCredential | null;
-        const validPassword = await withPasswordBudget(() =>
-          bcrypt.compare(input.password, credential?.passwordHash ?? unavailablePrincipalHash)
-        );
-        if (!credential || !validPassword) {
-          failureBackoffUntil = recordFailure();
-          throw unauthorized("Invalid credentials");
-        }
-
-        const hydratedCandidate = (await this.repository.findUserByEmail(
-          input.email
-        )) as DbUser | null;
-        if (!hydratedCandidate || hydratedCandidate.id !== credential.id) {
-          failureBackoffUntil = recordFailure();
-          throw unauthorized("Invalid credentials");
-        }
-        const activeCandidate = {
-          ...hydratedCandidate,
-          passwordChangedAt: credential.passwordChangedAt
+    const verified = await this.verificationGate.run(
+      emailHash,
+      async (withPasswordBudget) => {
+        const startedAt = Date.now();
+        let failureBackoffUntil: Date | undefined;
+        let failureRecorded = false;
+        let sessionIssued = false;
+        const recordFailure = () => {
+          failureRecorded = true;
+          return this.recordLoginFailure(emailHash);
         };
-
-        const company = resolveLoginCompany(activeCandidate, input.companyId);
-        if (!company.companyId) {
-          failureBackoffUntil = recordFailure();
-          throw unauthorized("Invalid credentials");
-        }
-
-        let result: Awaited<ReturnType<AuthService["issueSession"]>>;
         try {
-          result = await this.issueSession(
-            req,
-            activeCandidate,
-            company.companyId,
-            undefined,
-            false,
-            {
-              sessionKind: "PASSWORD",
-              emailHash,
-              ipHash
-            }
+          throwIfAuthenticationRequestCancelled(signal);
+          const credential = (await this.repository.findLoginCredentialByEmail(
+            input.email
+          )) as DbLoginCredential | null;
+          throwIfAuthenticationRequestCancelled(signal);
+          const validPassword = await withPasswordBudget(() =>
+            bcrypt.compare(input.password, credential?.passwordHash ?? unavailablePrincipalHash)
           );
-        } catch (error) {
-          logger.error("authentication_session_issue_failed", {
-            requestId: req.context?.requestId,
-            userId: activeCandidate.id,
-            companyId: company.companyId,
-            error
-          });
-          throw unauthorized("Invalid credentials");
-        }
-        sessionIssued = true;
-        this.recordSuccessfulLoginTelemetry();
-        return { result };
-      } finally {
-        if (!sessionIssued) {
-          if (!failureRecorded) {
+          throwIfAuthenticationRequestCancelled(signal);
+          if (!credential || !validPassword) {
             failureBackoffUntil = recordFailure();
+            throw unauthorized("Invalid credentials");
           }
-          await this.waitForFailureBackoff(failureBackoffUntil, startedAt);
+
+          const hydratedCandidate = (await this.repository.findUserByEmail(
+            input.email
+          )) as DbUser | null;
+          throwIfAuthenticationRequestCancelled(signal);
+          if (!hydratedCandidate || hydratedCandidate.id !== credential.id) {
+            failureBackoffUntil = recordFailure();
+            throw unauthorized("Invalid credentials");
+          }
+          const activeCandidate = {
+            ...hydratedCandidate,
+            passwordChangedAt: credential.passwordChangedAt
+          };
+
+          const company = resolveLoginCompany(activeCandidate, input.companyId);
+          if (!company.companyId) {
+            failureBackoffUntil = recordFailure();
+            throw unauthorized("Invalid credentials");
+          }
+
+          throwIfAuthenticationRequestCancelled(signal);
+          let result: Awaited<ReturnType<AuthService["issueSession"]>>;
+          try {
+            result = await this.issueSession(
+              req,
+              activeCandidate,
+              company.companyId,
+              undefined,
+              false,
+              {
+                sessionKind: "PASSWORD",
+                emailHash,
+                ipHash
+              }
+            );
+          } catch (error) {
+            throwIfAuthenticationRequestCancelled(signal);
+            logger.error("authentication_session_issue_failed", {
+              requestId: req.context?.requestId,
+              userId: activeCandidate.id,
+              companyId: company.companyId,
+              error
+            });
+            throw unauthorized("Invalid credentials");
+          }
+          sessionIssued = true;
+          this.recordSuccessfulLoginTelemetry();
+          throwIfAuthenticationRequestCancelled(signal);
+          return { result };
+        } finally {
+          if (!sessionIssued && !signal?.aborted) {
+            if (!failureRecorded) {
+              failureBackoffUntil = recordFailure();
+            }
+            await this.waitForFailureBackoff(failureBackoffUntil, startedAt, signal);
+          }
         }
-      }
-    });
+      },
+      signal
+    );
 
     return verified.result;
   }
@@ -675,14 +712,19 @@ export class AuthService {
     }
   }
 
-  private async waitForFailureBackoff(lockedUntil: Date | undefined, startedAt: number) {
+  private async waitForFailureBackoff(
+    lockedUntil: Date | undefined,
+    startedAt: number,
+    signal?: AbortSignal
+  ) {
     const minimumCompletionAt = startedAt + minimumAuthenticationFailureDelayMs;
     const delayMs = Math.min(
       Math.max(0, Math.max(minimumCompletionAt, lockedUntil?.getTime() ?? 0) - Date.now()),
       authenticationBackoffMaximumMs
     );
     if (delayMs > 0) {
-      await this.delay(delayMs);
+      throwIfAuthenticationRequestCancelled(signal);
+      await this.delay(delayMs, signal);
     }
   }
 }

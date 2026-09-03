@@ -1,8 +1,10 @@
 // en-GB: Exercises auth behaviour so regressions at this boundary are detected automatically.
 import express from "express";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import request from "supertest";
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { AuthController } from "./auth.controller.js";
+import { AuthController, createAuthController } from "./auth.controller.js";
 import { authRoutes } from "./auth.routes.js";
 import { AuthService } from "./auth.service.js";
 import { errorHandler } from "../../shared/middlewares/error-handler.js";
@@ -11,6 +13,15 @@ import { logger } from "../../shared/observability/logger.js";
 import * as authenticateMiddleware from "../../shared/middlewares/authenticate.js";
 import { requestContext } from "../../shared/middlewares/request-context.js";
 import { rateLimit, resetRateLimitBuckets } from "../../shared/middlewares/rate-limit.js";
+import { AuthenticationRequestCancelledError } from "./login-verification-gate.js";
+
+function deferredResult<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
 
 function cookieHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value.join("; ") : (value ?? "");
@@ -232,7 +243,9 @@ describe("AuthController", () => {
   });
 
   it("does not let the low direct-access budget lock out a correct password behind NAT", async () => {
-    vi.spyOn(AuthService.prototype, "login").mockImplementation(async (_req, input) => {
+    const observedSignals: AbortSignal[] = [];
+    vi.spyOn(AuthService.prototype, "login").mockImplementation(async (_req, input, signal) => {
+      if (signal) observedSignals.push(signal);
       if (input.email !== "user@example.com") {
         throw new AppError("Invalid credentials", 401, "UNAUTHORIZED");
       }
@@ -271,6 +284,8 @@ describe("AuthController", () => {
     expect(cookieHeader(legitimate.headers["set-cookie"])).toContain(
       "shiftflow_refresh=refresh-token"
     );
+    expect(observedSignals).toHaveLength(11);
+    expect(observedSignals.every((signal) => !signal.aborted)).toBe(true);
   });
 
   it("returns a bounded retry hint when password verification capacity is busy", async () => {
@@ -299,5 +314,166 @@ describe("AuthController", () => {
       code: "AUTHENTICATION_BUSY",
       message: "Authentication capacity is temporarily busy"
     });
+  });
+
+  it("cancels a real disconnected login socket without writing after it closes", async () => {
+    const entered = deferredResult<AbortSignal>();
+    const cancelled = deferredResult<void>();
+    const login = vi.fn(
+      async (_req: unknown, _input: unknown, signal?: AbortSignal): Promise<never> =>
+        new Promise((_resolve, reject) => {
+          if (!signal) {
+            reject(new Error("Missing request cancellation signal"));
+            return;
+          }
+          entered.resolve(signal);
+          const onAbort = () => {
+            signal.removeEventListener("abort", onAbort);
+            cancelled.resolve();
+            reject(new AuthenticationRequestCancelledError());
+          };
+          signal.addEventListener("abort", onAbort, { once: true });
+        })
+    );
+    const controller = createAuthController({ login } as unknown as AuthService);
+    const app = express();
+    let cookieWrite: ReturnType<typeof vi.spyOn> | undefined;
+    let jsonWrite: ReturnType<typeof vi.spyOn> | undefined;
+    let forwardedError: unknown;
+    let serverRequest: http.IncomingMessage | undefined;
+    let serverResponse: http.ServerResponse | undefined;
+    let requestAbortListeners = 0;
+    let responseCloseListeners = 0;
+    app.post("/api/auth/login", (req, res, next) => {
+      serverRequest = req;
+      serverResponse = res;
+      requestAbortListeners = req.listenerCount("aborted");
+      responseCloseListeners = res.listenerCount("close");
+      cookieWrite = vi.spyOn(res, "cookie");
+      jsonWrite = vi.spyOn(res, "json");
+      controller.login(req, res, next);
+    });
+    app.use(
+      (
+        error: unknown,
+        _req: express.Request,
+        res: express.Response,
+        _next: express.NextFunction
+      ) => {
+        void _next;
+        forwardedError = error;
+        if (!res.destroyed) res.status(500).end();
+      }
+    );
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    try {
+      const address = server.address() as AddressInfo;
+      const client = http.request({
+        host: "127.0.0.1",
+        method: "POST",
+        path: "/api/auth/login",
+        port: address.port
+      });
+      client.on("error", () => undefined);
+      client.end();
+      const signal = await entered.promise;
+
+      client.destroy();
+      await cancelled.promise;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(signal.aborted).toBe(true);
+      expect(cookieWrite).not.toHaveBeenCalled();
+      expect(jsonWrite).not.toHaveBeenCalled();
+      expect(forwardedError).toBeUndefined();
+      expect(serverRequest?.listenerCount("aborted")).toBeLessThanOrEqual(requestAbortListeners);
+      expect(serverResponse?.listenerCount("close")).toBeLessThanOrEqual(responseCloseListeners);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve()))
+      );
+    }
+  });
+
+  it("cancels login when a real request body is aborted without writing a response", async () => {
+    const entered = deferredResult<AbortSignal>();
+    const cancelled = deferredResult<void>();
+    const login = vi.fn(
+      async (_req: unknown, _input: unknown, signal?: AbortSignal): Promise<never> =>
+        new Promise((_resolve, reject) => {
+          if (!signal) {
+            reject(new Error("Missing request cancellation signal"));
+            return;
+          }
+          entered.resolve(signal);
+          const onAbort = () => {
+            signal.removeEventListener("abort", onAbort);
+            cancelled.resolve();
+            reject(new AuthenticationRequestCancelledError());
+          };
+          signal.addEventListener("abort", onAbort, { once: true });
+        })
+    );
+    const controller = createAuthController({ login } as unknown as AuthService);
+    const app = express();
+    let requestAborted = false;
+    let cookieWrite: ReturnType<typeof vi.spyOn> | undefined;
+    let jsonWrite: ReturnType<typeof vi.spyOn> | undefined;
+    let forwardedError: unknown;
+    app.post("/api/auth/login", (req, res, next) => {
+      req.prependOnceListener("aborted", () => {
+        requestAborted = true;
+      });
+      cookieWrite = vi.spyOn(res, "cookie");
+      jsonWrite = vi.spyOn(res, "json");
+      controller.login(req, res, next);
+    });
+    app.use(
+      (
+        error: unknown,
+        _req: express.Request,
+        res: express.Response,
+        _next: express.NextFunction
+      ) => {
+        void _next;
+        forwardedError = error;
+        if (!res.destroyed) res.status(500).end();
+      }
+    );
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    try {
+      const address = server.address() as AddressInfo;
+      const client = http.request({
+        headers: {
+          "content-length": "100",
+          "content-type": "application/json"
+        },
+        host: "127.0.0.1",
+        method: "POST",
+        path: "/api/auth/login",
+        port: address.port
+      });
+      client.on("error", () => undefined);
+      client.write("{");
+      const signal = await entered.promise;
+
+      client.destroy();
+      await cancelled.promise;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(requestAborted).toBe(true);
+      expect(signal.aborted).toBe(true);
+      expect(cookieWrite).not.toHaveBeenCalled();
+      expect(jsonWrite).not.toHaveBeenCalled();
+      expect(forwardedError).toBeUndefined();
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve()))
+      );
+    }
   });
 });

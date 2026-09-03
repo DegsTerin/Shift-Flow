@@ -8,6 +8,10 @@ import { ok } from "../../shared/http/response.js";
 import { forbidden } from "../../shared/errors/app-error.js";
 import { revokeAccessToken } from "../../shared/middlewares/authenticate.js";
 import { AuthService } from "./auth.service.js";
+import {
+  AuthenticationRequestCancelledError,
+  throwIfAuthenticationRequestCancelled
+} from "./login-verification-gate.js";
 const refreshCookieName = "shiftflow_refresh";
 const csrfCookieName = "shiftflow_csrf";
 
@@ -134,11 +138,37 @@ export function createAuthController(service = new AuthService()) {
     }),
 
     login: asyncHandler(async (req: ApiRequest, res: Response) => {
-      const result = await service.login(req, req.body);
-      const csrfToken = generateCsrfToken();
-      setRefreshCookie(res, result.refreshToken, result.expiresAt);
-      setCsrfCookie(res, csrfToken, result.expiresAt);
-      res.json(ok(withoutRefreshToken(result)));
+      const cancellation = new AbortController();
+      const abort = () => {
+        if (!cancellation.signal.aborted) {
+          cancellation.abort(new AuthenticationRequestCancelledError());
+        }
+      };
+      const onResponseClose = () => {
+        if (!res.writableEnded) abort();
+      };
+      req.once("aborted", abort);
+      res.once("close", onResponseClose);
+      if (req.aborted || (res.destroyed && !res.writableEnded)) {
+        abort();
+      }
+
+      try {
+        const result = await service.login(req, req.body, cancellation.signal);
+        throwIfAuthenticationRequestCancelled(cancellation.signal);
+        const csrfToken = generateCsrfToken();
+        setRefreshCookie(res, result.refreshToken, result.expiresAt);
+        setCsrfCookie(res, csrfToken, result.expiresAt);
+        res.json(ok(withoutRefreshToken(result)));
+      } catch (error) {
+        if (error instanceof AuthenticationRequestCancelledError && cancellation.signal.aborted) {
+          return;
+        }
+        throw error;
+      } finally {
+        req.off("aborted", abort);
+        res.off("close", onResponseClose);
+      }
     }),
 
     refresh: asyncHandler(async (req: ApiRequest, res: Response) => {

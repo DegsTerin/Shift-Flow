@@ -8,6 +8,7 @@ import { PortfolioSessionCapacityError, type AuthRepository } from "./auth.repos
 import { logger } from "../../shared/observability/logger.js";
 import { env } from "../../shared/config/env.js";
 import {
+  AuthenticationRequestCancelledError,
   authenticationBackoffMs,
   LoginFailureAuditGate,
   LoginFailureDelayGate,
@@ -23,6 +24,16 @@ function deferred() {
     resolve = complete;
   });
   return { promise, resolve };
+}
+
+function deferredResult<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  let reject: (error: unknown) => void = () => undefined;
+  const promise = new Promise<T>((complete, fail) => {
+    resolve = complete;
+    reject = fail;
+  });
+  return { promise, reject, resolve };
 }
 
 function membership(companyId: string, isDefault = false) {
@@ -454,6 +465,370 @@ describe("AuthService", () => {
     expect(mockRepository.updateLastLogin).not.toHaveBeenCalled();
     expect(delay).toHaveBeenCalledOnce();
     expect(delay.mock.calls[0]?.[0]).toBeGreaterThanOrEqual(900);
+  });
+
+  it("rejects a pre-aborted login without lookup, bcrypt or failure accounting", async () => {
+    const mockRepository = repository();
+    const delay = vi.fn().mockResolvedValue(undefined);
+    const failureAudit = { takeAggregate: vi.fn().mockReturnValue(undefined) };
+    const failureDelay = { recordFailure: vi.fn().mockReturnValue(undefined) };
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(),
+      delay,
+      failureAudit,
+      failureDelay
+    );
+    const compare = vi.spyOn(bcrypt, "compare");
+    const cancellation = new AbortController();
+    cancellation.abort();
+
+    await expect(
+      service.login(
+        request(),
+        { email: "user@example.com", password: "correct-password" },
+        cancellation.signal
+      )
+    ).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+
+    expect(mockRepository.findLoginCredentialByEmail).not.toHaveBeenCalled();
+    expect(compare).not.toHaveBeenCalled();
+    expect(failureDelay.recordFailure).not.toHaveBeenCalled();
+    expect(failureAudit.takeAggregate).not.toHaveBeenCalled();
+    expect(delay).not.toHaveBeenCalled();
+  });
+
+  it("holds admission until an abandoned credential lookup settles", async () => {
+    const abandonedLookup = deferredResult<ReturnType<typeof loginCredential>>();
+    const mockRepository = repository({
+      findLoginCredentialByEmail: vi
+        .fn()
+        .mockImplementationOnce(async () => abandonedLookup.promise)
+        .mockResolvedValue(loginCredential())
+    });
+    const failureDelay = { recordFailure: vi.fn().mockReturnValue(undefined) };
+    const delay = vi.fn().mockResolvedValue(undefined);
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(1, 1, 1),
+      delay,
+      new LoginFailureAuditGate(),
+      failureDelay
+    );
+    vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
+    const cancellation = new AbortController();
+    const abandoned = service.login(
+      request(),
+      { email: "user@example.com", password: "correct-password" },
+      cancellation.signal
+    );
+    await vi.waitFor(() =>
+      expect(mockRepository.findLoginCredentialByEmail).toHaveBeenCalledOnce()
+    );
+
+    cancellation.abort();
+    let settled = false;
+    void abandoned.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      }
+    );
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await expect(
+      service.login(request(), {
+        email: "user@example.com",
+        password: "correct-password"
+      })
+    ).rejects.toMatchObject({ statusCode: 429, code: "AUTHENTICATION_BUSY" });
+
+    abandonedLookup.resolve(loginCredential());
+    await expect(abandoned).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+    await expect(
+      service.login(request(), {
+        email: "user@example.com",
+        password: "correct-password"
+      })
+    ).resolves.toMatchObject({ user: { id: "user-1" } });
+
+    expect(bcrypt.compare).toHaveBeenCalledOnce();
+    expect(failureDelay.recordFailure).not.toHaveBeenCalled();
+    expect(delay).not.toHaveBeenCalled();
+  });
+
+  it("observes a rejected abandoned credential lookup before recovering admission", async () => {
+    const abandonedLookup = deferredResult<ReturnType<typeof loginCredential>>();
+    const mockRepository = repository({
+      findLoginCredentialByEmail: vi
+        .fn()
+        .mockImplementationOnce(async () => abandonedLookup.promise)
+        .mockResolvedValue(loginCredential())
+    });
+    const failureDelay = { recordFailure: vi.fn().mockReturnValue(undefined) };
+    const delay = vi.fn().mockResolvedValue(undefined);
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(1, 1, 1),
+      delay,
+      new LoginFailureAuditGate(),
+      failureDelay
+    );
+    vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
+    const cancellation = new AbortController();
+    const abandoned = service.login(
+      request(),
+      { email: "user@example.com", password: "correct-password" },
+      cancellation.signal
+    );
+    await vi.waitFor(() =>
+      expect(mockRepository.findLoginCredentialByEmail).toHaveBeenCalledOnce()
+    );
+
+    cancellation.abort();
+    abandonedLookup.reject(new Error("synthetic abandoned lookup failure"));
+    await expect(abandoned).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+    await expect(
+      service.login(request(), {
+        email: "user@example.com",
+        password: "correct-password"
+      })
+    ).resolves.toMatchObject({ user: { id: "user-1" } });
+
+    expect(bcrypt.compare).toHaveBeenCalledOnce();
+    expect(failureDelay.recordFailure).not.toHaveBeenCalled();
+    expect(delay).not.toHaveBeenCalled();
+  });
+
+  it("waits for active bcrypt to settle and then cancels before authority hydration", async () => {
+    const passwordResult = deferredResult<boolean>();
+    const mockRepository = repository();
+    const failureDelay = { recordFailure: vi.fn().mockReturnValue(undefined) };
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(1, 1, 1),
+      vi.fn().mockResolvedValue(undefined),
+      new LoginFailureAuditGate(),
+      failureDelay
+    );
+    vi.spyOn(bcrypt, "compare").mockImplementation(async () => passwordResult.promise);
+    const cancellation = new AbortController();
+    const login = service.login(
+      request(),
+      { email: "user@example.com", password: "correct-password" },
+      cancellation.signal
+    );
+    await vi.waitFor(() => expect(bcrypt.compare).toHaveBeenCalledOnce());
+
+    cancellation.abort();
+    let settled = false;
+    void login.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      }
+    );
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    passwordResult.resolve(true);
+    await expect(login).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
+    expect(failureDelay.recordFailure).not.toHaveBeenCalled();
+  });
+
+  it("checks cancellation immediately after bcrypt before authority hydration", async () => {
+    const cancellation = new AbortController();
+    const verificationGate = {
+      run: async <T>(
+        _key: string,
+        operation: (
+          withPasswordBudget: <TResult>(operation: () => Promise<TResult>) => Promise<TResult>
+        ) => Promise<T>
+      ) =>
+        operation(async (passwordOperation) => {
+          const result = await passwordOperation();
+          cancellation.abort();
+          return result;
+        })
+    };
+    const mockRepository = repository();
+    const failureDelay = { recordFailure: vi.fn().mockReturnValue(undefined) };
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      verificationGate,
+      vi.fn().mockResolvedValue(undefined),
+      new LoginFailureAuditGate(),
+      failureDelay
+    );
+    vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
+
+    await expect(
+      service.login(
+        request(),
+        { email: "user@example.com", password: "correct-password" },
+        cancellation.signal
+      )
+    ).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+
+    expect(mockRepository.findUserByEmail).not.toHaveBeenCalled();
+    expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
+    expect(failureDelay.recordFailure).not.toHaveBeenCalled();
+  });
+
+  it("lets an atomic session write settle before suppressing a cancelled response", async () => {
+    const sessionWrite = deferredResult<boolean>();
+    const mockRepository = repository({
+      createRefreshToken: vi.fn().mockImplementation(async () => sessionWrite.promise)
+    });
+    const failureAudit = { takeAggregate: vi.fn().mockReturnValue(undefined) };
+    const failureDelay = { recordFailure: vi.fn().mockReturnValue(undefined) };
+    const successTelemetry = { takeAggregate: vi.fn().mockReturnValue(undefined) };
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(),
+      vi.fn().mockResolvedValue(undefined),
+      failureAudit,
+      failureDelay,
+      successTelemetry
+    );
+    vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
+    const cancellation = new AbortController();
+    const login = service.login(
+      request(),
+      { email: "user@example.com", password: "correct-password" },
+      cancellation.signal
+    );
+    await vi.waitFor(() => expect(mockRepository.createRefreshToken).toHaveBeenCalledOnce());
+
+    cancellation.abort();
+    let settled = false;
+    void login.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      }
+    );
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    sessionWrite.resolve(true);
+    await expect(login).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+    expect(mockRepository.updateLastLogin).toHaveBeenCalledWith("user-1");
+    expect(successTelemetry.takeAggregate).toHaveBeenCalledOnce();
+    expect(failureDelay.recordFailure).not.toHaveBeenCalled();
+    expect(failureAudit.takeAggregate).not.toHaveBeenCalled();
+  });
+
+  it("cancels a failed-response delay after recording the completed comparison once", async () => {
+    const delay = vi.fn(
+      async (_milliseconds: number, signal?: AbortSignal) =>
+        new Promise<void>((resolve, reject) => {
+          const onAbort = () => {
+            signal?.removeEventListener("abort", onAbort);
+            reject(new AuthenticationRequestCancelledError());
+          };
+          signal?.addEventListener("abort", onAbort, { once: true });
+          if (signal?.aborted) onAbort();
+          void resolve;
+        })
+    );
+    const failureAudit = { takeAggregate: vi.fn().mockReturnValue(undefined) };
+    const failureDelay = { recordFailure: vi.fn().mockReturnValue(undefined) };
+    const mockRepository = repository();
+    const service = new AuthService(
+      mockRepository as unknown as AuthRepository,
+      undefined,
+      undefined,
+      new LoginVerificationGate(1, 1, 1),
+      delay,
+      failureAudit,
+      failureDelay
+    );
+    vi.spyOn(bcrypt, "compare")
+      .mockImplementationOnce(async () => false)
+      .mockImplementationOnce(async () => true);
+    const cancellation = new AbortController();
+    const abandoned = service.login(
+      request(),
+      { email: "user@example.com", password: "wrong-password" },
+      cancellation.signal
+    );
+    await vi.waitFor(() => expect(delay).toHaveBeenCalledOnce());
+
+    cancellation.abort();
+    await expect(abandoned).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+    await expect(
+      service.login(request(), {
+        email: "user@example.com",
+        password: "correct-password"
+      })
+    ).resolves.toMatchObject({ user: { id: "user-1" } });
+
+    expect(failureDelay.recordFailure).toHaveBeenCalledOnce();
+    expect(failureAudit.takeAggregate).toHaveBeenCalledOnce();
+  });
+
+  it("clears the production failure-response timer when the transport is cancelled", async () => {
+    vi.useFakeTimers();
+    const cancellation = new AbortController();
+    let login: Promise<unknown> | undefined;
+    try {
+      const failureRecorded = deferred();
+      const mockRepository = repository();
+      const failureAudit = { takeAggregate: vi.fn().mockReturnValue(undefined) };
+      const failureDelay = {
+        recordFailure: vi.fn().mockImplementation(() => {
+          failureRecorded.resolve();
+          return new Date(Date.now() + 30_000);
+        })
+      };
+      const service = new AuthService(
+        mockRepository as unknown as AuthRepository,
+        undefined,
+        undefined,
+        new LoginVerificationGate(),
+        undefined,
+        failureAudit,
+        failureDelay
+      );
+      vi.spyOn(bcrypt, "compare").mockImplementation(async () => false);
+
+      login = service.login(
+        request(),
+        { email: "user@example.com", password: "wrong-password" },
+        cancellation.signal
+      );
+      await failureRecorded.promise;
+      await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1));
+
+      cancellation.abort();
+      await expect(login).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      cancellation.abort();
+      await login?.catch(() => undefined);
+      vi.useRealTimers();
+    }
   });
 
   it("maps refresh-token persistence failure to the same public failure as a wrong password", async () => {

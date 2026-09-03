@@ -56,6 +56,19 @@ emergency ceiling; the lower 10-request direct-access limiter applies only to
 demo and portfolio endpoints, so unrelated failures behind a NAT do not create
 a 15-minute password lockout.
 
+Password-login transport cancellation is propagated from an aborted request or
+prematurely closed response. Queued bcrypt work is removed before execution and
+the production failure-response timer is cleared. A credential lookup that
+already started remains within the fixed identity admission bound until it
+settles; no bcrypt starts afterwards when the request was cancelled. Other
+already-started database work, an active bcrypt comparison and an atomic session
+transaction are deliberately allowed to settle before their work is released or
+observed. No credential or cookie is written to a closed response; a post-commit
+disconnect can leave one inaccessible, bounded refresh row until normal expiry
+or session eviction. This process-local cancellation hygiene bounds queued and
+expensive work without pretending to cancel a database operation already sent
+to PostgreSQL; it is not upstream bot mitigation.
+
 All admitted pre-session credential failures use the same 256 fixed, secret-HMAC response-delay
 buckets, 1,000–30,000 ms curve and window expiry. No login failure reads or
 writes principal-specific PostgreSQL state, so account existence does not select

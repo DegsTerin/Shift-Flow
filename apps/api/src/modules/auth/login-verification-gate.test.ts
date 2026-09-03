@@ -1,6 +1,7 @@
 // en-GB: Proves per-identity admission and the global FIFO password-work budget.
 import { describe, expect, it, vi } from "vitest";
 import {
+  AuthenticationRequestCancelledError,
   LoginFailureAuditGate,
   LoginFailureDelayGate,
   LoginSuccessTelemetryGate,
@@ -16,6 +17,19 @@ function deferred() {
 }
 
 describe("LoginVerificationGate", () => {
+  it("rejects a pre-aborted request without admitting or executing it", async () => {
+    const gate = new LoginVerificationGate(1, 1, 1);
+    const cancellation = new AbortController();
+    const operation = vi.fn(async () => undefined);
+    cancellation.abort();
+
+    await expect(gate.run("identity-a", operation, cancellation.signal)).rejects.toBeInstanceOf(
+      AuthenticationRequestCancelledError
+    );
+    expect(operation).not.toHaveBeenCalled();
+    await expect(gate.run("identity-a", async () => "admitted")).resolves.toBe("admitted");
+  });
+
   it("admits only one scheduled bcrypt operation for the same exact identity", async () => {
     const gate = new LoginVerificationGate(2, 4, 4);
     let release: () => void = () => undefined;
@@ -84,6 +98,100 @@ describe("LoginVerificationGate", () => {
     expect(order).toEqual(["first-started", "first-finished", "second-started"]);
   });
 
+  it("removes exactly one aborted queued operation and preserves FIFO capacity", async () => {
+    const gate = new LoginVerificationGate(1, 5, 2);
+    const releaseActive = deferred();
+    const queuedCancellation = new AbortController();
+    const removeListener = vi.spyOn(queuedCancellation.signal, "removeEventListener");
+    const order: string[] = [];
+    const active = gate.run("identity-active", async (withPasswordBudget) =>
+      withPasswordBudget(async () => {
+        order.push("active");
+        await releaseActive.promise;
+      })
+    );
+    const aborted = gate.run(
+      "identity-aborted",
+      async (withPasswordBudget) =>
+        withPasswordBudget(async () => {
+          order.push("aborted-must-not-run");
+        }),
+      queuedCancellation.signal
+    );
+    const retained = gate.run("identity-retained", async (withPasswordBudget) =>
+      withPasswordBudget(async () => {
+        order.push("retained");
+      })
+    );
+
+    queuedCancellation.abort();
+    queuedCancellation.abort();
+    await expect(aborted).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+    const replacement = gate.run("identity-replacement", async (withPasswordBudget) =>
+      withPasswordBudget(async () => {
+        order.push("replacement");
+      })
+    );
+
+    releaseActive.resolve();
+    await Promise.all([active, retained, replacement]);
+
+    expect(order).toEqual(["active", "retained", "replacement"]);
+    expect(removeListener).toHaveBeenCalledOnce();
+    await expect(
+      gate.run("identity-aborted", async (withPasswordBudget) =>
+        withPasswordBudget(async () => "identity-reused")
+      )
+    ).resolves.toBe("identity-reused");
+  });
+
+  it("keeps an aborted active bcrypt operation admitted until it settles", async () => {
+    const gate = new LoginVerificationGate(1, 3, 2);
+    const releaseActive = deferred();
+    const cancellation = new AbortController();
+    const order: string[] = [];
+    const active = gate.run(
+      "identity-active",
+      async (withPasswordBudget) =>
+        withPasswordBudget(async () => {
+          order.push("active-started");
+          await releaseActive.promise;
+          order.push("active-settled");
+        }),
+      cancellation.signal
+    );
+    await vi.waitFor(() => expect(order).toEqual(["active-started"]));
+
+    cancellation.abort();
+    let activeSettled = false;
+    void active.then(
+      () => {
+        activeSettled = true;
+      },
+      () => {
+        activeSettled = true;
+      }
+    );
+    await Promise.resolve();
+    expect(activeSettled).toBe(false);
+    await expect(gate.run("identity-active", async () => undefined)).rejects.toMatchObject({
+      code: "AUTHENTICATION_BUSY"
+    });
+
+    const queued = gate.run("identity-queued", async (withPasswordBudget) =>
+      withPasswordBudget(async () => {
+        order.push("queued-started");
+      })
+    );
+    await Promise.resolve();
+    expect(order).toEqual(["active-started"]);
+
+    releaseActive.resolve();
+    await expect(active).rejects.toBeInstanceOf(AuthenticationRequestCancelledError);
+    await queued;
+    expect(order).toEqual(["active-started", "active-settled", "queued-started"]);
+  });
+
   it("bounds attacker-controlled scheduled identity cardinality", async () => {
     const gate = new LoginVerificationGate(1, 1, 1);
     let release: () => void = () => undefined;
@@ -103,12 +211,14 @@ describe("LoginVerificationGate", () => {
     await admitted;
   });
 
-  it("bounds relational lookup work before an identity reaches bcrypt", async () => {
+  it("retains the fixed lookup bound until abandoned operations settle", async () => {
     const gate = new LoginVerificationGate(4, 128, 128);
     const releaseLookups = deferred();
-    const lookups = Array.from({ length: 128 }, (_, index) =>
-      gate.run(`unknown-${index}`, async () => releaseLookups.promise)
+    const cancellations = Array.from({ length: 128 }, () => new AbortController());
+    const lookups = cancellations.map((cancellation, index) =>
+      gate.run(`unknown-${index}`, async () => releaseLookups.promise, cancellation.signal)
     );
+    cancellations.forEach((cancellation) => cancellation.abort());
 
     await expect(gate.run("overflow", async () => undefined)).rejects.toMatchObject({
       statusCode: 429,
@@ -116,7 +226,14 @@ describe("LoginVerificationGate", () => {
     });
 
     releaseLookups.resolve();
-    await Promise.all(lookups);
+    const settlements = await Promise.allSettled(lookups);
+    expect(
+      settlements.every(
+        (settlement) =>
+          settlement.status === "rejected" &&
+          settlement.reason instanceof AuthenticationRequestCancelledError
+      )
+    ).toBe(true);
     await expect(gate.run("overflow", async () => "recovered")).resolves.toBe("recovered");
   });
 

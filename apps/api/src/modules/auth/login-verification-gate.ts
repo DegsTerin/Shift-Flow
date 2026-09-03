@@ -5,9 +5,11 @@ import { AppError } from "../../shared/errors/app-error.js";
 type PasswordBudgetOperation = <T>(operation: () => Promise<T>) => Promise<T>;
 
 type QueuedPasswordOperation<T> = {
+  detachAbort: () => void;
   operation: () => Promise<T>;
   reject: (error: unknown) => void;
   resolve: (result: T) => void;
+  signal?: AbortSignal;
 };
 
 const defaultMaximumConcurrentPasswordChecks = 4;
@@ -34,6 +36,23 @@ function authenticationBusy() {
   );
 }
 
+export class AuthenticationRequestCancelledError extends Error {
+  constructor() {
+    super("Authentication request was cancelled");
+    this.name = "AuthenticationRequestCancelledError";
+  }
+}
+
+function authenticationCancelled() {
+  return new AuthenticationRequestCancelledError();
+}
+
+export function throwIfAuthenticationRequestCancelled(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw authenticationCancelled();
+  }
+}
+
 /** Bounds pre-verification work and releases identity admission when its bcrypt work settles. */
 export class LoginVerificationGate {
   private readonly admittedIdentities = new Set<string>();
@@ -58,8 +77,10 @@ export class LoginVerificationGate {
 
   async run<T>(
     key: string,
-    operation: (withPasswordBudget: PasswordBudgetOperation) => Promise<T>
+    operation: (withPasswordBudget: PasswordBudgetOperation) => Promise<T>,
+    signal?: AbortSignal
   ): Promise<T> {
+    throwIfAuthenticationRequestCancelled(signal);
     if (
       this.admittedIdentities.has(key) ||
       this.admittedIdentities.size >= this.maximumActiveIdentities
@@ -77,48 +98,100 @@ export class LoginVerificationGate {
     };
 
     try {
-      return await operation(async (passwordOperation) => {
+      const result = await operation(async (passwordOperation) => {
         if (passwordBudgetUsed) {
           throw new Error("Login verification permits one password comparison per operation");
         }
         passwordBudgetUsed = true;
         try {
-          return await this.withPasswordBudget(passwordOperation);
+          return await this.withPasswordBudget(passwordOperation, signal);
         } finally {
           releaseIdentity();
         }
       });
+      throwIfAuthenticationRequestCancelled(signal);
+      return result;
+    } catch (error) {
+      throwIfAuthenticationRequestCancelled(signal);
+      throw error;
     } finally {
       releaseIdentity();
     }
   }
 
-  private withPasswordBudget<T>(operation: () => Promise<T>): Promise<T> {
+  private withPasswordBudget<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+    try {
+      throwIfAuthenticationRequestCancelled(signal);
+    } catch (error) {
+      return Promise.reject(error);
+    }
     if (this.activePasswordChecks < this.maximumConcurrentPasswordChecks) {
-      return this.startPasswordOperation(operation);
+      return this.startPasswordOperation(operation, signal);
     }
     if (this.passwordQueue.length >= this.maximumQueuedPasswordChecks) {
       return Promise.reject(authenticationBusy());
     }
 
     return new Promise<T>((resolve, reject) => {
-      this.passwordQueue.push({
+      let settled = false;
+      const settle = (settlement: () => void) => {
+        if (settled) return;
+        settled = true;
+        queued.detachAbort();
+        settlement();
+      };
+      const queued: QueuedPasswordOperation<T> = {
+        detachAbort: () => undefined,
         operation,
-        resolve,
-        reject
-      } as QueuedPasswordOperation<unknown>);
+        reject: (error) => settle(() => reject(error)),
+        resolve: (result) => settle(() => resolve(result)),
+        signal
+      };
+      const onAbort = () => {
+        const index = this.passwordQueue.indexOf(queued as QueuedPasswordOperation<unknown>);
+        if (index >= 0) {
+          this.passwordQueue.splice(index, 1);
+        }
+        queued.reject(authenticationCancelled());
+      };
+      if (signal) {
+        signal.addEventListener("abort", onAbort, { once: true });
+        queued.detachAbort = () => signal.removeEventListener("abort", onAbort);
+      }
+      this.passwordQueue.push(queued as QueuedPasswordOperation<unknown>);
+      if (signal?.aborted) {
+        onAbort();
+      }
     });
   }
 
-  private async startPasswordOperation<T>(operation: () => Promise<T>): Promise<T> {
+  private async startPasswordOperation<T>(
+    operation: () => Promise<T>,
+    signal?: AbortSignal
+  ): Promise<T> {
     this.activePasswordChecks += 1;
     try {
-      return await operation();
+      try {
+        const result = await operation();
+        throwIfAuthenticationRequestCancelled(signal);
+        return result;
+      } catch (error) {
+        throwIfAuthenticationRequestCancelled(signal);
+        throw error;
+      }
     } finally {
       this.activePasswordChecks -= 1;
-      const queued = this.passwordQueue.shift();
+      let queued = this.passwordQueue.shift();
+      while (queued?.signal?.aborted) {
+        queued.reject(authenticationCancelled());
+        queued = this.passwordQueue.shift();
+      }
       if (queued) {
-        this.startPasswordOperation(queued.operation).then(queued.resolve, queued.reject);
+        queued.detachAbort();
+        this.startPasswordOperation(queued.operation, queued.signal).then(
+          queued.resolve,
+          queued.reject
+        );
       }
     }
   }
