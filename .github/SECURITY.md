@@ -120,8 +120,11 @@ next admission. This keeps the database pool bounded while allowing far more tha
 five simultaneous visitors. Distributed traffic can still exhaust the pool for
 at most its one-hour lifetime, so upstream bot controls remain necessary.
 
-Failure latency is measured from request processing rather than added after
-database work. Every principal class uses the same fixed HMAC-bucket curve, and
+Each admitted credential failure observes a fixed one-second minimum duration
+measured from request processing. After a failed comparison, its bounded HMAC
+bucket records the failure and may add the fixed escalating backoff; this
+deliberately favours throttling and does not claim that database time is absorbed
+by that backoff. Every admitted credential class uses the same bucket curve, and
 no identity, queue or bcrypt slot remains held while a response is delayed.
 Correct credentials are compared without a persisted account lock; only a
 simultaneous comparison for that exact identity or global capacity exhaustion
