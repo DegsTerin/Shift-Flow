@@ -101,15 +101,35 @@ describe("checkReadiness", () => {
     ]) {
       expect(sql).toContain(constraintName);
     }
-    for (const indexName of [
-      "user_role_assignments_active_exact_key",
-      "refresh_tokens_userId_companyId_sessionKind_expiresAt_revokedAt_idx",
-      "refresh_tokens_userId_companyId_sessionKind_familyId_revokedAt_idx",
-      "authentication_session_observations_userId_companyId_observedAt_idx",
-      "authentication_session_observations_companyId_sessionKind_observedAt_idx"
-    ]) {
-      expect(sql).toContain(indexName);
+    expect(sql).toContain("'user_role_assignments_active_exact_key'");
+    expect(sql).not.toContain("pg_catalog.left('user_role_assignments_active_exact_key'");
+    for (const [logicalName, physicalName] of [
+      [
+        "refresh_tokens_userId_companyId_sessionKind_expiresAt_revokedAt_idx",
+        "refresh_tokens_userId_companyId_sessionKind_expiresAt_revokedAt"
+      ],
+      [
+        "refresh_tokens_userId_companyId_sessionKind_familyId_revokedAt_idx",
+        "refresh_tokens_userId_companyId_sessionKind_familyId_revokedAt_"
+      ],
+      [
+        "authentication_session_observations_userId_companyId_observedAt_idx",
+        "authentication_session_observations_userId_companyId_observedAt"
+      ],
+      [
+        "authentication_session_observations_companyId_sessionKind_observedAt_idx",
+        "authentication_session_observations_companyId_sessionKind_obser"
+      ]
+    ] as const) {
+      expect(logicalName.slice(0, 63)).toBe(physicalName);
+      expect(physicalName).toHaveLength(63);
+      expect(sql).toContain(`'${logicalName}'`);
+      expect(sql).not.toContain(`'${physicalName}'`);
     }
+    const physicalIndexNameDerivation =
+      "index_class.relname::text = pg_catalog.left(\n                 required_index.index_name,\n                 pg_catalog.current_setting('max_identifier_length')::integer\n               )";
+    expect(sql.split(physicalIndexNameDerivation)).toHaveLength(2);
+    expect(sql).not.toContain("index_class.relname = required_index.index_name");
     expect(sql).toContain("ARRAY['PASSWORD', 'DEMO', 'PORTFOLIO']::text[]");
     expect(sql).toContain("primary_key.convalidated");
     expect(sql).toContain("user_foreign_key.confdeltype = 'c'");

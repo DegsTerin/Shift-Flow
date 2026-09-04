@@ -88,17 +88,52 @@ public sealed class DependencyReadinessProbeTests
             StringAssert.Contains(executedSql, constraintName);
         }
 
-        foreach (var indexName in new[]
+        StringAssert.Contains(executedSql, "'user_role_assignments_active_exact_key'");
+        Assert.IsFalse(
+            executedSql.Contains(
+                "pg_catalog.left('user_role_assignments_active_exact_key'",
+                StringComparison.Ordinal));
+        foreach (var (logicalName, physicalName) in new[]
         {
-            "user_role_assignments_active_exact_key",
-            "refresh_tokens_userId_companyId_sessionKind_expiresAt_revokedAt_idx",
-            "refresh_tokens_userId_companyId_sessionKind_familyId_revokedAt_idx",
-            "authentication_session_observations_userId_companyId_observedAt_idx",
-            "authentication_session_observations_companyId_sessionKind_observedAt_idx"
+            (
+                "refresh_tokens_userId_companyId_sessionKind_expiresAt_revokedAt_idx",
+                "refresh_tokens_userId_companyId_sessionKind_expiresAt_revokedAt"),
+            (
+                "refresh_tokens_userId_companyId_sessionKind_familyId_revokedAt_idx",
+                "refresh_tokens_userId_companyId_sessionKind_familyId_revokedAt_"),
+            (
+                "authentication_session_observations_userId_companyId_observedAt_idx",
+                "authentication_session_observations_userId_companyId_observedAt"),
+            (
+                "authentication_session_observations_companyId_sessionKind_observedAt_idx",
+                "authentication_session_observations_companyId_sessionKind_obser")
         })
         {
-            StringAssert.Contains(executedSql, indexName);
+            Assert.AreEqual(physicalName, logicalName[..63]);
+            Assert.AreEqual(63, physicalName.Length);
+            StringAssert.Contains(executedSql, $"'{logicalName}'");
+            Assert.IsFalse(
+                executedSql.Contains($"'{physicalName}'", StringComparison.Ordinal));
         }
+
+        var normalisedExecutedSql = System.Text.RegularExpressions.Regex.Replace(
+            executedSql,
+            "\\s+",
+            " ");
+        const string physicalIndexNameDerivation =
+            "index_class.relname::text = pg_catalog.left( " +
+            "required_index.index_name, " +
+            "pg_catalog.current_setting('max_identifier_length')::integer )";
+        StringAssert.Contains(normalisedExecutedSql, physicalIndexNameDerivation);
+        Assert.AreEqual(
+            normalisedExecutedSql.IndexOf(physicalIndexNameDerivation, StringComparison.Ordinal),
+            normalisedExecutedSql.LastIndexOf(
+                physicalIndexNameDerivation,
+                StringComparison.Ordinal));
+        Assert.IsFalse(
+            executedSql.Contains(
+                "index_class.relname = required_index.index_name",
+                StringComparison.Ordinal));
 
         StringAssert.Contains(executedSql, "ARRAY['PASSWORD', 'DEMO', 'PORTFOLIO']::text[]");
         StringAssert.Contains(executedSql, "primary_key.convalidated");

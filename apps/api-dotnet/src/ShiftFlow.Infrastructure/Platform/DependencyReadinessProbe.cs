@@ -292,7 +292,10 @@ public sealed class DependencyReadinessProbe : IDependencyReadinessProbe
                 INNER JOIN pg_catalog.pg_class AS index_class
                   ON index_class.oid = index_metadata.indexrelid
                  AND index_class.relnamespace = active_schema.schema_oid
-                 AND index_class.relname = required_index.index_name
+                 AND index_class.relname::text = pg_catalog.left(
+                   required_index.index_name,
+                   pg_catalog.current_setting('max_identifier_length')::integer
+                 )
                  AND index_class.relkind IN ('i', 'I')
                 INNER JOIN pg_catalog.pg_am AS index_method
                   ON index_method.oid = index_class.relam
