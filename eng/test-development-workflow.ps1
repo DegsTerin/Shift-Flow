@@ -26,6 +26,7 @@ $stranglerFixturePath = Join-Path $repositoryRoot 'prisma/strangler-integration-
 $stranglerSecurityControlPath = Join-Path $repositoryRoot 'prisma/strangler-security-control.mjs'
 $stranglerSmokePath = Join-Path $PSScriptRoot 'smoke-strangler.ps1'
 $stranglerRuntimePath = Join-Path $PSScriptRoot 'strangler-runtime.ps1'
+$readinessRuntimePath = Join-Path $repositoryRoot 'prisma/readiness-runtime.mjs'
 $ociVerifierPath = Join-Path $repositoryRoot 'scripts/verify-oci-supply-chain.mjs'
 $ociVerifierTestPath = Join-Path $repositoryRoot 'scripts/verify-oci-supply-chain.test.mjs'
 $ociRuntimeVerifierPath = Join-Path $repositoryRoot 'scripts/verify-oci-runtime-evidence.mjs'
@@ -39,6 +40,9 @@ $dockerDesktopHelperPath = Join-Path $repositoryRoot 'scripts/docker-desktop.ps1
 
 if (-not (Test-Path -LiteralPath $agentContractPath -PathType Leaf)) {
     throw "The project-scoped agent contract validator is missing: $agentContractPath"
+}
+if (-not (Test-Path -LiteralPath $readinessRuntimePath -PathType Leaf)) {
+    throw "The guarded readiness runtime fixture is missing: $readinessRuntimePath"
 }
 
 foreach ($ociPolicyPath in @(
@@ -138,6 +142,7 @@ $stranglerFixture = Get-Content -LiteralPath $stranglerFixturePath -Raw
 $stranglerSecurityControl = Get-Content -LiteralPath $stranglerSecurityControlPath -Raw
 $stranglerSmoke = Get-Content -LiteralPath $stranglerSmokePath -Raw
 $stranglerRuntime = Get-Content -LiteralPath $stranglerRuntimePath -Raw
+$readinessRuntime = Get-Content -LiteralPath $readinessRuntimePath -Raw
 $ociVerifier = Get-Content -LiteralPath $ociVerifierPath -Raw
 $ociRuntimeVerifier = Get-Content -LiteralPath $ociRuntimeVerifierPath -Raw
 $ociTargets = Get-Content -LiteralPath $ociTargetsPath -Raw | ConvertFrom-Json
@@ -170,11 +175,13 @@ $runtimeEnvironmentBoundary = [regex]::Match(
     $stranglerRuntime,
     '(?s)\$runtimeVariableNames\s*=\s*@\((?<body>.*?)\r?\n\)')
 $expectedRuntimeVariables = @(
+    'DATABASE_URL',
     'E2E_EMAIL',
     'E2E_PASSWORD',
     'JWT_ACCESS_SECRET',
     'JWT_SECRET',
     'POSTGRES_PASSWORD',
+    'SHIFTFLOW_DISPOSABLE_RUNTIME',
     'SMOKE_ACTION',
     'SMOKE_CREDENTIAL_VERSION',
     'SMOKE_JWT_ID'
@@ -1045,6 +1052,407 @@ if ($runtimeAuthority -lt 0 -or
         $stranglerRuntime,
         [regex]::Escape('-ComposeProjectName $ProjectName')).Count -ne 4) {
     throw 'The runtime gate must confirm local Docker authority before credentials or Docker access and emit PASS only after successful cleanup.'
+}
+
+$expectedReadinessScenarios = @(
+    'fully-migrated',
+    'current-migration-absent',
+    'current-ledger-unfinished',
+    'current-ledger-rolled-back',
+    'split-decoy-schema',
+    'core-table-view',
+    'rbac-index-wrong-owner',
+    'rbac-index-wrong-definition',
+    'auth-column-malformed',
+    'auth-constraints-malformed',
+    'auth-index-malformed'
+)
+$readinessScenarioBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)\$readinessScenarios\s*=\s*@\((?<body>.*?)\r?\n\)')
+$fixtureScenarioBlock = [regex]::Match(
+    $readinessRuntime,
+    '(?s)const scenarios = Object[.]freeze\(\[(?<body>.*?)\r?\n\]\);')
+$runtimeReadinessScenarios = @(
+    [regex]::Matches($readinessScenarioBlock.Groups['body'].Value, "'(?<name>[a-z-]+)'") |
+        ForEach-Object { $_.Groups['name'].Value })
+$fixtureReadinessScenarios = @(
+    [regex]::Matches($fixtureScenarioBlock.Groups['body'].Value, '"(?<name>[a-z-]+)"') |
+        ForEach-Object { $_.Groups['name'].Value })
+if (-not $readinessScenarioBlock.Success -or
+    -not $fixtureScenarioBlock.Success -or
+    ($runtimeReadinessScenarios -join "`n") -cne ($expectedReadinessScenarios -join "`n") -or
+    ($fixtureReadinessScenarios -join "`n") -cne ($expectedReadinessScenarios -join "`n")) {
+    throw 'The readiness runtime must declare the exact ordered eleven-scenario matrix in both orchestrator and fixture.'
+}
+
+$runtimeStackStart = $stranglerRuntime.IndexOf(
+    '    docker compose @composeArguments up --detach --build --wait',
+    [System.StringComparison]::Ordinal)
+$runtimeReadinessCall = $stranglerRuntime.IndexOf(
+    '    $readinessMatrixEvidence = Invoke-ReadinessRuntimeMatrix -RunId $readinessRunId',
+    [System.StringComparison]::Ordinal)
+$runtimeSharedSeed = $stranglerRuntime.IndexOf(
+    '    docker compose @composeArguments run --rm --env E2E_EMAIL --env E2E_PASSWORD migrate node prisma/integration-seed.mjs',
+    [System.StringComparison]::Ordinal)
+$runtimeDatabaseReplacement = $stranglerRuntime.IndexOf(
+    '    $env:DATABASE_URL = New-ReadinessDatabaseUrl',
+    [System.StringComparison]::Ordinal)
+$runtimeFirstStackCleanup = $stranglerRuntime.IndexOf(
+    '    docker compose @composeArguments down --volumes --remove-orphans',
+    [System.StringComparison]::Ordinal)
+if ($runtimeStackStart -lt 0 -or
+    $runtimeReadinessCall -lt $runtimeStackStart -or
+    $runtimeSharedSeed -lt $runtimeReadinessCall -or
+    $runtimeDatabaseReplacement -lt 0 -or
+    $runtimeDatabaseReplacement -gt $runtimeFirstStackCleanup -or
+    [regex]::Matches(
+        $stranglerRuntime,
+        '(?m)^    \$readinessMatrixEvidence = Invoke-ReadinessRuntimeMatrix -RunId \$readinessRunId\s*$').Count -ne 1) {
+    throw 'The readiness matrix must run exactly once after the healthy ordinary stack and before any seed, using a replaced DATABASE_URL.'
+}
+
+foreach ($runtimeReadinessContract in @(
+        '[System.Security.Cryptography.RandomNumberGenerator]::GetBytes(12)).ToLowerInvariant()',
+        "-cnotmatch '^[0-9a-f]{24}`$'",
+        "`$env:SHIFTFLOW_DISPOSABLE_RUNTIME = 'CONFIRMED_DISPOSABLE_STRANGLER'",
+        '$generatedSecretValues = [System.Collections.Generic.List[string]]::new()',
+        '$redactedValues = @($generatedSecretValues)',
+        '[void]$generatedSecretValues.Add($generatedSecret)',
+        'postgresql://shiftflow:${encodedPassword}@postgres:5432/${DatabaseName}?${query}',
+        'schema=active%2Cpublic&options=-csearch_path%3Dactive%2Cpublic',
+        "'run', '--rm', '--no-deps'",
+        "'--no-TTY'",
+        "'migrate', 'node', 'prisma/readiness-runtime.mjs'",
+        '--env "DATABASE_URL=$DatabaseUrl"',
+        '--detach',
+        '--no-deps',
+        '--name $ContainerName',
+        'ConvertFrom-Json -NoEnumerate -ErrorAction Stop',
+        '$outputLines.Count -gt 64',
+        '$outputText.Length -gt 12000',
+        '$receipts.Count -ne 1',
+        '$actualProperties = @($Receipt.PSObject.Properties.Name | Sort-Object)',
+        "has missing or extra properties.",
+        'contains a malformed JSON receipt.',
+        '$templateReceipt = Invoke-ReadinessFixture -Action create-template -RunId $RunId',
+        '$scenarioReceipt = Invoke-ReadinessFixture',
+        '$probeReceipt = Invoke-ReadinessHostProbe',
+        '$validatedScenarioReceipts += 1',
+        '$validatedHostReceipts += 1',
+        '$validatedScenarioReceipts -ne 11',
+        '$validatedHostReceipts -ne 22',
+        '$readinessMatrixEvidence.ScenarioReceipts',
+        '$readinessMatrixEvidence.HostReceipts',
+        'docker logs --tail 200 $verifiedContainerId',
+        'docker rm --force $verifiedContainerId',
+        'Write-ReadinessSecondaryFailure',
+        '$runtimeDiagnostics += @(docker compose @composeArguments logs --no-color --tail 200 2>&1)',
+        'Protect-ReadinessDiagnostics',
+        'finally {',
+        "Assert-NativeSuccess 'Migrate the dedicated readiness template database'",
+        "-Action create-scenario",
+        "-Action probe")) {
+    if (-not $stranglerRuntime.Contains(
+            $runtimeReadinessContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The strangler readiness matrix is missing contract '$runtimeReadinessContract'."
+    }
+}
+if ([regex]::Matches(
+        $stranglerRuntime,
+        [regex]::Escape('docker rm --force $verifiedContainerId')).Count -ne 1 -or
+    $stranglerRuntime.Contains(
+        'docker rm --force $containerName',
+        [System.StringComparison]::Ordinal) -or
+    $stranglerRuntime.Contains(
+        'docker rm --force $candidateContainerId',
+        [System.StringComparison]::Ordinal) -or
+    $stranglerRuntime.Contains(
+        '$callerEnvironment[''DATABASE_URL''].Value',
+        [System.StringComparison]::Ordinal)) {
+    throw 'The readiness matrix must remove only a verified container ID and must never consume caller DATABASE_URL.'
+}
+$readinessVerifiedStartBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Start-VerifiedReadinessHostContainer \{(?<body>.*?)(?=\r?\nfunction Invoke-ReadinessHostProbe \{)')
+$verifiedStartBody = $readinessVerifiedStartBlock.Groups['body'].Value
+$verifiedStartCommand = $verifiedStartBody.IndexOf(
+    '$startOutput = @(docker compose @composeArguments run',
+    [System.StringComparison]::Ordinal)
+$verifiedStartExitGate = $verifiedStartBody.IndexOf(
+    'if ($startExitCode -ne 0)',
+    [System.StringComparison]::Ordinal)
+$verifiedStartIdGate = $verifiedStartBody.IndexOf(
+    "`$containerIdLines[0] -cnotmatch '^[0-9a-f]{64}`$'",
+    [System.StringComparison]::Ordinal)
+$verifiedOwnershipInspect = $verifiedStartBody.IndexOf(
+    '$ownershipOutput = @(docker inspect',
+    [System.StringComparison]::Ordinal)
+$verifiedOwnershipGate = $verifiedStartBody.IndexOf(
+    '$ownership[0] -cne "/$ContainerName"',
+    [System.StringComparison]::Ordinal)
+$verifiedIdReturn = $verifiedStartBody.IndexOf(
+    'return $candidateContainerId',
+    [System.StringComparison]::Ordinal)
+if (-not $readinessVerifiedStartBlock.Success -or
+    $verifiedStartCommand -lt 0 -or
+    $verifiedStartExitGate -lt $verifiedStartCommand -or
+    $verifiedStartIdGate -lt $verifiedStartExitGate -or
+    $verifiedOwnershipInspect -lt $verifiedStartIdGate -or
+    $verifiedOwnershipGate -lt $verifiedOwnershipInspect -or
+    $verifiedIdReturn -lt $verifiedOwnershipGate) {
+    throw 'A readiness host ID may be returned only after successful start, full-ID validation and ownership inspection.'
+}
+foreach ($ownershipContract in @(
+        'com.docker.compose.project',
+        'com.docker.compose.service',
+        'com.docker.compose.oneoff',
+        '$ownership[1] -cne $ProjectName',
+        '$ownership[2] -cne $HostName',
+        "`$ownership[3] -cne 'True'")) {
+    if (-not $verifiedStartBody.Contains(
+            $ownershipContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "Readiness host ownership validation is missing contract '$ownershipContract'."
+    }
+}
+$readinessHostProbeBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Invoke-ReadinessHostProbe \{(?<body>.*?)(?=\r?\nfunction Invoke-ReadinessRuntimeMatrix \{)')
+$readinessProbeRethrow = $readinessHostProbeBlock.Groups['body'].Value.IndexOf(
+    'throw $probeFailure',
+    [System.StringComparison]::Ordinal)
+$readinessRemovalRethrow = $readinessHostProbeBlock.Groups['body'].Value.IndexOf(
+    'throw $removalFailure',
+    [System.StringComparison]::Ordinal)
+if (-not $readinessHostProbeBlock.Success -or
+    $readinessHostProbeBlock.Groups['body'].Value -notmatch
+        '(?s)\$verifiedContainerId = \$null.*try \{.*\$verifiedContainerId = Start-VerifiedReadinessHostContainer.*Invoke-ReadinessFixture.*\} catch \{.*docker logs --tail 200 \$verifiedContainerId.*\} finally \{\s*if \(\$null -ne \$verifiedContainerId\) \{.*docker rm --force \$verifiedContainerId' -or
+    $readinessProbeRethrow -lt 0 -or
+    $readinessRemovalRethrow -lt 0 -or
+    $readinessProbeRethrow -gt $readinessRemovalRethrow) {
+    throw 'Each readiness host case must preserve its first failure and remove only a successfully verified ID in finally.'
+}
+$hostSecondaryFailure = $readinessHostProbeBlock.Groups['body'].Value.IndexOf(
+    'Write-ReadinessSecondaryFailure',
+    [System.StringComparison]::Ordinal)
+if ($hostSecondaryFailure -lt 0 -or
+    $hostSecondaryFailure -gt $readinessProbeRethrow) {
+    throw 'A host probe failure must remain primary while a removal failure is emitted as bounded secondary evidence.'
+}
+$readinessFixtureBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Invoke-ReadinessFixture \{(?<body>.*?)(?=\r?\nfunction Start-VerifiedReadinessHostContainer \{)')
+$fixtureExitGate = $readinessFixtureBlock.Groups['body'].Value.IndexOf(
+    'if ($fixtureExitCode -ne 0)',
+    [System.StringComparison]::Ordinal)
+$fixtureReceiptParse = $readinessFixtureBlock.Groups['body'].Value.IndexOf(
+    'return ConvertFrom-ReadinessReceiptOutput',
+    [System.StringComparison]::Ordinal)
+if (-not $readinessFixtureBlock.Success -or
+    $fixtureExitGate -lt 0 -or
+    $fixtureReceiptParse -lt $fixtureExitGate) {
+    throw 'A fixture receipt may be parsed only after the Compose action exits successfully.'
+}
+$readinessReceiptAssertionBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Assert-ExactReadinessReceipt \{(?<body>.*?)(?=\r?\nfunction ConvertFrom-ReadinessReceiptOutput \{)')
+foreach ($receiptContract in @(
+        "status = 'created'",
+        "action = 'create-template'",
+        "action = 'create-scenario'",
+        "status = 'verified'",
+        "action = 'probe'",
+        'database = Get-ReadinessDatabaseName',
+        'scenario = $Scenario',
+        'host = $HostName',
+        'container = Get-ReadinessContainerName',
+        '$actualProperties -join "`n"',
+        '$expectedProperties -join "`n"')) {
+    if (-not $readinessReceiptAssertionBlock.Success -or
+        -not $readinessReceiptAssertionBlock.Groups['body'].Value.Contains(
+            $receiptContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "Readiness receipt validation is missing exact contract '$receiptContract'."
+    }
+}
+$readinessMatrixBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Invoke-ReadinessRuntimeMatrix \{(?<body>.*?)(?=\r?\n\}\r?\n\r?\ntry \{)')
+$scenarioReceiptPosition = $readinessMatrixBlock.Groups['body'].Value.IndexOf(
+    '$scenarioReceipt = Invoke-ReadinessFixture',
+    [System.StringComparison]::Ordinal)
+$scenarioCountPosition = $readinessMatrixBlock.Groups['body'].Value.IndexOf(
+    '$validatedScenarioReceipts += 1',
+    [System.StringComparison]::Ordinal)
+$hostReceiptPosition = $readinessMatrixBlock.Groups['body'].Value.IndexOf(
+    '$probeReceipt = Invoke-ReadinessHostProbe',
+    [System.StringComparison]::Ordinal)
+$hostCountPosition = $readinessMatrixBlock.Groups['body'].Value.IndexOf(
+    '$validatedHostReceipts += 1',
+    [System.StringComparison]::Ordinal)
+if (-not $readinessMatrixBlock.Success -or
+    $scenarioReceiptPosition -lt 0 -or
+    $scenarioCountPosition -lt $scenarioReceiptPosition -or
+    $hostReceiptPosition -lt 0 -or
+    $hostCountPosition -lt $hostReceiptPosition -or
+    $stranglerRuntime.Contains(
+        'readinessScenarios = $readinessScenarios.Count',
+        [System.StringComparison]::Ordinal) -or
+    $stranglerRuntime.Contains(
+        'readinessHostChecks = $readinessScenarios.Count * $readinessHosts.Count',
+        [System.StringComparison]::Ordinal)) {
+    throw 'Readiness success totals must be incremented only after validated scenario and host receipts return.'
+}
+$generatedSecretCapture = $stranglerRuntime.IndexOf(
+    '[void]$generatedSecretValues.Add($generatedSecret)',
+    [System.StringComparison]::Ordinal)
+$environmentRestoration = $stranglerRuntime.IndexOf(
+    '$restoredEnvironment = [System.Environment]::GetEnvironmentVariables(',
+    [System.StringComparison]::Ordinal)
+$outerPrimaryFailure = $stranglerRuntime.IndexOf(
+    'if ($null -ne $firstFailure)',
+    [System.StringComparison]::Ordinal)
+$outerSecondaryFailure = $stranglerRuntime.IndexOf(
+    'Write-ReadinessSecondaryFailure',
+    $outerPrimaryFailure,
+    [System.StringComparison]::Ordinal)
+$outerPrimaryRethrow = $stranglerRuntime.IndexOf(
+    'throw $firstFailure',
+    $outerPrimaryFailure,
+    [System.StringComparison]::Ordinal)
+if ($generatedSecretCapture -lt 0 -or
+    $environmentRestoration -lt $generatedSecretCapture -or
+    $outerPrimaryFailure -lt $environmentRestoration -or
+    $outerSecondaryFailure -lt $outerPrimaryFailure -or
+    $outerPrimaryRethrow -lt $outerSecondaryFailure) {
+    throw 'Generated secret redaction must survive restoration and outer secondary failures must be emitted before rethrowing the primary failure.'
+}
+
+foreach ($fixtureReadinessContract in @(
+        'CONFIRMED_DISPOSABLE_STRANGLER',
+        'databaseUrl.protocol !== "postgresql:"',
+        'databaseUrl.hostname !== "postgres"',
+        'databaseUrl.port !== "5432"',
+        'userName !== "shiftflow"',
+        'databaseName !== expectedDatabase',
+        'databaseUrl.search !== "?schema=public"',
+        'databaseUrl.hash !== ""',
+        '/^[0-9a-f]{24}$/',
+        'GENERATED_DATABASE_PATTERN',
+        'GENERATED_CONTAINER_PATTERN',
+        'quoteIdentifier',
+        'CREATE DATABASE ${quoteGeneratedDatabase(databaseName)} WITH OWNER "shiftflow" TEMPLATE template0',
+        'TEMPLATE ${quoteGeneratedDatabase(templateName)}',
+        'BEGIN',
+        'ROLLBACK',
+        '20260903023000_add_authentication_session_observations',
+        'authentication_session_observations',
+        'refresh_tokens_userId_companyId_sessionKind_expiresAt_revokedAt_idx',
+        'refresh_tokens_userId_companyId_sessionKind_familyId_revokedAt_idx',
+        'user_role_assignments_active_exact_key',
+        'authentication_session_observations_pkey',
+        'authentication_session_observations_userId_fkey',
+        'authentication_session_observations_companyId_fkey',
+        'authentication_session_observations_companyId_sessionKind_observedAt_idx',
+        'CREATE SCHEMA "active" AUTHORIZATION "shiftflow"',
+        'CREATE VIEW public."audit_logs"',
+        'REFERENCES public."companies"("id")',
+        'WHERE "deletedAt" IS NOT NULL',
+        'ALTER COLUMN "familyId" DROP NOT NULL',
+        'ALTER COLUMN "emailHash" TYPE text',
+        'const NEGATIVE_CONFIRMATION_SAMPLES = 5;',
+        'lastObservation.status === 200',
+        'consecutiveMatches += 1',
+        'consecutiveMatches = 0',
+        'consecutiveMatches >= NEGATIVE_CONFIRMATION_SAMPLES',
+        'await confirmNegativeReadiness(baseUrl, host, scenario)',
+        'preservePrimaryFailure',
+        'new AggregateError(',
+        'catch (endError)',
+        '"PostgreSQL client shutdown"',
+        'catch (rollbackError)',
+        '"scenario rollback"',
+        '"/health"',
+        '"/ready"',
+        'READINESS_CHECK_FAILED',
+        'checks?.postgresql === "unavailable"',
+        'checks?.redis === "available"',
+        'checks?.dataProtection === "available"')) {
+    if (-not $readinessRuntime.Contains(
+            $fixtureReadinessContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The guarded readiness fixture is missing contract '$fixtureReadinessContract'."
+    }
+}
+$negativeReadinessBlock = [regex]::Match(
+    $readinessRuntime,
+    '(?s)async function confirmNegativeReadiness\(.*?\) \{(?<body>.*?)(?=\r?\n\}\r?\n\r?\nasync function probeScenario)')
+$negativeReadinessBody = $negativeReadinessBlock.Groups['body'].Value
+$negativeHttp200Gate = $negativeReadinessBody.IndexOf(
+    'if (lastObservation.status === 200)',
+    [System.StringComparison]::Ordinal)
+$negativeExpectedMatch = $negativeReadinessBody.IndexOf(
+    'if (isExpectedReadiness(lastObservation, host, false))',
+    [System.StringComparison]::Ordinal)
+$negativeConfirmation = $negativeReadinessBody.IndexOf(
+    'consecutiveMatches >= NEGATIVE_CONFIRMATION_SAMPLES',
+    [System.StringComparison]::Ordinal)
+$negativeReset = $negativeReadinessBody.IndexOf(
+    'consecutiveMatches = 0',
+    $negativeReadinessBody.IndexOf('} else {', [System.StringComparison]::Ordinal),
+    [System.StringComparison]::Ordinal)
+if (-not $negativeReadinessBlock.Success -or
+    $negativeHttp200Gate -lt 0 -or
+    $negativeExpectedMatch -lt $negativeHttp200Gate -or
+    $negativeConfirmation -lt $negativeExpectedMatch -or
+    $negativeReset -lt $negativeConfirmation) {
+    throw 'Negative readiness must reject any post-liveness HTTP 200 before counting five consecutive exact 503 observations and reset on transients.'
+}
+$probeScenarioBlock = [regex]::Match(
+    $readinessRuntime,
+    '(?s)async function probeScenario\(.*?\) \{(?<body>.*?)(?=\r?\n\}\r?\n\r?\nfunction sanitiseError)')
+$probeHealthPosition = $probeScenarioBlock.Groups['body'].Value.IndexOf(
+    '"/health"',
+    [System.StringComparison]::Ordinal)
+$probeNegativePosition = $probeScenarioBlock.Groups['body'].Value.IndexOf(
+    'await confirmNegativeReadiness(baseUrl, host, scenario)',
+    [System.StringComparison]::Ordinal)
+if (-not $probeScenarioBlock.Success -or
+    $probeHealthPosition -lt 0 -or
+    $probeNegativePosition -lt $probeHealthPosition) {
+    throw 'Every negative readiness confirmation must start only after exact host liveness succeeds.'
+}
+$withClientBlock = [regex]::Match(
+    $readinessRuntime,
+    '(?s)async function withClient\(.*?\) \{(?<body>.*?)(?=\r?\n\}\r?\n\r?\nasync function createTemplate)')
+$clientPrimaryCapture = $withClientBlock.Groups['body'].Value.IndexOf(
+    'primaryError = error',
+    [System.StringComparison]::Ordinal)
+$clientEndFailure = $withClientBlock.Groups['body'].Value.IndexOf(
+    'throw preservePrimaryFailure(primaryError, endError, "PostgreSQL client shutdown")',
+    [System.StringComparison]::Ordinal)
+$scenarioRollbackFailure = $readinessRuntime.IndexOf(
+    'throw preservePrimaryFailure(error, rollbackError, "scenario rollback")',
+    [System.StringComparison]::Ordinal)
+if (-not $withClientBlock.Success -or
+    $clientPrimaryCapture -lt 0 -or
+    $clientEndFailure -lt $clientPrimaryCapture -or
+    $scenarioRollbackFailure -lt 0) {
+    throw 'PostgreSQL rollback and client shutdown failures must retain the first query or mutation failure as primary evidence.'
+}
+$fixtureEnvironmentReads = @(
+    [regex]::Matches($readinessRuntime, 'process[.]env[.](?<name>[A-Z0-9_]+)') |
+        ForEach-Object { $_.Groups['name'].Value } |
+        Sort-Object -Unique)
+if (($fixtureEnvironmentReads -join "`n") -cne "DATABASE_URL`nSHIFTFLOW_DISPOSABLE_RUNTIME" -or
+    $readinessRuntime.Contains('dotenv/config', [System.StringComparison]::Ordinal) -or
+    $readinessRuntime.Contains('process.argv', [System.StringComparison]::Ordinal) -eq $false -or
+    [regex]::Matches(
+        $readinessRuntime,
+        [regex]::Escape('await waitForObservation(')).Count -ne 2) {
+    throw 'The readiness fixture must use only its two controlled environment inputs and probe liveness before readiness.'
 }
 
 $immutableComposeImages = [ordered]@{
