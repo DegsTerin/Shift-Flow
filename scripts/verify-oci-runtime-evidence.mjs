@@ -1,11 +1,16 @@
-// en-GB: Validates ephemeral Buildx and Trivy evidence without publishing images or reports.
+// en-GB: Validates unsigned Buildx and Trivy evidence without publishing images.
 /* global console, process */
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
-import { resolve } from "node:path";
+import { posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const commitPattern = /^[0-9a-f]{40}$/u;
+const buildType = "https://mobyproject.org/buildkit@v1";
+const sourceRepositories = new Set([
+  "https://github.com/DegsTerin/Shift-Flow",
+  "https://github.com/DegsTerin/Shift-Flow.git"
+]);
 const severityOrder = new Map([
   ["UNKNOWN", Number.POSITIVE_INFINITY],
   ["LOW", 1],
@@ -103,8 +108,13 @@ function validateSbom(sbom, subjectDigests) {
 function validateScan(scan, subjectRef, policy) {
   if (
     scan?.SchemaVersion !== 2 ||
+    scan?.ArtifactType !== "container_image" ||
     scan?.ArtifactName !== subjectRef ||
     !digestPattern.test(scan?.ArtifactID ?? "") ||
+    !digestPattern.test(scan?.Metadata?.ImageID ?? "") ||
+    !Array.isArray(scan?.Metadata?.RepoDigests) ||
+    `${scan?.Metadata?.ImageConfig?.os}/${scan?.Metadata?.ImageConfig?.architecture}` !==
+      policy.platform ||
     !Array.isArray(scan?.Results)
   ) {
     fail("OCI_RUNTIME_SCAN_INVALID", "scan");
@@ -137,31 +147,62 @@ function validateScan(scan, subjectRef, policy) {
   }
 }
 
-function validateBuildProvenance(provenance, scan) {
+function repositoryName(reference) {
+  const name = reference.split("@")[0];
+  const colon = name.lastIndexOf(":");
+  const repository = colon > name.lastIndexOf("/") ? name.slice(0, colon) : name;
+  return repository.replace(/^(?:index[.])?docker[.]io\//u, "").replace(/^library\//u, "");
+}
+
+function validateScanDigest(scan, subjectRef, digest) {
+  if (
+    !scan.Metadata.RepoDigests.some((reference) => {
+      if (typeof reference !== "string") return false;
+      const parts = reference.split("@");
+      return (
+        parts.length === 2 &&
+        parts[1] === digest &&
+        repositoryName(parts[0]) === repositoryName(subjectRef)
+      );
+    })
+  ) {
+    fail("OCI_RUNTIME_SCAN_SUBJECT_INVALID", "scan.Metadata.RepoDigests");
+  }
+}
+
+function validateBuildProvenance(provenance, scan, target, sourceCommit, platform) {
   const buildRecord = provenance?.["buildx.build.provenance"];
   const imageDigest = provenance?.["containerimage.digest"];
-  const configDigest = provenance?.["containerimage.config.digest"];
-  const descriptorDigest = provenance?.["containerimage.descriptor"]?.digest;
-  const provenanceSubjectDigests = Array.isArray(buildRecord?.subject)
-    ? buildRecord.subject
-        .map((subject) => subject?.digest?.sha256)
-        .filter((digest) => typeof digest === "string")
-        .map((digest) => `sha256:${digest}`)
-    : [];
+  const descriptor = provenance?.["containerimage.descriptor"];
+  const invocation = buildRecord?.invocation;
+  const vcs = buildRecord?.metadata?.[`${buildType}#metadata`]?.vcs;
+  const normalisePath = (value) =>
+    typeof value === "string" ? posix.normalize(value.replaceAll("\\", "/")) : undefined;
+  // Buildx metadata contains the raw predicate, not a signed in-toto envelope.
   if (
     !isObject(buildRecord) ||
-    !/^https:\/\/in-toto[.]io\/Statement\//u.test(buildRecord._type ?? "") ||
-    !/^https:\/\/slsa[.]dev\/provenance\//u.test(buildRecord.predicateType ?? "") ||
-    !isObject(buildRecord.predicate) ||
+    buildRecord.buildType !== buildType ||
+    !isObject(buildRecord.buildConfig) ||
+    !Array.isArray(buildRecord.materials) ||
+    buildRecord.materials.length === 0 ||
+    buildRecord?.metadata?.completeness?.parameters !== true ||
+    invocation?.parameters?.frontend !== "dockerfile.v0" ||
+    invocation?.parameters?.args?.target !== target.target ||
+    invocation?.configSource?.entryPoint !== posix.basename(target.dockerfile) ||
+    invocation?.environment?.platform !== platform ||
+    vcs?.revision !== sourceCommit ||
+    !sourceRepositories.has(vcs?.source) ||
+    normalisePath(vcs?.["localdir:context"]) !== target.context ||
+    normalisePath(vcs?.["localdir:dockerfile"]) !== posix.dirname(target.dockerfile) ||
     !digestPattern.test(imageDigest ?? "") ||
-    !digestPattern.test(configDigest ?? "") ||
-    descriptorDigest !== imageDigest ||
-    ![configDigest, imageDigest].includes(scan.ArtifactID) ||
-    !provenanceSubjectDigests.some((digest) => [configDigest, imageDigest].includes(digest))
+    descriptor?.digest !== imageDigest ||
+    descriptor?.mediaType !== "application/vnd.oci.image.index.v1+json" ||
+    scan.Metadata.ImageID !== imageDigest
   ) {
     fail("OCI_RUNTIME_PROVENANCE_INVALID", "provenance");
   }
-  return new Set([imageDigest, configDigest]);
+  validateScanDigest(scan, scan.ArtifactName, imageDigest);
+  return new Set([imageDigest]);
 }
 
 export function validateRuntimeEvidence({
@@ -174,7 +215,11 @@ export function validateRuntimeEvidence({
   scan,
   provenance
 }) {
-  if (!Array.isArray(targets?.targets) || typeof targets?.policy !== "object") {
+  if (
+    !Array.isArray(targets?.targets) ||
+    !isObject(targets?.policy) ||
+    targets.policy.platform !== "linux/amd64"
+  ) {
     fail("OCI_RUNTIME_TARGETS_INVALID", "targets");
   }
   const target = targets.targets.find((candidate) => candidate.id === targetId);
@@ -205,8 +250,11 @@ export function validateRuntimeEvidence({
   validateScan(scan, subjectRef, targets.policy);
   const subjectDigests =
     sourceKind === "build"
-      ? validateBuildProvenance(provenance, scan)
-      : new Set([scan.ArtifactID, subjectRef.slice(subjectRef.lastIndexOf("@") + 1)]);
+      ? validateBuildProvenance(provenance, scan, target, sourceCommit, targets.policy.platform)
+      : new Set([subjectRef.slice(subjectRef.lastIndexOf("@") + 1)]);
+  if (sourceKind === "registry") {
+    validateScanDigest(scan, subjectRef, subjectRef.slice(subjectRef.lastIndexOf("@") + 1));
+  }
   validateSbom(sbom, subjectDigests);
   return {
     result: "RUNTIME_EVIDENCE_VALID",

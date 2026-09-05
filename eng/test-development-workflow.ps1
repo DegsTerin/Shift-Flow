@@ -389,7 +389,7 @@ foreach ($targetId in $ociTargetContracts.Keys) {
 foreach ($requiredOciWorkflowContract in @(
         'uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
         'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8',
-        '--metadata-file ''oci-evidence/${{ matrix.id }}.provenance.json''',
+        '--metadata-file "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.provenance.json"',
         '--provenance=mode=max',
         'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
         '--source-commit "$GITHUB_SHA"',
@@ -407,11 +407,208 @@ if ([regex]::Matches(
         $ociWorkflowText,
         'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8').Count -ne 2 -or
     [regex]::Matches($ociWorkflowText, '(?m)^          cache: "false"\s*$').Count -ne 2 -or
-    $ociWorkflowText -match '(?mi)^\s*(?:push:\s*true|uses:\s*actions/upload-artifact@)' -or
+    $ociWorkflowText -match '(?mi)^\s*push:\s*true' -or
     $ociWorkflowText -match '(?i)--push(?:\s|$)' -or
     $workflow -notmatch '(?m)^\s*needs:\s*\[core-gate, dotnet-gate, oci-evidence-gate\]\s*$') {
     throw 'OCI evidence must be generated and enforced locally without publishing or bypassing downstream gates.'
 }
+
+function Assert-OciDiagnosticWorkflow {
+    param([Parameter(Mandatory)][string]$Text)
+
+    $normalised = $Text.Replace("`r`n", "`n")
+    $stepBlocks = @([regex]::Matches(
+            $normalised,
+            '(?ms)^      - name: (?<name>[^\n]+)\n.*?(?=^      - name: |\z)'))
+    $steps = [ordered]@{}
+    foreach ($step in $stepBlocks) {
+        $name = $step.Groups['name'].Value
+        if ($steps.Contains($name)) { throw "Duplicate OCI evidence step '$name'." }
+        $steps[$name] = $step.Value.TrimEnd()
+    }
+    $orderedNames = @(
+        'Record bounded evidence context',
+        'Setup Docker containerd image store',
+        'Setup Docker Buildx',
+        'Build local subject and capture Buildx metadata',
+        'Select digest-pinned registry subject',
+        'Generate local SPDX evidence',
+        'Generate and enforce vulnerability evidence',
+        'Validate evidence bindings without publication',
+        'Record evidence outcomes and report presence',
+        'Retain bounded OCI diagnostic evidence')
+    $lastPosition = -1
+    foreach ($name in $orderedNames) {
+        $position = $normalised.IndexOf("      - name: $name`n", [System.StringComparison]::Ordinal)
+        if ($position -le $lastPosition -or -not $steps.Contains($name)) {
+            throw "The bounded OCI evidence step '$name' is missing or out of order."
+        }
+        $lastPosition = $position
+    }
+    $expectedDocker = @'
+      - name: Setup Docker containerd image store
+        id: setup_docker
+        if: matrix.sourceKind == 'build'
+        uses: docker/setup-docker-action@77e84dbf09b47d1e29270283c22f16145aa85ca1
+        with:
+          version: v29.7.2
+          daemon-config: |
+            { "features": { "containerd-snapshotter": true } }
+'@
+    $expectedUpload = @'
+      - name: Retain bounded OCI diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: oci-evidence-${{ matrix.id }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.context.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.status.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.spdx.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.scan.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.provenance.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: false
+          include-hidden-files: false
+'@
+    if ($steps['Setup Docker containerd image store'] -cne $expectedDocker.Replace("`r`n", "`n") -or
+        $steps['Retain bounded OCI diagnostic evidence'] -cne $expectedUpload.Replace("`r`n", "`n") -or
+        $stepBlocks[-1].Groups['name'].Value -cne 'Retain bounded OCI diagnostic evidence' -or
+        [regex]::Matches($normalised, 'uses: actions/upload-artifact@').Count -ne 1) {
+        throw 'OCI evidence must use the exact containerd setup and final bounded, immutable diagnostic upload contract.'
+    }
+    $context = $steps['Record bounded evidence context']
+    $status = $steps['Record evidence outcomes and report presence']
+    foreach ($contract in @(
+            'id: evidence_context',
+            'EVIDENCE_TARGET: ${{ matrix.id }}',
+            'EVIDENCE_SOURCE_KIND: ${{ matrix.sourceKind }}',
+            'EVIDENCE_PR_HEAD: ${{ github.event.pull_request.head.sha }}',
+            'targetId: process.env.EVIDENCE_TARGET',
+            'sourceKind: process.env.EVIDENCE_SOURCE_KIND',
+            'testedCommit: process.env.GITHUB_SHA',
+            'pullRequestHead: process.env.EVIDENCE_PR_HEAD || null',
+            'runId: process.env.GITHUB_RUN_ID',
+            'runAttempt: process.env.GITHUB_RUN_ATTEMPT',
+            'const evidenceDirectory = path.join(process.env.RUNNER_TEMP, "oci-evidence")',
+            'fs.mkdirSync(evidenceDirectory, { recursive: true })',
+            'fs.writeFileSync(path.join(evidenceDirectory, `${context.targetId}.context.json`), JSON.stringify(context, null, 2) + "\n")')) {
+        if (-not $context.Contains($contract, [System.StringComparison]::Ordinal)) {
+            throw "The bounded OCI evidence context is missing '$contract'."
+        }
+    }
+    foreach ($stepId in @('evidence_context', 'setup_docker', 'setup_buildx', 'build_subject',
+            'registry_subject', 'generate_sbom', 'generate_scan', 'validate_evidence')) {
+        if ([regex]::Matches($normalised, '(?m)^        id: ' + $stepId + '$').Count -ne 1 -or
+            [regex]::Matches($status, [regex]::Escape('${{ steps.' + $stepId + '.outcome }}')).Count -ne 1) {
+            throw "The diagnostic status must retain the exact outcome of '$stepId'."
+        }
+    }
+    foreach ($contract in @(
+            '        if: always()',
+            'testedCommit: process.env.GITHUB_SHA',
+            'runId: process.env.GITHUB_RUN_ID',
+            'runAttempt: process.env.GITHUB_RUN_ATTEMPT',
+            '["context.json", "spdx.json", "scan.json", "provenance.json"]',
+            'const evidenceDirectory = path.join(process.env.RUNNER_TEMP, "oci-evidence")',
+            'fs.mkdirSync(evidenceDirectory, { recursive: true })',
+            'fs.existsSync(path.join(evidenceDirectory, `${targetId}.${suffix}`))',
+            'fs.writeFileSync(path.join(evidenceDirectory, `${targetId}.status.json`), JSON.stringify(status, null, 2) + "\n")')) {
+        if (-not $status.Contains($contract, [System.StringComparison]::Ordinal)) {
+            throw "The bounded OCI evidence status is missing '$contract'."
+        }
+    }
+    foreach ($contract in @(
+            '--metadata-file "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.provenance.json"',
+            'output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.spdx.json',
+            'output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.scan.json',
+            '--sbom "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.spdx.json"',
+            '--scan "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.scan.json"',
+            '--provenance "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.provenance.json"')) {
+        if ([regex]::Matches($normalised, [regex]::Escape($contract)).Count -ne 1) {
+            throw "Every OCI evidence producer and reader must use its bounded external report path: '$contract'."
+        }
+    }
+    $build = $steps['Build local subject and capture Buildx metadata']
+    $cleanSourceContracts = @(
+        'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
+        'source_status="$(git --no-optional-locks status --porcelain=v1 --untracked-files=all --ignored)"',
+        'test -z "$source_status"',
+        'docker buildx build')
+    $lastPosition = -1
+    foreach ($contract in $cleanSourceContracts) {
+        $position = $build.IndexOf($contract, [System.StringComparison]::Ordinal)
+        if ($position -le $lastPosition -or
+            [regex]::Matches($build, [regex]::Escape($contract)).Count -ne 1) {
+            throw 'OCI builds must verify the exact HEAD and fail on tracked, untracked or ignored source changes before building.'
+        }
+        $lastPosition = $position
+    }
+    if ($normalised -match '(?mi)^\s*(?:continue-on-error:|push:\s*true)' -or
+        $normalised -match '(?i)--push(?:\s|$)' -or
+        $normalised -match 'steps\.[a-z_]+\.conclusion' -or
+        [regex]::Matches($normalised, '(?m)^          version: v0[.]74[.]0$').Count -ne 2 -or
+        [regex]::Matches($normalised, '(?m)^          ignore-unfixed: "false"$').Count -ne 2 -or
+        [regex]::Matches($build, '(?m)^          BUILDX_GIT_CHECK_DIRTY: "1"$').Count -ne 1 -or
+        $steps['Generate and enforce vulnerability evidence'] -notmatch '(?m)^          exit-code: "1"$' -or
+        $steps['Generate and enforce vulnerability evidence'] -notmatch '(?m)^          severity: UNKNOWN,MEDIUM,HIGH,CRITICAL$' -or
+        $steps['Build local subject and capture Buildx metadata'] -notmatch '(?m)^            --load \\$' -or
+        $steps['Build local subject and capture Buildx metadata'] -notmatch '(?m)^            --platform linux/amd64 \\$' -or
+        $steps['Build local subject and capture Buildx metadata'] -notmatch '(?m)^            --provenance=mode=max \\$') {
+        throw 'Diagnostic retention must not change strict scan failures, image loading, provenance or publication boundaries.'
+    }
+}
+
+Assert-OciDiagnosticWorkflow -Text $ociWorkflowText
+if ([regex]::Matches($workflow, 'uses: actions/upload-artifact@').Count -ne 1) {
+    throw 'The release workflow may upload only the bounded OCI diagnostic reports, never runtime or workspace state.'
+}
+$dockerStep = [regex]::Match(
+    $ociWorkflowText,
+    '(?ms)^      - name: Setup Docker containerd image store\r?\n.*?(?=^      - name: )').Value
+$buildxStep = [regex]::Match(
+    $ociWorkflowText,
+    '(?ms)^      - name: Setup Docker Buildx\r?\n.*?(?=^      - name: )').Value
+$uploadStep = [regex]::Match(
+    $ociWorkflowText,
+    '(?ms)^      - name: Retain bounded OCI diagnostic evidence\r?\n.*?\z').Value
+$ociCounterexamples = [ordered]@{
+    'missing containerd setup' = $ociWorkflowText.Replace($dockerStep, '')
+    'containerd setup after Buildx' = $ociWorkflowText.Replace($dockerStep + $buildxStep, $buildxStep + $dockerStep)
+    'disabled containerd image store' = $ociWorkflowText.Replace('"containerd-snapshotter": true', '"containerd-snapshotter": false')
+    'workspace upload' = $ociWorkflowText.Replace('            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.context.json', '            ${{ github.workspace }}')
+    'wildcard upload' = $ociWorkflowText.Replace('            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.context.json', '            ${{ runner.temp }}/oci-evidence/**')
+    'colliding upload name' = $ociWorkflowText.Replace('name: oci-evidence-${{ matrix.id }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}', 'name: oci-evidence')
+    'success-only upload' = $ociWorkflowText.Replace($uploadStep, $uploadStep.Replace('if: always()', 'if: success()'))
+    'registry publication' = $ociWorkflowText.Replace('--load', '--load --push')
+    'scan failure bypass' = $ociWorkflowText.Replace('id: generate_scan', "id: generate_scan`n        continue-on-error: true")
+    'unfixed vulnerability waiver' = $ociWorkflowText.Replace('ignore-unfixed: "false"', 'ignore-unfixed: "true"')
+    'masked step conclusion' = $ociWorkflowText.Replace('steps.generate_scan.outcome', 'steps.generate_scan.conclusion')
+    'missing Buildx dirty check' = $ociWorkflowText.Replace('          BUILDX_GIT_CHECK_DIRTY: "1"', '')
+    'disabled Buildx dirty check' = $ociWorkflowText.Replace('BUILDX_GIT_CHECK_DIRTY: "1"', 'BUILDX_GIT_CHECK_DIRTY: "false"')
+    'missing source cleanliness assertion' = $ociWorkflowText.Replace('          test -z "$source_status"', '')
+    'ignored source changes admitted' = $ociWorkflowText.Replace('--untracked-files=all --ignored', '--untracked-files=all')
+    'in-checkout context and status' = $ociWorkflowText.Replace('path.join(process.env.RUNNER_TEMP, "oci-evidence")', 'path.join(process.env.GITHUB_WORKSPACE, "oci-evidence")')
+    'in-checkout Buildx metadata' = $ociWorkflowText.Replace('--metadata-file "$RUNNER_TEMP/oci-evidence/', '--metadata-file "oci-evidence/')
+    'in-checkout SPDX report' = $ociWorkflowText.Replace('output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.spdx.json', 'output: oci-evidence/${{ matrix.id }}.spdx.json')
+    'in-checkout scan report' = $ociWorkflowText.Replace('output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.scan.json', 'output: oci-evidence/${{ matrix.id }}.scan.json')
+    'in-checkout SPDX validation' = $ociWorkflowText.Replace('--sbom "$RUNNER_TEMP/oci-evidence/', '--sbom "oci-evidence/')
+    'in-checkout scan validation' = $ociWorkflowText.Replace('--scan "$RUNNER_TEMP/oci-evidence/', '--scan "oci-evidence/')
+    'in-checkout provenance validation' = $ociWorkflowText.Replace('--provenance "$RUNNER_TEMP/oci-evidence/', '--provenance "oci-evidence/')
+    'in-checkout upload' = $ociWorkflowText.Replace('            ${{ runner.temp }}/oci-evidence/', '            oci-evidence/')
+}
+foreach ($name in $ociCounterexamples.Keys) {
+    if ($ociCounterexamples[$name] -ceq $ociWorkflowText) {
+        throw "The OCI diagnostic counterexample '$name' did not change the candidate."
+    }
+    $rejected = $false
+    try { Assert-OciDiagnosticWorkflow -Text $ociCounterexamples[$name] }
+    catch { $rejected = $true }
+    if (-not $rejected) { throw "The OCI diagnostic contract accepted counterexample '$name'." }
+}
+Write-Output "Rejected all $($ociCounterexamples.Count) unsafe OCI diagnostic workflow counterexamples."
+
 if (-not (Get-Content -LiteralPath $unitVitestConfigPath -Raw).Contains(
         '"scripts/**/*.test.mjs"',
         [System.StringComparison]::Ordinal)) {

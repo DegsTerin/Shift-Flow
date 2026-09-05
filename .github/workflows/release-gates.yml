@@ -112,13 +112,43 @@ jobs:
         with:
           node-version: 22
 
+      - name: Record bounded evidence context
+        id: evidence_context
+        shell: bash
+        env:
+          EVIDENCE_TARGET: ${{ matrix.id }}
+          EVIDENCE_SOURCE_KIND: ${{ matrix.sourceKind }}
+          EVIDENCE_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const evidenceDirectory = path.join(process.env.RUNNER_TEMP, "oci-evidence");
+          const context = {
+            targetId: process.env.EVIDENCE_TARGET,
+            sourceKind: process.env.EVIDENCE_SOURCE_KIND,
+            testedCommit: process.env.GITHUB_SHA,
+            pullRequestHead: process.env.EVIDENCE_PR_HEAD || null,
+            runId: process.env.GITHUB_RUN_ID,
+            runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+          };
+          fs.mkdirSync(evidenceDirectory, { recursive: true });
+          fs.writeFileSync(path.join(evidenceDirectory, `${context.targetId}.context.json`), JSON.stringify(context, null, 2) + "\n");
+          NODE
+
+      - name: Setup Docker containerd image store
+        id: setup_docker
+        if: matrix.sourceKind == 'build'
+        uses: docker/setup-docker-action@77e84dbf09b47d1e29270283c22f16145aa85ca1
+        with:
+          version: v29.7.2
+          daemon-config: |
+            { "features": { "containerd-snapshotter": true } }
+
       - name: Setup Docker Buildx
+        id: setup_buildx
         if: matrix.sourceKind == 'build'
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
-
-      - name: Prepare ephemeral evidence directory
-        shell: bash
-        run: mkdir -p oci-evidence
 
       - name: Build local subject and capture Buildx metadata
         id: build_subject
@@ -126,13 +156,16 @@ jobs:
         shell: bash
         env:
           BUILDX_METADATA_PROVENANCE: max
+          BUILDX_GIT_CHECK_DIRTY: "1"
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          source_status="$(git --no-optional-locks status --porcelain=v1 --untracked-files=all --ignored)"
+          test -z "$source_status"
           subject_ref="shiftflow-local/${{ matrix.id }}:${GITHUB_SHA}"
           docker buildx build \
             --file '${{ matrix.dockerfile }}' \
             --load \
-            --metadata-file 'oci-evidence/${{ matrix.id }}.provenance.json' \
+            --metadata-file "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.provenance.json" \
             --platform linux/amd64 \
             --provenance=mode=max \
             --tag "$subject_ref" \
@@ -147,27 +180,31 @@ jobs:
         run: echo 'image_ref=${{ matrix.image }}' >> "$GITHUB_OUTPUT"
 
       - name: Generate local SPDX evidence
+        id: generate_sbom
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
         with:
+          version: v0.74.0
           image-ref: ${{ steps.build_subject.outputs.image_ref || steps.registry_subject.outputs.image_ref }}
           scan-type: image
           scanners: vuln
           format: spdx-json
-          output: oci-evidence/${{ matrix.id }}.spdx.json
+          output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.spdx.json
           exit-code: "0"
           ignore-unfixed: "false"
           severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
           cache: "false"
 
       - name: Generate and enforce vulnerability evidence
+        id: generate_scan
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
         with:
+          version: v0.74.0
           image-ref: ${{ steps.build_subject.outputs.image_ref || steps.registry_subject.outputs.image_ref }}
           scan-type: image
           scanners: vuln
           vuln-type: os,library
           format: json
-          output: oci-evidence/${{ matrix.id }}.scan.json
+          output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.scan.json
           exit-code: "1"
           ignore-unfixed: "false"
           severity: UNKNOWN,MEDIUM,HIGH,CRITICAL
@@ -175,6 +212,7 @@ jobs:
           cache: "false"
 
       - name: Validate evidence bindings without publication
+        id: validate_evidence
         shell: bash
         run: |
           arguments=(
@@ -182,16 +220,76 @@ jobs:
             --target-id '${{ matrix.id }}'
             --source-kind '${{ matrix.sourceKind }}'
             --subject-ref '${{ steps.build_subject.outputs.image_ref || steps.registry_subject.outputs.image_ref }}'
-            --sbom 'oci-evidence/${{ matrix.id }}.spdx.json'
-            --scan 'oci-evidence/${{ matrix.id }}.scan.json'
+            --sbom "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.spdx.json"
+            --scan "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.scan.json"
           )
           if [[ '${{ matrix.sourceKind }}' == 'build' ]]; then
             arguments+=(
               --source-commit "$GITHUB_SHA"
-              --provenance 'oci-evidence/${{ matrix.id }}.provenance.json'
+              --provenance "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.provenance.json"
             )
           fi
           node scripts/verify-oci-runtime-evidence.mjs "${arguments[@]}"
+
+      - name: Record evidence outcomes and report presence
+        if: always()
+        shell: bash
+        env:
+          EVIDENCE_TARGET: ${{ matrix.id }}
+          CONTEXT_OUTCOME: ${{ steps.evidence_context.outcome }}
+          DOCKER_OUTCOME: ${{ steps.setup_docker.outcome }}
+          BUILDX_OUTCOME: ${{ steps.setup_buildx.outcome }}
+          BUILD_OUTCOME: ${{ steps.build_subject.outcome }}
+          REGISTRY_OUTCOME: ${{ steps.registry_subject.outcome }}
+          SBOM_OUTCOME: ${{ steps.generate_sbom.outcome }}
+          SCAN_OUTCOME: ${{ steps.generate_scan.outcome }}
+          VALIDATION_OUTCOME: ${{ steps.validate_evidence.outcome }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const evidenceDirectory = path.join(process.env.RUNNER_TEMP, "oci-evidence");
+          const targetId = process.env.EVIDENCE_TARGET;
+          const status = {
+            targetId,
+            testedCommit: process.env.GITHUB_SHA,
+            runId: process.env.GITHUB_RUN_ID,
+            runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+            outcomes: {
+              context: process.env.CONTEXT_OUTCOME,
+              docker: process.env.DOCKER_OUTCOME,
+              buildx: process.env.BUILDX_OUTCOME,
+              build: process.env.BUILD_OUTCOME,
+              registry: process.env.REGISTRY_OUTCOME,
+              sbom: process.env.SBOM_OUTCOME,
+              scan: process.env.SCAN_OUTCOME,
+              validation: process.env.VALIDATION_OUTCOME,
+            },
+            reportsPresent: Object.fromEntries(
+              ["context.json", "spdx.json", "scan.json", "provenance.json"].map(
+                (suffix) => [suffix, fs.existsSync(path.join(evidenceDirectory, `${targetId}.${suffix}`))],
+              ),
+            ),
+          };
+          fs.mkdirSync(evidenceDirectory, { recursive: true });
+          fs.writeFileSync(path.join(evidenceDirectory, `${targetId}.status.json`), JSON.stringify(status, null, 2) + "\n");
+          NODE
+
+      - name: Retain bounded OCI diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: oci-evidence-${{ matrix.id }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.context.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.status.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.spdx.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.scan.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.provenance.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: false
+          include-hidden-files: false
 
   runtime-gates:
     name: Disposable runtime gates (Node.js 22)
