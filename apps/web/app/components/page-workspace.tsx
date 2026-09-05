@@ -16,6 +16,7 @@ import {
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import type { DashboardLayoutKey, MenuItem } from "../lib/page-config";
 import type { DashboardAvailability } from "../lib/page-data";
+import { apiCompanyContext } from "../lib/api";
 import type {
   ActivityItem,
   ClientRef,
@@ -76,6 +77,8 @@ export interface PageWorkspaceProps {
   availableViews: ReadonlySet<View>;
   charts: DashboardCharts;
   clients: ClientRef[];
+  companySwitchPending: boolean;
+  switchCompany: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   dashboardLayouts: Record<DashboardLayoutKey, DashboardConfiguration>;
   dashboardAvailability: DashboardAvailability;
   dashboardLayoutGenerations: Record<DashboardLayoutKey, number>;
@@ -183,6 +186,8 @@ export function PageWorkspace({
   availableViews,
   charts,
   clients,
+  companySwitchPending,
+  switchCompany,
   dashboardLayouts,
   dashboardAvailability,
   dashboardLayoutGenerations,
@@ -276,6 +281,7 @@ export function PageWorkspace({
   toggleNotifications,
   updateRole
 }: PageWorkspaceProps) {
+  const companyContext = apiCompanyContext(session);
   return (
     <div
       className={`${monitorMode ? "app-shell monitor-mode" : "app-shell"}${!monitorMode && navCollapsed ? " nav-collapsed" : ""}${!monitorMode && drawerOpen ? " drawer-open" : ""}`}
@@ -346,6 +352,11 @@ export function PageWorkspace({
           <div className="topbar-title">
             <p className="eyebrow">{topbarContext}</p>
             <h1 id="page-title">{activeTitleKey ? t[activeTitleKey] : t.app}</h1>
+            <p aria-label={t.activeCompany}>
+              {companyContext.active
+                ? `${companyContext.active.name} · ${companyContext.active.timezone}`
+                : t.companyContextUnavailable}
+            </p>
           </div>
           <div className="topbar-actions">
             {authorisedView ? (
@@ -410,10 +421,53 @@ export function PageWorkspace({
               <IconToggle label={t.tvMode} icon={Maximize2} onClick={toggleMonitorMode} />
             ) : null}
             {session.authenticationMode !== "demo" ? (
-              <IconToggle label={t.signOut} icon={LogOut} onClick={() => void logout()} />
+              companySwitchPending ? (
+                <button className="icon-button" aria-label={t.signOut} disabled type="button">
+                  <LogOut size={17} />
+                </button>
+              ) : (
+                <IconToggle label={t.signOut} icon={LogOut} onClick={() => void logout()} />
+              )
             ) : null}
           </div>
         </header>
+        {!monitorMode && companyContext.destinations.length > 0 ? (
+          <form className="app-message" onSubmit={switchCompany} aria-label={t.switchCompany}>
+            <fieldset
+              className="form-grid"
+              disabled={companySwitchPending || modal !== null || actionLoading}
+            >
+              <legend>{t.switchCompany}</legend>
+              <label>
+                {t.companyDestination}
+                <select name="companyId" aria-label={t.companyDestination} required defaultValue="">
+                  <option value="" disabled>
+                    {t.companyDestination}
+                  </option>
+                  {companyContext.destinations.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name} · {company.timezone}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t.password}
+                <input
+                  name="companyPassword"
+                  aria-label={t.password}
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+              <button className="compact-button" type="submit">
+                {companySwitchPending ? t.loading : t.switchCompany}
+              </button>
+            </fieldset>
+            {modal ? <p className="guard-note">{t.companySwitchModalBlocked}</p> : null}
+          </form>
+        ) : null}
         {visibleError ? (
           <p className="form-error app-message" role="alert">
             {visibleError}

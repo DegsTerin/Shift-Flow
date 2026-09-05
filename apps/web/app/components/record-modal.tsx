@@ -88,6 +88,8 @@ export function RecordModal({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const mounted = useRef(true);
+  // en-GB: Retained callbacks belong to this modal's original security context, not their invocation context.
+  const originEpoch = useRef(captureApiSessionEpoch()).current;
   const modalRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<{ focus?: () => void; isConnected?: boolean } | null>(null);
@@ -129,7 +131,7 @@ export function RecordModal({
   }, []);
 
   function closeModal() {
-    if (operation.current) return;
+    if (operation.current || !mounted.current || !isApiSessionEpochCurrent(originEpoch)) return;
     onClose();
   }
 
@@ -163,8 +165,8 @@ export function RecordModal({
     options: MutationOptions = {}
   ): Promise<ModalMutationOutcome> {
     if (!authorised || !token || operation.current) return "IGNORED";
-    const epoch = captureApiSessionEpoch();
-    if (epoch === null) return "STALE";
+    const epoch = originEpoch;
+    if (!mounted.current || epoch === null || !isApiSessionEpochCurrent(epoch)) return "STALE";
     const controller = new AbortController();
     const currentOperation = { controller, epoch };
     operation.current = currentOperation;
@@ -208,7 +210,7 @@ export function RecordModal({
       return "FAILED";
     } finally {
       if (operation.current === currentOperation) operation.current = null;
-      if (mounted.current) setBusy(false);
+      if (mounted.current && isApiSessionEpochCurrent(epoch)) setBusy(false);
     }
   }
 

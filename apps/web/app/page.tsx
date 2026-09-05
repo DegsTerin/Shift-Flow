@@ -8,13 +8,18 @@ import { IconToggle, SegmentedControl } from "./components/controls";
 import { PageWorkspace } from "./components/page-workspace";
 import {
   apiRequest,
+  CompanySwitchError,
   captureApiSessionEpoch,
   clearApiSession,
   isApiSessionEpochCurrent,
+  isApiCompanySwitchPending,
+  isApiReauthenticationRequired,
+  reauthenticateApiSession,
   restoreApiSession,
   settleApiSessionOperation,
   setApiSession,
-  subscribeApiSession
+  subscribeApiSession,
+  switchApiCompany
 } from "./lib/api";
 import { createActivityMoveCoordinator } from "./lib/activity-moves";
 import { messages } from "./lib/i18n";
@@ -168,7 +173,12 @@ function emptyDashboardDependencies(): DashboardDependencyState {
 }
 
 export default function Page() {
-  const portfolioLogin = portfolioLoginConfiguration();
+  const reauthenticationRequired = isApiReauthenticationRequired();
+  const portfolioConfiguration = portfolioLoginConfiguration();
+  const portfolioLogin = {
+    ...portfolioConfiguration,
+    enabled: portfolioConfiguration.enabled && !reauthenticationRequired
+  };
   const [locale, setLocale] = useState<Locale>(defaultLocale);
   const [theme, setTheme] = useState<Theme>(defaultTheme);
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -183,6 +193,10 @@ export default function Page() {
   const [monitorMode, setMonitorMode] = useState(false);
   const [dragged, setDragged] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
+  const modalStateRef = useRef(modal);
+  modalStateRef.current = modal;
+  const companySwitchRef = useRef(false);
+  const [companySwitchPending, setCompanySwitchPending] = useState(false);
   const [summary, setSummary] = useState<DashboardSummary>(emptyDashboardSummary);
   const [charts, setCharts] = useState<DashboardCharts>(emptyDashboardCharts);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -1158,11 +1172,12 @@ export default function Page() {
     let cancelled = false;
     const bootstrapSession = async () => {
       try {
+        if (isApiReauthenticationRequired()) return;
         await restoreApiSession();
       } catch {
         if (cancelled) return;
         clearApiSession();
-        if (portfolioLoginConfiguration().enabled) return;
+        if (portfolioLoginConfiguration().enabled || isApiReauthenticationRequired()) return;
         try {
           const demoSession = await apiRequest<LoginResponse>("/api/auth/demo", undefined, {
             method: "POST",
@@ -1288,8 +1303,8 @@ export default function Page() {
 
   async function markNotificationsRead(id?: string) {
     if (!token || !can("notifications", "write") || notificationPendingId !== null) return;
-    const operationEpoch = captureApiSessionEpoch();
-    if (operationEpoch === null) return;
+    const operationEpoch = renderedSessionEpoch;
+    if (operationEpoch === null || !isApiSessionEpochCurrent(operationEpoch)) return;
     const pendingId = id ?? "all";
     setNotificationPendingId(pendingId);
     setNotificationsError(null);
@@ -1317,28 +1332,41 @@ export default function Page() {
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loggingOut) return;
+    const recovering = isApiReauthenticationRequired();
     setError(null);
     const finishAction = actionTracker.begin();
     try {
-      const nextSession = portfolioLogin.enabled
-        ? await apiRequest<LoginResponse>("/api/auth/portfolio", undefined, {
-            method: "POST",
-            body: JSON.stringify({})
-          })
-        : await (() => {
-            const form = new FormData(event.currentTarget);
-            return apiRequest<LoginResponse>("/api/auth/login", undefined, {
+      const nextSession =
+        portfolioLogin.enabled && !recovering
+          ? await apiRequest<LoginResponse>("/api/auth/portfolio", undefined, {
               method: "POST",
-              body: JSON.stringify({
-                email: String(form.get("email") ?? ""),
-                password: String(form.get("password") ?? "")
-              })
-            });
-          })();
-      setApiSession(nextSession);
+              body: JSON.stringify({})
+            })
+          : await (() => {
+              const form = new FormData(event.currentTarget);
+              if (recovering) {
+                const password = String(form.get("password") ?? "");
+                event.currentTarget.reset();
+                return reauthenticateApiSession(String(form.get("email") ?? ""), password);
+              }
+              return apiRequest<LoginResponse>("/api/auth/login", undefined, {
+                method: "POST",
+                body: JSON.stringify({
+                  email: String(form.get("email") ?? ""),
+                  password: String(form.get("password") ?? "")
+                })
+              });
+            })();
+      if (!recovering) setApiSession(nextSession);
     } catch (cause) {
       publishActionError(
-        `${t.loginFailed}: ${cause instanceof Error ? cause.message : t.apiOffline}`
+        cause instanceof CompanySwitchError
+          ? cause.reason === "UNCERTAIN"
+            ? t.companySwitchUncertain
+            : cause.reason === "REJECTED"
+              ? t.loginFailed
+              : t.companySwitchBlocked
+          : `${t.loginFailed}: ${cause instanceof Error ? cause.message : t.apiOffline}`
       );
     } finally {
       finishAction();
@@ -1347,8 +1375,8 @@ export default function Page() {
 
   async function moveActivity(id: string, status: string) {
     if (!token || !can("activities", "write")) return;
-    const operationEpoch = captureApiSessionEpoch();
-    if (operationEpoch === null) return;
+    const operationEpoch = renderedSessionEpoch;
+    if (operationEpoch === null || !isApiSessionEpochCurrent(operationEpoch)) return;
     const activity = kanbanActivities.find((item) => item.id === id);
     if (!activity) return;
     cancelPageIntent();
@@ -1458,8 +1486,49 @@ export default function Page() {
     [can, dashboardLayoutGenerations, renderedSessionEpoch, token]
   );
 
+  async function switchCompany(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (
+      !isApiSessionEpochCurrent(renderedSessionEpoch) ||
+      companySwitchRef.current ||
+      loggingOut ||
+      modalStateRef.current
+    )
+      return;
+    const form = new FormData(event.currentTarget);
+    const companyId = String(form.get("companyId") ?? "");
+    const password = String(form.get("companyPassword") ?? "");
+    event.currentTarget.reset();
+    companySwitchRef.current = true;
+    setCompanySwitchPending(true);
+    setError(null);
+    try {
+      await switchApiCompany(companyId, password, renderedSessionEpoch);
+    } catch (cause) {
+      if (!isApiSessionEpochCurrent(renderedSessionEpoch) && captureApiSessionEpoch() !== null)
+        return;
+      const reason = cause instanceof CompanySwitchError ? cause.reason : "BLOCKED";
+      publishActionError(
+        reason === "UNCERTAIN"
+          ? t.companySwitchUncertain
+          : reason === "REJECTED"
+            ? t.companySwitchRejected
+            : t.companySwitchBlocked
+      );
+    } finally {
+      companySwitchRef.current = false;
+      setCompanySwitchPending(false);
+    }
+  }
+
   async function logout() {
-    if (loggingOut) return;
+    if (
+      loggingOut ||
+      companySwitchRef.current ||
+      isApiCompanySwitchPending() ||
+      !isApiSessionEpochCurrent(renderedSessionEpoch)
+    )
+      return;
     const logoutToken = token;
     setError(null);
     const finishAction = actionTracker.begin();
@@ -1568,8 +1637,9 @@ export default function Page() {
     afterSuccess?: () => void | Promise<void>
   ) {
     if (!token || !can("rbac", requiredAction)) return "STALE" as const;
-    const operationEpoch = captureApiSessionEpoch();
-    if (operationEpoch === null) return "STALE" as const;
+    const operationEpoch = renderedSessionEpoch;
+    if (operationEpoch === null || !isApiSessionEpochCurrent(operationEpoch))
+      return "STALE" as const;
     const finishAction = actionTracker.begin();
     setError(null);
     try {
@@ -1686,6 +1756,7 @@ export default function Page() {
               <p className="eyebrow">{t.liveApi}</p>
               <h1>{t.loginTitle}</h1>
               <p>{t.loginSubtitle}</p>
+              {reauthenticationRequired ? <p role="alert">{t.companySwitchUncertain}</p> : null}
               {portfolioLogin.enabled ? (
                 <p className="guard-note" id="portfolio-access-hint">
                   {t.portfolioAccessHint}
@@ -1762,6 +1833,8 @@ export default function Page() {
       availableViews={availableViews}
       charts={dashboardAvailability.charts === "ready" ? charts : emptyDashboardCharts}
       clients={clients}
+      companySwitchPending={companySwitchPending}
+      switchCompany={switchCompany}
       dashboardLayouts={{
         MAIN: mainDashboardReady ? dashboardLayouts.MAIN : defaultDashboardLayouts.MAIN,
         TEAM: teamDashboardReady ? dashboardLayouts.TEAM : defaultDashboardLayouts.TEAM

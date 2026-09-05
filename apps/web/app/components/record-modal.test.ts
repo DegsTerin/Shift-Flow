@@ -2,6 +2,7 @@
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LoginResponse, RecordModalCapabilities } from "../lib/types";
+import type * as ApiModule from "../lib/api";
 
 const hookBridge = vi.hoisted(() => ({
   useState: (initial: unknown): unknown => {
@@ -710,6 +711,83 @@ describe("RecordModal mutation lifecycle", () => {
     expect(props.onReload).not.toHaveBeenCalled();
     expect(props.onClose).not.toHaveBeenCalled();
     expect(textOf(settledTree)).not.toContain("Request failed");
+  });
+
+  it.each(["company", "permissions", "logout", "unmount"])(
+    "rejects retained modal mutations before and after cleanup following %s",
+    async (change) => {
+      const props = modalProps({ ...none, canWrite: true, canDelete: true });
+      const tree = runtime.render(props);
+      const detail = elements(tree).find((element) => element.type === ActivityDetail)!;
+      const callbacks = detail.props as {
+        onCloseActivity: () => void;
+        onRemove: () => Promise<void>;
+        busy: boolean;
+      };
+      if (change === "company")
+        setApiSession({ ...session, user: { ...session.user, companyId: "company-b" } });
+      if (change === "permissions")
+        setApiSession({ ...session, user: { ...session.user, permissions: [] } });
+      if (change === "logout") clearApiSession();
+      if (change === "unmount") runtime.cleanup();
+      callbacks.onCloseActivity();
+      await callbacks.onRemove();
+      expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+      expect(props.onClose).not.toHaveBeenCalled();
+      expect(props.onReload).not.toHaveBeenCalled();
+      runtime.cleanup();
+      callbacks.onCloseActivity();
+      await callbacks.onRemove();
+      expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+      expect(runtime.updatesAfterCleanup).toBe(0);
+    }
+  );
+
+  it("keeps a newly mounted successor modal functional without rebinding an old modal", async () => {
+    const props = modalProps({ ...none, canWrite: true });
+    const oldTree = runtime.render(props);
+    const old = elements(oldTree).find((element) => element.type === ActivityDetail)!;
+    setApiSession({ ...session, user: { ...session.user, companyId: "company-b" } });
+    const rerendered = runtime.render(props);
+    const stillOld = elements(rerendered).find((element) => element.type === ActivityDetail)!;
+    (old.props as { onCloseActivity: () => void }).onCloseActivity();
+    (stillOld.props as { onCloseActivity: () => void }).onCloseActivity();
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+    runtime.cleanup();
+    runtime = new HookRuntime();
+    hookBridge.useState = runtime.useState.bind(runtime);
+    hookBridge.useRef = runtime.useRef.bind(runtime);
+    hookBridge.useEffect = runtime.useEffect.bind(runtime);
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "activity-a" });
+    const current = elements(runtime.render(props)).find(
+      (element) => element.type === ActivityDetail
+    )!;
+    (current.props as { onCloseActivity: () => void }).onCloseActivity();
+    await vi.waitFor(() => expect(props.onClose).toHaveBeenCalledOnce());
+    expect(apiBridge.apiRequest).toHaveBeenCalledOnce();
+  });
+
+  it("admits a retained modal callback after same-epoch token rotation", async () => {
+    const props = modalProps({ ...none, canWrite: true });
+    const detail = elements(runtime.render(props)).find(
+      (element) => element.type === ActivityDetail
+    )!;
+    const epoch = captureApiSessionEpoch();
+    const actual = await vi.importActual<typeof ApiModule>("../lib/api");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: { ...session, accessToken: "rotated-token" } })
+      })
+    );
+    Object.assign(document, { cookie: "" });
+    await actual.restoreApiSession();
+    expect(captureApiSessionEpoch()).toBe(epoch);
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "activity-a" });
+    (detail.props as { onCloseActivity: () => void }).onCloseActivity();
+    await vi.waitFor(() => expect(props.onClose).toHaveBeenCalledOnce());
+    expect(props.onReload).toHaveBeenCalledWith(epoch);
   });
 
   it("releases a failed operation and permits a successful retry", async () => {

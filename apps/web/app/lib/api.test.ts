@@ -1,16 +1,21 @@
 // en-GB: Exercises the shared API client so authentication recovery remains bounded, single-flight and observable.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LoginResponse } from "./types";
+import type { LoginResponse, SessionCompany } from "./types";
 import {
   ApiError,
+  apiCompanyContext,
   apiRequest,
   captureApiSessionEpoch,
   clearApiSession,
+  isApiCompanySwitchPending,
+  isApiReauthenticationRequired,
+  reauthenticateApiSession,
   queryString,
   restoreApiSession,
   settleApiSessionOperation,
   setApiSession,
-  subscribeApiSession
+  subscribeApiSession,
+  switchApiCompany
 } from "./api";
 
 function session(accessToken: string): LoginResponse {
@@ -889,6 +894,542 @@ describe("apiRequest", () => {
     await expect(pendingRequest).rejects.toMatchObject({ status: 401 });
     expect(observedSessions.at(-1)).toBeNull();
     unsubscribe();
+  });
+});
+
+describe("company authentication admission", () => {
+  const companies: [SessionCompany, SessionCompany] = [
+    { id: "company-a", name: "Company A", timezone: "Europe/London" },
+    { id: "company-b", name: "Company B", timezone: "America/Sao_Paulo" }
+  ];
+  const companySession = (
+    companyId = "company-a",
+    accessToken = "company-access"
+  ): LoginResponse => ({
+    ...session(accessToken),
+    authenticationMode: "required",
+    user: {
+      ...session(accessToken).user,
+      companyId,
+      company: companies.find((company) => company.id === companyId)!,
+      companies
+    }
+  });
+  function pending<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<T>((complete, fail) => {
+      resolve = complete;
+      reject = fail;
+    });
+    return { promise, resolve, reject };
+  }
+  function cookieLock() {
+    let tail = Promise.resolve();
+    const request = vi.fn(
+      (
+        name: string,
+        options: { signal?: AbortSignal } | (() => Promise<unknown>),
+        callback?: () => Promise<unknown>
+      ) => {
+        void name;
+        const operation = typeof options === "function" ? options : callback!;
+        const signal = typeof options === "function" ? undefined : options.signal;
+        const next = tail.then(() => {
+          if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+          return operation();
+        });
+        tail = next.then(
+          () => undefined,
+          () => undefined
+        );
+        return next;
+      }
+    );
+    vi.stubGlobal("navigator", { locks: { request } });
+    return request;
+  }
+  beforeEach(() => {
+    clearApiSession();
+    const storage = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", {
+      getItem: vi.fn((key: string) => storage.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => storage.set(key, value)),
+      removeItem: vi.fn((key: string) => storage.delete(key))
+    });
+    vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal("navigator", {});
+    setApiSession(companySession());
+  });
+  afterEach(() => {
+    clearApiSession();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    "demo",
+    "portfolio",
+    "legacy",
+    "singleton",
+    "missing",
+    "mismatch",
+    "duplicate",
+    "timezone"
+  ])("does not admit %s metadata as a company selection", async (kind) => {
+    const candidate = companySession();
+    if (kind === "demo" || kind === "portfolio") candidate.authenticationMode = kind;
+    if (kind === "legacy") delete candidate.authenticationMode;
+    if (kind === "singleton") candidate.user.companies = [companies[0]];
+    if (kind === "missing") delete candidate.user.company;
+    if (kind === "mismatch") candidate.user.company = companies[1];
+    if (kind === "duplicate") candidate.user.companies = [companies[0], companies[0], companies[1]];
+    if (kind === "timezone") candidate.user.company = { ...companies[0], timezone: "Not/A_Zone" };
+    setApiSession(candidate);
+    expect(apiCompanyContext(candidate).destinations).toEqual([]);
+    await expect(
+      switchApiCompany("company-b", "test-only-password", captureApiSessionEpoch())
+    ).rejects.toMatchObject({ reason: "BLOCKED" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    "serialises leading refresh, rejected password and successful installation with Web Locks=%s",
+    async (webLocks) => {
+      const locks = webLocks ? cookieLock() : undefined;
+      const refresh = pending<Response>();
+      const login = pending<Response>();
+      const paths: string[] = [];
+      let cookieOwner = "company-a";
+      vi.mocked(fetch).mockImplementation(async (input) => {
+        const path = new URL(String(input)).pathname;
+        paths.push(path);
+        if (path.endsWith("refresh")) {
+          const result = await refresh.promise;
+          cookieOwner = "refreshed-a";
+          return result;
+        }
+        const result = await login.promise;
+        if (result.ok) cookieOwner = "company-b";
+        return result;
+      });
+      const observed: Array<LoginResponse | null> = [];
+      const unsubscribe = subscribeApiSession((value) => observed.push(value));
+      const epoch = captureApiSessionEpoch();
+      const refreshing = restoreApiSession();
+      await vi.waitFor(() => expect(paths).toEqual(["/api/auth/refresh"]));
+      const switching = switchApiCompany("company-b", "test-only-password", epoch);
+      expect(isApiCompanySwitchPending()).toBe(true);
+      refresh.resolve(response(200, { data: companySession("company-a", "rotated-a") }));
+      await refreshing;
+      await vi.waitFor(() => expect(paths).toHaveLength(2));
+      expect(captureApiSessionEpoch()).toBe(epoch);
+      expect(isApiReauthenticationRequired()).toBe(true);
+      login.resolve(response(401, { error: { message: "Invalid credentials" } }));
+      await expect(switching).rejects.toMatchObject({ reason: "REJECTED" });
+      expect(observed.at(-1)?.accessToken).toBe("rotated-a");
+      expect(cookieOwner).toBe("refreshed-a");
+      expect(isApiReauthenticationRequired()).toBe(false);
+      const target = companySession("company-b", "new-b");
+      vi.mocked(fetch).mockImplementationOnce(async () => {
+        cookieOwner = "company-b";
+        return response(200, { data: target });
+      });
+      await expect(switchApiCompany("company-b", "test-only-password", epoch)).resolves.toEqual(
+        target
+      );
+      expect(observed.at(-1)).toEqual(target);
+      expect(cookieOwner).toBe("company-b");
+      const init = vi.mocked(fetch).mock.calls.at(-1)?.[1];
+      expect(init).toMatchObject({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({
+          email: "user@example.com",
+          password: "test-only-password",
+          companyId: "company-b"
+        })
+      });
+      expect([...new Headers(init?.headers).keys()]).toEqual(["content-type"]);
+      expect(isApiReauthenticationRequired()).toBe(false);
+      if (locks)
+        expect(locks.mock.calls.every(([name]) => name === "shiftflow-auth-refresh")).toBe(true);
+      unsubscribe();
+    }
+  );
+
+  it.each([false, true])(
+    "rejects queued cancellation before login fetch with Web Locks=%s",
+    async (webLocks) => {
+      if (webLocks) cookieLock();
+      const refresh = pending<Response>();
+      vi.mocked(fetch).mockReturnValueOnce(refresh.promise);
+      const refreshing = restoreApiSession();
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+      const controller = new AbortController();
+      const switching = switchApiCompany(
+        "company-b",
+        "test-only-password",
+        captureApiSessionEpoch(),
+        controller.signal
+      );
+      const rejected = expect(switching).rejects.toMatchObject({ name: "AbortError" });
+      controller.abort();
+      refresh.resolve(response(200, { data: companySession("company-a", "rotated-a") }));
+      await refreshing;
+      await rejected;
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(isApiReauthenticationRequired()).toBe(false);
+      expect(isApiCompanySwitchPending()).toBe(false);
+    }
+  );
+
+  it.each([false, true])(
+    "holds cookie custody through response validation and rejects an old queued refresh with Web Locks=%s",
+    async (webLocks) => {
+      if (webLocks) cookieLock();
+      const payload = pending<unknown>();
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => payload.promise
+      } as Response);
+      const epoch = captureApiSessionEpoch();
+      const switching = switchApiCompany("company-b", "test-only-password", epoch);
+      const staleRefresh = restoreApiSession().catch((error: unknown) => error);
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+      expect(captureApiSessionEpoch()).toBe(epoch);
+      payload.resolve({ data: companySession("company-b") });
+      await switching;
+      expect(await staleRefresh).toBeInstanceOf(ApiError);
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(captureApiSessionEpoch()).not.toBe(epoch);
+    }
+  );
+
+  it.each(
+    [false, true].flatMap((webLocks) =>
+      ["initial", "retry"].flatMap((stage) =>
+        [false, true].map((loginSucceeds) => ({ webLocks, stage, loginSucceeds }))
+      )
+    )
+  )(
+    "preserves cookie custody for $stage read401 with Web Locks=$webLocks and login success=$loginSucceeds",
+    async ({ webLocks, stage, loginSucceeds }) => {
+      if (webLocks) cookieLock();
+      const initial = pending<Response>();
+      const retry = pending<Response>();
+      const login = pending<Response>();
+      const paths: string[] = [];
+      let readCalls = 0;
+      let cookieOwner = "original-a";
+      const original = companySession("company-a", "original-a");
+      const rotated = companySession("company-a", "rotated-a");
+      const target = companySession("company-b", "target-b");
+      const observed: Array<LoginResponse | null> = [];
+      const unsubscribe = subscribeApiSession((value) => observed.push(value));
+      setApiSession(original);
+      const originEpoch = captureApiSessionEpoch();
+      vi.mocked(fetch).mockImplementation(async (input) => {
+        const path = new URL(String(input)).pathname;
+        paths.push(path);
+        if (path === "/api/read") {
+          readCalls += 1;
+          return readCalls === 1 ? initial.promise : retry.promise;
+        }
+        if (path === "/api/auth/refresh") {
+          cookieOwner = "rotated-a";
+          return response(200, { data: rotated });
+        }
+        if (path === "/api/auth/login") {
+          const result = await login.promise;
+          if (result.ok) cookieOwner = "target-b";
+          return result;
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      });
+      try {
+        const reading = apiRequest("/api/read", original.accessToken).catch(
+          (error: unknown) => error
+        );
+        await vi.waitFor(() => expect(readCalls).toBe(1));
+        if (stage === "retry") {
+          initial.resolve(response(401, { error: { message: "Expired" } }));
+          await vi.waitFor(() => expect(readCalls).toBe(2));
+        }
+        const switching = switchApiCompany("company-b", "test-only-password", originEpoch).catch(
+          (error: unknown) => error
+        );
+        await vi.waitFor(() => expect(paths.at(-1)).toBe("/api/auth/login"));
+        expect(isApiReauthenticationRequired()).toBe(true);
+        const expectedPaths =
+          stage === "retry"
+            ? ["/api/read", "/api/auth/refresh", "/api/read", "/api/auth/login"]
+            : ["/api/read", "/api/auth/login"];
+        (stage === "retry" ? retry : initial).resolve(
+          response(401, { error: { message: "Expired" } })
+        );
+        expect(await reading).toMatchObject({ reason: "BLOCKED" });
+        expect(paths).toEqual(expectedPaths);
+        expect(captureApiSessionEpoch()).toBe(originEpoch);
+        expect(observed).not.toContain(null);
+        expect(observed.at(-1)).toEqual(stage === "retry" ? rotated : original);
+        login.resolve(
+          loginSucceeds
+            ? response(200, { data: target })
+            : response(401, { error: { message: "Invalid credentials" } })
+        );
+        if (loginSucceeds) {
+          expect(await switching).toEqual(target);
+          expect(captureApiSessionEpoch()).not.toBe(originEpoch);
+          expect(observed.at(-1)).toEqual(target);
+          expect(cookieOwner).toBe("target-b");
+        } else {
+          expect(await switching).toMatchObject({ reason: "REJECTED" });
+          expect(captureApiSessionEpoch()).toBe(originEpoch);
+          expect(observed.at(-1)).toEqual(stage === "retry" ? rotated : original);
+          expect(cookieOwner).toBe(stage === "retry" ? "rotated-a" : "original-a");
+        }
+        expect(observed).not.toContain(null);
+        expect(paths).toEqual(expectedPaths);
+        expect(isApiReauthenticationRequired()).toBe(false);
+        expect(isApiCompanySwitchPending()).toBe(false);
+      } finally {
+        unsubscribe();
+      }
+    }
+  );
+
+  it.each(
+    [false, true].flatMap((webLocks) =>
+      [200, 401].map((refreshStatus) => ({ webLocks, refreshStatus }))
+    )
+  )(
+    "suspends a leading read refresh status $refreshStatus with Web Locks=$webLocks without revoking the reserved origin",
+    async ({ webLocks, refreshStatus }) => {
+      if (webLocks) cookieLock();
+      const refresh = pending<Response>();
+      const login = pending<Response>();
+      const paths: string[] = [];
+      const observed: Array<LoginResponse | null> = [];
+      const unsubscribe = subscribeApiSession((value) => observed.push(value));
+      const originEpoch = captureApiSessionEpoch();
+      vi.mocked(fetch).mockImplementation(async (input) => {
+        const path = new URL(String(input)).pathname;
+        paths.push(path);
+        if (path === "/api/read") return response(401, { error: { message: "Expired" } });
+        if (path === "/api/auth/refresh") return refresh.promise;
+        if (path === "/api/auth/login") return login.promise;
+        throw new Error(`Unexpected request: ${path}`);
+      });
+      try {
+        const reading = apiRequest("/api/read", "company-access").catch((error: unknown) => error);
+        await vi.waitFor(() => expect(paths).toEqual(["/api/read", "/api/auth/refresh"]));
+        const switching = switchApiCompany("company-b", "test-only-password", originEpoch);
+        refresh.resolve(
+          refreshStatus === 200
+            ? response(200, { data: companySession("company-a", "rotated-a") })
+            : response(401, { error: { message: "Refresh rejected" } })
+        );
+        expect(await reading).toMatchObject({ reason: "BLOCKED" });
+        await vi.waitFor(() => expect(paths.at(-1)).toBe("/api/auth/login"));
+        expect(captureApiSessionEpoch()).toBe(originEpoch);
+        expect(observed).not.toContain(null);
+        const target = companySession("company-b", "target-b");
+        login.resolve(response(200, { data: target }));
+        await expect(switching).resolves.toEqual(target);
+        expect(paths).toEqual(["/api/read", "/api/auth/refresh", "/api/auth/login"]);
+        expect(observed.at(-1)).toEqual(target);
+        expect(observed).not.toContain(null);
+        expect(isApiReauthenticationRequired()).toBe(false);
+      } finally {
+        unsubscribe();
+      }
+    }
+  );
+
+  it("excludes switching for the complete unsafe fetch, refresh and retry lifetime", async () => {
+    const first = pending<Response>();
+    const refresh = pending<Response>();
+    const retry = pending<Response>();
+    vi.mocked(fetch)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(refresh.promise)
+      .mockReturnValueOnce(retry.promise);
+    const epoch = captureApiSessionEpoch();
+    const writing = apiRequest("/api/activities/shared", "company-access", {
+      method: "PATCH",
+      body: "{}"
+    });
+    await expect(switchApiCompany("company-b", "test-only-password", epoch)).rejects.toMatchObject({
+      reason: "BLOCKED"
+    });
+    first.resolve(response(401, { error: { message: "Expired" } }));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    await expect(switchApiCompany("company-b", "test-only-password", epoch)).rejects.toMatchObject({
+      reason: "BLOCKED"
+    });
+    refresh.resolve(response(200, { data: companySession("company-a", "rotated-a") }));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+    await expect(switchApiCompany("company-b", "test-only-password", epoch)).rejects.toMatchObject({
+      reason: "BLOCKED"
+    });
+    retry.resolve(response(200, { data: "saved" }));
+    await expect(writing).resolves.toBe("saved");
+    vi.mocked(fetch).mockResolvedValueOnce(response(200, { data: companySession("company-b") }));
+    await switchApiCompany("company-b", "test-only-password", epoch);
+    expect(fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("reserves synchronously against duplicate switches, protected writes and logout", async () => {
+    const login = pending<Response>();
+    vi.mocked(fetch).mockReturnValueOnce(login.promise);
+    const epoch = captureApiSessionEpoch();
+    const switching = switchApiCompany("company-b", "test-only-password", epoch);
+    await expect(switchApiCompany("company-b", "second-password", epoch)).rejects.toMatchObject({
+      reason: "BLOCKED"
+    });
+    await expect(
+      apiRequest("/api/activities", undefined, { method: "POST" })
+    ).rejects.toMatchObject({ reason: "BLOCKED" });
+    await expect(
+      apiRequest("/api/auth/logout", undefined, { method: "POST" })
+    ).rejects.toMatchObject({ reason: "BLOCKED" });
+    login.resolve(response(200, { data: companySession("company-b") }));
+    await switching;
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    "transport",
+    "abort",
+    "malformed",
+    "user",
+    "email",
+    "mode",
+    "permissions",
+    "company",
+    "metadata",
+    "projection",
+    "server"
+  ])(
+    "fails closed for an uncertain %s result and prevents same-tab reload restoration",
+    async (failure) => {
+      const controller = new AbortController();
+      const target = companySession("company-b");
+      if (failure === "user") target.user.id = "other-user";
+      if (failure === "email") target.user.email = "other@example.com";
+      if (failure === "mode") target.authenticationMode = "demo";
+      if (failure === "permissions") delete target.user.permissions;
+      if (failure === "company") target.user.companyId = "company-a";
+      if (failure === "metadata")
+        target.user.company = { ...companies[1], timezone: "Invalid/Zone" };
+      if (failure === "projection") target.user.companies = [companies[1], companies[1]];
+      vi.mocked(fetch).mockImplementationOnce(async () => {
+        if (failure === "transport") throw new Error("Transport failed");
+        if (failure === "abort") controller.abort();
+        return response(
+          failure === "server" ? 500 : 200,
+          failure === "malformed" ? {} : { data: target }
+        );
+      });
+      await expect(
+        switchApiCompany(
+          "company-b",
+          "test-only-password",
+          captureApiSessionEpoch(),
+          controller.signal
+        )
+      ).rejects.toMatchObject({ reason: "UNCERTAIN" });
+      expect(captureApiSessionEpoch()).toBeNull();
+      expect(isApiReauthenticationRequired()).toBe(true);
+      expect(sessionStorage.setItem).toHaveBeenCalledWith(
+        "shiftflow.reauthentication-required",
+        "1"
+      );
+      expect(sessionStorage.setItem).toHaveBeenCalledOnce();
+      vi.resetModules();
+      const reloaded = await import("./api");
+      await expect(reloaded.restoreApiSession()).rejects.toMatchObject({ reason: "UNCERTAIN" });
+      await expect(
+        reloaded.apiRequest("/api/auth/demo", undefined, { method: "POST" })
+      ).rejects.toMatchObject({ reason: "UNCERTAIN" });
+      expect(fetch).toHaveBeenCalledOnce();
+      vi.mocked(fetch).mockResolvedValueOnce(
+        response(200, {
+          data: target.user.id === "other-user" ? companySession() : companySession("company-b")
+        })
+      );
+      await reloaded.reauthenticateApiSession("user@example.com", "fresh-test-password");
+      expect(reloaded.isApiReauthenticationRequired()).toBe(false);
+      expect(reloaded.captureApiSessionEpoch()).not.toBeNull();
+      reloaded.clearApiSession();
+    }
+  );
+
+  it("rechecks a queued switch origin before fetch when a leading refresh loses its generation", async () => {
+    const refresh = pending<Response>();
+    vi.mocked(fetch).mockReturnValueOnce(refresh.promise);
+    const refreshing = restoreApiSession().catch((error: unknown) => error);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const switching = switchApiCompany(
+      "company-b",
+      "test-only-password",
+      captureApiSessionEpoch()
+    ).catch((error: unknown) => error);
+    setApiSession(companySession("company-b", "independent-b"));
+    const epochB = captureApiSessionEpoch();
+    refresh.resolve(response(200, { data: companySession("company-a", "stale-refresh") }));
+    expect(await refreshing).toBeInstanceOf(ApiError);
+    expect(await switching).toMatchObject({ reason: "BLOCKED" });
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(captureApiSessionEpoch()).toBe(epochB);
+    expect(isApiReauthenticationRequired()).toBe(false);
+  });
+
+  it("does not install or clear a newer session after a late login response", async () => {
+    const login = pending<Response>();
+    vi.mocked(fetch).mockReturnValueOnce(login.promise);
+    const switching = switchApiCompany("company-b", "test-only-password", captureApiSessionEpoch());
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    setApiSession(companySession("company-b", "independently-established"));
+    const newerEpoch = captureApiSessionEpoch();
+    login.resolve(response(200, { data: companySession("company-b", "late-response") }));
+    await expect(switching).rejects.toMatchObject({ reason: "UNCERTAIN" });
+    expect(captureApiSessionEpoch()).toBe(newerEpoch);
+    expect(isApiReauthenticationRequired()).toBe(true);
+  });
+
+  it("rejects stale origins, unprojected destinations and missing storage before HTTP", async () => {
+    const oldEpoch = captureApiSessionEpoch();
+    setApiSession(companySession());
+    await expect(
+      switchApiCompany("company-b", "test-only-password", oldEpoch)
+    ).rejects.toMatchObject({ reason: "BLOCKED" });
+    await expect(
+      switchApiCompany("company-z", "test-only-password", captureApiSessionEpoch())
+    ).rejects.toMatchObject({ reason: "BLOCKED" });
+    vi.mocked(sessionStorage.setItem).mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+    await expect(
+      switchApiCompany("company-b", "test-only-password", captureApiSessionEpoch())
+    ).rejects.toMatchObject({ reason: "BLOCKED" });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(captureApiSessionEpoch()).not.toBeNull();
+  });
+
+  it("retains an existing reauthentication requirement when another password is rejected", async () => {
+    sessionStorage.setItem("shiftflow.reauthentication-required", "1");
+    clearApiSession();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      response(401, { error: { message: "Invalid credentials" } })
+    );
+    await expect(
+      reauthenticateApiSession("user@example.com", "test-only-password")
+    ).rejects.toMatchObject({ reason: "REJECTED" });
+    expect(isApiReauthenticationRequired()).toBe(true);
+    expect(captureApiSessionEpoch()).toBeNull();
   });
 });
 
