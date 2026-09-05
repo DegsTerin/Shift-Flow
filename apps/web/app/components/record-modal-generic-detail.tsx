@@ -16,6 +16,7 @@ import type {
   View
 } from "../lib/types";
 import { shiftStatuses, userRoleId, userRoleOptions } from "../lib/utils";
+import { isNamedTimezone, zonedDateInputValue } from "../lib/zoned-datetime";
 import { applyNewPasswordByteValidity, maximumNewPasswordUtf8Bytes } from "../lib/password-input";
 import { ReferenceSelectInput, SelectInput } from "./controls";
 
@@ -551,8 +552,9 @@ function ShiftDetail({
         <input
           name="startsAt"
           type="datetime-local"
-          defaultValue={shift.startsAt ? shift.startsAt.slice(0, 16) : ""}
-          disabled={!editing}
+          defaultValue={zonedDateInputValue(shift.startsAt, shift.timezone)}
+          step={60}
+          disabled={!editing || !isNamedTimezone(shift.timezone)}
           required
         />
       </label>
@@ -561,19 +563,19 @@ function ShiftDetail({
         <input
           name="endsAt"
           type="datetime-local"
-          defaultValue={shift.endsAt ? shift.endsAt.slice(0, 16) : ""}
-          disabled={!editing}
+          defaultValue={zonedDateInputValue(shift.endsAt, shift.timezone)}
+          step={60}
+          disabled={!editing || !isNamedTimezone(shift.timezone)}
           required
         />
       </label>
       <label>
         {t.timeZone}
-        <input
-          name="timezone"
-          defaultValue={shift.timezone ?? "America/Sao_Paulo"}
-          disabled={!editing}
-        />
+        <input name="timezone" defaultValue={shift.timezone ?? ""} disabled={!editing} required />
       </label>
+      <p className="guard-note span-2">
+        {isNamedTimezone(shift.timezone) ? t.shiftTimeZoneHint : t.timeZoneUnavailable}
+      </p>
       <label>
         {t.filterStatus}
         <SelectInput

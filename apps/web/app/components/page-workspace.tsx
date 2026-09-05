@@ -638,10 +638,12 @@ export function PageWorkspace({
       </main>
       {modal && authorisedView ? (
         <RecordModal
+          key={session.user.company?.timezone ?? "unavailable"}
           state={modal}
           t={t}
           token={token}
           locale={locale}
+          companyTimezone={session.user.company?.timezone}
           clients={clients}
           users={users}
           teams={teams}

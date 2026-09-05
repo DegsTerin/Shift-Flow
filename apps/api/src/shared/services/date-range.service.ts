@@ -20,7 +20,7 @@ type InstantBound = {
 
 export type QueryDateBound = CalendarDateBound | InstantBound;
 
-function parseRfc3339Instant(value: string) {
+export function parseRfc3339Instant(value: string) {
   const match = rfc3339InstantPattern.exec(value);
   if (!match || match[0] !== value) {
     throw new RangeError("Invalid RFC3339 instant");
@@ -91,7 +91,7 @@ function companyTimezoneUnavailable() {
   );
 }
 
-async function loadCompanyTimezone(companyId: string) {
+export async function loadCompanyTimezone(companyId: string) {
   let company: { timezone: string } | null;
   try {
     const delegate = await getDelegate<CompanyTimezoneDelegate>("company");

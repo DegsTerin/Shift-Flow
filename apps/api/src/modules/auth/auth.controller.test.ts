@@ -27,6 +27,11 @@ function cookieHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value.join("; ") : (value ?? "");
 }
 
+function companyContext(id: string) {
+  const company = { id, name: "Example Company", timezone: "Europe/London" };
+  return { company, companies: [company] };
+}
+
 describe("AuthController", () => {
   afterEach(() => {
     resetRateLimitBuckets();
@@ -43,6 +48,7 @@ describe("AuthController", () => {
         email: "demo@shiftflow.local",
         displayName: "Demo User",
         companyId: "demo-company",
+        ...companyContext("demo-company"),
         permissions: ["dashboard:read"]
       }
     });
@@ -58,7 +64,7 @@ describe("AuthController", () => {
     expect(response.body.data).toMatchObject({
       accessToken: "demo-access-token",
       authenticationMode: "demo",
-      user: { email: "demo@shiftflow.local" }
+      user: { email: "demo@shiftflow.local", ...companyContext("demo-company") }
     });
     expect(response.body.data.refreshToken).toBeUndefined();
     const cookies = cookieHeader(response.headers["set-cookie"]);
@@ -77,6 +83,7 @@ describe("AuthController", () => {
         email: "observador.executivo@shiftflow.local",
         displayName: "Portfolio Viewer",
         companyId: "portfolio-company",
+        ...companyContext("portfolio-company"),
         permissions: ["dashboard:read", "activities:read"]
       }
     });
@@ -92,7 +99,10 @@ describe("AuthController", () => {
     expect(response.body.data).toMatchObject({
       accessToken: "portfolio-access-token",
       authenticationMode: "portfolio",
-      user: { email: "observador.executivo@shiftflow.local" }
+      user: {
+        email: "observador.executivo@shiftflow.local",
+        ...companyContext("portfolio-company")
+      }
     });
     expect(response.body.data.refreshToken).toBeUndefined();
     const cookies = cookieHeader(response.headers["set-cookie"]);
@@ -136,6 +146,7 @@ describe("AuthController", () => {
         email: "user@example.com",
         displayName: "User",
         companyId: "company-1",
+        ...companyContext("company-1"),
         permissions: ["dashboard:read"]
       }
     });
@@ -153,6 +164,7 @@ describe("AuthController", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.data.accessToken).toBe("new-access-token");
+    expect(response.body.data.user).toMatchObject(companyContext("company-1"));
     expect(response.body.data.refreshToken).toBeUndefined();
     expect(cookieHeader(response.headers["set-cookie"])).toContain(
       "shiftflow_refresh=current-token"
@@ -258,6 +270,7 @@ describe("AuthController", () => {
           email: input.email,
           displayName: "User",
           companyId: "company-1",
+          ...companyContext("company-1"),
           permissions: ["dashboard:read"]
         }
       };
@@ -281,6 +294,7 @@ describe("AuthController", () => {
       .post("/api/auth/login")
       .send({ email: "user@example.com", password: "correct-password" });
     expect(legitimate.status).toBe(200);
+    expect(legitimate.body.data.user).toMatchObject(companyContext("company-1"));
     expect(cookieHeader(legitimate.headers["set-cookie"])).toContain(
       "shiftflow_refresh=refresh-token"
     );

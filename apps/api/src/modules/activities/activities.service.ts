@@ -4,6 +4,7 @@ import { badRequest, notFound } from "../../shared/errors/app-error.js";
 import { toPagination } from "../../shared/http/pagination.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { buildAuditData } from "../../shared/services/audit-writer.js";
+import { resolveCompanyDatetime } from "../../shared/services/zoned-datetime.service.js";
 import {
   resolveDateRange,
   type DateRangeQuery,
@@ -182,10 +183,12 @@ export class ActivitiesService extends BaseService {
       throw badRequest("Activity requires an active client, team and reporter");
     }
     const status = data.status ? String(data.status) : undefined;
+    const temporalData = await this.slaWriteData(companyId, data);
     const changedAt = new Date();
     return this.activitiesRepository.createWithEvidence(
       {
         ...data,
+        ...temporalData,
         ...this.statusWriteFields(undefined, status, changedAt),
         clientId,
         teamId,
@@ -205,6 +208,7 @@ export class ActivitiesService extends BaseService {
     if (!existing) {
       throw notFound("Activity not found");
     }
+    const temporalData = await this.slaWriteData(companyId, data);
     const updated = await this.activitiesRepository.updateWithEvidence(
       companyId,
       id,
@@ -217,6 +221,7 @@ export class ActivitiesService extends BaseService {
         }
         const mutationData = {
           ...data,
+          ...temporalData,
           ...(statusChanged ? this.statusWriteFields(fromStatus, toStatus, new Date()) : {}),
           updatedById: req.auth?.id
         };
@@ -245,6 +250,14 @@ export class ActivitiesService extends BaseService {
       throw notFound("Activity not found");
     }
     return updated;
+  }
+
+  private async slaWriteData(companyId: string, data: Record<string, unknown>) {
+    if (data.slaDueAt === undefined) return {};
+    return {
+      slaDueAt:
+        data.slaDueAt === null ? null : await resolveCompanyDatetime(companyId, data.slaDueAt)
+    };
   }
 
   override async remove(req: ApiRequest, id: string) {

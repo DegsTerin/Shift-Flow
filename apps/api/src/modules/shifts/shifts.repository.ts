@@ -39,6 +39,22 @@ export class ShiftsRepository extends BaseRepository {
     super("shift");
   }
 
+  async findForUpdate(transaction: PrismaTransactionClient, id: string, companyId: string) {
+    const client = transaction as CoverageMutationClient;
+    const companies = await client.$queryRawUnsafe<Array<{ id: string }>>(
+      'SELECT "id" FROM "companies" WHERE "id" = $1::uuid AND "status" = \'ACTIVE\' AND "deletedAt" IS NULL FOR SHARE',
+      companyId
+    );
+    if (companies.length !== 1) throw forbidden("The active company is unavailable");
+    // Lock before reading either bound so concurrent partial edits cannot validate stale pairs.
+    const rows = await client.$queryRawUnsafe<Array<Record<string, unknown>>>(
+      'SELECT * FROM "shifts" WHERE "id" = $1::uuid AND "companyId" = $2::uuid AND "deletedAt" IS NULL FOR UPDATE',
+      id,
+      companyId
+    );
+    return rows[0] ?? null;
+  }
+
   async addCoverageForUpdate(
     transaction: PrismaTransactionClient,
     data: Record<string, unknown>

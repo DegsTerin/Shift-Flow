@@ -694,6 +694,77 @@ describe("RecordModal mutation lifecycle", () => {
     expect(props.onReload).toHaveBeenCalledOnce();
   });
 
+  it.each(["2026-11-01T05:30:34.987Z", "2026-11-01T06:30:34.987Z"])(
+    "preserves the SLA fold occurrence %s through the real modal submission",
+    async (slaDueAt) => {
+      const form = new FormData();
+      form.set("title", "Renamed activity");
+      form.set("slaDueAt", "2026-11-01T01:30");
+      vi.stubGlobal("FormData", function FormDataForTest() {
+        return form;
+      });
+      apiBridge.apiRequest.mockResolvedValueOnce({ id: "activity-a" });
+      const props = {
+        ...modalProps({ ...none, canWrite: true }),
+        companyTimezone: "America/New_York",
+        state: {
+          mode: "detail" as const,
+          entity: "activities" as const,
+          record: { id: "activity-a", title: "Original", slaDueAt }
+        }
+      };
+      const tree = runtime.render(props);
+      const detail = elements(tree).find((element) => element.type === ActivityDetail);
+      expect(detail?.props).toMatchObject({ companyTimezone: "America/New_York" });
+      await (
+        detail!.props as {
+          onSubmit: (event: {
+            preventDefault: () => void;
+            currentTarget: unknown;
+          }) => Promise<void>;
+        }
+      ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+      const request = apiBridge.apiRequest.mock.calls[0]?.[2] as { body: string };
+      expect(JSON.parse(request.body)).not.toHaveProperty("slaDueAt");
+      expect(props.onReload).toHaveBeenCalledOnce();
+    }
+  );
+
+  it("preserves both saved Shift instants through a timezone-only modal edit", async () => {
+    const form = new FormData();
+    form.set("name", "Renamed shift");
+    form.set("startsAt", "2026-08-30T13:00");
+    form.set("endsAt", "2026-08-30T21:00");
+    form.set("timezone", "UTC");
+    vi.stubGlobal("FormData", function FormDataForTest() {
+      return form;
+    });
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "shift-a" });
+    const props = {
+      ...modalProps({ ...none, canWrite: true }),
+      state: {
+        mode: "detail" as const,
+        entity: "shifts" as const,
+        record: {
+          id: "shift-a",
+          name: "Shift",
+          startsAt: "2026-08-30T12:00:34.987Z",
+          endsAt: "2026-08-30T20:00:56.789Z",
+          timezone: "Europe/London"
+        }
+      }
+    };
+    const tree = runtime.render(props);
+    const detail = elements(tree).find((element) => element.type === GenericDetail);
+    await (
+      detail!.props as {
+        onSubmit: (event: { preventDefault: () => void; currentTarget: unknown }) => Promise<void>;
+      }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+    const request = apiBridge.apiRequest.mock.calls[0]?.[2] as { body: string };
+    expect(JSON.parse(request.body)).toEqual({ name: "Renamed shift", timezone: "UTC" });
+  });
+
   it("keeps lifecycle status in the Shift create payload", async () => {
     const form = new FormData();
     form.set("name", "Night shift");

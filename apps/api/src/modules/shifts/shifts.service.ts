@@ -4,6 +4,11 @@ import { badRequest, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { writeAudit } from "../../shared/services/audit-writer.js";
 import { activeCompanyId } from "../../shared/services/scope.service.js";
+import { loadCompanyTimezone } from "../../shared/services/date-range.service.js";
+import {
+  resolveZonedDatetime,
+  timezoneSchema
+} from "../../shared/services/zoned-datetime.service.js";
 import { ShiftsRepository, type ShiftStatus } from "./shifts.repository.js";
 
 const lifecycleFields = ["status", "closedAt", "reopenedAt"] as const;
@@ -30,19 +35,59 @@ export class ShiftsService extends BaseService {
   }
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {
-    this.assertPeriod(data.startsAt, data.endsAt);
-    return super.create(req, data);
+    const timezone = this.validTimezone(
+      data.timezone === undefined ? await loadCompanyTimezone(activeCompanyId(req)) : data.timezone
+    );
+    const startsAt = resolveZonedDatetime(data.startsAt, timezone);
+    const endsAt = resolveZonedDatetime(data.endsAt, timezone);
+    this.assertPeriod(startsAt, endsAt);
+    return super.create(req, { ...data, timezone, startsAt, endsAt });
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
     if (lifecycleFields.some((field) => Object.prototype.hasOwnProperty.call(data, field))) {
       throw badRequest("Shift lifecycle fields require a dedicated command");
     }
-    if (data.startsAt || data.endsAt) {
-      const current = (await this.get(req, id)) as { startsAt?: Date; endsAt?: Date };
-      this.assertPeriod(data.startsAt ?? current.startsAt, data.endsAt ?? current.endsAt);
-    }
-    return super.update(req, id, data);
+    const companyId = activeCompanyId(req);
+    return this.shiftsRepository.withTransaction(async (repository, transaction) => {
+      const before = await repository.findForUpdate(transaction, id, companyId);
+      if (!before) throw notFound("Shift not found");
+      const timezone = this.validTimezone(
+        data.timezone === undefined ? before.timezone : data.timezone
+      );
+      const startsAt = resolveZonedDatetime(
+        data.startsAt === undefined ? before.startsAt : data.startsAt,
+        timezone
+      );
+      const endsAt = resolveZonedDatetime(
+        data.endsAt === undefined ? before.endsAt : data.endsAt,
+        timezone
+      );
+      this.assertPeriod(startsAt, endsAt);
+      const after = await repository.update(
+        id,
+        {
+          ...data,
+          ...(data.startsAt === undefined ? {} : { startsAt }),
+          ...(data.endsAt === undefined ? {} : { endsAt }),
+          ...(data.timezone === undefined ? {} : { timezone }),
+          updatedById: req.auth?.id
+        },
+        companyId
+      );
+      await writeAudit(
+        req,
+        { entityType: "Shift", entityId: id, action: "UPDATE", before, after, companyId },
+        transaction
+      );
+      return after;
+    });
+  }
+
+  private validTimezone(value: unknown) {
+    const parsed = timezoneSchema.safeParse(value);
+    if (!parsed.success) throw badRequest("Expected a valid IANA timezone");
+    return parsed.data;
   }
 
   async close(req: ApiRequest, id: string) {

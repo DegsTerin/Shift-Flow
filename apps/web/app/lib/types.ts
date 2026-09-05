@@ -17,11 +17,14 @@ export type View =
   | "reports"
   | "settings";
 export type ApiEnvelope<T> = { data: T };
+export type SessionCompany = { id: string; name: string; timezone: string };
 export type SessionUser = {
   id: string;
   email: string;
   displayName?: string;
   companyId?: string;
+  company?: SessionCompany;
+  companies?: SessionCompany[];
   permissions?: string[];
 };
 export type LoginResponse = {

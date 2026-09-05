@@ -17,15 +17,16 @@ import {
   priorities,
   priorityLabel,
   shiftStatuses,
-  statusLabel,
-  toDateInputValue
+  statusLabel
 } from "../lib/utils";
+import { isNamedTimezone, zonedDateInputValue } from "../lib/zoned-datetime";
 import { applyNewPasswordByteValidity, maximumNewPasswordUtf8Bytes } from "../lib/password-input";
 import { ReferenceSelectInput, SelectInput } from "./controls";
 
 export function CreateForm({
   entity,
   t,
+  companyTimezone,
   clients,
   users,
   teams,
@@ -44,6 +45,7 @@ export function CreateForm({
 }: {
   entity: View;
   t: Texts;
+  companyTimezone?: string;
   clients: ClientRef[];
   users: UserRef[];
   teams: TeamRef[];
@@ -182,7 +184,8 @@ export function CreateForm({
           <input
             name="startsAt"
             type="datetime-local"
-            defaultValue={toDateInputValue(now)}
+            defaultValue={zonedDateInputValue(now, companyTimezone)}
+            step={60}
             required
           />
         </label>
@@ -191,13 +194,14 @@ export function CreateForm({
           <input
             name="endsAt"
             type="datetime-local"
-            defaultValue={toDateInputValue(later)}
+            defaultValue={zonedDateInputValue(later, companyTimezone)}
+            step={60}
             required
           />
         </label>
         <label>
           {t.timeZone}
-          <input name="timezone" defaultValue="America/Sao_Paulo" />
+          <input name="timezone" defaultValue={companyTimezone ?? ""} required />
         </label>
         <label>
           {t.filterStatus}
@@ -294,9 +298,18 @@ export function CreateForm({
         />
       </label>
       <label>
-        SLA
-        <input name="slaDueAt" type="datetime-local" defaultValue={toDateInputValue(later)} />
+        SLA{isNamedTimezone(companyTimezone) ? ` (${companyTimezone})` : ""}
+        <input
+          name="slaDueAt"
+          type="datetime-local"
+          step={60}
+          defaultValue={zonedDateInputValue(later, companyTimezone)}
+          disabled={!isNamedTimezone(companyTimezone)}
+        />
       </label>
+      {!isNamedTimezone(companyTimezone) ? (
+        <p className="guard-note span-2">{t.timeZoneUnavailable}</p>
+      ) : null}
       <label>
         {t.system}
         <input name="systemName" />

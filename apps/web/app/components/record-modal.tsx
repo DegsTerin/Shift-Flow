@@ -39,6 +39,7 @@ export function RecordModal({
   t,
   token,
   locale,
+  companyTimezone,
   clients,
   users,
   teams,
@@ -59,6 +60,7 @@ export function RecordModal({
   t: Texts;
   token?: string;
   locale: Locale;
+  companyTimezone?: string;
   clients: ClientRef[];
   users: UserRef[];
   teams: TeamRef[];
@@ -226,14 +228,16 @@ export function RecordModal({
       if (activity) {
         return apiRequest<ActivityItem>(`/api/activities/${activity.id}`, token, {
           method: "PATCH",
-          body: JSON.stringify(activityPayload(form, activity)),
+          body: JSON.stringify(activityPayload(form, activity, companyTimezone)),
           signal
         });
       }
       if (recordId) {
         return apiRequest(recordEndpoint(state.entity, recordId), token, {
           method: "PATCH",
-          body: JSON.stringify(recordPayload(state.entity, form, clients, teams)),
+          body: JSON.stringify(
+            recordPayload(state.entity, form, clients, teams, state.record, companyTimezone)
+          ),
           signal
         });
       }
@@ -329,6 +333,7 @@ export function RecordModal({
         {state.mode === "create" && capabilities.canWrite ? (
           <CreateForm
             entity={state.entity}
+            companyTimezone={companyTimezone}
             t={t}
             clients={clients}
             users={users}
@@ -344,6 +349,7 @@ export function RecordModal({
         {state.mode === "detail" && activity ? (
           <ActivityDetail
             activity={activity}
+            companyTimezone={companyTimezone}
             t={t}
             token={token}
             locale={locale}

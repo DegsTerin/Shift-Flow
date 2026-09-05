@@ -1,11 +1,15 @@
 // en-GB: Validates shifts input so malformed data cannot cross the module boundary.
 import { z } from "zod";
+import {
+  bodyDatetimeSchema,
+  timezoneSchema
+} from "../../shared/services/zoned-datetime.service.js";
 
 const shiftContentSchema = z.object({
   name: z.string().min(2).max(160),
-  startsAt: z.coerce.date(),
-  endsAt: z.coerce.date(),
-  timezone: z.string().min(3).max(64).optional()
+  startsAt: bodyDatetimeSchema,
+  endsAt: bodyDatetimeSchema,
+  timezone: timezoneSchema.optional()
 });
 
 export const shiftCreateSchema = shiftContentSchema.extend({

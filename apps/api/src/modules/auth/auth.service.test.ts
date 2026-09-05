@@ -41,7 +41,12 @@ function membership(companyId: string, isDefault = false) {
     companyId,
     isDefault,
     deletedAt: null,
-    company: { status: "ACTIVE", deletedAt: null }
+    company: {
+      name: `Company ${companyId}`,
+      timezone: "Europe/London",
+      status: "ACTIVE",
+      deletedAt: null
+    }
   };
 }
 
@@ -145,6 +150,134 @@ function refreshRecord(overrides: Record<string, unknown> = {}) {
 describe("AuthService", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("projects only minimal active Company metadata for a password login", async () => {
+    const deletedMembership = { ...membership("membership-deleted"), deletedAt: past };
+    const suspended = {
+      ...membership("suspended"),
+      company: { name: "Hidden", timezone: "UTC", status: "SUSPENDED", deletedAt: null }
+    };
+    const deletedCompany = {
+      ...membership("company-deleted"),
+      company: { name: "Hidden", timezone: "UTC", status: "ACTIVE", deletedAt: past }
+    };
+    const selected = {
+      ...membership("company-b"),
+      company: {
+        ...membership("company-b").company,
+        internalConfiguration: "must-not-be-projected"
+      }
+    };
+    const mockRepository = repository({
+      findUserByEmail: vi.fn().mockResolvedValue(
+        activeUser({
+          companies: [
+            membership("company-a", true),
+            selected,
+            deletedMembership,
+            suspended,
+            deletedCompany
+          ]
+        })
+      )
+    });
+    vi.spyOn(bcrypt, "compare").mockImplementation(async () => true);
+    const result = await new AuthService(mockRepository as unknown as AuthRepository).login(
+      request(),
+      { email: "user@example.com", password: "test-login-password", companyId: "company-b" }
+    );
+    expect(result.user.company).toEqual({
+      id: "company-b",
+      name: "Company company-b",
+      timezone: "Europe/London"
+    });
+    expect(result.user.companies).toEqual([
+      { id: "company-a", name: "Company company-a", timezone: "Europe/London" },
+      { id: "company-b", name: "Company company-b", timezone: "Europe/London" }
+    ]);
+  });
+
+  it.each(["demo", "portfolio"] as const)(
+    "confines initial %s metadata to its selected Company",
+    async (kind) => {
+      const mockRepository = repository({
+        findUserByEmail: vi
+          .fn()
+          .mockResolvedValue(activeUser({ roleAssignments: [assignment("company-a")] }))
+      });
+      const service = new AuthService(
+        mockRepository as unknown as AuthRepository,
+        { enabled: true, email: "demo@example.com" },
+        { enabled: true, email: "portfolio@example.com" }
+      );
+      const result =
+        kind === "demo"
+          ? await service.openDemoSession(request())
+          : await service.openPortfolioSession(request());
+      expect(result.user.companies).toEqual([
+        { id: "company-a", name: "Company company-a", timezone: "Europe/London" }
+      ]);
+      expect(result.user.company).toEqual(result.user.companies[0]);
+    }
+  );
+
+  it.each([
+    { sessionKind: "PASSWORD", rotation: "ROTATED", expectedIds: ["company-a", "company-b"] },
+    { sessionKind: "PASSWORD", rotation: "TOO_SOON", expectedIds: ["company-a", "company-b"] },
+    { sessionKind: "DEMO", rotation: "ROTATED", expectedIds: ["company-b"] },
+    { sessionKind: "DEMO", rotation: "TOO_SOON", expectedIds: ["company-b"] },
+    { sessionKind: "PORTFOLIO", rotation: "UNUSED", expectedIds: ["company-b"] }
+  ])(
+    "projects Company context consistently for $sessionKind/$rotation refresh",
+    async ({ sessionKind, rotation, expectedIds }) => {
+      const mockRepository = repository({
+        findRefreshToken: vi.fn().mockResolvedValue(refreshRecord({ sessionKind })),
+        rotateRefreshToken: vi.fn().mockResolvedValue(rotation)
+      });
+      const service = new AuthService(mockRepository as unknown as AuthRepository);
+      const result = await service.refresh(
+        request(),
+        sessionKind === "PORTFOLIO" ? "portfolio.metadata-token" : "metadata-token"
+      );
+      expect(result.user.company).toEqual({
+        id: "company-b",
+        name: "Company company-b",
+        timezone: "Europe/London"
+      });
+      expect(result.user.companies.map((company) => company.id)).toEqual(expectedIds);
+      expect(
+        result.user.companies.every(
+          (company) => Object.keys(company).sort().join(",") === "id,name,timezone"
+        )
+      ).toBe(true);
+      if (sessionKind === "PORTFOLIO")
+        expect(mockRepository.rotateRefreshToken).not.toHaveBeenCalled();
+    }
+  );
+
+  it("rejects missing selected Company metadata before credential writes", async () => {
+    const user = activeUser({
+      companies: [
+        { ...membership("company-a", true), company: { status: "ACTIVE", deletedAt: null } }
+      ]
+    });
+    const mockRepository = repository({
+      findUserByEmail: vi.fn().mockResolvedValue(user),
+      findRefreshToken: vi.fn().mockResolvedValue(refreshRecord({ companyId: "company-a", user }))
+    });
+    const service = new AuthService(mockRepository as unknown as AuthRepository, {
+      enabled: true,
+      email: "demo@example.com"
+    });
+    await expect(service.openDemoSession(request())).rejects.toMatchObject({
+      code: "UNAUTHORIZED"
+    });
+    await expect(service.refresh(request(), "metadata-token")).rejects.toMatchObject({
+      code: "UNAUTHORIZED"
+    });
+    expect(mockRepository.createRefreshToken).not.toHaveBeenCalled();
+    expect(mockRepository.rotateRefreshToken).not.toHaveBeenCalled();
   });
 
   it("stores the selected company and only its current company-wide permissions", async () => {

@@ -44,7 +44,7 @@ type DbUser = {
     companyId: string;
     isDefault?: boolean;
     deletedAt?: Date | null;
-    company?: { status?: string; deletedAt?: Date | null };
+    company?: { name?: string; timezone?: string; status?: string; deletedAt?: Date | null };
   }>;
   roleAssignments?: Array<{
     companyId?: string;
@@ -231,6 +231,41 @@ function credentialVersion(user: DbUser) {
   return user.passwordChangedAt?.getTime() ?? 0;
 }
 
+function sessionUser(
+  user: DbUser,
+  companyId: string,
+  permissions: string[],
+  sessionKind: AuthenticationSessionKind
+) {
+  const companies = (user.companies ?? [])
+    .filter(
+      (membership) =>
+        membership.deletedAt == null &&
+        membership.company?.status === "ACTIVE" &&
+        membership.company.deletedAt == null &&
+        typeof membership.company.name === "string" &&
+        typeof membership.company.timezone === "string" &&
+        (sessionKind === "PASSWORD" || membership.companyId === companyId)
+    )
+    .map((membership) => ({
+      id: membership.companyId,
+      name: membership.company!.name as string,
+      timezone: membership.company!.timezone as string
+    }))
+    .filter((company, index, all) => all.findIndex((entry) => entry.id === company.id) === index);
+  const company = companies.find((entry) => entry.id === companyId);
+  if (!company) throw unauthorized("Active company metadata is unavailable");
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    companyId,
+    company,
+    companies,
+    permissions
+  };
+}
+
 function isLoopbackAddress(address: string | undefined) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
@@ -286,6 +321,7 @@ export class AuthService {
     if (!sessionObservation) {
       throw new Error("Session observation is required before issuing credentials");
     }
+    const projectedUser = sessionUser(user, companyId, permissions, sessionObservation.sessionKind);
     const authUser: AuthenticatedUser = {
       id: user.id,
       email: user.email,
@@ -357,13 +393,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresAt,
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        companyId,
-        permissions: authUser.permissions
-      }
+      user: projectedUser
     };
   }
 
@@ -579,18 +609,13 @@ export class AuthService {
     authUser.permissions = portfolioSession
       ? this.portfolioPermissions(user, companyId)
       : permissionsFrom(user, companyId);
+    const projectedUser = sessionUser(user, companyId, authUser.permissions, sessionKind);
     if (portfolioSession) {
       return {
         accessToken: signAccessToken(authUser),
         refreshToken,
         expiresAt: stored.expiresAt,
-        user: {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          companyId: authUser.companyId,
-          permissions: authUser.permissions
-        }
+        user: projectedUser
       };
     }
     const nextRefreshToken = createRefreshToken(portfolioSession);
@@ -617,13 +642,7 @@ export class AuthService {
         accessToken: signAccessToken(authUser),
         refreshToken,
         expiresAt: stored.expiresAt,
-        user: {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          companyId: authUser.companyId,
-          permissions: authUser.permissions
-        }
+        user: projectedUser
       };
     }
     if (rotated !== "ROTATED") {
@@ -642,13 +661,7 @@ export class AuthService {
       accessToken: signAccessToken(authUser),
       refreshToken: nextRefreshToken,
       expiresAt,
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        companyId: authUser.companyId,
-        permissions: authUser.permissions
-      }
+      user: projectedUser
     };
   }
 

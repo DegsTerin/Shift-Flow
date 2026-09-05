@@ -1,6 +1,7 @@
 // en-GB: Validates activities input so malformed data cannot cross the module boundary.
 import { z } from "zod";
 import { dateRangeQuerySchema } from "../../shared/services/date-range.service.js";
+import { bodyDatetimeSchema } from "../../shared/services/zoned-datetime.service.js";
 
 const activityStatusSchema = z.enum([
   "PENDING",
@@ -30,7 +31,7 @@ export const activitySchema = z.object({
   serviceName: z.string().max(120).optional(),
   status: activityStatusSchema.optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
-  slaDueAt: z.coerce.date().nullable().optional()
+  slaDueAt: bodyDatetimeSchema.nullable().optional()
 });
 
 export const moveActivitySchema = z.object({

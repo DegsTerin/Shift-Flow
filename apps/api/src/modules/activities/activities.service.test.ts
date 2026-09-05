@@ -16,6 +16,11 @@ const dateRanges = vi.hoisted(() => ({
   resolve: vi.fn()
 }));
 
+const datetimes = vi.hoisted(() => ({ resolve: vi.fn() }));
+vi.mock("../../shared/services/zoned-datetime.service.js", () => ({
+  resolveCompanyDatetime: datetimes.resolve
+}));
+
 vi.mock("../../shared/services/scope.service.js", () => ({
   activeCompanyId: (req: ApiRequest) => req.auth?.companyId,
   assertClientInCompany: scopeChecks.client,
@@ -47,6 +52,7 @@ const instantBounds: DateRangeQuery = {
 beforeEach(() => {
   vi.clearAllMocks();
   dateRanges.resolve.mockResolvedValue(undefined);
+  datetimes.resolve.mockImplementation(async (_companyId, value) => value);
 });
 
 function request(query: Record<string, unknown> = {}) {
@@ -111,6 +117,41 @@ function evidencedRepository(previous: Record<string, unknown> = {}) {
 }
 
 describe("ActivitiesService", () => {
+  it("resolves a create SLA in the authenticated Company before persisting evidence", async () => {
+    const resolved = new Date("2026-07-04T09:20:30.123Z");
+    datetimes.resolve.mockResolvedValueOnce(resolved);
+    const { repository, captured } = evidencedRepository();
+    await serviceWith(repository).create(request(), {
+      clientId: "client-1",
+      teamId: "team-1",
+      title: "Incident",
+      slaDueAt: "2026-07-04T10:20:30.123"
+    });
+    expect(datetimes.resolve).toHaveBeenCalledWith(companyId, "2026-07-04T10:20:30.123");
+    expect(captured.createData?.slaDueAt).toEqual(resolved);
+  });
+
+  it("resolves a changed SLA before the audited update and omits an unchanged SLA", async () => {
+    const resolved = new Date("2026-07-04T09:20:30.123Z");
+    datetimes.resolve.mockResolvedValueOnce(resolved);
+    const { repository, captured } = evidencedRepository();
+    const service = serviceWith(repository);
+    await service.update(request(), "activity-1", { slaDueAt: "2026-07-04T10:20:30.123" });
+    expect(captured.mutationData?.slaDueAt).toEqual(resolved);
+    await service.update(request(), "activity-1", { title: "Unchanged SLA" });
+    expect(captured.mutationData).not.toHaveProperty("slaDueAt");
+    expect(datetimes.resolve).toHaveBeenCalledOnce();
+  });
+
+  it("does not mutate when Company SLA resolution fails", async () => {
+    datetimes.resolve.mockRejectedValueOnce(new Error("Company timezone unavailable"));
+    const { repository } = evidencedRepository();
+    await expect(
+      serviceWith(repository).update(request(), "activity-1", { slaDueAt: "2026-07-04T10:20" })
+    ).rejects.toThrow("Company timezone unavailable");
+    expect(repository.updateWithEvidence).not.toHaveBeenCalled();
+  });
+
   it("honours requested pagination and combines attention with explicit filters", async () => {
     const filteredList = vi.fn().mockResolvedValue({ items: [], total: 0, page: 2, pageSize: 10 });
     const service = serviceWith({ filteredList } as Partial<ActivitiesRepository>);

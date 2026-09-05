@@ -8,6 +8,7 @@ import {
   priorityLabel,
   productAssignableRoles,
   roleUpdatePayload,
+  recordPayload,
   slaLabel,
   statusLabel,
   userPayload,
@@ -40,6 +41,18 @@ describe("slaLabel", () => {
 });
 
 describe("activityPayload", () => {
+  it("omits an unchanged zoned SLA when another field is edited", () => {
+    const form = new FormData();
+    form.set("title", "Renamed activity");
+    form.set("slaDueAt", "2026-08-30T12:00");
+    const payload = activityPayload(
+      form,
+      { id: "activity-a", title: "Activity", slaDueAt: "2026-08-30T15:00:34.987Z" },
+      "America/Sao_Paulo"
+    );
+    expect(JSON.parse(JSON.stringify(payload))).not.toHaveProperty("slaDueAt");
+  });
+
   it("preserves all current references when an unrelated edit omits unloaded selectors", () => {
     const form = new FormData();
     form.set("title", "Renamed activity");
@@ -122,6 +135,39 @@ describe("activityPayload", () => {
       finalizationDetail: "",
       observations: "",
       slaDueAt: null
+    });
+  });
+});
+
+describe("Shift zoned payload", () => {
+  const shift = {
+    id: "shift-a",
+    name: "Shift",
+    startsAt: "2026-08-30T12:00:34.987Z",
+    endsAt: "2026-08-30T20:00:56.789Z",
+    timezone: "Europe/London"
+  };
+
+  it("preserves both instants when only the timezone changes", () => {
+    const form = new FormData();
+    form.set("name", "Renamed shift");
+    form.set("startsAt", "2026-08-30T13:00");
+    form.set("endsAt", "2026-08-30T21:00");
+    form.set("timezone", "UTC");
+    const payload = JSON.parse(JSON.stringify(recordPayload("shifts", form, [], [], shift)));
+    expect(payload).toEqual({ name: "Renamed shift", timezone: "UTC" });
+  });
+
+  it("sends only the changed bound for resolution in the newly submitted zone", () => {
+    const form = new FormData();
+    form.set("name", "Shift");
+    form.set("startsAt", "2026-08-30T14:00");
+    form.set("endsAt", "2026-08-30T21:00");
+    form.set("timezone", "UTC");
+    expect(JSON.parse(JSON.stringify(recordPayload("shifts", form, [], [], shift)))).toEqual({
+      name: "Shift",
+      startsAt: "2026-08-30T14:00",
+      timezone: "UTC"
     });
   });
 });

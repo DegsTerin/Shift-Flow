@@ -1,5 +1,6 @@
 // en-GB: Provides shared utils definitions so frontend modules use one consistent implementation.
 import { apiRequest } from "./api";
+import { datetimeFieldPayload } from "./zoned-datetime";
 import type {
   ActivityItem,
   ClientRef,
@@ -65,11 +66,13 @@ export function countOf(item: { _count?: { _all?: number } }) {
   return item._count?._all ?? 0;
 }
 
-export function formatDateTime(value?: string | null, locale: Locale = "pt-BR") {
+export function formatDateTime(value?: string | null, locale: Locale = "pt-BR", timezone?: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(
-    new Date(value)
-  );
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: timezone
+  }).format(new Date(value));
 }
 
 export function formatTime(value?: string | null, locale: Locale = "pt-BR") {
@@ -128,12 +131,7 @@ export function idOf(row: unknown) {
     : "";
 }
 
-export function toDateInputValue(value: Date) {
-  const offset = value.getTimezoneOffset();
-  return new Date(value.getTime() - offset * 60000).toISOString().slice(0, 16);
-}
-
-export function activityPayload(form: FormData, current?: ActivityItem) {
+export function activityPayload(form: FormData, current?: ActivityItem, companyTimezone?: string) {
   const field = (name: string, fallback = "") =>
     form.has(name) ? String(form.get(name) ?? "") : fallback;
   const optionalText = (name: string) =>
@@ -157,7 +155,7 @@ export function activityPayload(form: FormData, current?: ActivityItem) {
     serviceName: optionalText("serviceName"),
     status: field("status", current?.status ?? "PENDING"),
     priority: field("priority", current?.priority ?? "MEDIUM"),
-    slaDueAt: optionalNullable("slaDueAt", current?.slaDueAt),
+    slaDueAt: datetimeFieldPayload(form, "slaDueAt", current?.slaDueAt, companyTimezone),
     description: optionalText("description"),
     requested: optionalText("requested"),
     performed: optionalText("performed"),
@@ -259,12 +257,16 @@ export function teamPayload(form: FormData) {
   };
 }
 
-function shiftContentPayload(form: FormData) {
+function shiftContentPayload(form: FormData, current?: ShiftRef) {
   return {
     name: String(form.get("name") ?? ""),
-    startsAt: String(form.get("startsAt") ?? ""),
-    endsAt: String(form.get("endsAt") ?? ""),
-    timezone: String(form.get("timezone") || "America/Sao_Paulo")
+    startsAt: current
+      ? datetimeFieldPayload(form, "startsAt", current.startsAt, current.timezone)
+      : String(form.get("startsAt") ?? ""),
+    endsAt: current
+      ? datetimeFieldPayload(form, "endsAt", current.endsAt, current.timezone)
+      : String(form.get("endsAt") ?? ""),
+    timezone: form.has("timezone") ? String(form.get("timezone") ?? "") : undefined
   };
 }
 
@@ -288,15 +290,17 @@ export function recordPayload(
   entity: View,
   form: FormData,
   clients: ClientRef[],
-  teams: TeamRef[]
+  teams: TeamRef[],
+  current?: unknown,
+  companyTimezone?: string
 ) {
   if (entity === "users") return userPayload(form);
   if (entity === "clients") return clientPayload(form);
   if (entity === "teams") return teamPayload(form);
-  if (entity === "shifts") return shiftContentPayload(form);
+  if (entity === "shifts") return shiftContentPayload(form, current as ShiftRef | undefined);
   if (entity === "activities" || entity === "kanban")
     return {
-      ...activityPayload(form),
+      ...activityPayload(form, current as ActivityItem | undefined, companyTimezone),
       clientId: String(form.get("clientId") || clients[0]?.id || ""),
       teamId: String(form.get("teamId") || teams[0]?.id || "")
     };

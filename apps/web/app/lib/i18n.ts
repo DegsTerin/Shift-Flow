@@ -69,6 +69,9 @@ export const messages = {
     colour: "Cor",
     description: "Descrição",
     timeZone: "Fuso horário",
+    timeZoneUnavailable: "Fuso horário indisponível; os campos afetados não podem ser editados.",
+    shiftTimeZoneHint:
+      "Alterar apenas o fuso mantém os instantes salvos. Horários editados usam o novo fuso.",
     company: "Empresa",
     interface: "Interface",
     security: "Segurança",
@@ -358,6 +361,9 @@ export const messages = {
     colour: "Colour",
     description: "Description",
     timeZone: "Time zone",
+    timeZoneUnavailable: "Time zone unavailable; affected fields cannot be edited.",
+    shiftTimeZoneHint:
+      "Changing only the time zone preserves saved instants. Edited times use the new zone.",
     company: "Company",
     interface: "Interface",
     security: "Security",
