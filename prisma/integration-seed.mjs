@@ -336,6 +336,71 @@ async function main() {
     { companyId: company.id, userId: admin.id, roleId: role.id }
   );
 
+  // The second tenant has only the permissions needed by the Company/coverage browser proof.
+  // Keep the original default membership, analyst and activity benchmark unchanged.
+  const londonCompany = await findOrCreate(
+    prisma.company,
+    { name: "ShiftFlow London Integration Company" },
+    {
+      name: "ShiftFlow London Integration Company",
+      timezone: "Europe/London",
+      status: "ACTIVE"
+    },
+    { timezone: "Europe/London", status: "ACTIVE", deletedAt: null }
+  );
+  await ensureLink(
+    prisma.userCompany,
+    { companyId: londonCompany.id, userId: admin.id },
+    { companyId: londonCompany.id, userId: admin.id, isDefault: false }
+  );
+  const londonRole = await findOrCreate(
+    prisma.role,
+    { companyId: londonCompany.id, name: "Integration Coverage Operator" },
+    { companyId: londonCompany.id, name: "Integration Coverage Operator", scope: "COMPANY" },
+    { scope: "COMPANY", deletedAt: null }
+  );
+  for (const [resource, action] of [
+    ["dashboard", "read"],
+    ["shifts", "read"],
+    ["shifts", "write"],
+    ["users", "read"]
+  ]) {
+    const permission = await findOrCreate(
+      prisma.permission,
+      { companyId: londonCompany.id, resource, action },
+      { companyId: londonCompany.id, resource, action },
+      { deletedAt: null }
+    );
+    await ensureLink(
+      prisma.rolePermission,
+      { roleId: londonRole.id, permissionId: permission.id },
+      { companyId: londonCompany.id, roleId: londonRole.id, permissionId: permission.id }
+    );
+  }
+  await ensureLink(
+    prisma.userRoleAssignment,
+    { companyId: londonCompany.id, userId: admin.id, roleId: londonRole.id, deletedAt: null },
+    { companyId: londonCompany.id, userId: admin.id, roleId: londonRole.id }
+  );
+  const londonShift = {
+    startsAt: new Date("2026-07-04T08:00:00.123Z"),
+    endsAt: new Date("2026-07-04T17:00:00.456Z"),
+    timezone: "Europe/London",
+    status: "OPEN",
+    updatedById: admin.id
+  };
+  await findOrCreate(
+    prisma.shift,
+    { companyId: londonCompany.id, name: "London Integration Shift" },
+    {
+      ...londonShift,
+      companyId: londonCompany.id,
+      name: "London Integration Shift",
+      createdById: admin.id
+    },
+    { ...londonShift, deletedAt: null }
+  );
+
   const activitySpecs = [
     {
       title: "Validate priority incident queue",

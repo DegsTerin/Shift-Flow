@@ -25,6 +25,11 @@ async function settleVisualState(page: Page) {
   await page.evaluate(async () => document.fonts.ready);
 }
 
+async function clearTableHover(page: Page) {
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".compact-table tbody tr:hover")).toHaveCount(0);
+}
+
 async function login(page: Page) {
   const credentials = {
     email: requiredE2eEnv("E2E_EMAIL"),
@@ -39,7 +44,17 @@ async function login(page: Page) {
 }
 
 async function waitForDashboard(page: Page) {
-  await expect(page.locator('main.workspace[aria-busy="false"]')).toBeVisible();
+  await expect(page.locator("main.workspace")).toBeVisible();
+  await expect(page.locator(".custom-dashboard")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Personalizar Dashboard|Customise Dashboard/ })
+  ).toBeVisible();
+  await expect(page.locator('.custom-dashboard [aria-busy="true"]')).toHaveCount(0);
+  await expect(page.locator(".custom-dashboard .panel[aria-busy]")).toHaveCount(0);
+  await expect(
+    page.getByText(/Dados desta seção indisponíveis|This section's data is unavailable/)
+  ).toHaveCount(0);
+  await expect(page.getByText(/Leiaute padrão temporário|Temporary default layout/)).toHaveCount(0);
   const referenceLabels = page.locator(".filter-bar .reference-field > span");
   await expect(referenceLabels).toHaveCount(4);
   for (let index = 0; index < 4; index += 1) {
@@ -103,6 +118,7 @@ test.describe("STATE-08 visual regression", () => {
     ];
 
     // The complete shell intentionally protects cross-section composition; the targeted table capture covers its hidden edge.
+    await clearTableHover(page);
     await expect(workspaceShell).toHaveScreenshot("dashboard.png", {
       animations: "disabled",
       caret: "hide",
@@ -124,6 +140,7 @@ test.describe("STATE-08 visual regression", () => {
     await expect
       .poll(async () => tableViewport.evaluate((element) => element.scrollLeft))
       .toBeGreaterThan(0);
+    await clearTableHover(page);
     await expect(tableViewport).toHaveScreenshot("dashboard-table-right.png", {
       animations: "disabled",
       caret: "hide",
