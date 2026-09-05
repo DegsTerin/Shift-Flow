@@ -2,6 +2,7 @@
 "use client";
 
 import { Download } from "lucide-react";
+import type { DashboardAvailability, DashboardResource, DashboardStatus } from "../lib/page-data";
 import type {
   ActivityItem,
   DashboardCharts,
@@ -68,23 +69,36 @@ function TeamSummaryStrip({
   teams,
   activityCounts,
   pagination,
-  t
+  t,
+  countsKnown = true
 }: {
   teams: TeamRef[];
   activityCounts: Map<string, number>;
   pagination?: TablePagination;
   t?: Texts;
+  countsKnown?: boolean;
 }) {
   return (
     <div>
       <section className="team-summary">
+        {!teams.length && t ? (
+          <p className="empty-state" role="status">
+            {t.dashboardDirectoryEmpty}
+          </p>
+        ) : null}
         {teams.map((team, index) => (
           <article className="team-strip" key={team.id ?? team.name}>
             <span style={{ backgroundColor: chartColorForTeam(team.id, teams, index) }} />
             <div className="team-strip-body">
               <div className="team-strip-heading">
                 <strong className="team-strip-name">{team.name ?? "-"}</strong>
-                <b>{team.id ? (activityCounts.get(team.id) ?? 0) : 0}</b>
+                <b>
+                  {countsKnown
+                    ? team.id
+                      ? (activityCounts.get(team.id) ?? 0)
+                      : 0
+                    : t?.dashboardCountUnavailable}
+                </b>
               </div>
               <small className="team-strip-sla">
                 {team.defaultSlaMinutes ? `${team.defaultSlaMinutes} min SLA` : "-"}
@@ -104,6 +118,49 @@ function TeamSummaryStrip({
       ) : null}
     </div>
   );
+}
+
+function dashboardStateText(status: DashboardStatus, t: Texts) {
+  return status === "loading"
+    ? t.dashboardDependencyLoading
+    : status === "skipped"
+      ? t.dashboardDependencySkipped
+      : t.dashboardDependencyError;
+}
+
+function availableDashboardDefinitions(
+  definitions: DashboardWidgetDefinition[],
+  availability: DashboardAvailability | undefined,
+  t: Texts
+) {
+  if (!availability) return definitions;
+  return definitions.map((definition) => {
+    const key = definition.key;
+    const resource: DashboardResource | undefined =
+      key === "status-legend"
+        ? undefined
+        : key === "team-summary"
+          ? "teamDirectory"
+          : key.startsWith("summary-") || key === "operational-alerts"
+            ? "summary"
+            : key === "activity-list" || key === "team-activity-list"
+              ? "operationalActivities"
+              : "charts";
+    const status = resource ? availability[resource] : "ready";
+    return status === "ready"
+      ? definition
+      : {
+          ...definition,
+          render: () => (
+            <article className="panel" aria-busy={status === "loading"}>
+              <h2>{definition.title}</h2>
+              <p role="status" aria-live="polite">
+                {dashboardStateText(status, t)}
+              </p>
+            </article>
+          )
+        };
+  });
 }
 
 function withMainTeamSummary(
@@ -189,6 +246,7 @@ export function MainDashboard({
   onSaveLayout,
   onResetLayout,
   canConfigure,
+  availability,
   pagination,
   onNew,
   onOpen
@@ -203,6 +261,7 @@ export function MainDashboard({
   onSaveLayout: (config: DashboardConfiguration) => Promise<DashboardConfiguration | void>;
   onResetLayout: () => Promise<DashboardConfiguration | void>;
   canConfigure: boolean;
+  availability?: DashboardAvailability;
   pagination?: TablePagination;
   onNew?: () => void;
   onOpen?: (item: ActivityItem) => void;
@@ -355,6 +414,7 @@ export function MainDashboard({
           activityCounts={teamActivityCounts}
           pagination={pagination}
           t={t}
+          countsKnown={!availability || availability.charts === "ready"}
         />
       )
     },
@@ -463,14 +523,21 @@ export function MainDashboard({
   ];
 
   return (
-    <CustomizableDashboard
-      t={t}
-      config={prepareMainDashboardLayout(layout, t.teamsWidgetDefaultTitle, definitions)}
-      definitions={definitions}
-      canConfigure={canConfigure}
-      onSave={onSaveLayout}
-      onReset={onResetLayout}
-    />
+    <>
+      {availability && availability.configuration !== "ready" ? (
+        <p className="guard-note full-width" role="status" aria-live="polite">
+          {dashboardStateText(availability.configuration, t)} {t.dashboardLayoutReadOnly}
+        </p>
+      ) : null}
+      <CustomizableDashboard
+        t={t}
+        config={prepareMainDashboardLayout(layout, t.teamsWidgetDefaultTitle, definitions)}
+        definitions={availableDashboardDefinitions(definitions, availability, t)}
+        canConfigure={canConfigure && (!availability || availability.configuration === "ready")}
+        onSave={onSaveLayout}
+        onReset={onResetLayout}
+      />
+    </>
   );
 }
 
@@ -484,6 +551,7 @@ export function TeamDashboard({
   onSaveLayout,
   onResetLayout,
   canConfigure,
+  availability,
   pagination,
   onNew,
   onOpen
@@ -497,6 +565,7 @@ export function TeamDashboard({
   onSaveLayout: (config: DashboardConfiguration) => Promise<DashboardConfiguration | void>;
   onResetLayout: () => Promise<DashboardConfiguration | void>;
   canConfigure: boolean;
+  availability?: DashboardAvailability;
   pagination?: TablePagination;
   onNew?: () => void;
   onOpen?: (item: ActivityItem) => void;
@@ -517,6 +586,7 @@ export function TeamDashboard({
           activityCounts={teamActivityCounts}
           pagination={pagination}
           t={t}
+          countsKnown={!availability || availability.charts === "ready"}
         />
       )
     },
@@ -565,14 +635,21 @@ export function TeamDashboard({
   ];
 
   return (
-    <CustomizableDashboard
-      t={t}
-      config={layout}
-      definitions={definitions}
-      canConfigure={canConfigure}
-      onSave={onSaveLayout}
-      onReset={onResetLayout}
-    />
+    <>
+      {availability && availability.configuration !== "ready" ? (
+        <p className="guard-note full-width" role="status" aria-live="polite">
+          {dashboardStateText(availability.configuration, t)} {t.dashboardLayoutReadOnly}
+        </p>
+      ) : null}
+      <CustomizableDashboard
+        t={t}
+        config={layout}
+        definitions={availableDashboardDefinitions(definitions, availability, t)}
+        canConfigure={canConfigure && (!availability || availability.configuration === "ready")}
+        onSave={onSaveLayout}
+        onReset={onResetLayout}
+      />
+    </>
   );
 }
 

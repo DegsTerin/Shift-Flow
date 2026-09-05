@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import type { DashboardLayoutKey, MenuItem } from "../lib/page-config";
+import type { DashboardAvailability } from "../lib/page-data";
 import type {
   ActivityItem,
   ClientRef,
@@ -76,6 +77,8 @@ export interface PageWorkspaceProps {
   charts: DashboardCharts;
   clients: ClientRef[];
   dashboardLayouts: Record<DashboardLayoutKey, DashboardConfiguration>;
+  dashboardAvailability: DashboardAvailability;
+  dashboardLayoutGenerations: Record<DashboardLayoutKey, number>;
   dragged: string | null;
   drawerOpen: boolean;
   filters: Filters;
@@ -181,6 +184,8 @@ export function PageWorkspace({
   charts,
   clients,
   dashboardLayouts,
+  dashboardAvailability,
+  dashboardLayoutGenerations,
   dragged,
   drawerOpen,
   filters,
@@ -322,7 +327,7 @@ export function PageWorkspace({
         </aside>
       ) : null}
       <main
-        aria-busy={loading}
+        aria-busy={view === "dashboard" || view === "team-dashboard" ? undefined : loading}
         className="workspace"
         data-theme={theme}
         id="main-content"
@@ -437,6 +442,8 @@ export function PageWorkspace({
               ) : null}
               {view === "dashboard" && (
                 <MainDashboard
+                  key={`MAIN:${dashboardLayoutGenerations.MAIN}`}
+                  availability={dashboardAvailability}
                   t={t}
                   summary={summary}
                   charts={charts}
@@ -447,12 +454,16 @@ export function PageWorkspace({
                   onSaveLayout={saveDashboardLayout}
                   onResetLayout={() => resetDashboardLayout("MAIN")}
                   canConfigure={can("dashboard", "write") && mainDashboardReady}
-                  pagination={{
-                    page: teamDirectoryDisplayedPage,
-                    pageSize: teamDirectoryDisplayedPageSize,
-                    total: teamDirectoryTotal,
-                    onPage: changeTeamDirectoryPage
-                  }}
+                  pagination={
+                    dashboardAvailability.teamDirectory === "ready"
+                      ? {
+                          page: teamDirectoryDisplayedPage,
+                          pageSize: teamDirectoryDisplayedPageSize,
+                          total: teamDirectoryTotal,
+                          onPage: changeTeamDirectoryPage
+                        }
+                      : undefined
+                  }
                   onNew={canCreateRecord("activities") ? () => openCreate("activities") : undefined}
                   onOpen={
                     can("activities", "read")
@@ -463,14 +474,20 @@ export function PageWorkspace({
               )}
               {view === "team-dashboard" && (
                 <TeamDashboard
+                  key={`TEAM:${dashboardLayoutGenerations.TEAM}`}
+                  availability={dashboardAvailability}
                   t={t}
                   teams={teamDirectory}
-                  pagination={{
-                    page: teamDirectoryDisplayedPage,
-                    pageSize: teamDirectoryDisplayedPageSize,
-                    total: teamDirectoryTotal,
-                    onPage: changeTeamDirectoryPage
-                  }}
+                  pagination={
+                    dashboardAvailability.teamDirectory === "ready"
+                      ? {
+                          page: teamDirectoryDisplayedPage,
+                          pageSize: teamDirectoryDisplayedPageSize,
+                          total: teamDirectoryTotal,
+                          onPage: changeTeamDirectoryPage
+                        }
+                      : undefined
+                  }
                   charts={charts}
                   activities={operationalActivities}
                   locale={locale}

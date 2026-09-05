@@ -132,6 +132,14 @@ export const messages = {
     notificationLoadFailed: "Não foi possível carregar as notificações",
     notificationUpdateFailed: "Não foi possível atualizar a notificação",
     loading: "Carregando",
+    dashboardDependencyLoading: "Carregando dados desta seção.",
+    dashboardDependencyError: "Dados desta seção indisponíveis. Tente atualizar.",
+    dashboardDependencySkipped:
+      "Dados desta seção não disponíveis para esta visualização ou permissão.",
+    dashboardLayoutReadOnly:
+      "Leiaute padrão temporário, somente leitura. A configuração salva ainda não está disponível.",
+    dashboardCountUnavailable: "Indisponível",
+    dashboardDirectoryEmpty: "Nenhuma equipe encontrada.",
     save: "Salvar",
     cancel: "Cancelar",
     edit: "Editar",
@@ -434,6 +442,13 @@ export const messages = {
     notificationLoadFailed: "Notifications could not be loaded",
     notificationUpdateFailed: "The notification could not be updated",
     loading: "Loading",
+    dashboardDependencyLoading: "Loading this section's data.",
+    dashboardDependencyError: "This section's data is unavailable. Try refreshing.",
+    dashboardDependencySkipped: "This section's data is not available for this view or permission.",
+    dashboardLayoutReadOnly:
+      "Temporary default layout, read-only. Saved configuration is not available yet.",
+    dashboardCountUnavailable: "Unavailable",
+    dashboardDirectoryEmpty: "No teams found.",
     save: "Save",
     cancel: "Cancel",
     edit: "Edit",

@@ -31,6 +31,10 @@ import {
   lastPageForTotal,
   managementPageSize,
   rbacPageSize,
+  type DashboardAvailability,
+  type DashboardResource,
+  type DashboardSettlement,
+  type DashboardStatus,
   type ReferenceSettlement,
   type ManagementItem,
   type ManagementView
@@ -146,6 +150,23 @@ type ManagementSnapshot = {
   pageSize: number;
 };
 
+const dashboardResources: DashboardResource[] = [
+  "summary",
+  "charts",
+  "operationalActivities",
+  "configuration",
+  "teamDirectory"
+];
+type DashboardDependencyState = Record<
+  DashboardResource,
+  { context: string; status: DashboardStatus }
+>;
+function emptyDashboardDependencies(): DashboardDependencyState {
+  return Object.fromEntries(
+    dashboardResources.map((resource) => [resource, { context: "", status: "loading" }])
+  ) as DashboardDependencyState;
+}
+
 export default function Page() {
   const portfolioLogin = portfolioLoginConfiguration();
   const [locale, setLocale] = useState<Locale>(defaultLocale);
@@ -201,6 +222,27 @@ export default function Page() {
   const [dashboardLayoutEpochs, setDashboardLayoutEpochs] = useState<
     Record<DashboardLayoutKey, number | null>
   >({ MAIN: null, TEAM: null });
+  const [dashboardDependencies, setDashboardDependencies] = useState(emptyDashboardDependencies);
+  const [dashboardLayoutGenerations, setDashboardLayoutGenerations] = useState({
+    MAIN: 0,
+    TEAM: 0
+  });
+  const layoutAuthority = useRef({
+    MAIN: {
+      epoch: null as number | null,
+      generation: 0,
+      ready: false,
+      writeRevision: 0,
+      pending: 0
+    },
+    TEAM: {
+      epoch: null as number | null,
+      generation: 0,
+      ready: false,
+      writeRevision: 0,
+      pending: 0
+    }
+  });
   const [clients, setClients] = useState<ClientRef[]>([]);
   const [users, setUsers] = useState<UserRef[]>([]);
   const [teams, setTeams] = useState<TeamRef[]>([]);
@@ -255,6 +297,52 @@ export default function Page() {
   const actionLoading = actionPending > 0;
   const managementViewActive = isManagementView(view);
   const renderedSessionEpoch = captureApiSessionEpoch();
+  const dashboardKind = view === "team-dashboard" ? "TEAM" : "MAIN";
+  const boundedSearch = search.trim().slice(0, 200);
+  const dashboardDataContext = JSON.stringify([
+    renderedSessionEpoch,
+    view,
+    filters,
+    requestSearch,
+    boundedSearch
+  ]);
+  const dashboardDirectoryContext = JSON.stringify([
+    renderedSessionEpoch,
+    view,
+    requestSearch,
+    boundedSearch,
+    teamDirectoryPage,
+    teamDirectoryRequestRevision
+  ]);
+  const dashboardConfigurationContext = JSON.stringify([renderedSessionEpoch, dashboardKind]);
+  const currentDashboardContext = useRef({
+    data: dashboardDataContext,
+    directory: dashboardDirectoryContext,
+    view
+  });
+  // A render-time fence also covers the interval before the replacement passive request starts.
+  currentDashboardContext.current = {
+    data: dashboardDataContext,
+    directory: dashboardDirectoryContext,
+    view
+  };
+  const dashboardAvailability = Object.fromEntries(
+    dashboardResources.map((resource) => {
+      const context =
+        resource === "configuration"
+          ? dashboardConfigurationContext
+          : resource === "teamDirectory"
+            ? dashboardDirectoryContext
+            : dashboardDataContext;
+      const state = dashboardDependencies[resource];
+      const invalidQuery =
+        resource !== "configuration" &&
+        resource !== "teamDirectory" &&
+        hasInvertedDateRange(filters);
+      const status = invalidQuery ? "error" : state.context === context ? state.status : "loading";
+      return [resource, status];
+    })
+  ) as DashboardAvailability;
   const mainDashboardReady =
     renderedSessionEpoch !== null && dashboardLayoutEpochs.MAIN === renderedSessionEpoch;
   const teamDashboardReady =
@@ -262,7 +350,13 @@ export default function Page() {
   const loading =
     actionLoading ||
     detailLoading ||
-    (managementViewActive ? managementLoading : view === "roles" ? rbacLoading : dataLoading);
+    (managementViewActive
+      ? managementLoading
+      : view === "roles"
+        ? rbacLoading
+        : view === "dashboard" || view === "team-dashboard"
+          ? Object.values(dashboardAvailability).includes("loading")
+          : dataLoading);
   const visibleError = mostRecentUiError(
     error,
     managementViewActive
@@ -297,6 +391,15 @@ export default function Page() {
     (resource: string, action: string) => hasPermission(permissions, resource, action),
     [permissions]
   );
+  const revokeDashboardLayout = useCallback((kind: DashboardLayoutKey) => {
+    const authority = layoutAuthority.current[kind];
+    if (authority.ready || authority.epoch !== null) authority.generation += 1;
+    authority.ready = false;
+    authority.epoch = null;
+    setDashboardLayoutEpochs((current) => ({ ...current, [kind]: null }));
+    setDashboardLayoutGenerations((current) => ({ ...current, [kind]: authority.generation }));
+    setDashboardLayouts((current) => ({ ...current, [kind]: defaultDashboardLayouts[kind] }));
+  }, []);
   const canCreateRecord = useCallback(
     (entity: View) => {
       const resource = recordResource(entity);
@@ -345,6 +448,10 @@ export default function Page() {
     cancelDetailIntent();
   }, [cancelDetailIntent, loadCoordinator, managementCoordinator, rbacCoordinator]);
   const clearQuerySnapshots = useCallback(() => {
+    setDashboardDependencies((current) => ({
+      ...emptyDashboardDependencies(),
+      configuration: current.configuration
+    }));
     setSummary(emptyDashboardSummary);
     setCharts(emptyDashboardCharts);
     setOperationalActivities([]);
@@ -506,6 +613,17 @@ export default function Page() {
     });
     setDashboardLayouts(defaultDashboardLayouts);
     setDashboardLayoutEpochs({ MAIN: null, TEAM: null });
+    setDashboardDependencies(emptyDashboardDependencies());
+    for (const kind of ["MAIN", "TEAM"] as const) {
+      const authority = layoutAuthority.current[kind];
+      authority.epoch = null;
+      authority.ready = false;
+      authority.generation += 1;
+    }
+    setDashboardLayoutGenerations({
+      MAIN: layoutAuthority.current.MAIN.generation,
+      TEAM: layoutAuthority.current.TEAM.generation
+    });
     setClients([]);
     setUsers([]);
     setTeams([]);
@@ -558,18 +676,142 @@ export default function Page() {
   const loadData = useCallback(async () => {
     if (!token || !availableViews.has(view)) return;
     if (isManagementView(view) || view === "roles" || view === "settings") return;
+    const isDashboard = view === "dashboard" || view === "team-dashboard";
+    const contextFor = (resource: DashboardResource) =>
+      resource === "configuration"
+        ? dashboardConfigurationContext
+        : resource === "teamDirectory"
+          ? dashboardDirectoryContext
+          : dashboardDataContext;
+    if (isDashboard && boundedSearch !== requestSearch) {
+      loadCoordinator.cancel();
+      return;
+    }
     if (hasInvertedDateRange(filters)) {
       loadCoordinator.cancel();
       setDataLoading(false);
       setDataError(null);
+      if (isDashboard)
+        setDashboardDependencies((current) => ({
+          ...current,
+          ...Object.fromEntries(
+            dashboardResources.map((resource) => [
+              resource,
+              resource === "configuration" || resource === "teamDirectory"
+                ? current[resource].context === contextFor(resource)
+                  ? current[resource]
+                  : { context: contextFor(resource), status: "skipped" }
+                : { context: contextFor(resource), status: "error" }
+            ])
+          )
+        }));
       return;
     }
     const sessionEpoch = captureApiSessionEpoch();
     if (sessionEpoch === null) return;
     const request = loadCoordinator.begin();
-    const isCurrent = () => request.isCurrent() && isApiSessionEpochCurrent(sessionEpoch);
+    const isCurrent = () =>
+      request.isCurrent() &&
+      isApiSessionEpochCurrent(sessionEpoch) &&
+      (!isDashboard ||
+        (currentDashboardContext.current.data === dashboardDataContext &&
+          currentDashboardContext.current.directory === dashboardDirectoryContext));
+    const kind = view === "team-dashboard" ? "TEAM" : "MAIN";
+    const layoutReadRevision = layoutAuthority.current[kind].writeRevision;
+    const layoutReadDuringWrite = layoutAuthority.current[kind].pending > 0;
+    const received = new Set<DashboardResource>();
+    const commitDashboard = (settlement: DashboardSettlement) => {
+      if (!isCurrent() || received.has(settlement.resource)) return;
+      received.add(settlement.resource);
+      if (
+        settlement.resource === "configuration" &&
+        settlement.status === "ready" &&
+        (!settlement.value ||
+          settlement.value.dashboardType !== kind ||
+          !Array.isArray(settlement.value.widgets))
+      ) {
+        settlement = {
+          resource: "configuration",
+          status: "error",
+          error: new Error("Dashboard configuration kind mismatch")
+        };
+      }
+      if (settlement.resource === "teamDirectory" && settlement.status === "ready") {
+        const directory = settlement.value;
+        const page = directory.page ?? teamDirectoryPage;
+        const pageSize = directory.pageSize ?? managementPageSize;
+        if (
+          !Number.isInteger(page) ||
+          page < 1 ||
+          !Number.isInteger(pageSize) ||
+          pageSize < 1 ||
+          !Number.isInteger(directory.total) ||
+          directory.total < 0 ||
+          page > lastPageForTotal(directory.total, pageSize)
+        ) {
+          settlement = {
+            resource: "teamDirectory",
+            status: "error",
+            error: new Error("Team directory pagination mismatch")
+          };
+        }
+      }
+      const { resource, status } = settlement;
+      setDashboardDependencies((current) => ({
+        ...current,
+        [resource]: { context: contextFor(resource), status }
+      }));
+      if (settlement.resource === "configuration" && settlement.status !== "ready")
+        revokeDashboardLayout(kind);
+      if (settlement.status !== "ready") return;
+      if (settlement.resource === "summary") setSummary(settlement.value);
+      if (settlement.resource === "charts") setCharts(settlement.value);
+      if (settlement.resource === "operationalActivities")
+        setOperationalActivities(settlement.value);
+      if (settlement.resource === "teamDirectory") {
+        setTeamDirectory(settlement.value.items);
+        setTeamDirectoryTotal(settlement.value.total);
+        setTeamDirectoryDisplayedPage(settlement.value.page ?? teamDirectoryPage);
+        setTeamDirectoryDisplayedPageSize(settlement.value.pageSize ?? managementPageSize);
+      }
+      if (settlement.resource === "configuration") {
+        const authority = layoutAuthority.current[kind];
+        if (!authority.ready || authority.epoch !== sessionEpoch) {
+          authority.generation += 1;
+          setDashboardLayoutGenerations((current) => ({
+            ...current,
+            [kind]: authority.generation
+          }));
+        }
+        // Revalidation must not replace cumulative saves or drafts with an earlier server snapshot.
+        if (
+          !authority.ready ||
+          (!layoutReadDuringWrite &&
+            authority.pending === 0 &&
+            authority.writeRevision === layoutReadRevision)
+        ) {
+          const configuration = settlement.value;
+          setDashboardLayouts((current) => ({ ...current, [kind]: configuration }));
+        }
+        authority.epoch = sessionEpoch;
+        authority.ready = true;
+        setDashboardLayoutEpochs((current) => ({ ...current, [kind]: sessionEpoch }));
+      }
+    };
     setDataLoading(true);
     setDataError(null);
+    if (isDashboard)
+      setDashboardDependencies((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          dashboardResources.map((resource) => [
+            resource,
+            resource === "configuration" && layoutAuthority.current[kind].ready
+              ? { context: contextFor(resource), status: "ready" }
+              : { context: contextFor(resource), status: "loading" }
+          ])
+        )
+      }));
     try {
       const result = await fetchPageData({
         token,
@@ -580,29 +822,11 @@ export default function Page() {
         kanbanPage,
         teamPage: teamDirectoryPage,
         view,
-        signal: request.signal
+        signal: request.signal,
+        onDashboardSettled: commitDashboard
       });
       if (!isCurrent()) return;
-      if (result.teamDirectory && (view === "dashboard" || view === "team-dashboard")) {
-        const requestedPageSize = result.teamDirectory.pageSize ?? managementPageSize;
-        const lastPage = lastPageForTotal(result.teamDirectory.total, requestedPageSize);
-        if (teamDirectoryPage > lastPage) {
-          setTeamDirectory([]);
-          setTeamDirectoryTotal(result.teamDirectory.total);
-          setTeamDirectoryDisplayedPage(lastPage);
-          setTeamDirectoryDisplayedPageSize(requestedPageSize);
-          setTeamDirectoryPage(lastPage);
-          return;
-        }
-        const responsePage = result.teamDirectory.page ?? teamDirectoryPage;
-        if (responsePage !== teamDirectoryPage) {
-          throw new Error(t.managementPaginationMismatch);
-        }
-        setTeamDirectory(result.teamDirectory.items);
-        setTeamDirectoryTotal(result.teamDirectory.total);
-        setTeamDirectoryDisplayedPage(responsePage);
-        setTeamDirectoryDisplayedPageSize(requestedPageSize);
-      }
+      result.dashboardSettlements?.forEach(commitDashboard);
       if (result.activities && (view === "activities" || view === "kanban")) {
         const requestedPage = view === "activities" ? activityPage : kanbanPage;
         const requestedPageSize =
@@ -631,21 +855,29 @@ export default function Page() {
         }
       }
       if (result.dashboard) {
-        if (result.dashboard.summary) setSummary(result.dashboard.summary);
-        if (result.dashboard.charts) setCharts(result.dashboard.charts);
-        if (result.dashboard.operationalActivities) {
-          setOperationalActivities(result.dashboard.operationalActivities);
-        }
-        if (result.dashboard.layouts) {
-          const layouts = result.dashboard.layouts;
-          setDashboardLayouts((current) => ({ ...current, ...layouts }));
-          setDashboardLayoutEpochs((current) => ({
-            ...current,
-            ...(layouts.MAIN ? { MAIN: sessionEpoch } : {}),
-            ...(layouts.TEAM ? { TEAM: sessionEpoch } : {})
-          }));
-        }
+        if (result.dashboard.summary)
+          commitDashboard({
+            resource: "summary",
+            status: "ready",
+            value: result.dashboard.summary
+          });
+        if (result.dashboard.charts)
+          commitDashboard({ resource: "charts", status: "ready", value: result.dashboard.charts });
+        if (result.dashboard.operationalActivities)
+          commitDashboard({
+            resource: "operationalActivities",
+            status: "ready",
+            value: result.dashboard.operationalActivities
+          });
+        const layout = result.dashboard.layouts?.[kind];
+        if (layout) commitDashboard({ resource: "configuration", status: "ready", value: layout });
       }
+      if (result.teamDirectory)
+        commitDashboard({
+          resource: "teamDirectory",
+          status: "ready",
+          value: result.teamDirectory
+        });
       if (result.activities) {
         if (view === "activities") {
           setActivities(result.activities.items);
@@ -663,10 +895,18 @@ export default function Page() {
       if (result.report) setReportSummary(result.report);
       const laneError = result.errors?.[0];
       if (laneError) {
+        if (isDashboard)
+          dashboardResources.forEach((resource) =>
+            commitDashboard({ resource, status: "error", error: laneError })
+          );
         publishDataError(laneError instanceof Error ? laneError.message : t.apiOffline);
       }
     } catch (cause) {
       if (!isCurrent() || isAbortError(cause)) return;
+      if (isDashboard)
+        dashboardResources.forEach((resource) =>
+          commitDashboard({ resource, status: "error", error: cause })
+        );
       publishDataError(cause instanceof Error ? cause.message : t.apiOffline);
     } finally {
       if (isCurrent()) setDataLoading(false);
@@ -674,7 +914,11 @@ export default function Page() {
   }, [
     activityPage,
     activityRequestRevision,
+    boundedSearch,
     can,
+    dashboardConfigurationContext,
+    dashboardDataContext,
+    dashboardDirectoryContext,
     filters,
     kanbanPage,
     kanbanRequestRevision,
@@ -682,6 +926,7 @@ export default function Page() {
     moveCoordinator,
     publishDataError,
     requestSearch,
+    revokeDashboardLayout,
     t.activityPaginationMismatch,
     t.apiOffline,
     t.managementPaginationMismatch,
@@ -1152,41 +1397,65 @@ export default function Page() {
     async (config: DashboardConfiguration) => {
       if (!token || !can("dashboard", "write")) return config;
       if (config.dashboardType !== "MAIN" && config.dashboardType !== "TEAM") return config;
-      const operationEpoch = captureApiSessionEpoch();
+      const operationEpoch = renderedSessionEpoch;
       if (operationEpoch === null) return config;
-      if (dashboardLayoutEpochs[config.dashboardType] !== operationEpoch) return config;
-      const saved = await apiRequest<DashboardConfiguration>(
-        `/api/dashboard/configuration/${config.dashboardType}`,
-        token,
-        { method: "PUT", body: JSON.stringify(config) }
-      );
-      if (!isApiSessionEpochCurrent(operationEpoch)) return config;
-      if (saved.dashboardType === "MAIN" || saved.dashboardType === "TEAM") {
-        setDashboardLayouts((current) => ({ ...current, [saved.dashboardType]: saved }));
+      const authority = layoutAuthority.current[config.dashboardType];
+      const generation = dashboardLayoutGenerations[config.dashboardType];
+      const isAuthorised = () =>
+        isApiSessionEpochCurrent(operationEpoch) &&
+        authority.ready &&
+        authority.epoch === operationEpoch &&
+        authority.generation === generation;
+      if (!isAuthorised()) return config;
+      authority.writeRevision += 1;
+      authority.pending += 1;
+      try {
+        const saved = await apiRequest<DashboardConfiguration>(
+          `/api/dashboard/configuration/${config.dashboardType}`,
+          token,
+          { method: "PUT", body: JSON.stringify(config) }
+        );
+        // Revocation cannot undo a dispatched server write, but it must suppress its stale client result.
+        if (!isAuthorised() || saved.dashboardType !== config.dashboardType) return config;
+        setDashboardLayouts((current) => ({ ...current, [config.dashboardType]: saved }));
+        return saved;
+      } finally {
+        authority.pending -= 1;
       }
-      return saved;
     },
-    [can, dashboardLayoutEpochs, token]
+    [can, dashboardLayoutGenerations, renderedSessionEpoch, token]
   );
 
   const resetDashboardLayout = useCallback(
     async (dashboardType: DashboardLayoutKey) => {
       if (!token || !can("dashboard", "write")) return defaultDashboardLayouts[dashboardType];
-      const operationEpoch = captureApiSessionEpoch();
+      const operationEpoch = renderedSessionEpoch;
       if (operationEpoch === null) return defaultDashboardLayouts[dashboardType];
-      if (dashboardLayoutEpochs[dashboardType] !== operationEpoch) {
-        return defaultDashboardLayouts[dashboardType];
+      const authority = layoutAuthority.current[dashboardType];
+      const generation = dashboardLayoutGenerations[dashboardType];
+      const isAuthorised = () =>
+        isApiSessionEpochCurrent(operationEpoch) &&
+        authority.ready &&
+        authority.epoch === operationEpoch &&
+        authority.generation === generation;
+      if (!isAuthorised()) return defaultDashboardLayouts[dashboardType];
+      authority.writeRevision += 1;
+      authority.pending += 1;
+      try {
+        const saved = await apiRequest<DashboardConfiguration>(
+          `/api/dashboard/configuration/${dashboardType}/reset`,
+          token,
+          { method: "POST", body: JSON.stringify({}) }
+        );
+        if (!isAuthorised() || saved.dashboardType !== dashboardType)
+          return defaultDashboardLayouts[dashboardType];
+        setDashboardLayouts((current) => ({ ...current, [dashboardType]: saved }));
+        return saved;
+      } finally {
+        authority.pending -= 1;
       }
-      const saved = await apiRequest<DashboardConfiguration>(
-        `/api/dashboard/configuration/${dashboardType}/reset`,
-        token,
-        { method: "POST", body: JSON.stringify({}) }
-      );
-      if (!isApiSessionEpochCurrent(operationEpoch)) return defaultDashboardLayouts[dashboardType];
-      setDashboardLayouts((current) => ({ ...current, [dashboardType]: saved }));
-      return saved;
     },
-    [can, dashboardLayoutEpochs, token]
+    [can, dashboardLayoutGenerations, renderedSessionEpoch, token]
   );
 
   async function logout() {
@@ -1283,8 +1552,13 @@ export default function Page() {
     if (!can("dashboard", "write")) return;
     const operationEpoch = captureApiSessionEpoch();
     if (operationEpoch === null) return;
-    if (view === "dashboard" && dashboardLayoutEpochs.MAIN !== operationEpoch) return;
-    if (view === "team-dashboard" && dashboardLayoutEpochs.TEAM !== operationEpoch) return;
+    const authority = layoutAuthority.current[dashboardKind];
+    if (
+      !authority.ready ||
+      authority.epoch !== operationEpoch ||
+      authority.generation !== dashboardLayoutGenerations[dashboardKind]
+    )
+      return;
     window.dispatchEvent(new Event("shiftflow:customize-dashboard"));
   }
 
@@ -1486,9 +1760,14 @@ export default function Page() {
       authorisedView={authorisedView}
       availableMenu={availableMenu}
       availableViews={availableViews}
-      charts={charts}
+      charts={dashboardAvailability.charts === "ready" ? charts : emptyDashboardCharts}
       clients={clients}
-      dashboardLayouts={dashboardLayouts}
+      dashboardLayouts={{
+        MAIN: mainDashboardReady ? dashboardLayouts.MAIN : defaultDashboardLayouts.MAIN,
+        TEAM: teamDashboardReady ? dashboardLayouts.TEAM : defaultDashboardLayouts.TEAM
+      }}
+      dashboardAvailability={dashboardAvailability}
+      dashboardLayoutGenerations={dashboardLayoutGenerations}
       dragged={dragged}
       drawerOpen={drawerOpen}
       filters={filters}
@@ -1514,7 +1793,9 @@ export default function Page() {
       notificationsError={notificationsError}
       notificationsLoading={notificationsLoading}
       notificationsOpen={notificationsOpen}
-      operationalActivities={operationalActivities}
+      operationalActivities={
+        dashboardAvailability.operationalActivities === "ready" ? operationalActivities : []
+      }
       rbacDisplayedPage={rbacDisplayedPage}
       rbacDisplayedPageSize={rbacDisplayedPageSize}
       rbacLoading={rbacLoading}
@@ -1527,10 +1808,10 @@ export default function Page() {
       searchableViews={searchableViews}
       session={session}
       shifts={shifts}
-      summary={summary}
+      summary={dashboardAvailability.summary === "ready" ? summary : emptyDashboardSummary}
       t={t}
       teamDashboardReady={teamDashboardReady}
-      teamDirectory={teamDirectory}
+      teamDirectory={dashboardAvailability.teamDirectory === "ready" ? teamDirectory : []}
       teamDirectoryDisplayedPage={teamDirectoryDisplayedPage}
       teamDirectoryDisplayedPageSize={teamDirectoryDisplayedPageSize}
       teamDirectoryTotal={teamDirectoryTotal}

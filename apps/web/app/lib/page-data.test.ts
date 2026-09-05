@@ -11,6 +11,8 @@ import {
   lastPageForTotal,
   managementPageSize,
   rbacPageSize,
+  type DashboardResource,
+  type DashboardSettlement,
   type PageRequester
 } from "./page-data";
 
@@ -248,7 +250,7 @@ describe("fetchPageData", () => {
     );
   });
 
-  it("fails a TEAM snapshot atomically without requesting MAIN configuration", async () => {
+  it("retains TEAM data when its configuration fails without requesting MAIN configuration", async () => {
     const request = vi.fn(async (path: string) => {
       if (path === "/api/dashboard/configuration/TEAM") throw new Error("TEAM failed");
       return {};
@@ -266,11 +268,157 @@ describe("fetchPageData", () => {
       request: request as unknown as PageRequester
     });
 
-    expect(result.dashboard).toBeUndefined();
-    expect(result.errors).toEqual([expect.objectContaining({ message: "TEAM failed" })]);
+    expect(result.dashboard?.charts).toEqual({});
+    expect(result.dashboardSettlements).toContainEqual({
+      resource: "configuration",
+      status: "error",
+      error: expect.objectContaining({ message: "TEAM failed" })
+    });
+    expect(result.errors).toEqual([]);
     expect(request.mock.calls.some(([path]) => path === "/api/dashboard/configuration/MAIN")).toBe(
       false
     );
+  });
+
+  const dashboardValues = {
+    summary: { total: 0 },
+    charts: { byStatus: [] },
+    operationalActivities: [],
+    configuration: { dashboardType: "MAIN", widgets: [] },
+    teamDirectory: { items: [], total: 0, page: 1, pageSize: 12 }
+  };
+  const resources = Object.keys(dashboardValues) as DashboardResource[];
+  const resourceFor = (path: string): DashboardResource =>
+    path.startsWith("/api/teams?")
+      ? "teamDirectory"
+      : path.includes("/configuration/")
+        ? "configuration"
+        : path.includes("/operational-list")
+          ? "operationalActivities"
+          : path.includes("/summary")
+            ? "summary"
+            : "charts";
+  const dashboardOptions = () => ({
+    token: "token",
+    can: () => true,
+    filters: emptyFilters,
+    search: "",
+    activityPage: 1,
+    kanbanPage: 1,
+    view: "dashboard" as const,
+    signal: new AbortController().signal
+  });
+
+  it.each(resources)(
+    "settles %s failure independently of the other four dependencies",
+    async (failed) => {
+      const events: DashboardSettlement[] = [];
+      const request = vi.fn(async (path: string) => {
+        const resource = resourceFor(path);
+        if (resource === failed) throw new Error(`${resource} unavailable`);
+        return dashboardValues[resource];
+      });
+      const result = await fetchPageData({
+        ...dashboardOptions(),
+        request: request as PageRequester,
+        onDashboardSettled: (event) => events.push(event)
+      });
+      expect(events).toHaveLength(5);
+      expect(events.filter((event) => event.status === "ready")).toHaveLength(4);
+      expect(events.find((event) => event.resource === failed)?.status).toBe("error");
+      expect(result.dashboardSettlements).toHaveLength(5);
+      expect(result.errors).toEqual([]);
+    }
+  );
+
+  it.each(resources)("publishes four dependencies while %s remains pending", async (pending) => {
+    const operation = deferred<unknown>();
+    const events: DashboardSettlement[] = [];
+    const request = vi.fn(async (path: string) =>
+      resourceFor(path) === pending ? operation.promise : dashboardValues[resourceFor(path)]
+    );
+    const completed = vi.fn();
+    const result = fetchPageData({
+      ...dashboardOptions(),
+      request: request as PageRequester,
+      onDashboardSettled: (event) => events.push(event)
+    }).then(completed);
+    await vi.waitFor(() => expect(events).toHaveLength(4));
+    expect(events.every((event) => event.status === "ready")).toBe(true);
+    expect(completed).not.toHaveBeenCalled();
+    operation.resolve(dashboardValues[pending]);
+    await result;
+    expect(events).toHaveLength(5);
+  });
+
+  it("distinguishes legitimate zero and empty results from permission and view skips", async () => {
+    const request = vi.fn(async (path: string) => dashboardValues[resourceFor(path)]);
+    const full = await fetchPageData({ ...dashboardOptions(), request: request as PageRequester });
+    expect(full.dashboardSettlements?.every((event) => event.status === "ready")).toBe(true);
+    expect(full.dashboard?.summary?.total).toBe(0);
+    expect(full.dashboard?.operationalActivities).toEqual([]);
+    const team = await fetchPageData({
+      ...dashboardOptions(),
+      view: "team-dashboard",
+      can: (resource) => resource === "dashboard",
+      request: request as PageRequester
+    });
+    expect(team.dashboardSettlements).toContainEqual({ resource: "summary", status: "skipped" });
+    expect(team.dashboardSettlements).toContainEqual({
+      resource: "teamDirectory",
+      status: "skipped"
+    });
+    request.mockClear();
+    const events: DashboardSettlement[] = [];
+    await fetchPageData({
+      ...dashboardOptions(),
+      can: () => false,
+      request: request as PageRequester,
+      onDashboardSettled: (event) => events.push(event)
+    });
+    expect(request).not.toHaveBeenCalled();
+    expect(events).toHaveLength(5);
+    expect(events.every((event) => event.status === "skipped")).toBe(true);
+  });
+
+  it("corrects an out-of-range directory page without refetching other dependencies", async () => {
+    const request = vi.fn(async (path: string) => {
+      if (path.startsWith("/api/teams?"))
+        return {
+          items: [],
+          total: 13,
+          page: Number(new URL(path, "https://shiftflow.local").searchParams.get("page")),
+          pageSize: 12
+        };
+      return dashboardValues[resourceFor(path)];
+    });
+    const result = await fetchPageData({
+      ...dashboardOptions(),
+      teamPage: 9,
+      request: request as PageRequester
+    });
+    expect(result.teamDirectory?.page).toBe(2);
+    expect(request.mock.calls.filter(([path]) => path.startsWith("/api/teams?"))).toHaveLength(2);
+    expect(request.mock.calls.filter(([path]) => !path.startsWith("/api/teams?"))).toHaveLength(4);
+  });
+
+  it("confines a directory pagination mismatch to its own failed settlement", async () => {
+    const request = vi.fn(async (path: string) =>
+      path.startsWith("/api/teams?")
+        ? { items: [], total: 100, page: 3, pageSize: 12 }
+        : dashboardValues[resourceFor(path)]
+    );
+    const result = await fetchPageData({
+      ...dashboardOptions(),
+      request: request as PageRequester
+    });
+    expect(result.dashboardSettlements).toContainEqual({
+      resource: "teamDirectory",
+      status: "error",
+      error: expect.any(Error)
+    });
+    expect(result.dashboard?.summary?.total).toBe(0);
+    expect(result.dashboard?.layouts?.MAIN).toEqual(dashboardValues.configuration);
   });
 
   it("calculates the last valid server page without allowing page zero", () => {

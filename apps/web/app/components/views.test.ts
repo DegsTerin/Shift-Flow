@@ -11,6 +11,7 @@ import type {
   Texts
 } from "../lib/types";
 import { defaultDashboardLayouts } from "../lib/page-config";
+import type { DashboardAvailability, DashboardResource } from "../lib/page-data";
 import type { DashboardWidgetDefinition } from "./custom-dashboard";
 import {
   KanbanBoard,
@@ -30,12 +31,15 @@ function dashboardHtml(
   kind: "MAIN" | "TEAM",
   locale: Locale,
   keys: string[],
-  summaryPatch: Partial<DashboardSummary> = {}
+  summaryPatch: Partial<DashboardSummary> = {},
+  availability?: DashboardAvailability,
+  teams: Array<{ id: string; name: string }> = []
 ) {
   const common = {
     t: messages[locale],
     locale,
-    teams: [],
+    teams,
+    availability,
     activities: [],
     canConfigure: false,
     charts: {
@@ -75,6 +79,90 @@ function dashboardHtml(
 }
 
 describe("Dashboard rendered metric semantics", () => {
+  const ready: DashboardAvailability = {
+    summary: "ready",
+    charts: "ready",
+    operationalActivities: "ready",
+    configuration: "ready",
+    teamDirectory: "ready"
+  };
+  const widgets: Record<Exclude<DashboardResource, "configuration">, string[]> = {
+    summary: ["summary-total", "summary-average-resolution", "operational-alerts"],
+    charts: ["chart-status", "chart-shift", "kanban-summary"],
+    operationalActivities: ["activity-list"],
+    teamDirectory: ["team-summary"]
+  };
+  it.each(["pt-BR", "en-GB"] as const)(
+    "renders accessible dependency-specific loading, error and skipped states in %s",
+    (locale) => {
+      for (const resource of Object.keys(widgets) as Array<keyof typeof widgets>) {
+        for (const status of ["loading", "error", "skipped"] as const) {
+          const html = dashboardHtml(
+            "MAIN",
+            locale,
+            widgets[resource],
+            { total: 99 },
+            { ...ready, [resource]: status }
+          );
+          const message =
+            status === "loading"
+              ? messages[locale].dashboardDependencyLoading
+              : status === "error"
+                ? messages[locale].dashboardDependencyError
+                : messages[locale].dashboardDependencySkipped;
+          expect(html).toContain(message.replaceAll("'", "&#x27;"));
+          expect(html).toContain('role="status"');
+          expect(html).toContain('aria-live="polite"');
+          expect(html).not.toContain("<strong>99</strong>");
+          expect(html).not.toContain("<small>OK</small>");
+          expect(html).not.toContain("<b>22</b>");
+        }
+      }
+    }
+  );
+
+  it.each(["pt-BR", "en-GB"] as const)(
+    "retains ready teams without inventing unavailable chart counts in %s",
+    (locale) => {
+      const html = dashboardHtml(
+        "MAIN",
+        locale,
+        ["team-summary"],
+        {},
+        { ...ready, charts: "error" },
+        [{ id: "team-a", name: "Response team" }]
+      );
+      expect(html).toContain("Response team");
+      expect(html).toContain(`<b>${messages[locale].dashboardCountUnavailable}</b>`);
+      expect(html).not.toContain("<b>0</b>");
+      expect(html).not.toContain("<b>11</b>");
+    }
+  );
+
+  it.each(["pt-BR", "en-GB"] as const)(
+    "preserves genuine zero and empty results and labels an unavailable layout read-only in %s",
+    (locale) => {
+      const readyHtml = dashboardHtml(
+        "MAIN",
+        locale,
+        ["summary-total", "team-summary"],
+        { total: 0 },
+        ready
+      );
+      expect(readyHtml).toContain("<strong>0</strong>");
+      expect(readyHtml).toContain(messages[locale].dashboardDirectoryEmpty);
+      const fallback = dashboardHtml(
+        "MAIN",
+        locale,
+        ["summary-total"],
+        { total: 5 },
+        { ...ready, configuration: "error" }
+      );
+      expect(fallback).toContain("<strong>5</strong>");
+      expect(fallback).toContain(messages[locale].dashboardLayoutReadOnly);
+    }
+  );
+
   it.each(["pt-BR", "en-GB"] as const)("renders all four truthful dimensions in %s", (locale) => {
     const labels = messages[locale];
     const main = dashboardHtml("MAIN", locale, ["chart-status", "chart-shift"]);

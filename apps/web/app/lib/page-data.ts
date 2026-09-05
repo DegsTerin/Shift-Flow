@@ -1,4 +1,4 @@
-// en-GB: Composes one page-data snapshot so endpoint results stay distinct until the current view commits them.
+// en-GB: Settles page dependencies independently so one unavailable endpoint cannot hide unrelated results.
 import { apiRequest, queryString } from "./api";
 import type {
   ActivityItem,
@@ -63,6 +63,78 @@ export function lastPageForTotal(total: number, pageSize: number) {
 
 export type PageRequester = <T>(path: string, token?: string, init?: RequestInit) => Promise<T>;
 
+export type DashboardDataMap = {
+  summary: DashboardSummary;
+  charts: DashboardCharts;
+  operationalActivities: ActivityItem[];
+  configuration: DashboardConfiguration;
+  teamDirectory: ListResponse<TeamRef>;
+};
+export type DashboardResource = keyof DashboardDataMap;
+export type DashboardStatus = "loading" | "ready" | "error" | "skipped";
+export type DashboardAvailability = Record<DashboardResource, DashboardStatus>;
+export type DashboardSettlement<K extends DashboardResource = DashboardResource> = {
+  [P in K]: { resource: P } & (
+    | { status: "ready"; value: DashboardDataMap[P] }
+    | { status: "error"; error: unknown }
+    | { status: "skipped" }
+  );
+}[K];
+
+async function settleDashboard<K extends DashboardResource>(
+  resource: K,
+  operation: (() => Promise<DashboardDataMap[K]>) | undefined,
+  onSettled?: (settlement: DashboardSettlement) => void
+): Promise<DashboardSettlement<K>> {
+  let settlement: DashboardSettlement<K>;
+  try {
+    settlement = operation
+      ? { resource, status: "ready", value: await operation() }
+      : { resource, status: "skipped" };
+  } catch (error) {
+    settlement = { resource, status: "error", error };
+  }
+  onSettled?.(settlement as DashboardSettlement);
+  return settlement;
+}
+
+async function fetchTeamDirectory(
+  page: number,
+  search: string,
+  token: string,
+  signal: AbortSignal,
+  request: PageRequester
+) {
+  const read = async (requestedPage: number) => {
+    const response = await request<ListResponse<TeamRef>>(
+      `/api/teams?${teamDirectoryQuery(requestedPage, search)}`,
+      token,
+      { signal }
+    );
+    const pageSize = response.pageSize ?? managementPageSize;
+    if (
+      !Array.isArray(response.items) ||
+      !Number.isInteger(response.total) ||
+      response.total < 0 ||
+      !Number.isInteger(pageSize) ||
+      pageSize < 1 ||
+      (response.page !== undefined && response.page !== requestedPage)
+    ) {
+      throw new Error("Team directory pagination mismatch");
+    }
+    return { ...response, page: requestedPage, pageSize };
+  };
+  const response = await read(page);
+  const lastPage = lastPageForTotal(response.total, response.pageSize);
+  if (page <= lastPage) return response;
+  // Correct only this dependency; unrelated Dashboard settlements must remain available.
+  const corrected = await read(lastPage);
+  if (corrected.page > lastPageForTotal(corrected.total, corrected.pageSize)) {
+    throw new Error("Team directory pagination changed during correction");
+  }
+  return corrected;
+}
+
 type ReferenceDataMap = {
   clients: ListResponse<ClientRef>;
   users: ListResponse<UserRef>;
@@ -107,7 +179,8 @@ export async function fetchPageData({
   teamPage = 1,
   view,
   signal,
-  request = apiRequest
+  request = apiRequest,
+  onDashboardSettled
 }: {
   token: string;
   can: (resource: string, action: string) => boolean;
@@ -119,57 +192,88 @@ export async function fetchPageData({
   view: View;
   signal: AbortSignal;
   request?: PageRequester;
+  onDashboardSettled?: (settlement: DashboardSettlement) => void;
 }) {
   const dashboardQuery = queryString(filters, search);
   const requestInit = { signal };
   try {
-    if (view === "dashboard" && can("dashboard", "read")) {
-      const [summary, charts, operationalActivities, mainLayout, teamDirectory] = await Promise.all(
-        [
-          request<DashboardSummary>(`/api/dashboard/summary${dashboardQuery}`, token, requestInit),
-          request<DashboardCharts>(`/api/dashboard/charts${dashboardQuery}`, token, requestInit),
-          request<ActivityItem[]>(
-            `/api/dashboard/operational-list${dashboardQuery}`,
-            token,
-            requestInit
+    if (view === "dashboard" || view === "team-dashboard") {
+      const authorised = can("dashboard", "read");
+      const kind = view === "dashboard" ? "MAIN" : "TEAM";
+      const [summary, charts, operationalActivities, configuration, teamDirectory] =
+        await Promise.all([
+          settleDashboard(
+            "summary",
+            authorised && kind === "MAIN"
+              ? () =>
+                  request<DashboardSummary>(
+                    `/api/dashboard/summary${dashboardQuery}`,
+                    token,
+                    requestInit
+                  )
+              : undefined,
+            onDashboardSettled
           ),
-          request<DashboardConfiguration>("/api/dashboard/configuration/MAIN", token, requestInit),
-          can("teams", "read")
-            ? request<ListResponse<TeamRef>>(
-                `/api/teams?${teamDirectoryQuery(teamPage, search)}`,
-                token,
-                requestInit
-              )
-            : undefined
-        ]
-      );
+          settleDashboard(
+            "charts",
+            authorised
+              ? () =>
+                  request<DashboardCharts>(
+                    `/api/dashboard/charts${dashboardQuery}`,
+                    token,
+                    requestInit
+                  )
+              : undefined,
+            onDashboardSettled
+          ),
+          settleDashboard(
+            "operationalActivities",
+            authorised
+              ? () =>
+                  request<ActivityItem[]>(
+                    `/api/dashboard/operational-list${dashboardQuery}`,
+                    token,
+                    requestInit
+                  )
+              : undefined,
+            onDashboardSettled
+          ),
+          settleDashboard(
+            "configuration",
+            authorised
+              ? () =>
+                  request<DashboardConfiguration>(
+                    `/api/dashboard/configuration/${kind}`,
+                    token,
+                    requestInit
+                  )
+              : undefined,
+            onDashboardSettled
+          ),
+          settleDashboard(
+            "teamDirectory",
+            authorised && can("teams", "read")
+              ? () => fetchTeamDirectory(teamPage, search, token, signal, request)
+              : undefined,
+            onDashboardSettled
+          )
+        ]);
       return {
-        dashboard: { summary, charts, operationalActivities, layouts: { MAIN: mainLayout } },
-        teamDirectory,
-        errors: [] as unknown[]
-      };
-    }
-
-    if (view === "team-dashboard" && can("dashboard", "read")) {
-      const [charts, operationalActivities, teamLayout, teamDirectory] = await Promise.all([
-        request<DashboardCharts>(`/api/dashboard/charts${dashboardQuery}`, token, requestInit),
-        request<ActivityItem[]>(
-          `/api/dashboard/operational-list${dashboardQuery}`,
-          token,
-          requestInit
-        ),
-        request<DashboardConfiguration>("/api/dashboard/configuration/TEAM", token, requestInit),
-        can("teams", "read")
-          ? request<ListResponse<TeamRef>>(
-              `/api/teams?${teamDirectoryQuery(teamPage, search)}`,
-              token,
-              requestInit
-            )
-          : undefined
-      ]);
-      return {
-        dashboard: { charts, operationalActivities, layouts: { TEAM: teamLayout } },
-        teamDirectory,
+        dashboardSettlements: [
+          summary,
+          charts,
+          operationalActivities,
+          configuration,
+          teamDirectory
+        ],
+        dashboard: {
+          summary: summary.status === "ready" ? summary.value : undefined,
+          charts: charts.status === "ready" ? charts.value : undefined,
+          operationalActivities:
+            operationalActivities.status === "ready" ? operationalActivities.value : undefined,
+          layouts: configuration.status === "ready" ? { [kind]: configuration.value } : undefined
+        },
+        teamDirectory: teamDirectory.status === "ready" ? teamDirectory.value : undefined,
         errors: [] as unknown[]
       };
     }
