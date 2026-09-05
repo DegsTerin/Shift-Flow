@@ -30,6 +30,8 @@ shiftRoutes.patch(
   ShiftsController.update
 );
 shiftRoutes.delete("/:id", requirePermission("shifts", "delete"), ShiftsController.remove);
+shiftRoutes.post("/:id/open", requirePermission("shifts", "write"), ShiftsController.open);
+shiftRoutes.post("/:id/cancel", requirePermission("shifts", "write"), ShiftsController.cancel);
 shiftRoutes.post("/:id/close", requirePermission("shifts", "write"), ShiftsController.close);
 shiftRoutes.post("/:id/reopen", requirePermission("shifts", "write"), ShiftsController.reopen);
 shiftRoutes.post(

@@ -12,6 +12,12 @@ const crud = new CrudController(service);
 
 export const ShiftsController = {
   ...crud,
+  open: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.open(req, uuidParam(req.params.id, "id"))));
+  }),
+  cancel: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.cancel(req, uuidParam(req.params.id, "id"))));
+  }),
   close: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.close(req, uuidParam(req.params.id, "id"))));
   }),

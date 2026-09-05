@@ -16,7 +16,7 @@ import {
   activityStatuses,
   priorities,
   priorityLabel,
-  shiftStatuses,
+  shiftInitialStatuses,
   statusLabel
 } from "../lib/utils";
 import { isNamedTimezone, zonedDateInputValue } from "../lib/zoned-datetime";
@@ -208,7 +208,7 @@ export function CreateForm({
           <SelectInput
             name="status"
             value="OPEN"
-            options={shiftStatuses.map((item) => [item, item])}
+            options={shiftInitialStatuses.map((item) => [item, item])}
           />
         </label>
         <button className="primary-button span-2" disabled={busy} type="submit">

@@ -15,7 +15,13 @@ import type {
   UserRef,
   View
 } from "../lib/types";
-import { shiftStatuses, userRoleId, userRoleOptions } from "../lib/utils";
+import {
+  shiftCommandsForStatus,
+  shiftStatuses,
+  userRoleId,
+  userRoleOptions,
+  type ShiftLifecycleCommand
+} from "../lib/utils";
 import { isNamedTimezone, zonedDateInputValue } from "../lib/zoned-datetime";
 import { applyNewPasswordByteValidity, maximumNewPasswordUtf8Bytes } from "../lib/password-input";
 import { ReferenceSelectInput, SelectInput } from "./controls";
@@ -41,7 +47,8 @@ export function GenericDetail({
   onSubmit,
   onRemove,
   onAddTeamMember,
-  onRemoveTeamMember
+  onRemoveTeamMember,
+  onShiftTransition
 }: {
   entity: View;
   record: unknown;
@@ -58,6 +65,7 @@ export function GenericDetail({
   onRemove: () => void;
   onAddTeamMember: (teamId: string, userId: string, role: TeamMemberRole) => Promise<void>;
   onRemoveTeamMember: (teamId: string, userId: string) => Promise<void>;
+  onShiftTransition?: (command: ShiftLifecycleCommand) => Promise<void>;
 }) {
   if (entity === "users")
     return (
@@ -115,6 +123,7 @@ export function GenericDetail({
     return (
       <ShiftDetail
         shift={record as ShiftRef & { timezone?: string }}
+        onTransition={onShiftTransition}
         t={t}
         editing={editing}
         busy={busy}
@@ -529,7 +538,8 @@ function ShiftDetail({
   canDelete,
   setEditing,
   onSubmit,
-  onRemove
+  onRemove,
+  onTransition
 }: {
   shift: ShiftRef & { timezone?: string };
   t: Texts;
@@ -540,7 +550,14 @@ function ShiftDetail({
   setEditing: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRemove: () => void;
+  onTransition?: (command: ShiftLifecycleCommand) => Promise<void>;
 }) {
+  const commandLabels = {
+    open: t.openShift,
+    close: t.closeShift,
+    reopen: t.reopenShift,
+    cancel: t.cancelShift
+  };
   return (
     <form className="modal-grid" onSubmit={onSubmit}>
       <label>
@@ -594,6 +611,23 @@ function ShiftDetail({
         setEditing={setEditing}
         onRemove={onRemove}
       />
+      {canWrite && shiftCommandsForStatus(shift.status).length > 0 ? (
+        <div className="modal-actions span-2">
+          {shiftCommandsForStatus(shift.status).map((command) => (
+            <button
+              key={command}
+              className={command === "cancel" ? "danger-button" : "compact-button"}
+              type="button"
+              disabled={busy || editing || !onTransition}
+              onClick={() => {
+                if (!busy && !editing) void onTransition?.(command);
+              }}
+            >
+              {commandLabels[command]}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </form>
   );
 }

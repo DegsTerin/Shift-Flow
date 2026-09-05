@@ -40,6 +40,17 @@ function input(html: string, name: string) {
 afterEach(() => vi.useRealTimers());
 
 describe("zoned temporal form HTML", () => {
+  it("offers only PLANNED and OPEN on creation, with OPEN selected", () => {
+    const html = renderToStaticMarkup(
+      createElement(CreateForm, { ...common, entity: "shifts", companyTimezone: "UTC" })
+    );
+    const status = html.match(/<select\b[^>]*name="status"[^>]*>[\s\S]*?<\/select>/)?.[0];
+    expect(status).toBeDefined();
+    expect(status).toContain('value="PLANNED"');
+    expect(status).toMatch(/<option(?=[^>]*value="OPEN")(?=[^>]*selected="")[^>]*>/);
+    for (const terminal of ["CLOSED", "REOPENED", "CANCELLED"])
+      expect(status).not.toContain(terminal);
+  });
   it("initialises new shifts and SLA in the Company zone, not the browser zone", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-30T15:00:34.987Z"));

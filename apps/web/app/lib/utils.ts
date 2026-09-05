@@ -41,6 +41,15 @@ export const statusGroups = [
 export const priorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 export const activityStatuses = statusGroups;
 export const shiftStatuses = ["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"];
+export const shiftInitialStatuses = ["PLANNED", "OPEN"];
+export type ShiftLifecycleCommand = "open" | "close" | "reopen" | "cancel";
+
+export function shiftCommandsForStatus(status: unknown): ShiftLifecycleCommand[] {
+  if (status === "PLANNED") return ["open", "close", "cancel"];
+  if (status === "OPEN" || status === "REOPENED") return ["close", "cancel"];
+  if (status === "CLOSED") return ["reopen"];
+  return [];
+}
 export const statusColors: Record<string, string> = {
   PENDING: "#64748b",
   IN_PROGRESS: "#4f6f88",
@@ -271,9 +280,11 @@ function shiftContentPayload(form: FormData, current?: ShiftRef) {
 }
 
 export function shiftPayload(form: FormData) {
+  const status = String(form.get("status") || "OPEN");
+  if (!shiftInitialStatuses.includes(status)) throw new Error("New shifts must be planned or open");
   return {
     ...shiftContentPayload(form),
-    status: String(form.get("status") || "OPEN")
+    status
   };
 }
 

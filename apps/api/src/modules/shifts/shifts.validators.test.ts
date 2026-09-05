@@ -5,6 +5,23 @@ import { shiftCreateSchema, shiftUpdateSchema } from "./shifts.validators.js";
 const shift = { name: "Day shift", startsAt: "2026-09-04T09:00", endsAt: "2026-09-04T17:00" };
 
 describe("Shift temporal validation", () => {
+  it.each(["PLANNED", "OPEN"])("accepts the initial state %s", (status) => {
+    expect(shiftCreateSchema.parse({ ...shift, status }).status).toBe(status);
+  });
+
+  it.each(["CLOSED", "REOPENED", "CANCELLED", "UNKNOWN", null, 0, true])(
+    "rejects invalid initial status %j",
+    (status) => {
+      expect(shiftCreateSchema.safeParse({ ...shift, status }).success).toBe(false);
+    }
+  );
+
+  it.each(["closedAt", "reopenedAt"])("rejects direct %s injection on creation", (field) => {
+    expect(shiftCreateSchema.safeParse({ ...shift, [field]: "2026-09-04T10:00:00Z" }).success).toBe(
+      false
+    );
+  });
+
   it("preserves local wall-clock strings and allows a missing create timezone", () => {
     expect(shiftCreateSchema.parse(shift)).toEqual(shift);
   });

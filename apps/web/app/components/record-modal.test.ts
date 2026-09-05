@@ -40,7 +40,8 @@ vi.mock("../lib/api", async (importOriginal) => {
   };
 });
 
-import { clearApiSession, setApiSession } from "../lib/api";
+import { captureApiSessionEpoch, clearApiSession, setApiSession } from "../lib/api";
+import type { ShiftLifecycleCommand } from "../lib/utils";
 import { messages } from "../lib/i18n";
 import { ActivityDetail } from "./record-modal-activity-detail";
 import { CreateForm } from "./record-modal-create-form";
@@ -214,6 +215,34 @@ function teamModalProps(capabilities: RecordModalCapabilities) {
   };
 }
 
+function shiftModalProps(capabilities: RecordModalCapabilities, status = "OPEN") {
+  return {
+    ...modalProps(capabilities),
+    state: {
+      mode: "detail" as const,
+      entity: "shifts" as const,
+      record: {
+        id: "shift-a",
+        name: "Shift A",
+        status,
+        timezone: "Europe/London",
+        startsAt: "2026-09-04T09:00:30.123Z",
+        endsAt: "2026-09-04T17:00:40.987Z"
+      }
+    }
+  };
+}
+
+function shiftCallbacks(tree: ReactElement) {
+  const detail = elements(tree).find((element) => element.type === GenericDetail);
+  if (!detail) throw new Error("Shift detail was not found");
+  return detail.props as {
+    onShiftTransition: (command: ShiftLifecycleCommand) => Promise<void>;
+    setEditing: (editing: boolean) => void;
+    busy: boolean;
+  };
+}
+
 describe("RecordModal mutation lifecycle", () => {
   let runtime: HookRuntime;
 
@@ -263,6 +292,100 @@ describe("RecordModal mutation lifecycle", () => {
     runtime.cleanup();
     clearApiSession();
     vi.unstubAllGlobals();
+  });
+
+  it.each([
+    { status: "PLANNED", command: "open" },
+    { status: "PLANNED", command: "close" },
+    { status: "PLANNED", command: "cancel" },
+    { status: "OPEN", command: "close" },
+    { status: "OPEN", command: "cancel" },
+    { status: "REOPENED", command: "close" },
+    { status: "REOPENED", command: "cancel" },
+    { status: "CLOSED", command: "reopen" }
+  ] as const)(
+    "submits $command from $status through the real modal operation",
+    async ({ status, command }) => {
+      apiBridge.apiRequest.mockResolvedValueOnce({ id: "shift-a" });
+      const props = shiftModalProps({ ...none, canWrite: true }, status);
+      const epoch = captureApiSessionEpoch();
+      await shiftCallbacks(runtime.render(props)).onShiftTransition(command);
+      expect(apiBridge.apiRequest).toHaveBeenCalledWith(
+        `/api/shifts/shift-a/${command}`,
+        session.accessToken,
+        {
+          method: "POST",
+          body: "{}",
+          signal: expect.any(AbortSignal)
+        }
+      );
+      expect(props.onReload).toHaveBeenCalledWith(epoch);
+      expect(props.onClose).toHaveBeenCalledOnce();
+    }
+  );
+
+  it("keeps defensive Shift callbacks inert for read-only and delete-only capabilities", async () => {
+    for (const capabilities of [none, { ...none, canDelete: true }]) {
+      const callbacks = shiftCallbacks(runtime.render(shiftModalProps(capabilities, "PLANNED")));
+      for (const command of ["open", "close", "reopen", "cancel"] as const)
+        await callbacks.onShiftTransition(command);
+    }
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+  });
+
+  it("refuses Shift commands while editing so an unsaved draft cannot be discarded", async () => {
+    const props = shiftModalProps({ ...none, canWrite: true });
+    shiftCallbacks(runtime.render(props)).setEditing(true);
+    await shiftCallbacks(runtime.render(props)).onShiftTransition("close");
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it.each(["CANCELLED", "UNKNOWN"])("refuses every Shift command from %s", async (status) => {
+    const callbacks = shiftCallbacks(
+      runtime.render(shiftModalProps({ ...none, canWrite: true }, status))
+    );
+    for (const command of ["open", "close", "reopen", "cancel"] as const)
+      await callbacks.onShiftTransition(command);
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+  });
+
+  it("admits only one pending Shift command and reconciles its captured session once", async () => {
+    const pending = deferred<unknown>();
+    apiBridge.apiRequest.mockReturnValueOnce(pending.promise);
+    const props = shiftModalProps({ ...none, canWrite: true });
+    const callbacks = shiftCallbacks(runtime.render(props));
+    const first = callbacks.onShiftTransition("close");
+    await callbacks.onShiftTransition("cancel");
+    expect(apiBridge.apiRequest).toHaveBeenCalledOnce();
+    expect(shiftCallbacks(runtime.render(props)).busy).toBe(true);
+    pending.resolve({ id: "shift-a" });
+    await first;
+    expect(props.onReload).toHaveBeenCalledOnce();
+    expect(props.onClose).toHaveBeenCalledOnce();
+  });
+
+  it("retains a Shift command error without closing and releases the pending guard", async () => {
+    apiBridge.apiRequest.mockRejectedValueOnce(new Error("Shift status changed during transition"));
+    const props = shiftModalProps({ ...none, canWrite: true });
+    await shiftCallbacks(runtime.render(props)).onShiftTransition("close");
+    const settled = runtime.render(props);
+    expect(textOf(settled)).toContain("Shift status changed during transition");
+    expect(shiftCallbacks(settled).busy).toBe(false);
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(props.onReload).not.toHaveBeenCalled();
+  });
+
+  it("suppresses a Shift command settlement after a Company session change", async () => {
+    const pending = deferred<unknown>();
+    apiBridge.apiRequest.mockReturnValueOnce(pending.promise);
+    const props = shiftModalProps({ ...none, canWrite: true });
+    const settlement = shiftCallbacks(runtime.render(props)).onShiftTransition("close");
+    setApiSession({ ...session, user: { ...session.user, companyId: "company-b" } });
+    pending.resolve({ id: "shift-a" });
+    await settlement;
+    expect(props.onReload).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 
   it("keeps defensive mutation callbacks inert for a read-only modal", async () => {

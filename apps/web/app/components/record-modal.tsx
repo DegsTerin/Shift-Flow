@@ -26,7 +26,14 @@ import type {
   UserRef,
   View
 } from "../lib/types";
-import { activityPayload, createRecord, recordEndpoint, recordPayload } from "../lib/utils";
+import {
+  activityPayload,
+  createRecord,
+  recordEndpoint,
+  recordPayload,
+  shiftCommandsForStatus,
+  type ShiftLifecycleCommand
+} from "../lib/utils";
 import { ActivityDetail } from "./record-modal-activity-detail";
 import { GenericDetail } from "./record-modal-generic-detail";
 import type { ModalMutationOutcome, TaskBoardMutationRunner } from "./record-modal-task-board";
@@ -266,6 +273,25 @@ export function RecordModal({
     );
   }
 
+  async function transitionShift(command: ShiftLifecycleCommand) {
+    const shift = state.record as ShiftRef | undefined;
+    if (
+      state.mode !== "detail" ||
+      state.entity !== "shifts" ||
+      editing ||
+      !recordId ||
+      !shiftCommandsForStatus(shift?.status).includes(command)
+    )
+      return;
+    await runMutation(capabilities.canWrite, (signal) =>
+      apiRequest<ShiftRef>(`/api/shifts/${recordId}/${command}`, token, {
+        method: "POST",
+        body: JSON.stringify({}),
+        signal
+      })
+    );
+  }
+
   async function addComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activity) return;
@@ -387,6 +413,7 @@ export function RecordModal({
             onRemove={removeActivity}
             onAddTeamMember={addTeamMember}
             onRemoveTeamMember={removeTeamMember}
+            onShiftTransition={transitionShift}
           />
         ) : null}
       </section>

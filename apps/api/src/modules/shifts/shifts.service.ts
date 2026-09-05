@@ -13,6 +13,13 @@ import { ShiftsRepository, type ShiftStatus } from "./shifts.repository.js";
 
 const lifecycleFields = ["status", "closedAt", "reopenedAt"] as const;
 const closeableStatuses = new Set<ShiftStatus>(["PLANNED", "OPEN", "REOPENED"]);
+const transitionErrors: Record<ShiftStatus, string> = {
+  PLANNED: "Shift cannot return to its initial status",
+  OPEN: "Only planned shifts can be opened",
+  CLOSED: "Shift cannot be closed from its current status",
+  REOPENED: "Only closed shifts can be reopened",
+  CANCELLED: "Shift cannot be cancelled from its current status"
+};
 
 type ShiftRecord = Record<string, unknown> & {
   id?: string;
@@ -35,6 +42,12 @@ export class ShiftsService extends BaseService {
   }
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {
+    if (data.status !== undefined && data.status !== "PLANNED" && data.status !== "OPEN") {
+      throw badRequest("New shifts must be planned or open");
+    }
+    if (["closedAt", "reopenedAt"].some((field) => Object.hasOwn(data, field))) {
+      throw badRequest("Shift lifecycle timestamps require a dedicated command");
+    }
     const timezone = this.validTimezone(
       data.timezone === undefined ? await loadCompanyTimezone(activeCompanyId(req)) : data.timezone
     );
@@ -94,6 +107,14 @@ export class ShiftsService extends BaseService {
     return this.transition(req, id, closeableStatuses, "CLOSED", {
       closedAt: this.now()
     });
+  }
+
+  async open(req: ApiRequest, id: string) {
+    return this.transition(req, id, new Set<ShiftStatus>(["PLANNED"]), "OPEN", {});
+  }
+
+  async cancel(req: ApiRequest, id: string) {
+    return this.transition(req, id, closeableStatuses, "CANCELLED", {});
   }
 
   async reopen(req: ApiRequest, id: string) {
@@ -160,11 +181,7 @@ export class ShiftsService extends BaseService {
         throw notFound("Shift not found");
       }
       if (!before.status || !allowedStatuses.has(before.status)) {
-        throw badRequest(
-          nextStatus === "CLOSED"
-            ? "Shift cannot be closed from its current status"
-            : "Only closed shifts can be reopened"
-        );
+        throw badRequest(transitionErrors[nextStatus]);
       }
 
       const after = await repository.transitionStatus(transaction, id, companyId, before.status, {

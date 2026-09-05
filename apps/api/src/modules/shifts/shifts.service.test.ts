@@ -97,6 +97,49 @@ function repositoryWith(initialStatus: ShiftStatus) {
 }
 
 describe("Shift update validation", () => {
+  it.each(["CLOSED", "REOPENED", "CANCELLED", "UNKNOWN", null, 0, true])(
+    "rejects creation with initial status %j before persistence",
+    async (status) => {
+      const { repository, auditCreate } = repositoryWith("PLANNED");
+      await expect(
+        new ShiftsService(repository as unknown as ShiftsRepository).create(request(), { status })
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(repository.withTransaction).not.toHaveBeenCalled();
+      expect(auditCreate).not.toHaveBeenCalled();
+      expect(companyTimezone.load).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["closedAt", "reopenedAt"])(
+    "rejects creation with direct %s timestamp",
+    async (field) => {
+      const { repository } = repositoryWith("PLANNED");
+      await expect(
+        new ShiftsService(repository as unknown as ShiftsRepository).create(request(), {
+          [field]: null
+        })
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(repository.withTransaction).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([undefined, "PLANNED", "OPEN"])(
+    "preserves initial state %s and the omitted database default",
+    async (status) => {
+      const { repository } = repositoryWith("PLANNED");
+      await new ShiftsService(repository as unknown as ShiftsRepository).create(request(), {
+        name: "New shift",
+        startsAt: "2026-09-04T09:00:00Z",
+        endsAt: "2026-09-04T17:00:00Z",
+        timezone: "UTC",
+        ...(status === undefined ? {} : { status })
+      });
+      const data = repository.create.mock.calls[0]?.[0];
+      if (status === undefined) expect(data).not.toHaveProperty("status");
+      else expect(data).toMatchObject({ status });
+    }
+  );
+
   it("rejects status and lifecycle timestamps from the generic PATCH contract", () => {
     expect(shiftUpdateSchema.safeParse({ status: "CLOSED" }).success).toBe(false);
     expect(shiftUpdateSchema.safeParse({ closedAt: new Date() }).success).toBe(false);
@@ -295,6 +338,95 @@ describe("Shift zoned periods", () => {
 });
 
 describe("Shift lifecycle commands", () => {
+  const allowed: Record<"open" | "close" | "reopen" | "cancel", readonly ShiftStatus[]> = {
+    open: ["PLANNED"],
+    close: ["PLANNED", "OPEN", "REOPENED"],
+    reopen: ["CLOSED"],
+    cancel: ["PLANNED", "OPEN", "REOPENED"]
+  };
+  const targets = {
+    open: "OPEN",
+    close: "CLOSED",
+    reopen: "REOPENED",
+    cancel: "CANCELLED"
+  } as const;
+  for (const command of ["open", "close", "reopen", "cancel"] as const) {
+    it.each<ShiftStatus>(["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"])(
+      `${command} enforces its exact source-state matrix from %s`,
+      async (status) => {
+        const { repository, auditCreate, current } = repositoryWith(status);
+        const service = new ShiftsService(repository as unknown as ShiftsRepository);
+        if (allowed[command].includes(status)) {
+          await expect(service[command](request(), "shift-1")).resolves.toMatchObject({
+            status: targets[command]
+          });
+          expect(repository.findById).toHaveBeenCalledWith("shift-1", companyId);
+          expect(repository.transitionStatus).toHaveBeenCalledWith(
+            expect.any(Object),
+            "shift-1",
+            companyId,
+            status,
+            expect.objectContaining({ status: targets[command], updatedById: actorUserId })
+          );
+          expect(auditCreate).toHaveBeenCalledOnce();
+          expect(auditCreate).toHaveBeenCalledWith({
+            data: expect.objectContaining({
+              entityType: "Shift",
+              entityId: "shift-1",
+              action: "UPDATE",
+              companyId,
+              before: expect.objectContaining({ status }),
+              after: expect.objectContaining({ status: targets[command] })
+            })
+          });
+        } else {
+          await expect(service[command](request(), "shift-1")).rejects.toMatchObject({
+            code: "BAD_REQUEST"
+          });
+          expect(repository.transitionStatus).not.toHaveBeenCalled();
+          expect(auditCreate).not.toHaveBeenCalled();
+          expect(current().status).toBe(status);
+        }
+      }
+    );
+
+    it(`${command} shares the transaction rollback boundary with its required audit`, async () => {
+      const { repository, auditCreate, current } = repositoryWith(
+        command === "reopen" ? "CLOSED" : "PLANNED"
+      );
+      const before = { ...current() };
+      auditCreate.mockRejectedValueOnce(new Error("audit unavailable"));
+      await expect(
+        new ShiftsService(repository as unknown as ShiftsRepository)[command](request(), "shift-1")
+      ).rejects.toThrow("audit unavailable");
+      expect(repository.transitionStatus).toHaveBeenCalledOnce();
+      expect(current()).toEqual(before);
+    });
+
+    it(`${command} rejects a missing or other-tenant Shift`, async () => {
+      const { repository, auditCreate } = repositoryWith("OPEN");
+      repository.findById.mockResolvedValueOnce(null as unknown as ShiftRow);
+      await expect(
+        new ShiftsService(repository as unknown as ShiftsRepository)[command](request(), "shift-1")
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(repository.transitionStatus).not.toHaveBeenCalled();
+      expect(auditCreate).not.toHaveBeenCalled();
+    });
+  }
+
+  it("cancels without clearing previous reopen evidence or deleting the Shift", async () => {
+    const { repository, current } = repositoryWith("REOPENED");
+    const reopenedAt = new Date("2026-09-04T08:00:00Z");
+    current().reopenedAt = reopenedAt;
+    await new ShiftsService(repository as unknown as ShiftsRepository).cancel(request(), "shift-1");
+    expect(current()).toMatchObject({ status: "CANCELLED", reopenedAt, closedAt: null });
+    expect(current()).not.toHaveProperty("deletedAt");
+    expect(repository.transitionStatus.mock.calls[0]?.[4]).toEqual({
+      status: "CANCELLED",
+      updatedById: actorUserId
+    });
+  });
+
   it.each<ShiftStatus>(["PLANNED", "OPEN", "REOPENED"])(
     "closes from %s with one audited, tenant-scoped transition",
     async (status) => {
@@ -371,61 +503,72 @@ describe("Shift lifecycle commands", () => {
     }
   });
 
-  it("allows exactly one winner and one audit for concurrent close commands", async () => {
-    let current: ShiftRow = { id: "shift-1", companyId, status: "OPEN" };
-    let readCount = 0;
-    let releaseReads!: () => void;
-    const bothReads = new Promise<void>((resolve) => {
-      releaseReads = resolve;
-    });
-    const auditCreate = vi.fn().mockResolvedValue({ id: "audit-1" });
-    const transaction = { auditLog: { create: auditCreate } } as PrismaTransactionClient;
-    const repository = {
-      findById: vi.fn(async () => {
-        const snapshot = { ...current };
-        readCount += 1;
-        if (readCount === 2) releaseReads();
-        await bothReads;
-        return snapshot;
-      }),
-      transitionStatus: vi.fn(
-        async (
-          _transaction: PrismaTransactionClient,
-          _id: string,
-          _companyId: string,
-          expectedStatus: ShiftStatus,
-          data: Record<string, unknown>
-        ) => {
-          if (current.status !== expectedStatus) {
-            throw conflict("Shift status changed during transition");
+  it.each([
+    { initial: "OPEN", left: "close", right: "close" },
+    { initial: "PLANNED", left: "open", right: "close" },
+    { initial: "PLANNED", left: "open", right: "cancel" },
+    { initial: "OPEN", left: "close", right: "cancel" },
+    { initial: "REOPENED", left: "cancel", right: "close" },
+    { initial: "CLOSED", left: "reopen", right: "reopen" }
+  ] as const)(
+    "allows one winner/event for competing $left/$right from $initial",
+    async ({ initial, left, right }) => {
+      let current: ShiftRow = { id: "shift-1", companyId, status: initial };
+      let readCount = 0;
+      let releaseReads!: () => void;
+      const bothReads = new Promise<void>((resolve) => {
+        releaseReads = resolve;
+      });
+      const auditCreate = vi.fn().mockResolvedValue({ id: "audit-1" });
+      const transaction = { auditLog: { create: auditCreate } } as PrismaTransactionClient;
+      const repository = {
+        findById: vi.fn(async () => {
+          const snapshot = { ...current };
+          readCount += 1;
+          if (readCount === 2) releaseReads();
+          await bothReads;
+          return snapshot;
+        }),
+        transitionStatus: vi.fn(
+          async (
+            _transaction: PrismaTransactionClient,
+            _id: string,
+            _companyId: string,
+            expectedStatus: ShiftStatus,
+            data: Record<string, unknown>
+          ) => {
+            if (current.status !== expectedStatus) {
+              throw conflict("Shift status changed during transition");
+            }
+            current = { ...current, ...data } as ShiftRow;
+            return { ...current };
           }
-          current = { ...current, ...data } as ShiftRow;
-          return { ...current };
-        }
-      ),
-      withTransaction: vi.fn()
-    };
-    repository.withTransaction.mockImplementation(
-      async <T>(
-        operation: (
-          scopedRepository: ShiftsRepository,
-          scopedTransaction: PrismaTransactionClient
-        ) => Promise<T>
-      ) => operation(repository as unknown as ShiftsRepository, transaction)
-    );
-    const now = new Date("2026-09-02T13:00:00.000Z");
-    const service = new ShiftsService(repository as unknown as ShiftsRepository, () => now);
+        ),
+        withTransaction: vi.fn()
+      };
+      repository.withTransaction.mockImplementation(
+        async <T>(
+          operation: (
+            scopedRepository: ShiftsRepository,
+            scopedTransaction: PrismaTransactionClient
+          ) => Promise<T>
+        ) => operation(repository as unknown as ShiftsRepository, transaction)
+      );
+      const now = new Date("2026-09-02T13:00:00.000Z");
+      const service = new ShiftsService(repository as unknown as ShiftsRepository, () => now);
 
-    const results = await Promise.allSettled([
-      service.close(request(), "shift-1"),
-      service.close(request(), "shift-1")
-    ]);
+      const results = await Promise.allSettled([
+        service[left](request(), "shift-1"),
+        service[right](request(), "shift-1")
+      ]);
 
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
-    expect(auditCreate).toHaveBeenCalledOnce();
-    expect(current).toMatchObject({ status: "CLOSED", closedAt: now });
-  });
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+      expect(auditCreate).toHaveBeenCalledOnce();
+      expect(current).toMatchObject({ status: targets[left] });
+      if (left === "close") expect(current.closedAt).toEqual(now);
+    }
+  );
 });
 
 describe("ShiftsRepository.transitionStatus", () => {

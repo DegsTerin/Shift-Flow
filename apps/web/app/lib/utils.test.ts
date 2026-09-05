@@ -9,12 +9,62 @@ import {
   productAssignableRoles,
   roleUpdatePayload,
   recordPayload,
+  shiftPayload,
+  shiftCommandsForStatus,
+  shiftInitialStatuses,
   slaLabel,
   statusLabel,
   userPayload,
   userRoleId,
   userRoleOptions
 } from "./utils";
+
+describe("Shift lifecycle UI contract", () => {
+  it("keeps exactly two creation states and preserves the Web OPEN default", () => {
+    expect(shiftInitialStatuses).toEqual(["PLANNED", "OPEN"]);
+    expect(shiftPayload(new FormData()).status).toBe("OPEN");
+    const form = new FormData();
+    form.set("status", "PLANNED");
+    expect(shiftPayload(form).status).toBe("PLANNED");
+  });
+
+  it.each(["CLOSED", "REOPENED", "CANCELLED", "UNKNOWN"])(
+    "rejects forged initial status %s",
+    (status) => {
+      const form = new FormData();
+      form.set("status", status);
+      expect(() => shiftPayload(form)).toThrow("New shifts must be planned or open");
+    }
+  );
+
+  it.each([
+    { status: "PLANNED", commands: ["open", "close", "cancel"] },
+    { status: "OPEN", commands: ["close", "cancel"] },
+    { status: "REOPENED", commands: ["close", "cancel"] },
+    { status: "CLOSED", commands: ["reopen"] },
+    { status: "CANCELLED", commands: [] },
+    { status: "UNKNOWN", commands: [] },
+    { status: undefined, commands: [] }
+  ])("offers only valid commands for $status", ({ status, commands }) => {
+    expect(shiftCommandsForStatus(status)).toEqual(commands);
+  });
+
+  it("provides matching Shift command labels in both existing locales", () => {
+    const keys = ["openShift", "closeShift", "reopenShift", "cancelShift"] as const;
+    expect(keys.map((key) => messages["en-GB"][key])).toEqual([
+      "Open shift",
+      "Close shift",
+      "Reopen shift",
+      "Cancel shift"
+    ]);
+    expect(keys.map((key) => messages["pt-BR"][key])).toEqual([
+      "Abrir turno",
+      "Encerrar turno",
+      "Reabrir turno",
+      "Cancelar turno"
+    ]);
+  });
+});
 
 describe("activity enum labels", () => {
   it("localises priorities and statuses without changing their canonical values", () => {

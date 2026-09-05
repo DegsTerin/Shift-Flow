@@ -12,9 +12,9 @@ const shiftContentSchema = z.object({
   timezone: timezoneSchema.optional()
 });
 
-export const shiftCreateSchema = shiftContentSchema.extend({
-  status: z.enum(["PLANNED", "OPEN", "CLOSED", "REOPENED", "CANCELLED"]).optional()
-});
+export const shiftCreateSchema = shiftContentSchema
+  .extend({ status: z.enum(["PLANNED", "OPEN"]).optional() })
+  .strict();
 
 // Keep the established create-schema export for existing internal consumers.
 export const shiftSchema = shiftCreateSchema;
