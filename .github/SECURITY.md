@@ -177,6 +177,33 @@ non-cost-12 hashes therefore require an offline inventory and reviewed migration
 before operators can claim an identical bcrypt work factor for every historical
 account.
 
+## Browser Company Context
+
+The workspace displays the active company and its timezone. Company switching
+requires password authentication and a destination projected by the current
+session; it does not grant membership or authority through a request header.
+The server revalidates the principal, membership and current permissions.
+
+The client reserves a switch before dispatch, refuses it while a protected
+mutation is pending and blocks new mutations until it settles. Participating
+cookie operations use the same same-origin Web Lock when available; the
+fallback queue coordinates only one JavaScript instance. Response installation
+is bound to the originating session generation and the expected user/company.
+This is not cross-tab interface synchronisation or cancellation of a write
+already accepted by the server.
+
+A recognised incorrect-password response preserves a still-current originating local
+session. After an ambiguous dispatched login, such as transport failure or an
+invalid success response, the affected local session fails closed. A same-tab
+`sessionStorage` marker containing only `1` requires explicit reauthentication
+after reload and prevents automatic refresh or public-session restoration.
+It stores no password, token, identity or company selection. Failure to establish
+or verify the marker before login prevents dispatch; clearing it can also fail
+after dispatch and does not prove that the request was never sent. This marker
+does not delete server cookies, roll back
+an issued session or coordinate another tab; those outcomes must never be
+inferred from local recovery.
+
 ## Proxy Trust
 
 `TRUST_PROXY` accepts only `false` or a comma-separated allowlist of literal
