@@ -36,6 +36,7 @@ import {
 } from "../lib/utils";
 import { ActivityDetail } from "./record-modal-activity-detail";
 import { GenericDetail } from "./record-modal-generic-detail";
+import { ShiftCoverages, type CoverageMutationRunner } from "./record-modal-coverages";
 import type { ModalMutationOutcome, TaskBoardMutationRunner } from "./record-modal-task-board";
 import { CreateForm } from "./record-modal-create-form";
 
@@ -90,6 +91,24 @@ export function RecordModal({
   const mounted = useRef(true);
   // en-GB: Retained callbacks belong to this modal's original security context, not their invocation context.
   const originEpoch = useRef(captureApiSessionEpoch()).current;
+  const coverageContext = JSON.stringify([
+    state.mode,
+    state.entity,
+    recordId,
+    (state.record as ShiftRef | undefined)?.timezone
+  ]);
+  const coverageAdmission = useRef({
+    context: coverageContext,
+    editing,
+    canWrite: capabilities.canWrite,
+    canLoadUsers: referenceAccess.users
+  });
+  coverageAdmission.current = {
+    context: coverageContext,
+    editing,
+    canWrite: capabilities.canWrite,
+    canLoadUsers: referenceAccess.users
+  };
   const modalRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<{ focus?: () => void; isConnected?: boolean } | null>(null);
@@ -222,6 +241,32 @@ export function RecordModal({
       onCurrentSuccess: hooks?.onCurrentSuccess,
       reconcileLocal: hooks?.reconcileLocal
     });
+
+  const runCoverageMutation: CoverageMutationRunner = (authorised, request, hooks) => {
+    const current = coverageAdmission.current;
+    if (
+      current.context !== coverageContext ||
+      current.editing ||
+      !current.canWrite ||
+      !current.canLoadUsers ||
+      state.mode !== "detail" ||
+      state.entity !== "shifts" ||
+      !recordId
+    ) {
+      return Promise.resolve("IGNORED");
+    }
+    return runMutation(authorised, request, {
+      closeOnSuccess: false,
+      onCurrentSuccess: hooks.onCurrentSuccess,
+      reconcileLocal: hooks.reconcileLocal
+    });
+  };
+
+  function setDetailEditing(value: boolean) {
+    // Revoke coverage admission synchronously, including callbacks retained before React rerenders.
+    coverageAdmission.current.editing = value;
+    setEditing(value);
+  }
 
   useEffect(() => {
     if (!capabilities.canWrite) setEditing(false);
@@ -410,12 +455,28 @@ export function RecordModal({
             editing={editing}
             busy={busy}
             capabilities={capabilities}
-            setEditing={setEditing}
+            setEditing={setDetailEditing}
             onSubmit={submit}
             onRemove={removeActivity}
             onAddTeamMember={addTeamMember}
             onRemoveTeamMember={removeTeamMember}
             onShiftTransition={transitionShift}
+          />
+        ) : null}
+        {state.mode === "detail" && state.entity === "shifts" && recordId ? (
+          <ShiftCoverages
+            key={coverageContext}
+            shiftId={recordId}
+            timezone={(state.record as ShiftRef).timezone}
+            t={t}
+            locale={locale}
+            token={token}
+            users={users}
+            canWrite={capabilities.canWrite}
+            canLoadUsers={referenceAccess.users}
+            editing={editing}
+            busy={busy}
+            runCoverageMutation={runCoverageMutation}
           />
         ) : null}
       </section>

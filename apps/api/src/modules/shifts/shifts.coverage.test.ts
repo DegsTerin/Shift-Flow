@@ -226,6 +226,88 @@ describe("ShiftsService coverage audit", () => {
     });
   });
 
+  it.each(["2026-09-02T05:00:00.123-03:00", "2026-09-02t08:00:00.123456789012z"])(
+    "normalises %s to milliseconds before the original transaction",
+    async (value) => {
+      const state = serviceHarness({ coverage: { id: "coverage-a" }, created: true });
+      await state.service.addCoverage(request(), "shift-a", {
+        userId: "user-b",
+        startsAt: value,
+        endsAt: "2026-09-02T16:00:00Z"
+      });
+      expect(state.addCoverageForUpdate).toHaveBeenCalledWith(
+        state.transaction,
+        expect.objectContaining({ startsAt: new Date("2026-09-02T08:00:00.123Z"), endsAt })
+      );
+    }
+  );
+
+  it("clones finite internal Dates without changing caller objects", async () => {
+    const state = serviceHarness({ coverage: { id: "coverage-a" }, created: false });
+    await state.service.addCoverage(request(), "shift-a", { userId: "user-b", startsAt, endsAt });
+    const data = state.addCoverageForUpdate.mock.calls[0][1];
+    expect(data.startsAt).toEqual(startsAt);
+    expect(data.startsAt).not.toBe(startsAt);
+    expect(data.endsAt).toEqual(endsAt);
+    expect(data.endsAt).not.toBe(endsAt);
+  });
+
+  it.each([
+    undefined,
+    null,
+    false,
+    0,
+    {},
+    [],
+    new Date(NaN),
+    "2026-09-02",
+    "2026-09-02T08:00",
+    "2026-02-30T08:00:00Z",
+    "2026-09-02T08:00:60Z"
+  ])("rejects untrusted service time %j before locks or audit", async (value) => {
+    const state = serviceHarness({ coverage: { id: "coverage-a" }, created: true });
+    for (const field of ["startsAt", "endsAt"])
+      await expect(
+        state.service.addCoverage(request(), "shift-a", {
+          userId: "user-b",
+          startsAt,
+          endsAt,
+          [field]: value
+        })
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(state.withTransaction).not.toHaveBeenCalled();
+    expect(state.addCoverageForUpdate).not.toHaveBeenCalled();
+    expect(state.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it.each(["2026-09-02T08:00:00Z", "2026-09-02T07:00:00Z"])(
+    "rejects equal or inverted normalised end %s before its transaction",
+    async (value) => {
+      const state = serviceHarness({ coverage: { id: "coverage-a" }, created: true });
+      await expect(
+        state.service.addCoverage(request(), "shift-a", {
+          userId: "user-b",
+          startsAt: "2026-09-02T05:00:00-03:00",
+          endsAt: value
+        })
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(state.withTransaction).not.toHaveBeenCalled();
+    }
+  );
+
+  it("reads coverage with the active tenant and bounded query without a global parent pre-read", async () => {
+    const repository = new ShiftsRepository();
+    const list = vi
+      .spyOn(repository, "listCoverages")
+      .mockResolvedValue({ items: [], total: 0, page: 2, pageSize: 10 });
+    const get = vi.spyOn(repository, "findById");
+    const req = request();
+    req.query = { page: "2", pageSize: "10" };
+    await new ShiftsService(repository).listCoverages(req, "shift-a");
+    expect(list).toHaveBeenCalledWith("company-a", "shift-a", { page: 2, pageSize: 10 });
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it("leaves an exact duplicate audit-free", async () => {
     const state = serviceHarness({
       coverage: { id: "coverage-a", ...coverageData() },

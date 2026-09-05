@@ -4,7 +4,11 @@ import { badRequest, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { writeAudit } from "../../shared/services/audit-writer.js";
 import { activeCompanyId } from "../../shared/services/scope.service.js";
-import { loadCompanyTimezone } from "../../shared/services/date-range.service.js";
+import { toPagination } from "../../shared/http/pagination.js";
+import {
+  loadCompanyTimezone,
+  parseRfc3339Instant
+} from "../../shared/services/date-range.service.js";
 import {
   resolveZonedDatetime,
   timezoneSchema
@@ -124,17 +128,27 @@ export class ShiftsService extends BaseService {
     });
   }
 
+  async listCoverages(req: ApiRequest, shiftId: string) {
+    return this.shiftsRepository.listCoverages(
+      activeCompanyId(req),
+      shiftId,
+      toPagination(req.query)
+    );
+  }
+
   async addCoverage(req: ApiRequest, shiftId: string, data: Record<string, unknown>) {
     const companyId = activeCompanyId(req);
-    this.assertPeriod(data.startsAt, data.endsAt);
+    const startsAt = this.coverageInstant(data.startsAt);
+    const endsAt = this.coverageInstant(data.endsAt);
+    this.assertPeriod(startsAt, endsAt);
     const coverageData = {
       companyId,
       shiftId,
       userId: String(data.userId),
       replacementForUserId: data.replacementForUserId ? String(data.replacementForUserId) : null,
       type: data.type ?? "REGULAR",
-      startsAt: data.startsAt,
-      endsAt: data.endsAt,
+      startsAt,
+      endsAt,
       note: data.note ?? null
     };
     return this.shiftsRepository.withTransaction(async (_repository, transaction) => {
@@ -155,6 +169,19 @@ export class ShiftsService extends BaseService {
       }
       return result.coverage;
     });
+  }
+
+  private coverageInstant(value: unknown) {
+    // Trusted internal Dates are cloned; HTTP callers must supply explicit instants.
+    if (value instanceof Date && Number.isFinite(value.getTime())) return new Date(value.getTime());
+    if (typeof value === "string") {
+      try {
+        return new Date(parseRfc3339Instant(value).epochMilliseconds);
+      } catch {
+        // Report the same safe contract error for malformed and impossible instants.
+      }
+    }
+    throw badRequest("Expected a real RFC3339 datetime with an explicit offset");
   }
 
   private assertPeriod(startsAt: unknown, endsAt: unknown) {

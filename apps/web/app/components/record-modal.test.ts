@@ -47,6 +47,7 @@ import { messages } from "../lib/i18n";
 import { ActivityDetail } from "./record-modal-activity-detail";
 import { CreateForm } from "./record-modal-create-form";
 import { GenericDetail, RecordModal } from "./record-modal";
+import { ShiftCoverages } from "./record-modal-coverages";
 
 type StateSlot = { kind: "state"; value: unknown };
 type RefSlot = { kind: "ref"; value: { current: unknown } };
@@ -293,6 +294,155 @@ describe("RecordModal mutation lifecycle", () => {
     runtime.cleanup();
     clearApiSession();
     vi.unstubAllGlobals();
+  });
+
+  it("composes coverages as a detail sibling with the parent Shift zone and independent reference access", () => {
+    const props = shiftModalProps({ ...none, canWrite: true });
+    const tree = runtime.render({
+      ...props,
+      companyTimezone: "America/Sao_Paulo",
+      referenceAccess: { users: false, clients: false, teams: false, shifts: false, roles: false }
+    });
+    const section = elements(tree).find((element) => element.type === "section");
+    const children = (section?.props as { children: ReactElement[] }).children
+      .flat()
+      .filter(Boolean);
+    expect(children.some((element) => element.type === GenericDetail)).toBe(true);
+    const coverages = children.find((element) => element.type === ShiftCoverages);
+    expect(coverages?.props).toMatchObject({
+      shiftId: "shift-a",
+      timezone: "Europe/London",
+      canWrite: true,
+      canLoadUsers: false,
+      editing: false,
+      busy: false
+    });
+  });
+
+  it("keeps the modal open and reconciles the local coverage GET after the parent reload", async () => {
+    const props = {
+      ...shiftModalProps({ ...none, canWrite: true }),
+      referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+    };
+    const tree = runtime.render(props);
+    const panel = elements(tree).find((element) => element.type === ShiftCoverages)
+      ?.props as Parameters<typeof ShiftCoverages>[0];
+    const request = vi.fn().mockResolvedValue({ id: "coverage-a" });
+    const hooks = { onCurrentSuccess: vi.fn(), reconcileLocal: vi.fn(async () => undefined) };
+    await expect(panel.runCoverageMutation(true, request, hooks)).resolves.toBe("SUCCEEDED");
+    expect(request).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(props.onReload).toHaveBeenCalledWith(captureApiSessionEpoch());
+    expect(hooks.onCurrentSuccess).toHaveBeenCalledWith(captureApiSessionEpoch());
+    expect(hooks.reconcileLocal).toHaveBeenCalledWith(captureApiSessionEpoch());
+    expect(props.onReload.mock.invocationCallOrder[0]).toBeLessThan(
+      hooks.reconcileLocal.mock.invocationCallOrder[0]
+    );
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it.each(["editing", "write", "reference", "record", "zone", "session"])(
+    "rejects a retained coverage runner after %s changes",
+    async (change) => {
+      const props = {
+        ...shiftModalProps({ ...none, canWrite: true }),
+        referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+      };
+      const tree = runtime.render(props);
+      const panel = elements(tree).find((element) => element.type === ShiftCoverages)
+        ?.props as Parameters<typeof ShiftCoverages>[0];
+      if (change === "editing") shiftCallbacks(tree).setEditing(true);
+      if (change === "session")
+        setApiSession({ ...session, user: { ...session.user, companyId: "company-b" } });
+      const changed =
+        change === "write"
+          ? { ...props, capabilities: none }
+          : change === "reference"
+            ? { ...props, referenceAccess: { ...props.referenceAccess, users: false } }
+            : change === "record"
+              ? {
+                  ...props,
+                  state: { ...props.state, record: { ...props.state.record, id: "shift-b" } }
+                }
+              : change === "zone"
+                ? {
+                    ...props,
+                    state: {
+                      ...props.state,
+                      record: { ...props.state.record, timezone: "America/Sao_Paulo" }
+                    }
+                  }
+                : props;
+      const request = vi.fn().mockResolvedValue({ id: "coverage-a" });
+      const hooks = { onCurrentSuccess: vi.fn(), reconcileLocal: vi.fn(async () => undefined) };
+      let result: Promise<unknown> | undefined;
+      runtime.render(changed, () => {
+        result = panel.runCoverageMutation(true, request, hooks);
+      });
+      await result;
+      expect(request).not.toHaveBeenCalled();
+      expect(props.onReload).not.toHaveBeenCalled();
+      expect(hooks.reconcileLocal).not.toHaveBeenCalled();
+    }
+  );
+
+  it("reserves the shared modal operation across coverage POST and reconciliation", async () => {
+    const props = {
+      ...shiftModalProps({ ...none, canWrite: true }),
+      referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+    };
+    const tree = runtime.render(props);
+    const panel = elements(tree).find((element) => element.type === ShiftCoverages)
+      ?.props as Parameters<typeof ShiftCoverages>[0];
+    const pending = deferred<unknown>();
+    const request = vi.fn(() => pending.promise);
+    const hooks = { onCurrentSuccess: vi.fn(), reconcileLocal: vi.fn(async () => undefined) };
+    const first = panel.runCoverageMutation(true, request, hooks);
+    await expect(panel.runCoverageMutation(true, request, hooks)).resolves.toBe("IGNORED");
+    await shiftCallbacks(tree).onShiftTransition("close");
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledOnce();
+    pending.resolve({ id: "coverage-a" });
+    await first;
+    expect(props.onReload).toHaveBeenCalledOnce();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("blocks coverage immediately when Shift editing is entered before another render", async () => {
+    const props = {
+      ...shiftModalProps({ ...none, canWrite: true }),
+      referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+    };
+    const tree = runtime.render(props);
+    const panel = elements(tree).find((element) => element.type === ShiftCoverages)
+      ?.props as Parameters<typeof ShiftCoverages>[0];
+    shiftCallbacks(tree).setEditing(true);
+    const request = vi.fn().mockResolvedValue({ id: "coverage-a" });
+    await expect(
+      panel.runCoverageMutation(true, request, {
+        onCurrentSuccess: vi.fn(),
+        reconcileLocal: vi.fn(async () => undefined)
+      })
+    ).resolves.toBe("IGNORED");
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("retains coverage reconciliation after ordinary unmount without touching the removed form", async () => {
+    const props = {
+      ...shiftModalProps({ ...none, canWrite: true }),
+      referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+    };
+    const panel = elements(runtime.render(props)).find((element) => element.type === ShiftCoverages)
+      ?.props as Parameters<typeof ShiftCoverages>[0];
+    const pending = deferred<unknown>();
+    const hooks = { onCurrentSuccess: vi.fn(), reconcileLocal: vi.fn(async () => undefined) };
+    const saving = panel.runCoverageMutation(true, () => pending.promise, hooks);
+    runtime.cleanup();
+    pending.resolve({ id: "coverage-a" });
+    await saving;
+    expect(props.onReload).toHaveBeenCalledOnce();
+    expect(hooks.onCurrentSuccess).not.toHaveBeenCalled();
+    expect(hooks.reconcileLocal).not.toHaveBeenCalled();
+    expect(runtime.updatesAfterCleanup).toBe(0);
   });
 
   it.each([

@@ -1,6 +1,42 @@
 // en-GB: Verifies explicit-zone form rendering and lossless unchanged-minute payloads.
 import { describe, expect, it } from "vitest";
-import { datetimeFieldPayload, isNamedTimezone, zonedDateInputValue } from "./zoned-datetime";
+import {
+  datetimeFieldPayload,
+  isNamedTimezone,
+  zonedDateInputValue,
+  zonedDatetimeInstant
+} from "./zoned-datetime";
+
+describe("zonedDatetimeInstant", () => {
+  it.each([
+    ["2026-09-04T09:00", "Europe/London", "2026-09-04T08:00:00.000Z"],
+    ["2026-01-04T09:00:01.123456789", "Europe/London", "2026-01-04T09:00:01.123Z"],
+    ["2026-09-04T09:00:01.123", "America/Sao_Paulo", "2026-09-04T12:00:01.123Z"],
+    ["2026-09-04T09:00", "UTC", "2026-09-04T09:00:00.000Z"]
+  ])("converts %s explicitly in %s", (value, timezone, expected) => {
+    expect(zonedDatetimeInstant(value, timezone)).toBe(expected);
+  });
+  it.each([
+    "2026-03-29T01:30",
+    "2026-10-25T01:30",
+    "2026-02-30T09:00",
+    "2026-09-04T24:00",
+    "2026-09-04T09:00:60",
+    "2026-09-04T09:00\n",
+    "2026-09-04T09:00Z",
+    "2026-09-04T09:00+01:00",
+    "2026-09-04",
+    ""
+  ])("rejects impossible, non-local or ambiguous input %s", (value) => {
+    expect(() => zonedDatetimeInstant(value, "Europe/London")).toThrow(RangeError);
+  });
+  it.each([undefined, "", "Invalid/Zone", "+01:00"])(
+    "refuses implicit or invalid timezone %s",
+    (timezone) => {
+      expect(() => zonedDatetimeInstant("2026-09-04T09:00", timezone)).toThrow(RangeError);
+    }
+  );
+});
 
 describe("zonedDateInputValue", () => {
   it.each([

@@ -1,5 +1,6 @@
 // en-GB: Validates shifts input so malformed data cannot cross the module boundary.
 import { z } from "zod";
+import { parseRfc3339Instant } from "../../shared/services/date-range.service.js";
 import {
   bodyDatetimeSchema,
   timezoneSchema
@@ -24,11 +25,20 @@ export const shiftUpdateSchema = shiftContentSchema
   .strict()
   .refine((value) => Object.keys(value).length > 0, "At least one shift field is required");
 
+const coverageInstantSchema = z.string().refine((value) => {
+  try {
+    parseRfc3339Instant(value);
+    return true;
+  } catch {
+    return false;
+  }
+}, "Expected a real RFC3339 datetime with an explicit offset");
+
 export const coverageSchema = z.object({
   userId: z.string().uuid(),
   replacementForUserId: z.string().uuid().optional(),
   type: z.enum(["REGULAR", "ON_CALL", "VACATION", "SUBSTITUTE", "ABSENCE"]).default("REGULAR"),
-  startsAt: z.coerce.date(),
-  endsAt: z.coerce.date(),
+  startsAt: coverageInstantSchema,
+  endsAt: coverageInstantSchema,
   note: z.string().max(5000).optional()
 });

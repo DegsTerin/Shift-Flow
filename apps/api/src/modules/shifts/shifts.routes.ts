@@ -3,7 +3,7 @@ import { Router } from "express";
 import { authenticate } from "../../shared/middlewares/authenticate.js";
 import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
-import { searchableListQuerySchema } from "../../shared/http/pagination.js";
+import { paginationSchema, searchableListQuerySchema } from "../../shared/http/pagination.js";
 import { ShiftsController } from "./shifts.controller.js";
 import { coverageSchema, shiftCreateSchema, shiftUpdateSchema } from "./shifts.validators.js";
 
@@ -34,6 +34,12 @@ shiftRoutes.post("/:id/open", requirePermission("shifts", "write"), ShiftsContro
 shiftRoutes.post("/:id/cancel", requirePermission("shifts", "write"), ShiftsController.cancel);
 shiftRoutes.post("/:id/close", requirePermission("shifts", "write"), ShiftsController.close);
 shiftRoutes.post("/:id/reopen", requirePermission("shifts", "write"), ShiftsController.reopen);
+shiftRoutes.get(
+  "/:id/coverages",
+  requirePermission("shifts", "read"),
+  validate("query", paginationSchema),
+  ShiftsController.listCoverages
+);
 shiftRoutes.post(
   "/:id/coverages",
   requirePermission("shifts", "write"),

@@ -1,6 +1,11 @@
 // en-GB: Encapsulates shifts persistence so data access remains consistent and testable.
 import { BaseRepository } from "../../shared/repositories/base.repository.js";
-import { getDelegateFrom, type PrismaTransactionClient } from "../../shared/lib/prisma.js";
+import {
+  getDelegateFrom,
+  getPrisma,
+  type PrismaTransactionClient
+} from "../../shared/lib/prisma.js";
+import { toSkipTake, type Pagination } from "../../shared/http/pagination.js";
 import { conflict, forbidden, notFound } from "../../shared/errors/app-error.js";
 
 export type ShiftStatus = "PLANNED" | "OPEN" | "CLOSED" | "REOPENED" | "CANCELLED";
@@ -13,6 +18,23 @@ type CoverageDelegate = {
 type ShiftDelegate = {
   update(args: unknown): Promise<unknown>;
 };
+
+type CoverageReadClient = {
+  shift: { findFirst(args: unknown): Promise<{ id: string } | null> };
+  shiftCoverage: {
+    findMany(args: unknown): Promise<unknown[]>;
+    count(args: unknown): Promise<number>;
+  };
+};
+
+type CoverageSnapshotClient = {
+  $transaction<T>(
+    operation: (transaction: CoverageReadClient) => Promise<T>,
+    options?: { isolationLevel: "RepeatableRead" }
+  ): Promise<T>;
+};
+
+const publicUserSelect = { id: true, email: true, displayName: true, jobTitle: true, status: true };
 
 type CoverageMutationClient = {
   $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
@@ -37,6 +59,41 @@ function canonicalUuid(value: string) {
 export class ShiftsRepository extends BaseRepository {
   constructor() {
     super("shift");
+  }
+
+  async listCoverages(companyId: string, shiftId: string, pagination: Pagination) {
+    const prisma = (await getPrisma()) as CoverageSnapshotClient;
+    // Parent visibility, rows and total must describe one tenant-qualified snapshot.
+    return prisma.$transaction(
+      async (transaction) => {
+        const parent = await transaction.shift.findFirst({
+          where: { id: shiftId, companyId, deletedAt: null },
+          select: { id: true }
+        });
+        if (!parent) throw notFound("Shift not found");
+        const where = { companyId, shiftId, deletedAt: null };
+        const items = await transaction.shiftCoverage.findMany({
+          where,
+          ...toSkipTake(pagination),
+          orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            shiftId: true,
+            userId: true,
+            replacementForUserId: true,
+            type: true,
+            startsAt: true,
+            endsAt: true,
+            note: true,
+            user: { select: publicUserSelect },
+            replacementForUser: { select: publicUserSelect }
+          }
+        });
+        const total = await transaction.shiftCoverage.count({ where });
+        return { items, total, ...pagination };
+      },
+      { isolationLevel: "RepeatableRead" }
+    );
   }
 
   async findForUpdate(transaction: PrismaTransactionClient, id: string, companyId: string) {

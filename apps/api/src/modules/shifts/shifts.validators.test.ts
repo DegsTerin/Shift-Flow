@@ -1,8 +1,45 @@
 // en-GB: Verifies strict Shift period and timezone HTTP validation.
 import { describe, expect, it } from "vitest";
-import { shiftCreateSchema, shiftUpdateSchema } from "./shifts.validators.js";
+import { coverageSchema, shiftCreateSchema, shiftUpdateSchema } from "./shifts.validators.js";
 
 const shift = { name: "Day shift", startsAt: "2026-09-04T09:00", endsAt: "2026-09-04T17:00" };
+
+describe("Coverage instant transport", () => {
+  const coverage = {
+    userId: "8f536533-317b-41ea-ab86-d7545910e3cb",
+    startsAt: "2026-09-04T09:00:00Z",
+    endsAt: "2026-09-04T17:00:00Z"
+  };
+  it.each([
+    "2026-09-04T10:20:30Z",
+    "2026-09-04t10:20:30.123456789012z",
+    "2026-09-04T10:20:30.1-03:00"
+  ])("preserves explicit instant %s without HTTP coercion", (value) => {
+    expect(coverageSchema.parse({ ...coverage, startsAt: value }).startsAt).toBe(value);
+  });
+  it.each([
+    undefined,
+    null,
+    true,
+    false,
+    0,
+    1,
+    new Date(0),
+    {},
+    [],
+    "",
+    "2026-09-04",
+    "2026-09-04T09:00",
+    "2026-09-04T09:00:00",
+    "2026-02-30T09:00:00Z",
+    "2026-09-04T09:00:60Z",
+    "2026-09-04T24:00:00Z",
+    "2026-09-04T09:00:00.123456789012Z\n"
+  ])("rejects non-explicit or malformed coverage time %j", (value) => {
+    for (const field of ["startsAt", "endsAt"])
+      expect(coverageSchema.safeParse({ ...coverage, [field]: value }).success).toBe(false);
+  });
+});
 
 describe("Shift temporal validation", () => {
   it.each(["PLANNED", "OPEN"])("accepts the initial state %s", (status) => {
