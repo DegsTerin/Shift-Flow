@@ -28,6 +28,7 @@ async function sessionFrom(response: Response) {
   expect(response.status()).toBe(200);
   const envelope = (await response.json()) as { data: LoginResponse };
   // Assertions deliberately inspect only booleans and public metadata, never the complete session.
+  expect(envelope.data?.authenticationMode === "required").toBe(true);
   expect(
     typeof envelope.data?.accessToken === "string" && envelope.data.accessToken.length > 0
   ).toBe(true);
