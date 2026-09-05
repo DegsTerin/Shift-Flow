@@ -466,7 +466,7 @@ export class RbacRepository {
         this.assertCanDelegateRole(authority, canonicalRoleId);
         const changesScope = data.scope !== undefined && data.scope !== before.scope;
         if (action === "SOFT_DELETE" || changesScope) {
-          const now = new Date();
+          const now = await this.readStatementTimestamp(transaction);
           const assignmentCount = await transaction.userRoleAssignment.count({
             where: {
               roleId: canonicalRoleId,

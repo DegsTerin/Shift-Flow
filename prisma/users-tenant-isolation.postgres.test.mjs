@@ -4,7 +4,7 @@ import { performance } from "node:perf_hooks";
 import process from "node:process";
 import { clearTimeout, setTimeout } from "node:timers";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { RbacRepository } from "../apps/api/src/modules/rbac/rbac.repository.ts";
 import { UsersRepository } from "../apps/api/src/modules/users/users.repository.ts";
 import { assertSafePostgresIntegrationTarget } from "./seed-safety.mjs";
@@ -441,7 +441,8 @@ describe("User and Role aggregate PostgreSQL integration", () => {
       data: {
         companyId: state.companyA.id,
         userId: state.rbacActor.id,
-        roleId: state.controlRole.id
+        roleId: state.controlRole.id,
+        startsAt: new Date("2000-01-01T00:00:00.000Z")
       }
     });
   }, 30_000);
@@ -559,42 +560,65 @@ describe("User and Role aggregate PostgreSQL integration", () => {
     expect(auditCountAfter - auditCountBefore).toBe(2);
   });
 
-  it("rechecks assignments after waiting for the protected Role mutation lock", async () => {
-    const role = await prisma.role.create({
-      data: { companyId: state.companyA.id, name: `${scope}-role-race`, scope: "COMPANY" }
-    });
-    const overlap = roleLockRace();
-    const assignmentRepository = pausedRoleAssignmentRepository(role.id, overlap);
-    const assignment = observe(
-      assignmentRepository.assignRole(rbacContext("rbac:write"), {
-        userId: state.soleUser.id,
-        roleId: role.id
-      })
-    );
-    await overlap.holderReady;
+  it.each(["UPDATE", "SOFT_DELETE"])(
+    "rechecks assignments after waiting for the protected Role mutation lock during %s despite host clock skew",
+    async (action) => {
+      const role = await prisma.role.create({
+        data: {
+          companyId: state.companyA.id,
+          name: `${scope}-role-race-${action}`,
+          scope: "COMPANY"
+        }
+      });
+      const overlap = roleLockRace();
+      let assignmentOutcome;
+      let mutationOutcome;
+      // Only the application clock is skewed; PostgreSQL and barrier timers remain real.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2001-01-01T00:00:00.000Z"));
+      try {
+        const assignmentRepository = pausedRoleAssignmentRepository(role.id, overlap);
+        const assignment = observe(
+          assignmentRepository.assignRole(rbacContext("rbac:write"), {
+            userId: state.soleUser.id,
+            roleId: role.id
+          })
+        );
+        await overlap.holderReady;
 
-    const roleRepository = roleMutationRepository(role.id, overlap);
-    const mutation = observe(
-      roleRepository.mutateRole(rbacContext("rbac:write"), role.id, { scope: "CLIENT" }, "UPDATE")
-    );
-
-    const [assignmentOutcome, mutationOutcome] = await Promise.all([assignment, mutation]).finally(
-      overlap.dispose
-    );
-    expect(overlap.holderReached()).toBe(true);
-    expect(overlap.waitingLockAttempted()).toBe(true);
-    expect(overlap.waitingWasBlocked()).toBe(true);
-    expect(() => unwrap(assignmentOutcome)).not.toThrow();
-    expect(mutationOutcome.error).toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
-    await expect(prisma.role.findUniqueOrThrow({ where: { id: role.id } })).resolves.toMatchObject({
-      scope: "COMPANY",
-      deletedAt: null
-    });
-    await expect(
-      prisma.userRoleAssignment.count({ where: { roleId: role.id, deletedAt: null } })
-    ).resolves.toBe(1);
-    await expect(prisma.auditLog.count({ where: { entityId: role.id } })).resolves.toBe(0);
-  });
+        const roleRepository = roleMutationRepository(role.id, overlap);
+        const mutation = observe(
+          roleRepository.mutateRole(
+            rbacContext(action === "UPDATE" ? "rbac:write" : "rbac:delete"),
+            role.id,
+            action === "UPDATE" ? { scope: "CLIENT" } : { deletedAt: new Date() },
+            action
+          )
+        );
+        [assignmentOutcome, mutationOutcome] = await Promise.all([assignment, mutation]);
+        expect(Date.now()).toBe(Date.parse("2001-01-01T00:00:00.000Z"));
+        expect(assignmentOutcome.value?.startsAt?.getTime()).toBeGreaterThan(Date.now());
+      } finally {
+        overlap.dispose();
+        vi.useRealTimers();
+      }
+      expect(overlap.holderReached()).toBe(true);
+      expect(overlap.waitingLockAttempted()).toBe(true);
+      expect(overlap.waitingWasBlocked()).toBe(true);
+      expect(() => unwrap(assignmentOutcome)).not.toThrow();
+      expect(mutationOutcome.error).toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
+      await expect(
+        prisma.role.findUniqueOrThrow({ where: { id: role.id } })
+      ).resolves.toMatchObject({
+        scope: "COMPANY",
+        deletedAt: null
+      });
+      await expect(
+        prisma.userRoleAssignment.count({ where: { roleId: role.id, deletedAt: null } })
+      ).resolves.toBe(1);
+      await expect(prisma.auditLog.count({ where: { entityId: role.id } })).resolves.toBe(0);
+    }
+  );
 
   it("rejects an assignment that waited for a protected Role deletion to commit", async () => {
     const role = await prisma.role.create({

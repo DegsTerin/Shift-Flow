@@ -532,6 +532,59 @@ describe("RbacRepository delegated authority", () => {
     expect(state.updateRole).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { action: "UPDATE" as const, direction: "behind", hostYear: 2020 },
+    { action: "SOFT_DELETE" as const, direction: "behind", hostYear: 2020 },
+    { action: "UPDATE" as const, direction: "ahead", hostYear: 2040 },
+    { action: "SOFT_DELETE" as const, direction: "ahead", hostYear: 2040 }
+  ])(
+    "protects active assignments during $action when the host clock is $direction",
+    async ({ action, hostYear }) => {
+      const statementTimestamp = new Date("2030-01-01T12:00:00.000Z");
+      const startsAt = new Date("2030-01-01T11:00:00.000Z");
+      const endsAt = new Date("2030-01-01T13:00:00.000Z");
+      const state = harness({ statementTimestamp });
+      state.countAssignments.mockImplementation(async ({ where }) =>
+        Number(startsAt <= where.startsAt.lte && endsAt > where.OR[1].endsAt.gt)
+      );
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(`${hostYear}-01-01T00:00:00.000Z`));
+      try {
+        await expect(
+          state.repository.mutateRole(
+            context(),
+            "target-role",
+            action === "UPDATE" ? { scope: "TEAM" } : { deletedAt: new Date() },
+            action
+          )
+        ).rejects.toMatchObject({ code: "BAD_REQUEST", statusCode: 400 });
+        expect(state.countAssignments).toHaveBeenCalledWith({
+          where: {
+            roleId: "target-role",
+            companyId: "company-a",
+            deletedAt: null,
+            startsAt: { lte: statementTimestamp },
+            OR: [{ endsAt: null }, { endsAt: { gt: statementTimestamp } }]
+          }
+        });
+        const timestampIndex = state.query.mock.calls.findIndex(([query]) =>
+          query.includes("SELECT statement_timestamp()")
+        );
+        const roleLockIndexes = state.query.mock.calls.flatMap(([query], index) =>
+          query.includes('FROM "roles"') ? [index] : []
+        );
+        expect(timestampIndex).toBeGreaterThan(Math.max(...roleLockIndexes));
+        expect(state.query.mock.invocationCallOrder[timestampIndex]).toBeLessThan(
+          state.countAssignments.mock.invocationCallOrder[0]
+        );
+        expect(state.updateRole).not.toHaveBeenCalled();
+        expect(state.createAudit).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    }
+  );
+
   it("propagates audit failure from the same transaction", async () => {
     const auditFailure = new Error("audit unavailable");
     const state = harness({ auditFailure, targetPermissions: [] });
