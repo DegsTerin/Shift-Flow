@@ -48,15 +48,7 @@ const blockedSeverities = new Set(["MEDIUM", "HIGH", "CRITICAL", "UNKNOWN"]);
 const expectedRegistryImages = new Map([
   [
     "nginx",
-    "nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8"
-  ],
-  [
-    "postgres",
-    "postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
-  ],
-  [
-    "redis",
-    "redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232"
+    "nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6"
   ]
 ]);
 const expectedBuildTargets = new Map([
@@ -75,6 +67,22 @@ const expectedBuildTargets = new Map([
   [
     "migration",
     { composeService: "migrate", dockerfile: "infra/docker/node.Dockerfile", target: "migration" }
+  ],
+  [
+    "postgres",
+    {
+      composeService: "postgres",
+      dockerfile: "infra/docker/infrastructure.Dockerfile",
+      target: "postgres"
+    }
+  ],
+  [
+    "redis",
+    {
+      composeService: "redis",
+      dockerfile: "infra/docker/infrastructure.Dockerfile",
+      target: "redis"
+    }
   ],
   ["web", { composeService: "web", dockerfile: "infra/docker/node.Dockerfile", target: "web" }]
 ]);
@@ -579,6 +587,7 @@ export function validatePolicyDocuments({
   composeText,
   nodeDockerfileText,
   dotnetDockerfileText,
+  infrastructureDockerfileText,
   spdxSchemaBytes,
   asOf = new Date()
 }) {
@@ -702,6 +711,14 @@ export function validatePolicyDocuments({
   ) {
     fail("OCI_TARGET_SET_INVALID", "targets.targets");
   }
+  const dockerfileTexts = new Map([
+    ["apps/api-dotnet/Dockerfile", dotnetDockerfileText],
+    ["infra/docker/node.Dockerfile", nodeDockerfileText],
+    ["infra/docker/infrastructure.Dockerfile", infrastructureDockerfileText]
+  ]);
+  for (const [path, text] of dockerfileTexts) {
+    if (typeof text !== "string" || text.length === 0) fail("OCI_DOCKERFILE_TEXT_INVALID", path);
+  }
   const targetsById = new Map();
   for (const [index, target] of targetsDocument.targets.entries()) {
     const location = `targets.targets[${index}]`;
@@ -759,9 +776,8 @@ export function validatePolicyDocuments({
       }
       assertOneExactLine(buildBlock, "      context: .", location);
       assertOneExactLine(buildBlock, `      dockerfile: ${target.dockerfile}`, location);
-      const dockerfileText = target.dockerfile.startsWith("apps/api-dotnet/")
-        ? dotnetDockerfileText
-        : nodeDockerfileText;
+      const dockerfileText = dockerfileTexts.get(target.dockerfile);
+      if (!dockerfileText) fail("OCI_BUILD_TARGET_INVALID", location);
       const stagePattern = new RegExp(`^FROM .+ AS ${target.target}\\s*$`, "mu");
       if (!stagePattern.test(dockerfileText)) fail("OCI_DOCKERFILE_TARGET_MISSING", location);
       const composeTargetLines = buildBlock.match(/^ {6}target:\s+\S+\s*$/gmu) ?? [];
@@ -883,6 +899,7 @@ export function validatePolicyDocuments({
     composeSha256: sha256(Buffer.from(composeText, "utf8")),
     dotnetDockerfileSha256: sha256(Buffer.from(dotnetDockerfileText, "utf8")),
     nodeDockerfileSha256: sha256(Buffer.from(nodeDockerfileText, "utf8")),
+    infrastructureDockerfileSha256: sha256(Buffer.from(infrastructureDockerfileText, "utf8")),
     spdxSchemaSha256
   });
   const manifestSha256 = sha256(
@@ -1533,6 +1550,10 @@ export function runCli(
       dotnetDockerfileText: readStableUtf8File(
         resolve(repositoryRoot, "apps/api-dotnet/Dockerfile"),
         "dotnet-dockerfile"
+      ),
+      infrastructureDockerfileText: readStableUtf8File(
+        resolve(repositoryRoot, "infra/docker/infrastructure.Dockerfile"),
+        "infrastructure-dockerfile"
       ),
       spdxSchemaBytes: readStableRegularFile(
         resolve(repositoryRoot, spdxSchemaPath),

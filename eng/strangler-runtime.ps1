@@ -128,6 +128,83 @@ function Get-EffectiveProcessOneUid {
     return [long]$uidMatch.Groups['effective'].Value
 }
 
+function Get-RuntimeImageIdentities {
+    $identities = [ordered]@{}
+    foreach ($service in @('postgres', 'redis', 'migrate', 'legacy-api', 'api-dotnet', 'web', 'nginx')) {
+        $containerIds = @(docker compose @composeArguments ps --all --quiet $service)
+        Assert-NativeSuccess "Resolve actual $service subject container"
+        if ($containerIds.Count -ne 1 -or $containerIds[0] -cnotmatch '^[a-f0-9]{64}$') {
+            throw "Service '$service' must have one exact subject container, including the completed migration."
+        }
+        $imageId = (docker inspect --format '{{.Image}}' $containerIds[0]).Trim()
+        Assert-NativeSuccess "Inspect actual $service image identity"
+        if ($imageId -cnotmatch '^sha256:[a-f0-9]{64}$') {
+            throw "Service '$service' did not expose an immutable image identity."
+        }
+        $localImageId = (docker image inspect --format '{{.Id}}' $imageId).Trim()
+        Assert-NativeSuccess "Verify retained $service image identity"
+        if ($localImageId -cne $imageId) { throw "Service '$service' image identity changed." }
+        $identities[$service] = $imageId
+    }
+    return $identities
+}
+
+function Assert-InfrastructurePackaging {
+    $gosuProbe = @'
+test "$(readlink /usr/local/bin/su-exec)" = gosu
+test ! -u /usr/local/bin/gosu
+test "$(gosu postgres id -u)" = 70
+test "$(gosu postgres id -g)" = "$(id -g postgres)"
+test "$(gosu postgres id -G)" = "$(id -G postgres)"
+test "$(gosu 70:70 id -u)" = 70
+expected_home="$(awk -F: '$1 == "postgres" { print $6 }' /etc/passwd)"
+actual_home="$(gosu postgres sh -c 'printf %s "$HOME"')"
+test -n "$expected_home"
+test "$actual_home" = "$expected_home"
+if gosu shiftflow_missing_user true >/dev/null 2>&1; then exit 1; fi
+su-exec postgres true
+'@
+    docker compose @composeArguments exec --no-TTY --user 0 postgres sh -eu -c $gosuProbe
+    Assert-NativeSuccess 'Validate rebuilt gosu identity, groups, HOME, invalid user, mode and alias'
+    $version = (docker compose @composeArguments exec --no-TTY postgres psql -U shiftflow -d shiftflow -Atqc 'SHOW server_version_num').Trim()
+    Assert-NativeSuccess 'Inspect PostgreSQL major version'
+    if ($version -cnotmatch '^16[0-9]{4}$') { throw 'The disposable cluster must retain PostgreSQL major 16.' }
+    $systemIdentifier = (docker compose @composeArguments exec --no-TTY postgres psql -U shiftflow -d shiftflow -Atqc 'SELECT system_identifier FROM pg_control_system()').Trim()
+    Assert-NativeSuccess 'Inspect initial PostgreSQL cluster identity'
+    if ($systemIdentifier -cnotmatch '^[0-9]+$') { throw 'The initial PostgreSQL cluster identity is invalid.' }
+    $migrationCount = (docker compose @composeArguments exec --no-TTY postgres psql -U shiftflow -d shiftflow -Atqc 'SELECT count(*) FROM "_prisma_migrations"').Trim()
+    Assert-NativeSuccess 'Inspect initial PostgreSQL migration ledger'
+    if ($migrationCount -cnotmatch '^[1-9][0-9]*$') { throw 'The disposable PostgreSQL cluster was not initialised and migrated.' }
+    docker compose @composeArguments restart postgres | Out-Null
+    Assert-NativeSuccess 'Restart PostgreSQL without reinitialising its owned data volume'
+    Wait-ServiceHealthy 'postgres'
+    $restartedIdentifier = (docker compose @composeArguments exec --no-TTY postgres psql -U shiftflow -d shiftflow -Atqc 'SELECT system_identifier FROM pg_control_system()').Trim()
+    Assert-NativeSuccess 'Inspect restarted PostgreSQL cluster identity'
+    $restartedMigrations = (docker compose @composeArguments exec --no-TTY postgres psql -U shiftflow -d shiftflow -Atqc 'SELECT count(*) FROM "_prisma_migrations"').Trim()
+    Assert-NativeSuccess 'Inspect restarted PostgreSQL migration ledger'
+    if ($restartedIdentifier -cne $systemIdentifier -or $restartedMigrations -cne $migrationCount) {
+        throw 'PostgreSQL cluster identity or migration data changed across restart.'
+    }
+    $redisPersistence = @(docker compose @composeArguments exec --no-TTY redis redis-cli --raw CONFIG GET appendonly)
+    Assert-NativeSuccess 'Inspect effective Redis append-only persistence'
+    $redisPolicy = @(docker compose @composeArguments exec --no-TTY redis redis-cli --raw CONFIG GET maxmemory-policy)
+    Assert-NativeSuccess 'Inspect effective Redis eviction policy'
+    if (($redisPersistence -join "`n") -cne "appendonly`nyes" -or
+        ($redisPolicy -join "`n") -cne "maxmemory-policy`nnoeviction") {
+        throw 'Redis must retain effective append-only persistence and noeviction.'
+    }
+    $nodeToolProbe = 'test ! -e /usr/local/bin/npm && test ! -e /usr/local/bin/npx && test ! -e /usr/local/lib/node_modules/npm && test -d node_modules && node --version'
+    foreach ($service in @('legacy-api', 'web')) {
+        docker compose @composeArguments exec --no-TTY $service sh -eu -c $nodeToolProbe
+        Assert-NativeSuccess "Verify final $service global-tool removal and application dependencies"
+    }
+    docker compose @composeArguments run --rm migrate sh -eu -c ($nodeToolProbe + ' && test -x ./node_modules/.bin/prisma && ./node_modules/.bin/prisma --version')
+    Assert-NativeSuccess 'Verify migration local Prisma without global npm or npx'
+    docker compose @composeArguments exec --no-TTY nginx nginx -t
+    Assert-NativeSuccess 'Validate slim Nginx configuration and required modules'
+    Wait-ServiceHealthy 'nginx'
+}
+
 function Assert-ReadinessRunId {
     [CmdletBinding()]
     param(
@@ -733,6 +810,9 @@ try {
     docker compose @composeArguments up --detach --build --wait
     Assert-NativeSuccess 'Disposable strangler stack start'
 
+    $actualRuntimeImages = Get-RuntimeImageIdentities
+    Assert-InfrastructurePackaging
+
     $readinessMatrixEvidence = Invoke-ReadinessRuntimeMatrix -RunId $readinessRunId
 
     docker compose @composeArguments run --rm --env E2E_EMAIL --env E2E_PASSWORD migrate node prisma/integration-seed.mjs | Out-Null
@@ -840,8 +920,22 @@ try {
         -ComposeProjectName $ProjectName `
         -ExpectRedisRecovered
 
+    $remainingRedisTtl = [long](docker compose @composeArguments exec --no-TTY redis redis-cli pttl $redisKeys[0])
+    Assert-NativeSuccess 'Inspect persisted Redis rate-limit TTL after restart'
+    if ($remainingRedisTtl -le 0 -or $remainingRedisTtl -gt $redisTtl) {
+        throw 'Redis must retain a positive, non-increasing rate-limit TTL across restart.'
+    }
+    $finalRuntimeImages = Get-RuntimeImageIdentities
+    foreach ($service in $actualRuntimeImages.Keys) {
+        if ($finalRuntimeImages[$service] -cne $actualRuntimeImages[$service]) {
+            throw "The actual runtime image for '$service' changed during validation."
+        }
+    }
+
     $successEvidence = [ordered]@{
         status = 'PASS'
+        actualRuntimeImages = $actualRuntimeImages
+        infrastructurePackagingVerified = $true
         nonRootRuntimes = 7
         protectedPayloadSurvivedRecreation = $true
         redisCounterSurvivedRecreation = $true

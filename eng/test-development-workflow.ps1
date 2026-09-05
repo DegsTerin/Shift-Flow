@@ -17,6 +17,7 @@ $workflowPath = Join-Path $repositoryRoot '.github/workflows/release-gates.yml'
 $composePath = Join-Path $repositoryRoot 'docker-compose.yml'
 $nodeDockerfilePath = Join-Path $repositoryRoot 'infra/docker/node.Dockerfile'
 $dotnetDockerfilePath = Join-Path $repositoryRoot 'apps/api-dotnet/Dockerfile'
+$infrastructureDockerfilePath = Join-Path $repositoryRoot 'infra/docker/infrastructure.Dockerfile'
 $prismaConfigPath = Join-Path $repositoryRoot '.config/prisma.ts'
 $unitVitestConfigPath = Join-Path $repositoryRoot '.config/vitest.config.ts'
 $postgresVitestConfigPath = Join-Path $repositoryRoot '.config/vitest.postgres.config.ts'
@@ -53,6 +54,7 @@ foreach ($ociPolicyPath in @(
         $ociTargetsPath,
         $ociExceptionsPath,
         $ociSpdxSchemaPath,
+        $infrastructureDockerfilePath,
         $secretHistoryAllowlistPath,
         $gitAttributesPath
     )) {
@@ -137,6 +139,7 @@ $workflow = Get-Content -LiteralPath $workflowPath -Raw
 $composeConfiguration = Get-Content -LiteralPath $composePath -Raw
 $nodeDockerfile = Get-Content -LiteralPath $nodeDockerfilePath -Raw
 $dotnetDockerfile = Get-Content -LiteralPath $dotnetDockerfilePath -Raw
+$infrastructureDockerfile = Get-Content -LiteralPath $infrastructureDockerfilePath -Raw
 $postgresRegression = Get-Content -LiteralPath $postgresRegressionPath -Raw
 $stranglerFixture = Get-Content -LiteralPath $stranglerFixturePath -Raw
 $stranglerSecurityControl = Get-Content -LiteralPath $stranglerSecurityControlPath -Raw
@@ -365,9 +368,9 @@ $ociTargetContracts = [ordered]@{
     'api-dotnet' = @('sourceKind: build', 'dockerfile: apps/api-dotnet/Dockerfile', 'target: runtime')
     'legacy-api' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: legacy-api')
     'migration' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: migration')
-    'nginx' = @('sourceKind: registry', 'image: nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8')
-    'postgres' = @('sourceKind: registry', 'image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685')
-    'redis' = @('sourceKind: registry', 'image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232')
+    'nginx' = @('sourceKind: registry', 'image: nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6')
+    'postgres' = @('sourceKind: build', 'dockerfile: infra/docker/infrastructure.Dockerfile', 'target: postgres')
+    'redis' = @('sourceKind: build', 'dockerfile: infra/docker/infrastructure.Dockerfile', 'target: redis')
     'web' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: web')
 }
 foreach ($targetId in $ociTargetContracts.Keys) {
@@ -687,6 +690,7 @@ $byteHashedOciPaths = @(
     'docker-compose[.]yml',
     'apps/api-dotnet/Dockerfile',
     'infra/docker/node[.]Dockerfile',
+    'infra/docker/infrastructure[.]Dockerfile',
     'eng/spdx-2[.]3-schema[.]json'
 )
 foreach ($byteHashedOciPath in $byteHashedOciPaths) {
@@ -712,15 +716,15 @@ $expectedOciTargets = @(
     },
     [ordered]@{
         id = 'nginx'; composeService = 'nginx'; sourceKind = 'registry'
-        image = 'nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8'
+        image = 'nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6'
     },
     [ordered]@{
-        id = 'postgres'; composeService = 'postgres'; sourceKind = 'registry'
-        image = 'postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685'
+        id = 'postgres'; composeService = 'postgres'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/infrastructure.Dockerfile'; target = 'postgres'
     },
     [ordered]@{
-        id = 'redis'; composeService = 'redis'; sourceKind = 'registry'
-        image = 'redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232'
+        id = 'redis'; composeService = 'redis'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/infrastructure.Dockerfile'; target = 'redis'
     },
     [ordered]@{
         id = 'web'; composeService = 'web'; sourceKind = 'build'; context = '.'
@@ -1653,9 +1657,7 @@ if (($fixtureEnvironmentReads -join "`n") -cne "DATABASE_URL`nSHIFTFLOW_DISPOSAB
 }
 
 $immutableComposeImages = [ordered]@{
-    postgres = 'postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685'
-    redis = 'redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232'
-    nginx = 'nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8'
+    nginx = 'nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6'
 }
 foreach ($serviceName in $immutableComposeImages.Keys) {
     $serviceBlock = [regex]::Match(
@@ -1675,6 +1677,9 @@ foreach ($localServiceName in @('postgres', 'redis')) {
         $composeConfiguration,
         '(?ms)^  ' + [regex]::Escape($localServiceName) + ':\r?\n(?<body>.*?)(?=^  \S|\z)')
     if (-not $localServiceBlock.Success -or
+        $localServiceBlock.Value -match '(?m)^    image:' -or
+        $localServiceBlock.Value -notmatch ('(?m)^      target: ' + $localServiceName + '\s*$') -or
+        $localServiceBlock.Value -notmatch '(?m)^      dockerfile: infra/docker/infrastructure[.]Dockerfile\s*$' -or
         $localServiceBlock.Value.IndexOf(
             '      - local-access',
             [System.StringComparison]::Ordinal) -lt 0) {
@@ -1687,13 +1692,71 @@ if ($composeConfiguration -notmatch '(?ms)^  local-access:\r?\n    internal: fal
 $runtimeJob = [regex]::Match(
     $workflow,
     '(?ms)^  runtime-gates:\r?\n(?<body>.*?)(?=^  [a-zA-Z0-9_-]+:\r?$|\z)')
-$workflowPostgresImage = '        image: ' + $immutableComposeImages.postgres
-if (-not $runtimeJob.Success -or
-    [regex]::Matches(
-        $runtimeJob.Value,
-        '(?m)^' + [regex]::Escape($workflowPostgresImage) + '\s*$').Count -ne 1 -or
-    [regex]::Matches($runtimeJob.Value, '(?m)^        image:\s+postgres:').Count -ne 1) {
-    throw 'The runtime-gates PostgreSQL service must use its exact immutable image contract.'
+function Assert-ScannedPostgresBootstrap {
+    param([Parameter(Mandatory)][string]$Text)
+    $normalised = $Text.Replace("`r`n", "`n")
+    $contracts = @(
+        'uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5',
+        'docker build --file infra/docker/infrastructure.Dockerfile --target postgres --tag "$image_tag" .',
+        'image_id="$(docker image inspect --format ''{{.Id}}'' "$image_tag")"',
+        'image-ref: ${{ steps.runtime_postgres.outputs.image_id }}',
+        'docker run --detach --pull never --name "$owner" --label "shiftflow.ci.owner=$owner"',
+        'test "$(docker inspect --format ''{{.Image}}'' "$owner")" = "$POSTGRES_IMAGE_ID"',
+        'for attempt in $(seq 1 30); do',
+        'Remove only job-owned PostgreSQL resources')
+    $lastPosition = -1
+    foreach ($contract in $contracts) {
+        $position = $normalised.IndexOf($contract, [System.StringComparison]::Ordinal)
+        if ($position -le $lastPosition -or [regex]::Matches($normalised, [regex]::Escape($contract)).Count -ne 1) {
+            throw 'The PostgreSQL bootstrap must build after checkout, scan the exact image, run its immutable identity and clean up in order.'
+        }
+        $lastPosition = $position
+    }
+    $ownerValidation = $normalised.IndexOf('[[ "$owner" =~ ^shiftflow-ci-postgres-[0-9]+-[0-9]+$ ]]', [System.StringComparison]::Ordinal)
+    $ownerPublication = $normalised.IndexOf('echo "owner=$owner" >> "$GITHUB_OUTPUT"', [System.StringComparison]::Ordinal)
+    $volumeCreation = $normalised.IndexOf('docker volume create --label "shiftflow.ci.owner=$owner" "${owner}-data"', [System.StringComparison]::Ordinal)
+    if ($ownerValidation -lt 0 -or $ownerPublication -le $ownerValidation -or $volumeCreation -le $ownerPublication) {
+        throw 'The validated cleanup owner must be published before the first resource-creation attempt, including ambiguous CLI failure.'
+    }
+    foreach ($contract in @(
+            'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8',
+            'version: v0.74.0', 'scanners: vuln', 'vuln-type: os,library',
+            'exit-code: "1"', 'ignore-unfixed: "false"', 'severity: UNKNOWN,MEDIUM,HIGH,CRITICAL',
+            'cache: "false"', 'POSTGRES_IMAGE_ID: ${{ steps.runtime_postgres.outputs.image_id }}',
+            '[[ "$POSTGRES_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]',
+            '            "$POSTGRES_IMAGE_ID"',
+            'POSTGRES_RESOURCE_OWNER: ${{ steps.start_runtime_postgres.outputs.owner }}',
+            'if test -z "$POSTGRES_RESOURCE_OWNER"; then exit 0; fi',
+            'test "$POSTGRES_RESOURCE_OWNER" = "$owner"',
+            'test "$(docker inspect --format ''{{index .Config.Labels "shiftflow.ci.owner"}}'' "$container_id")" = "$owner"',
+            'test "$(docker volume inspect --format ''{{index .Labels "shiftflow.ci.owner"}}'' "$volume_name")" = "$owner"',
+            'test -z "$remaining_containers$remaining_volumes"')) {
+        if (-not $normalised.Contains($contract, [System.StringComparison]::Ordinal)) {
+            throw "The actual-image PostgreSQL security/ownership contract is missing '$contract'."
+        }
+    }
+    if ($normalised -match '(?m)^    services:|continue-on-error:|docker (?:system|volume|container) prune' -or
+        $normalised -notmatch '(?m)^      - name: Remove only job-owned PostgreSQL resources\n        if: always\(\)$') {
+        throw 'PostgreSQL bootstrap must never use an unscanned service, bypass failures or perform unbounded cleanup.'
+    }
+}
+if (-not $runtimeJob.Success) { throw 'The runtime-gates job is missing.' }
+Assert-ScannedPostgresBootstrap -Text $runtimeJob.Value
+$postgresCounterexamples = [ordered]@{
+    'cleanup owner published after mutation' = $runtimeJob.Value.Replace('echo "owner=$owner" >> "$GITHUB_OUTPUT"', '').Replace('docker volume create --label "shiftflow.ci.owner=$owner" "${owner}-data"', "docker volume create --label `"shiftflow.ci.owner=`$owner`" `"`${owner}-data`"`n          echo `"owner=`$owner`" >> `"`$GITHUB_OUTPUT`"")
+    'mutable image scan' = $runtimeJob.Value.Replace('image-ref: ${{ steps.runtime_postgres.outputs.image_id }}', 'image-ref: postgres:16-alpine')
+    'runtime pull allowed' = $runtimeJob.Value.Replace('--pull never', '--pull always')
+    'container image identity omitted' = $runtimeJob.Value.Replace('test "$(docker inspect --format ''{{.Image}}'' "$owner")" = "$POSTGRES_IMAGE_ID"', '')
+    'unowned cleanup' = $runtimeJob.Value.Replace('test "$POSTGRES_RESOURCE_OWNER" = "$owner"', '')
+    'cleanup only after success' = $runtimeJob.Value.Replace('if: always()', 'if: success()')
+    'unfixed scan waiver' = $runtimeJob.Value.Replace('ignore-unfixed: "false"', 'ignore-unfixed: "true"')
+}
+foreach ($name in $postgresCounterexamples.Keys) {
+    if ($postgresCounterexamples[$name] -ceq $runtimeJob.Value) { throw "PostgreSQL counterexample '$name' did not mutate its input." }
+    $rejected = $false
+    try { Assert-ScannedPostgresBootstrap -Text $postgresCounterexamples[$name] }
+    catch { $rejected = $true }
+    if (-not $rejected) { throw "PostgreSQL bootstrap accepted '$name'." }
 }
 if (-not $composeConfiguration.Contains(
         'API_RATE_LIMIT_WINDOW_MS: "600000"',
@@ -1709,7 +1772,7 @@ foreach ($composeSecurityContract in @(
         throw "The disposable profile is missing state or authority contract '$composeSecurityContract'."
     }
 }
-$immutableNodeImage = 'node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b'
+$immutableNodeImage = 'node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
 $externalNodeStages = @([regex]::Matches($nodeDockerfile, '(?im)^FROM\s+node:[^\r\n]+$'))
 $expectedNodeStages = @('dependencies', 'legacy-api', 'web')
 if ($externalNodeStages.Count -ne $expectedNodeStages.Count) {
@@ -1746,6 +1809,104 @@ foreach ($stageName in $immutableDotNetStages.Keys) {
         throw "ASP.NET Core stage '$stageName' must use its exact immutable base image."
     }
 }
+
+function Assert-DerivedRuntimePackaging {
+    param([string]$Infrastructure, [string]$Node)
+    $requiredInfrastructure = @(
+        'FROM golang:1.26.7-alpine3.24@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468 AS gosu-build',
+        'FROM postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 AS postgres',
+        'FROM redis:8.2.9-alpine@sha256:30abb90e62f14b737010746def3ba99cc79fe19dcdb3d37b41f21fc62e7da19d AS redis',
+        'ENV GOTOOLCHAIN=local CGO_ENABLED=0',
+        '00ef15d982eb58d62cf67c6517d9560bb92cff5d1347f16b03e03bb3a6da08f2b85e8c3e6c23ae644f174f8da8e9154dcfe4ee379f894882e92b3602d7d079ed  /tmp/gosu-1.19.tar.gz',
+        'sha512sum -c -',
+        'go mod edit -go=1.26.0 -require=golang.org/x/sys@v0.44.0',
+        'github.com/moby/sys/user v0.1.0 h1:WmZ93f5Ux6het5iituh9x2zAG7NFY9Aqi49jjE1PaQg=',
+        'golang.org/x/sys v0.44.0 h1:ildZl3J4uzeKP07r2F++Op7E9B29JRUy+a27EibtBTQ=',
+        'go mod verify', 'go build -trimpath -buildvcs=false -ldflags=''-d -w'' -o /out/gosu .',
+        'go version -m /out/gosu',
+        'COPY --from=gosu-build --chmod=0755 /out/gosu /usr/local/bin/gosu',
+        'libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 libuuid=2.42.3-r1',
+        'libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 setpriv=2.41.6-r1',
+        'test "$(readlink /usr/local/bin/su-exec)" = gosu')
+    foreach ($contract in $requiredInfrastructure) {
+        if (-not $Infrastructure.Contains($contract, [System.StringComparison]::Ordinal)) {
+            throw "The derived infrastructure packaging is missing '$contract'."
+        }
+    }
+    if ($Infrastructure -match '(?im)^(?:USER|ENTRYPOINT|CMD|STOPSIGNAL)\s|GOSUMDB=off|--allow-untrusted' -or
+        [regex]::Matches($Infrastructure, '(?im)^FROM ').Count -ne 3) {
+        throw 'Infrastructure derivation must retain upstream runtime identities, entrypoints and signals with verified packages.'
+    }
+    $checksumPosition = $Infrastructure.IndexOf('sha512sum -c -', [System.StringComparison]::Ordinal)
+    if ($checksumPosition -gt $Infrastructure.IndexOf('tar -xzf ', [System.StringComparison]::Ordinal)) {
+        throw 'Gosu source must be authenticated before extraction.'
+    }
+    if ([regex]::Matches($Node, [regex]::Escape('rm -r /usr/local/lib/node_modules/npm')).Count -ne 3) {
+        throw 'Only the three final Node runtime stages may remove the verified global npm tree.'
+    }
+    foreach ($stage in @([regex]::Matches($Node, '(?ms)^FROM [^\r\n]+ AS (?<name>[^\r\n]+)\r?\n(?<body>.*?)(?=^FROM |\z)'))) {
+        $body = $stage.Groups['body'].Value
+        $name = $stage.Groups['name'].Value
+        if ($name -in @('migration', 'legacy-api', 'web')) {
+            $lastPosition = -1
+            foreach ($contract in @(
+                    'test "$(readlink -f /usr/local/bin/npm)" = /usr/local/lib/node_modules/npm/bin/npm-cli.js',
+                    'test "$(readlink -f /usr/local/bin/npx)" = /usr/local/lib/node_modules/npm/bin/npx-cli.js',
+                    'require("/usr/local/lib/node_modules/npm/package.json").name',
+                    'rm -r /usr/local/lib/node_modules/npm',
+                    'rm /usr/local/bin/npm /usr/local/bin/npx',
+                    'USER node')) {
+                $position = $body.IndexOf($contract, [System.StringComparison]::Ordinal)
+                if ($position -le $lastPosition) { throw "Final Node stage '$name' must verify exact npm targets before removal and privilege dropping." }
+                $lastPosition = $position
+            }
+        } elseif ($body.Contains('rm -r /usr/local/lib/node_modules/npm', [System.StringComparison]::Ordinal)) {
+            throw 'Build stages must retain global npm.'
+        }
+    }
+}
+Assert-DerivedRuntimePackaging -Infrastructure $infrastructureDockerfile -Node $nodeDockerfile
+$packagingCounterexamples = [ordered]@{
+    'unauthenticated gosu source' = $infrastructureDockerfile.Replace('sha512sum -c -', 'true')
+    'setuid gosu mode' = $infrastructureDockerfile.Replace('--chmod=0755', '--chmod=4755')
+    'replaced upstream user' = $infrastructureDockerfile + "`nUSER root`n"
+    'disabled Go module verification' = $infrastructureDockerfile.Replace('go mod verify', 'true')
+}
+foreach ($name in $packagingCounterexamples.Keys) {
+    $rejected = $false
+    try { Assert-DerivedRuntimePackaging -Infrastructure $packagingCounterexamples[$name] -Node $nodeDockerfile }
+    catch { $rejected = $true }
+    if (-not $rejected) { throw "Derived packaging accepted '$name'." }
+}
+$unverifiedNpmRemoval = $nodeDockerfile.Replace('test "$(readlink -f /usr/local/bin/npm)" = /usr/local/lib/node_modules/npm/bin/npm-cli.js', 'true')
+$rejected = $false
+try { Assert-DerivedRuntimePackaging -Infrastructure $infrastructureDockerfile -Node $unverifiedNpmRemoval }
+catch { $rejected = $true }
+if (-not $rejected) { throw 'Final Node packaging accepted removal without verifying the global npm destination.' }
+if (-not $dotnetDockerfile.Contains('RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0', [System.StringComparison]::Ordinal)) {
+    throw 'The ASP.NET Core final image must include the exact OpenSSL correction.'
+}
+foreach ($contract in @(
+        'function Get-RuntimeImageIdentities',
+        'ps --all --quiet $service',
+        "docker inspect --format '{{.Image}}'",
+        '$actualRuntimeImages = Get-RuntimeImageIdentities',
+        '$finalRuntimeImages = Get-RuntimeImageIdentities',
+        'actualRuntimeImages = $actualRuntimeImages',
+        'function Assert-InfrastructurePackaging',
+        'gosu postgres id -G', 'actual_home=', 'shiftflow_missing_user',
+        'test ! -u /usr/local/bin/gosu', 'su-exec postgres true',
+        'SHOW server_version_num', 'SELECT system_identifier FROM pg_control_system()',
+        '$restartedIdentifier -cne $systemIdentifier', '$restartedMigrations -cne $migrationCount',
+        'CONFIG GET appendonly', 'CONFIG GET maxmemory-policy',
+        '$remainingRedisTtl -gt $redisTtl',
+        'test ! -e /usr/local/lib/node_modules/npm',
+        './node_modules/.bin/prisma --version', 'nginx nginx -t')) {
+    if (-not $stranglerRuntime.Contains($contract, [System.StringComparison]::Ordinal)) {
+        throw "The canonical runtime is missing derived-packaging evidence '$contract'."
+    }
+}
+Write-Output 'Rejected all 12 unsafe PostgreSQL bootstrap and derived-packaging counterexamples.'
 
 foreach ($smokeContract in @(
         "Join-Path `$repositoryRoot 'scripts/docker-desktop.ps1'",

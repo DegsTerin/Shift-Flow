@@ -1,8 +1,8 @@
 // en-GB: Proves the unsigned local OCI precursor is strict, deterministic and fail-closed.
 /* global Buffer, process, structuredClone */
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep, win32 } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -12,7 +12,7 @@ import {
   runCli,
   sha256,
   validateEvidence,
-  validatePolicyDocuments
+  validatePolicyDocuments as validatePolicyDocumentsWithSources
 } from "./verify-oci-supply-chain.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,7 +34,200 @@ const dotnetDockerfileText = readFileSync(
   join(repositoryRoot, "apps", "api-dotnet", "Dockerfile"),
   "utf8"
 );
+const infrastructureDockerfileText = readFileSync(
+  join(repositoryRoot, "infra", "docker", "infrastructure.Dockerfile"),
+  "utf8"
+);
 const temporaryRoots = new Set();
+
+function validatePolicyDocuments(inputs) {
+  return validatePolicyDocumentsWithSources({ infrastructureDockerfileText, ...inputs });
+}
+
+function extractWorkflowBash(stepName) {
+  const lines = readFileSync(
+    join(repositoryRoot, ".github", "workflows", "release-gates.yml"),
+    "utf8"
+  )
+    .replaceAll("\r\n", "\n")
+    .split("\n");
+  const matches = lines.flatMap((line, index) =>
+    line === `      - name: ${stepName}` ? [index] : []
+  );
+  expect(matches).toHaveLength(1);
+  const start = matches[0];
+  const next = lines.findIndex((line, index) => index > start && /^ {0,6}\S/u.test(line));
+  const step = lines.slice(start, next < 0 ? undefined : next);
+  const run = step.indexOf("        run: |");
+  expect(run).toBeGreaterThan(0);
+  const body =
+    step
+      .slice(run + 1)
+      .map((line) => {
+        if (line !== "" && !line.startsWith("          "))
+          throw new Error("Unexpected workflow Bash indentation");
+        return line.slice(10);
+      })
+      .join("\n")
+      .trimEnd() + "\n";
+  expect(body).not.toContain("${{");
+  return body;
+}
+
+function reproduceLateCleanupOwner(startBody) {
+  const validation = '[[ "$owner" =~ ^shiftflow-ci-postgres-[0-9]+-[0-9]+$ ]]\n';
+  const publication = 'echo "owner=$owner" >> "$GITHUB_OUTPUT"\n';
+  const creation = 'docker volume create --label "shiftflow.ci.owner=$owner" "${owner}-data"\n';
+  expect(startBody.split(validation)).toHaveLength(2);
+  expect(startBody.split(publication + creation)).toHaveLength(2);
+  return startBody.replace(validation, "").replace(publication + creation, creation + publication);
+}
+
+function findWindowsGitBash(pathValue, isFile) {
+  for (const rawEntry of pathValue.split(";")) {
+    const entry = rawEntry.trim().replace(/^"(.*)"$/u, "$1");
+    // en-GB: Fully qualified local paths avoid current-drive and network discovery.
+    if (!/^[A-Za-z]:[\\/]/u.test(entry)) continue;
+    const directory = win32.normalize(entry);
+    const leaf = win32.basename(directory).toLowerCase();
+    if (leaf !== "cmd" && leaf !== "bin") continue;
+    const parent = win32.dirname(directory);
+    const root =
+      leaf === "bin" && /^(?:mingw32|mingw64|usr)$/iu.test(win32.basename(parent))
+        ? win32.dirname(parent)
+        : parent;
+    const bashPath = win32.join(root, "bin", "bash.exe");
+    if (
+      isFile(win32.join(directory, "git.exe")) &&
+      isFile(bashPath) &&
+      isFile(win32.join(root, "usr", "bin", "bash.exe"))
+    ) {
+      return bashPath;
+    }
+  }
+  throw new Error(
+    "Git Bash is required in a recognised Git installation on an absolute local PATH entry"
+  );
+}
+
+function exercisePostgresCleanup(scenario, { lateOwner = false } = {}) {
+  const root = mkdtempSync(join(tmpdir(), "shiftflow-oci-cleanup-"));
+  temporaryRoots.add(root);
+  const outputPath = join(root, "github-output");
+  const statePath = join(root, "fake-volume-state");
+  const callsPath = join(root, "fake-calls");
+  writeFileSync(outputPath, "");
+  writeFileSync(statePath, scenario === "foreign-label" ? "foreign-owner\n" : "absent\n");
+  writeFileSync(callsPath, "");
+  const bashPath =
+    process.platform === "win32"
+      ? findWindowsGitBash(
+          process.env.PATH ?? "",
+          (path) => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false
+        )
+      : "/bin/bash";
+  const bashFilePath = (path) =>
+    process.platform === "win32"
+      ? path.replaceAll("\\", "/").replace(/^([A-Za-z]):/u, (_, drive) => `/${drive.toLowerCase()}`)
+      : path;
+  const environment = {};
+  for (const name of ["SystemRoot", "WINDIR", "SystemDrive", "TEMP", "TMP"]) {
+    if (process.env[name]) environment[name] = process.env[name];
+  }
+  Object.assign(environment, {
+    PATH: "",
+    LANG: "C",
+    LC_ALL: "C",
+    GITHUB_RUN_ID: "1234",
+    GITHUB_RUN_ATTEMPT: "1",
+    GITHUB_OUTPUT: bashFilePath(outputPath),
+    POSTGRES_IMAGE_ID: `sha256:${"a".repeat(64)}`,
+    FAKE_STATE: bashFilePath(statePath),
+    FAKE_CALLS: bashFilePath(callsPath),
+    FAKE_SCENARIO: scenario,
+    FAKE_EXPECTED_OWNER: "shiftflow-ci-postgres-1234-1"
+  });
+  // en-GB: No PATH executable is reachable; this closed function never forwards to Docker.
+  const fakeDocker = String.raw`
+unexpected_docker() { printf '%s\n' 'Unexpected fake Docker call' >&2; return 97; }
+docker() {
+  case "$#:$1:$2" in
+    '5:image:inspect')
+      [[ "$3" == --format && "$4" == '{{.Id}}' && "$5" == "$POSTGRES_IMAGE_ID" ]] || { unexpected_docker; return 97; }
+      printf '%s\n' image-inspect >> "$FAKE_CALLS"
+      printf '%s\n' "$POSTGRES_IMAGE_ID"
+      ;;
+    '5:volume:create')
+      [[ "$3" == --label && "$4" == "shiftflow.ci.owner=$FAKE_EXPECTED_OWNER" && "$5" == "$FAKE_EXPECTED_OWNER-data" ]] || { unexpected_docker; return 97; }
+      printf '%s\n' volume-create >> "$FAKE_CALLS"
+      case "$FAKE_SCENARIO" in
+        created-then-error) printf '%s\n' "$FAKE_EXPECTED_OWNER" > "$FAKE_STATE" ;;
+        no-creation|foreign-label) ;;
+        *) unexpected_docker; return 97 ;;
+      esac
+      return 73
+      ;;
+    '6:container:ls')
+      [[ "$3" == --all && "$4" == --quiet && "$5" == --filter && "$6" == "name=^/$FAKE_EXPECTED_OWNER$" ]] || { unexpected_docker; return 97; }
+      printf '%s\n' container-list >> "$FAKE_CALLS"
+      ;;
+    '5:volume:ls')
+      [[ "$3" == --quiet && "$4" == --filter && "$5" == "name=^$FAKE_EXPECTED_OWNER-data$" ]] || { unexpected_docker; return 97; }
+      printf '%s\n' volume-list >> "$FAKE_CALLS"
+      IFS= read -r state < "$FAKE_STATE"
+      if [[ "$state" != absent ]]; then printf '%s\n' "$FAKE_EXPECTED_OWNER-data"; fi
+      ;;
+    '5:volume:inspect')
+      [[ "$3" == --format && "$4" == '{{index .Labels "shiftflow.ci.owner"}}' && "$5" == "$FAKE_EXPECTED_OWNER-data" ]] || { unexpected_docker; return 97; }
+      printf '%s\n' volume-inspect >> "$FAKE_CALLS"
+      IFS= read -r state < "$FAKE_STATE"
+      printf '%s\n' "$state"
+      ;;
+    '3:volume:rm')
+      [[ "$3" == "$FAKE_EXPECTED_OWNER-data" ]] || { unexpected_docker; return 97; }
+      IFS= read -r state < "$FAKE_STATE"
+      [[ "$state" == "$FAKE_EXPECTED_OWNER" ]] || { unexpected_docker; return 97; }
+      printf '%s\n' volume-remove >> "$FAKE_CALLS"
+      printf '%s\n' absent > "$FAKE_STATE"
+      ;;
+    *) unexpected_docker; return 97 ;;
+  esac
+}
+readonly -f docker
+`;
+  const run = (body, extraEnvironment = {}) => {
+    const result = spawnSync(
+      bashPath,
+      ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", fakeDocker + body],
+      {
+        cwd: root,
+        env: { ...environment, ...extraEnvironment },
+        encoding: "utf8",
+        timeout: 5_000,
+        maxBuffer: 64 * 1024,
+        windowsHide: true
+      }
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.signal).toBeNull();
+    expect(result.stderr).toBe("");
+    return result.status;
+  };
+  const startBody = extractWorkflowBash("Start scanned job-owned PostgreSQL");
+  const firstExit = run(lateOwner ? reproduceLateCleanupOwner(startBody) : startBody);
+  const outputs = readFileSync(outputPath, "utf8");
+  expect(["", `owner=${environment.FAKE_EXPECTED_OWNER}\n`]).toContain(outputs);
+  const cleanupExit = run(extractWorkflowBash("Remove only job-owned PostgreSQL resources"), {
+    POSTGRES_RESOURCE_OWNER: outputs === "" ? "" : environment.FAKE_EXPECTED_OWNER
+  });
+  return {
+    firstExit,
+    cleanupExit,
+    retainedFailure: firstExit || cleanupExit,
+    state: readFileSync(statePath, "utf8").trim(),
+    calls: readFileSync(callsPath, "utf8").trim().split("\n")
+  };
+}
 
 afterEach(() => {
   for (const root of temporaryRoots) {
@@ -337,6 +530,107 @@ describe("strict OCI policy JSON", () => {
   });
 });
 
+describe("filesystem-only Windows Git Bash discovery", () => {
+  const root = "D:\\Developer Tools\\PortableGit";
+  const launcher = win32.join(root, "bin", "bash.exe");
+  const shell = win32.join(root, "usr", "bin", "bash.exe");
+
+  it.each(["cmd", "bin", "mingw64\\bin", "mingw32\\bin"])(
+    "recognises an alternate drive and directory through the %s layout",
+    (layout) => {
+      const directory = win32.join(root, layout);
+      const files = new Set([win32.join(directory, "git.exe"), launcher, shell]);
+      expect(findWindowsGitBash(directory, (path) => files.has(path))).toBe(launcher);
+    }
+  );
+
+  it("preserves spaces and quoted PATH entries without executing shell discovery", () => {
+    const directory = win32.join(root, "cmd");
+    const files = new Set([win32.join(directory, "git.exe"), launcher, shell]);
+    expect(findWindowsGitBash(`E:\\Other Tools;"${directory}"`, (path) => files.has(path))).toBe(
+      launcher
+    );
+  });
+
+  it.each(["git", "launcher", "shell"])(
+    "fails explicitly when the %s executable is absent",
+    (missing) => {
+      const directory = win32.join(root, "cmd");
+      const executables = { git: win32.join(directory, "git.exe"), launcher, shell };
+      const files = new Set(
+        Object.entries(executables)
+          .filter(([name]) => name !== missing)
+          .map(([, path]) => path)
+      );
+      expect(() => findWindowsGitBash(directory, (path) => files.has(path))).toThrow(
+        "Git Bash is required"
+      );
+    }
+  );
+
+  it("does not inspect empty, relative, drive-relative or network PATH entries", () => {
+    const inspected = [];
+    expect(() =>
+      findWindowsGitBash(
+        ";tools\\cmd;D:Git\\cmd;\\Git\\cmd;\\\\server\\share\\Git\\cmd",
+        (path) => {
+          inspected.push(path);
+          return true;
+        }
+      )
+    ).toThrow("Git Bash is required");
+    expect(inspected).toEqual([]);
+  });
+});
+
+describe("job-owned PostgreSQL cleanup failure paths", () => {
+  it("removes a volume created before a CLI error without erasing the initial failure", () => {
+    const result = exercisePostgresCleanup("created-then-error");
+    expect(result).toMatchObject({
+      firstExit: 73,
+      cleanupExit: 0,
+      retainedFailure: 73,
+      state: "absent"
+    });
+    expect(result.calls.filter((call) => call === "volume-remove")).toHaveLength(1);
+  });
+
+  it("performs no removal when resource creation failed without creating a volume", () => {
+    const result = exercisePostgresCleanup("no-creation");
+    expect(result).toMatchObject({
+      firstExit: 73,
+      cleanupExit: 0,
+      retainedFailure: 73,
+      state: "absent"
+    });
+    expect(result.calls).not.toContain("volume-remove");
+  });
+
+  it("rejects a matching-name volume with a foreign label without removing it", () => {
+    const result = exercisePostgresCleanup("foreign-label");
+    expect(result).toMatchObject({
+      firstExit: 73,
+      cleanupExit: 1,
+      retainedFailure: 73,
+      state: "foreign-owner"
+    });
+    expect(result.calls).toContain("volume-inspect");
+    expect(result.calls).not.toContain("volume-remove");
+  });
+
+  it("reproduces the original missed cleanup when owner publication follows creation", () => {
+    const result = exercisePostgresCleanup("created-then-error", { lateOwner: true });
+    expect(result).toMatchObject({
+      firstExit: 73,
+      cleanupExit: 0,
+      retainedFailure: 73,
+      state: "shiftflow-ci-postgres-1234-1"
+    });
+    expect(result.calls).not.toContain("volume-list");
+    expect(result.calls).not.toContain("volume-remove");
+  });
+});
+
 describe("OCI policy documents", () => {
   it("accepts the exact seven repository targets and empty exception list", () => {
     const state = validatePolicy();
@@ -424,8 +718,8 @@ describe("OCI policy documents", () => {
           targetsDocument: targetDocument,
           exceptionsDocument: emptyExceptionDocument,
           composeText: composeText.replace(
-            "postgres:16-alpine@sha256:",
-            "postgres:latest # sha256:"
+            "nginx:1.30.4-alpine-slim@sha256:",
+            "nginx:latest # sha256:"
           ),
           nodeDockerfileText,
           dotnetDockerfileText,
@@ -464,6 +758,50 @@ describe("OCI policy documents", () => {
     const exceptionState = validatePolicy(exceptionDocument([createException()]));
 
     expect(exceptionState.manifestSha256).not.toBe(emptyState.manifestSha256);
+  });
+
+  it("reads and hashes only the three explicit Dockerfile sources for six build targets", () => {
+    const inputs = {
+      targetsDocument: targetDocument,
+      exceptionsDocument: emptyExceptionDocument,
+      composeText,
+      nodeDockerfileText,
+      dotnetDockerfileText,
+      infrastructureDockerfileText,
+      spdxSchemaBytes,
+      asOf
+    };
+    const original = validatePolicyDocuments(inputs);
+    expect(
+      [...original.targetsById.values()].filter((target) => target.sourceKind === "build")
+    ).toHaveLength(6);
+    const changed = validatePolicyDocuments({
+      ...inputs,
+      infrastructureDockerfileText: `${infrastructureDockerfileText}\n# Changed source bytes.\n`
+    });
+    expect(changed.manifestSha256).not.toBe(original.manifestSha256);
+    expectPolicyError(
+      () => validatePolicyDocuments({ ...inputs, infrastructureDockerfileText: undefined }),
+      "OCI_DOCKERFILE_TEXT_INVALID"
+    );
+    expectPolicyError(
+      () =>
+        validatePolicyDocuments({
+          ...inputs,
+          infrastructureDockerfileText: infrastructureDockerfileText.replace(
+            " AS postgres",
+            " AS unapproved"
+          )
+        }),
+      "OCI_DOCKERFILE_TARGET_MISSING"
+    );
+    const unapproved = clone(targetDocument);
+    unapproved.targets.find((target) => target.id === "postgres").dockerfile =
+      "infra/docker/unapproved.Dockerfile";
+    expectPolicyError(
+      () => validatePolicyDocuments({ ...inputs, targetsDocument: unapproved }),
+      "OCI_BUILD_TARGET_INVALID"
+    );
   });
 
   it("rejects a schema whose bytes do not match the pinned SPDX 2.3 copy", () => {

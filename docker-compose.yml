@@ -1,7 +1,10 @@
 # en-GB: Configures docker compose automation so infrastructure and release behaviour remain reproducible.
 services:
   postgres:
-    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    build:
+      context: .
+      dockerfile: infra/docker/infrastructure.Dockerfile
+      target: postgres
     # Development-only credentials. Production must use managed secrets and a non-public database endpoint.
     environment:
       POSTGRES_USER: shiftflow
@@ -21,7 +24,10 @@ services:
       - local-access
 
   redis:
-    image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
+    build:
+      context: .
+      dockerfile: infra/docker/infrastructure.Dockerfile
+      target: redis
     command:
       - redis-server
       - --appendonly
@@ -146,7 +152,7 @@ services:
 
   nginx:
     profiles: ["migration"]
-    image: nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8
+    image: nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6
     user: "101:101"
     read_only: true
     ports:

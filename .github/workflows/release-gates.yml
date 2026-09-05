@@ -88,13 +88,15 @@ jobs:
             target: migration
           - id: nginx
             sourceKind: registry
-            image: nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8
+            image: nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6
           - id: postgres
-            sourceKind: registry
-            image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+            sourceKind: build
+            dockerfile: infra/docker/infrastructure.Dockerfile
+            target: postgres
           - id: redis
-            sourceKind: registry
-            image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
+            sourceKind: build
+            dockerfile: infra/docker/infrastructure.Dockerfile
+            target: redis
           - id: web
             sourceKind: build
             dockerfile: infra/docker/node.Dockerfile
@@ -297,20 +299,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
-    services:
-      postgres:
-        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
-        env:
-          POSTGRES_USER: shiftflow
-          POSTGRES_PASSWORD: ci-postgres-password
-          POSTGRES_DB: shiftflow_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U shiftflow -d shiftflow_ci"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       DATABASE_URL: postgresql://shiftflow:ci-postgres-password@localhost:5432/shiftflow_ci?schema=public
       E2E_EMAIL: integration.admin@shiftflow.local
@@ -323,6 +311,62 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
+
+      - name: Build job-owned PostgreSQL image
+        id: runtime_postgres
+        shell: bash
+        run: |
+          owner="shiftflow-ci-postgres-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          image_tag="shiftflow-ci/postgres:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          existing_containers="$(docker container ls --all --quiet --filter "name=^/${owner}$")"
+          existing_volumes="$(docker volume ls --quiet --filter "name=^${owner}-data$")"
+          existing_images="$(docker image ls --quiet "$image_tag")"
+          test -z "$existing_containers$existing_volumes$existing_images"
+          docker build --file infra/docker/infrastructure.Dockerfile --target postgres --tag "$image_tag" .
+          image_id="$(docker image inspect --format '{{.Id}}' "$image_tag")"
+          [[ "$image_id" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "image_id=$image_id" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce security of the actual PostgreSQL runtime image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        with:
+          version: v0.74.0
+          image-ref: ${{ steps.runtime_postgres.outputs.image_id }}
+          scan-type: image
+          scanners: vuln
+          vuln-type: os,library
+          format: table
+          exit-code: "1"
+          ignore-unfixed: "false"
+          severity: UNKNOWN,MEDIUM,HIGH,CRITICAL
+          cache: "false"
+
+      - name: Start scanned job-owned PostgreSQL
+        id: start_runtime_postgres
+        shell: bash
+        env:
+          POSTGRES_IMAGE_ID: ${{ steps.runtime_postgres.outputs.image_id }}
+        run: |
+          owner="shiftflow-ci-postgres-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          [[ "$owner" =~ ^shiftflow-ci-postgres-[0-9]+-[0-9]+$ ]]
+          [[ "$POSTGRES_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+          test "$(docker image inspect --format '{{.Id}}' "$POSTGRES_IMAGE_ID")" = "$POSTGRES_IMAGE_ID"
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+          docker volume create --label "shiftflow.ci.owner=$owner" "${owner}-data"
+          docker run --detach --pull never --name "$owner" --label "shiftflow.ci.owner=$owner" \
+            --publish 127.0.0.1:5432:5432 --mount "type=volume,source=${owner}-data,target=/var/lib/postgresql/data" \
+            --env POSTGRES_USER=shiftflow --env POSTGRES_PASSWORD=ci-postgres-password --env POSTGRES_DB=shiftflow_ci \
+            --health-cmd 'pg_isready -U shiftflow -d shiftflow_ci' --health-interval 2s --health-timeout 5s --health-retries 30 \
+            "$POSTGRES_IMAGE_ID"
+          test "$(docker inspect --format '{{.Image}}' "$owner")" = "$POSTGRES_IMAGE_ID"
+          for attempt in $(seq 1 30); do
+            test "$(docker inspect --format '{{.State.Status}}' "$owner")" = running
+            if test "$(docker inspect --format '{{.State.Health.Status}}' "$owner")" = healthy; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -371,6 +415,30 @@ jobs:
 
       - name: Load stress
         run: npm run test:load:stress
+
+      - name: Remove only job-owned PostgreSQL resources
+        if: always()
+        shell: bash
+        env:
+          POSTGRES_RESOURCE_OWNER: ${{ steps.start_runtime_postgres.outputs.owner }}
+        run: |
+          if test -z "$POSTGRES_RESOURCE_OWNER"; then exit 0; fi
+          owner="shiftflow-ci-postgres-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$POSTGRES_RESOURCE_OWNER" = "$owner"
+          container_id="$(docker container ls --all --quiet --filter "name=^/${owner}$")"
+          if test -n "$container_id"; then
+            test "$(docker inspect --format '{{index .Config.Labels "shiftflow.ci.owner"}}' "$container_id")" = "$owner"
+            docker container rm --force "$container_id"
+          fi
+          volume_name="$(docker volume ls --quiet --filter "name=^${owner}-data$")"
+          if test -n "$volume_name"; then
+            test "$volume_name" = "${owner}-data"
+            test "$(docker volume inspect --format '{{index .Labels "shiftflow.ci.owner"}}' "$volume_name")" = "$owner"
+            docker volume rm "$volume_name"
+          fi
+          remaining_containers="$(docker container ls --all --quiet --filter "name=^/${owner}$")"
+          remaining_volumes="$(docker volume ls --quiet --filter "name=^${owner}-data$")"
+          test -z "$remaining_containers$remaining_volumes"
 
   strangler-runtime-gate:
     name: ASP.NET Core strangler runtime gate
