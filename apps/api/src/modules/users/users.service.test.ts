@@ -158,7 +158,7 @@ describe("UsersService product role assignment", () => {
     expect(repository.updateAggregate).toHaveBeenCalledWith(
       "user-a",
       "company-a",
-      { roleId: "company-role" },
+      { roleId: "company-role", roleDelegation: { actorId: "actor-a" } },
       expect.any(Function)
     );
   });
@@ -228,6 +228,31 @@ describe("UsersService product role assignment", () => {
     expect(repository.createAggregate).not.toHaveBeenCalled();
   });
 
+  it("rejects oversized UTF-8 passwords before hashing or persistence", async () => {
+    const { service, repository } = serviceWithRepository();
+    const hash = vi.spyOn(bcrypt, "hash");
+    const password = `Aa1!${"é".repeat(35)}`;
+
+    await expect(
+      service.create(request(), {
+        email: "new-user@example.com",
+        displayName: "New user",
+        password,
+        roleId: "company-role"
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    await expect(
+      service.update(request(), "user-a", {
+        password
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    expect(hash).not.toHaveBeenCalled();
+    expect(repository.createAggregate).not.toHaveBeenCalled();
+    expect(repository.updateAggregate).not.toHaveBeenCalled();
+  });
+
   it("changes the credential version and revokes refresh sessions through one repository operation", async () => {
     const { service, repository } = serviceWithRepository();
     vi.spyOn(bcrypt, "hash").mockImplementation(async () => "new-password-hash");
@@ -264,7 +289,7 @@ describe("UsersService product role assignment", () => {
     expect(repository.updateAggregate).toHaveBeenCalledWith(
       "user-a",
       "company-a",
-      { roleId: "company-role" },
+      { roleId: "company-role", roleDelegation: { actorId: "actor-a" } },
       expect.any(Function)
     );
   });

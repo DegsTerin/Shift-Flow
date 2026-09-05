@@ -1,5 +1,5 @@
 // en-GB: Defines the audit writer implementation so this project responsibility remains explicit and maintainable.
-import { getDelegate } from "../lib/prisma.js";
+import { getDelegate, getDelegateFrom, type PrismaTransactionClient } from "../lib/prisma.js";
 import type { ApiRequest } from "../http/request-types.js";
 
 type AuditDelegate = {
@@ -67,7 +67,13 @@ export function buildAuditData(req: ApiRequest, input: AuditInput) {
   };
 }
 
-export async function writeAudit(req: ApiRequest, input: AuditInput) {
-  const auditLog = await getDelegate<AuditDelegate>("auditLog");
+export async function writeAudit(
+  req: ApiRequest,
+  input: AuditInput,
+  transaction?: PrismaTransactionClient
+) {
+  const auditLog = transaction
+    ? getDelegateFrom<AuditDelegate>(transaction, "auditLog")
+    : await getDelegate<AuditDelegate>("auditLog");
   await auditLog.create({ data: buildAuditData(req, input) });
 }

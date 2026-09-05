@@ -1,8 +1,9 @@
 // en-GB: Implements application rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../http/request-types.js";
 import { toBoundedSearch, toPagination, toSkipTake } from "../http/pagination.js";
-import { badRequest, notFound } from "../errors/app-error.js";
+import { AppError, badRequest, notFound } from "../errors/app-error.js";
 import type { BaseRepository } from "../repositories/base.repository.js";
+import type { PrismaTransactionClient } from "../lib/prisma.js";
 import { writeAudit } from "./audit-writer.js";
 import { activeCompanyId } from "./scope.service.js";
 
@@ -14,6 +15,16 @@ type BaseServiceOptions = {
   orderBy?: Record<string, string> | Array<Record<string, string>>;
   searchFields?: string[];
 };
+
+function normaliseOrderBy(
+  orderBy: Record<string, string> | Array<Record<string, string>>
+): Array<Record<string, string>> {
+  const terms = (Array.isArray(orderBy) ? orderBy : [orderBy]).map((term) => ({ ...term }));
+  if (!terms.some((term) => Object.prototype.hasOwnProperty.call(term, "id"))) {
+    terms.push({ id: "asc" });
+  }
+  return terms;
+}
 
 export class BaseService {
   private readonly options: Required<BaseServiceOptions>;
@@ -28,7 +39,7 @@ export class BaseService {
       deletedAtFilter: options.deletedAtFilter ?? true,
       userStamps: options.userStamps ?? false,
       auditWrites: options.auditWrites ?? true,
-      orderBy: options.orderBy ?? { updatedAt: "desc" },
+      orderBy: normaliseOrderBy(options.orderBy ?? { updatedAt: "desc" }),
       searchFields: options.searchFields ?? []
     };
   }
@@ -89,61 +100,117 @@ export class BaseService {
 
   async create(req: ApiRequest, data: Record<string, unknown>) {
     const companyId = this.requireCompanyId(req);
-    const created = await this.repository.create({
+    const createData = {
       ...data,
       ...(this.options.hasCompanyScope && companyId ? { companyId } : {}),
       ...(this.options.userStamps ? { createdById: req.auth?.id, updatedById: req.auth?.id } : {})
-    });
-    if (this.options.auditWrites) {
-      await writeAudit(req, {
-        entityType: this.entityType,
-        entityId: String((created as { id?: string }).id ?? "unknown"),
-        action: "CREATE",
-        after: created,
-        companyId
-      });
+    };
+    if (!this.options.auditWrites) {
+      return this.repository.create(createData);
     }
-    return created;
+
+    return this.withAuditTransaction(async (repository, transaction) => {
+      const created = await repository.create(createData);
+      await writeAudit(
+        req,
+        {
+          entityType: this.entityType,
+          entityId: String((created as { id?: string }).id ?? "unknown"),
+          action: "CREATE",
+          after: created,
+          companyId
+        },
+        transaction
+      );
+      return created;
+    });
   }
 
   async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
-    await this.get(req, id);
-    const updated = await this.repository.update(
-      id,
-      {
-        ...data,
-        ...(this.options.userStamps ? { updatedById: req.auth?.id } : {})
-      },
-      this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined
-    );
-    if (this.options.auditWrites) {
-      await writeAudit(req, {
-        entityType: this.entityType,
-        entityId: id,
-        action: "UPDATE",
-        after: updated,
-        companyId: this.companyId(req)
-      });
+    const updateData = {
+      ...data,
+      ...(this.options.userStamps ? { updatedById: req.auth?.id } : {})
+    };
+    if (!this.options.auditWrites) {
+      await this.get(req, id);
+      return this.repository.update(
+        id,
+        updateData,
+        this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined
+      );
     }
-    return updated;
+
+    const companyId = this.requireCompanyId(req);
+    const scopedCompanyId = this.options.hasCompanyScope ? companyId : undefined;
+    return this.withAuditTransaction(async (repository, transaction) => {
+      const before = await this.requireExisting(repository, id, scopedCompanyId);
+      const updated = await repository.update(id, updateData, scopedCompanyId);
+      await writeAudit(
+        req,
+        {
+          entityType: this.entityType,
+          entityId: id,
+          action: "UPDATE",
+          before,
+          after: updated,
+          companyId
+        },
+        transaction
+      );
+      return updated;
+    });
   }
 
   async remove(req: ApiRequest, id: string) {
-    await this.get(req, id);
-    const removed = await this.repository.softDelete(
-      id,
-      this.options.userStamps ? req.auth?.id : undefined,
-      this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined
-    );
-    if (this.options.auditWrites) {
-      await writeAudit(req, {
-        entityType: this.entityType,
-        entityId: id,
-        action: "SOFT_DELETE",
-        after: removed,
-        companyId: this.companyId(req)
-      });
+    const actorUserId = this.options.userStamps ? req.auth?.id : undefined;
+    if (!this.options.auditWrites) {
+      await this.get(req, id);
+      return this.repository.softDelete(
+        id,
+        actorUserId,
+        this.options.hasCompanyScope ? this.requireCompanyId(req) : undefined
+      );
     }
-    return removed;
+
+    const companyId = this.requireCompanyId(req);
+    const scopedCompanyId = this.options.hasCompanyScope ? companyId : undefined;
+    return this.withAuditTransaction(async (repository, transaction) => {
+      const before = await this.requireExisting(repository, id, scopedCompanyId);
+      const removed = await repository.softDelete(id, actorUserId, scopedCompanyId);
+      await writeAudit(
+        req,
+        {
+          entityType: this.entityType,
+          entityId: id,
+          action: "SOFT_DELETE",
+          before,
+          after: removed,
+          companyId
+        },
+        transaction
+      );
+      return removed;
+    });
+  }
+
+  private async requireExisting(repository: BaseRepository, id: string, companyId?: string) {
+    const item = await repository.findById(id, companyId, undefined, this.options.deletedAtFilter);
+    if (!item) {
+      throw notFound(`${this.entityType} not found`);
+    }
+    return item;
+  }
+
+  private async withAuditTransaction<T>(
+    operation: (repository: BaseRepository, transaction: PrismaTransactionClient) => Promise<T>
+  ) {
+    if (typeof this.repository.withTransaction !== "function") {
+      throw new AppError(
+        "Audited writes require transactional repository support",
+        500,
+        "AUDIT_TRANSACTION_UNAVAILABLE"
+      );
+    }
+    return this.repository.withTransaction(operation);
   }
 }

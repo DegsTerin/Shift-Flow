@@ -1,12 +1,35 @@
 // en-GB: Exercises dashboard clocks, pure defaults and atomic configuration command planning.
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import type { DateRangeQuery } from "../../shared/services/date-range.service.js";
 import type { DashboardConfigurationDto } from "./dashboard.dto.js";
 import type { DashboardRepository } from "./dashboard.repository.js";
+
+const dateRanges = vi.hoisted(() => ({
+  resolve: vi.fn()
+}));
+
+vi.mock("../../shared/services/date-range.service.js", () => ({
+  resolveDateRange: dateRanges.resolve
+}));
+
 import { DashboardService } from "./dashboard.service.js";
 
 const companyId = "c40e2a7b-72a8-4aca-a780-d6d239134d38";
 const userId = "8f536533-317b-41ea-ab86-d7545910e3cb";
+const calendarBounds: DateRangeQuery = {
+  from: { kind: "calendar-date", value: "2026-08-01" },
+  to: { kind: "calendar-date", value: "2026-08-31" }
+};
+const instantBounds: DateRangeQuery = {
+  from: { kind: "instant", value: "2026-08-01T00:00:00.123Z" },
+  to: { kind: "instant", value: "2026-08-31T23:59:59.987Z" }
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  dateRanges.resolve.mockResolvedValue(undefined);
+});
 
 function request(query: Record<string, unknown> = {}) {
   return {
@@ -41,7 +64,81 @@ function configuration(): DashboardConfigurationDto {
 }
 
 describe("DashboardService", () => {
+  it.each([0, 1, 500])(
+    "discloses %i valid durations within the bounded latest-completion sample",
+    async (count) => {
+      const repository = {
+        summarySnapshot: vi.fn().mockResolvedValue({
+          total: count,
+          byStatus: [],
+          byPriority: [],
+          slaAtRisk: 0,
+          overdue: 0,
+          completedActivities: Array.from({ length: count }, () => ({
+            createdAt: new Date("2026-08-27T01:00:00Z"),
+            completedAt: new Date("2026-08-27T03:00:00Z")
+          }))
+        })
+      } as unknown as DashboardRepository;
+      await expect(new DashboardService(repository).summary(request())).resolves.toMatchObject({
+        averageResolutionHours: count ? 2 : 0,
+        averageResolutionSample: { count, limit: 500, basis: "LATEST_COMPLETED" }
+      });
+    }
+  );
+
+  it("counts a genuine zero-hour duration while excluding malformed, missing and negative durations", async () => {
+    const instant = new Date("2026-08-27T01:00:00Z");
+    const repository = {
+      summarySnapshot: vi.fn().mockResolvedValue({
+        total: 8,
+        byStatus: [],
+        byPriority: [],
+        slaAtRisk: 0,
+        overdue: 0,
+        completedActivities: [
+          { createdAt: instant, completedAt: instant },
+          { createdAt: instant, completedAt: new Date("2026-08-27T00:00:00Z") },
+          { createdAt: new Date(Number.NaN), completedAt: instant },
+          { createdAt: instant, completedAt: new Date(Number.NaN) },
+          { createdAt: instant, completedAt: null },
+          { createdAt: instant.toISOString(), completedAt: instant },
+          {},
+          null
+        ]
+      })
+    } as unknown as DashboardRepository;
+    await expect(new DashboardService(repository).summary(request())).resolves.toMatchObject({
+      averageResolutionHours: 0,
+      averageResolutionSample: { count: 1, limit: 500, basis: "LATEST_COMPLETED" }
+    });
+  });
+
+  it("describes actual grouping dimensions in virtual defaults without changing widget keys", async () => {
+    const repository = {
+      findConfiguration: vi.fn().mockResolvedValue(null)
+    } as unknown as DashboardRepository;
+    const service = new DashboardService(repository);
+    const main = await service.configuration(request(), "MAIN");
+    const team = await service.configuration(request(), "TEAM");
+    for (const [key, title] of [
+      ["chart-status", "Atividades por status"],
+      ["chart-shift", "Atividades por turno"]
+    ]) {
+      expect(main.widgets.find((widget) => widget.key === key)?.title).toBe(title);
+    }
+    for (const [key, title] of [
+      ["team-productivity", "Atividades por equipe"],
+      ["team-risk", "Atividades por prioridade"]
+    ]) {
+      expect(team.widgets.find((widget) => widget.key === key)?.title).toBe(title);
+    }
+  });
+
   it("uses one clock and a gap-free SLA partition for a summary snapshot", async () => {
+    const gte = new Date("2026-08-01T03:00:00.000Z");
+    const lt = new Date("2026-09-01T03:00:00.000Z");
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lt });
     const repository = {
       summarySnapshot: vi.fn().mockResolvedValue({
         total: 0,
@@ -54,14 +151,23 @@ describe("DashboardService", () => {
     } as unknown as DashboardRepository;
     const service = new DashboardService(repository);
 
-    await service.summary(request({ priority: "LOW", status: "PENDING", attention: "SLA_RISK" }));
+    await service.summary(
+      request({
+        priority: "LOW",
+        status: "PENDING",
+        attention: "SLA_RISK",
+        ...calendarBounds
+      })
+    );
 
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
     const [baseWhere, riskWhere, overdueWhere] = vi.mocked(repository.summarySnapshot).mock
       .calls[0] as [Record<string, unknown>, Record<string, unknown>, Record<string, unknown>];
     expect(baseWhere).toMatchObject({
       companyId,
       priority: "LOW",
       status: "PENDING",
+      createdAt: { gte, lt },
       AND: [
         {
           status: { notIn: ["DONE", "CANCELLED"] },
@@ -126,23 +232,57 @@ describe("DashboardService", () => {
 
     await expect(service.summary(request())).resolves.toMatchObject({
       critical: 4,
-      averageResolutionHours: 2
+      averageResolutionHours: 2,
+      averageResolutionSample: { count: 1, limit: 500, basis: "LATEST_COMPLETED" }
     });
   });
 
-  it("preserves exact millisecond date boundaries produced by validation", async () => {
-    const from = new Date("2026-08-01T00:00:00.123Z");
-    const to = new Date("2026-08-31T23:59:59.987Z");
+  it("preserves inclusive explicit instants through the operational-list path", async () => {
+    const gte = new Date("2026-08-01T00:00:00.123Z");
+    const lte = new Date("2026-08-31T23:59:59.987Z");
     const repository = {
       operationalList: vi.fn().mockResolvedValue([])
     } as unknown as DashboardRepository;
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lte });
     const service = new DashboardService(repository);
 
-    await service.operationalList(request({ from, to }));
+    await service.operationalList(request(instantBounds));
 
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, instantBounds);
     expect(repository.operationalList).toHaveBeenCalledWith(
-      expect.objectContaining({ createdAt: { gte: from, lte: to } })
+      expect.objectContaining({ companyId, createdAt: { gte, lte } })
     );
+  });
+
+  it("passes authenticated bounds through the charts snapshot", async () => {
+    const gte = new Date("2026-08-01T03:00:00.000Z");
+    const lt = new Date("2026-09-01T03:00:00.000Z");
+    const repository = {
+      chartsSnapshot: vi.fn().mockResolvedValue({})
+    } as unknown as DashboardRepository;
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lt });
+    const service = new DashboardService(repository);
+
+    await service.charts(request(calendarBounds));
+
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
+    expect(repository.chartsSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId, createdAt: { gte, lt } })
+    );
+  });
+
+  it("does not query dashboard data when date-range resolution fails closed", async () => {
+    const operationalList = vi.fn();
+    const repository = { operationalList } as unknown as DashboardRepository;
+    dateRanges.resolve.mockRejectedValueOnce(new Error("timezone unavailable"));
+    const service = new DashboardService(repository);
+
+    await expect(service.operationalList(request(calendarBounds))).rejects.toThrow(
+      "timezone unavailable"
+    );
+
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
+    expect(operationalList).not.toHaveBeenCalled();
   });
 
   it("returns a virtual default without asking the repository to persist it", async () => {

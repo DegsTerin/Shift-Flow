@@ -1,5 +1,6 @@
 # en-GB: Produces separate non-root Linux images for the legacy API and existing Next.js Web during migration.
-FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS dependencies
+FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS dependencies
+RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0
 WORKDIR /workspace
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
@@ -27,10 +28,21 @@ ENV NEXT_PUBLIC_ALLOW_INSECURE_LOOPBACK=$NEXT_PUBLIC_ALLOW_INSECURE_LOOPBACK
 RUN npm run build:web
 
 FROM generated AS migration
+RUN test "$(readlink -f /usr/local/bin/npm)" = /usr/local/lib/node_modules/npm/bin/npm-cli.js \
+    && test "$(readlink -f /usr/local/bin/npx)" = /usr/local/lib/node_modules/npm/bin/npx-cli.js \
+    && test "$(node -p 'require("/usr/local/lib/node_modules/npm/package.json").name')" = npm \
+    && rm -r /usr/local/lib/node_modules/npm \
+    && rm /usr/local/bin/npm /usr/local/bin/npx
 USER node
 CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 
-FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS legacy-api
+FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS legacy-api
+RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
+    && test "$(readlink -f /usr/local/bin/npm)" = /usr/local/lib/node_modules/npm/bin/npm-cli.js \
+    && test "$(readlink -f /usr/local/bin/npx)" = /usr/local/lib/node_modules/npm/bin/npx-cli.js \
+    && test "$(node -p 'require("/usr/local/lib/node_modules/npm/package.json").name')" = npm \
+    && rm -r /usr/local/lib/node_modules/npm \
+    && rm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=production-dependencies --chown=node:node /workspace/package.json ./
@@ -41,7 +53,13 @@ USER node
 EXPOSE 3001
 CMD ["node", "dist/api/server.js"]
 
-FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS web
+FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS web
+RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
+    && test "$(readlink -f /usr/local/bin/npm)" = /usr/local/lib/node_modules/npm/bin/npm-cli.js \
+    && test "$(readlink -f /usr/local/bin/npx)" = /usr/local/lib/node_modules/npm/bin/npx-cli.js \
+    && test "$(node -p 'require("/usr/local/lib/node_modules/npm/package.json").name')" = npm \
+    && rm -r /usr/local/lib/node_modules/npm \
+    && rm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=production-dependencies --chown=node:node /workspace/package.json ./

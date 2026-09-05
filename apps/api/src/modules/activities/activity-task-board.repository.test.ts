@@ -232,6 +232,20 @@ describe("ActivityTaskBoardRepository", () => {
     });
   });
 
+  it("rejects a new column when the board already has the maximum allowed", async () => {
+    persistence.columnFindMany.mockResolvedValue(
+      Array.from({ length: 100 }, (_, index) => ({ id: `column-${index}`, position: index }))
+    );
+    const repository = new ActivityTaskBoardRepository();
+
+    await expect(repository.createColumn(context, { name: "Overflow" })).rejects.toThrow(
+      "more than 100 columns"
+    );
+
+    expect(persistence.columnUpdate).not.toHaveBeenCalled();
+    expect(persistence.columnCreate).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["a subset", [columns.todo.id, columns.doing.id]],
     ["a duplicate", [columns.todo.id, columns.todo.id, columns.done.id]],
@@ -300,6 +314,28 @@ describe("ActivityTaskBoardRepository", () => {
     expect(persistence.columnUpdate).not.toHaveBeenCalled();
   });
 
+  it("soft-deletes an empty column and compacts the remaining positions", async () => {
+    persistence.taskFindFirst.mockResolvedValue(null);
+    persistence.columnFindMany.mockResolvedValue([columns.todo, columns.doing, columns.done]);
+    const repository = new ActivityTaskBoardRepository();
+
+    await repository.deleteColumn(context, columns.todo.id);
+
+    expect(persistence.columnUpdate).toHaveBeenNthCalledWith(1, {
+      where: { id: columns.todo.id },
+      data: { deletedAt: expect.any(Date) }
+    });
+    expect(persistence.columnUpdate).toHaveBeenNthCalledWith(2, {
+      where: { id: columns.doing.id, companyId: context.companyId },
+      data: { position: 0 }
+    });
+    expect(persistence.columnUpdate).toHaveBeenNthCalledWith(3, {
+      where: { id: columns.done.id, companyId: context.companyId },
+      data: { position: 1 }
+    });
+    expect(persistence.columnUpdate).toHaveBeenCalledTimes(3);
+  });
+
   it("rejects renaming a populated column across completion states", async () => {
     persistence.columnFindFirst.mockResolvedValue(columns.todo);
     persistence.taskFindFirst.mockResolvedValue({ id: "task-1" });
@@ -322,6 +358,43 @@ describe("ActivityTaskBoardRepository", () => {
     expect(persistence.columnUpdate).toHaveBeenCalledWith({
       where: { id: columns.todo.id },
       data: { name: "Done" }
+    });
+  });
+
+  it("keeps a populated column within the same canonical completion classification", async () => {
+    persistence.columnFindFirst.mockResolvedValue(columns.done);
+    const repository = new ActivityTaskBoardRepository();
+
+    await repository.updateColumn(context, columns.done.id, { name: "  done  " });
+
+    expect(persistence.taskFindFirst).not.toHaveBeenCalled();
+    expect(persistence.columnUpdate).toHaveBeenCalledWith({
+      where: { id: columns.done.id },
+      data: { name: "  done  " }
+    });
+  });
+
+  it("completes a task created in a trimmed decomposed completion column", async () => {
+    persistence.columnFindFirst.mockResolvedValue({
+      ...columns.done,
+      name: "  CONCLUI\u0301DO  "
+    });
+    const repository = new ActivityTaskBoardRepository();
+
+    await repository.createTask(context, {
+      columnId: columns.done.id,
+      title: "Publish report"
+    });
+
+    expect(persistence.taskCreate).toHaveBeenCalledWith({
+      data: {
+        title: "Publish report",
+        companyId: context.companyId,
+        activityId: context.activityId,
+        columnId: columns.done.id,
+        position: 0,
+        completedAt: expect.any(Date)
+      }
     });
   });
 
@@ -590,6 +663,151 @@ describe("ActivityTaskBoardRepository", () => {
 
     await expect(repository.archiveTask(context, archived.id)).resolves.toBe(archived);
 
+    expect(persistence.taskFindMany).not.toHaveBeenCalled();
+    expect(persistence.taskUpdate).not.toHaveBeenCalled();
+    expect(persistence.historyCreate).not.toHaveBeenCalled();
+  });
+
+  it("deletes an active task, compacts its column and records lifecycle evidence", async () => {
+    const active = {
+      id: "task-1",
+      columnId: columns.todo.id,
+      position: 1,
+      archivedAt: null,
+      completedAt: null,
+      title: "Delete me"
+    };
+    persistence.taskFindFirst.mockResolvedValue(active);
+    persistence.taskFindMany.mockResolvedValue([
+      { id: "task-a", columnId: columns.todo.id, position: 0 },
+      { id: "task-c", columnId: columns.todo.id, position: 2 }
+    ]);
+    const repository = new ActivityTaskBoardRepository();
+
+    await repository.deleteTask(context, active.id);
+
+    expect(persistence.taskUpdate).toHaveBeenNthCalledWith(1, {
+      where: { id: "task-c", companyId: context.companyId },
+      data: { position: 1 }
+    });
+    expect(persistence.taskUpdate).toHaveBeenNthCalledWith(2, {
+      where: { id: active.id },
+      data: { deletedAt: expect.any(Date) }
+    });
+    expect(persistence.taskUpdate).toHaveBeenCalledTimes(2);
+    expect(persistence.historyCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: "DELETED",
+        taskId: active.id,
+        metadata: expect.objectContaining({
+          before: expect.objectContaining({ id: active.id }),
+          after: expect.objectContaining({ id: active.id, deletedAt: expect.any(String) })
+        })
+      })
+    });
+    expect(persistence.taskUpdate.mock.invocationCallOrder[1]).toBeLessThan(
+      persistence.historyCreate.mock.invocationCallOrder[0]
+    );
+    expect(persistence.historyCreate).toHaveBeenCalledOnce();
+  });
+
+  it("archives an active task, compacts its column and records lifecycle evidence", async () => {
+    const active = {
+      id: "task-1",
+      columnId: columns.todo.id,
+      position: 1,
+      archivedAt: null,
+      completedAt: null,
+      title: "Archive me"
+    };
+    persistence.taskFindFirst.mockResolvedValue(active);
+    persistence.taskFindMany.mockResolvedValue([
+      { id: "task-a", columnId: columns.todo.id, position: 0 },
+      { id: "task-c", columnId: columns.todo.id, position: 2 }
+    ]);
+    const repository = new ActivityTaskBoardRepository();
+
+    await repository.archiveTask(context, active.id);
+
+    expect(persistence.taskUpdate).toHaveBeenNthCalledWith(1, {
+      where: { id: "task-c", companyId: context.companyId },
+      data: { position: 1 }
+    });
+    expect(persistence.taskUpdate).toHaveBeenNthCalledWith(2, {
+      where: { id: active.id },
+      data: { archivedAt: expect.any(Date) }
+    });
+    expect(persistence.taskUpdate).toHaveBeenCalledTimes(2);
+    expect(persistence.historyCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: "ARCHIVED",
+        taskId: active.id,
+        metadata: expect.objectContaining({
+          before: expect.objectContaining({ id: active.id }),
+          after: expect.objectContaining({ id: active.id, archivedAt: expect.any(String) })
+        })
+      })
+    });
+    expect(persistence.taskUpdate.mock.invocationCallOrder[1]).toBeLessThan(
+      persistence.historyCreate.mock.invocationCallOrder[0]
+    );
+    expect(persistence.historyCreate).toHaveBeenCalledOnce();
+  });
+
+  it("makes restore idempotent for an already active task", async () => {
+    const active = {
+      id: "task-1",
+      columnId: columns.todo.id,
+      position: 0,
+      archivedAt: null,
+      completedAt: null
+    };
+    persistence.taskFindFirst.mockResolvedValue(active);
+    const repository = new ActivityTaskBoardRepository();
+
+    await expect(repository.restoreTask(context, active.id)).resolves.toBe(active);
+
+    expect(persistence.query).toHaveBeenCalledOnce();
+    expect(persistence.columnFindFirst).not.toHaveBeenCalled();
+    expect(persistence.taskFindMany).not.toHaveBeenCalled();
+    expect(persistence.taskUpdate).not.toHaveBeenCalled();
+    expect(persistence.historyCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating an archived task before reference or task writes", async () => {
+    persistence.taskFindFirst.mockResolvedValue({
+      id: "task-1",
+      columnId: columns.todo.id,
+      position: 0,
+      archivedAt: new Date("2026-08-27T12:00:00.000Z")
+    });
+    const repository = new ActivityTaskBoardRepository();
+
+    await expect(repository.updateTask(context, "task-1", { assigneeId })).rejects.toThrow(
+      "Archived tasks cannot be updated"
+    );
+
+    expect(persistence.query).toHaveBeenCalledOnce();
+    expect(persistence.columnFindFirst).not.toHaveBeenCalled();
+    expect(persistence.taskUpdate).not.toHaveBeenCalled();
+    expect(persistence.historyCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects moving an archived task before column or task writes", async () => {
+    persistence.taskFindFirst.mockResolvedValue({
+      id: "task-1",
+      columnId: columns.todo.id,
+      position: 0,
+      archivedAt: new Date("2026-08-27T12:00:00.000Z")
+    });
+    const repository = new ActivityTaskBoardRepository();
+
+    await expect(repository.moveTask(context, "task-1", columns.doing.id, 0)).rejects.toThrow(
+      "Archived tasks cannot be moved"
+    );
+
+    expect(persistence.query).toHaveBeenCalledOnce();
+    expect(persistence.columnFindFirst).not.toHaveBeenCalled();
     expect(persistence.taskFindMany).not.toHaveBeenCalled();
     expect(persistence.taskUpdate).not.toHaveBeenCalled();
     expect(persistence.historyCreate).not.toHaveBeenCalled();

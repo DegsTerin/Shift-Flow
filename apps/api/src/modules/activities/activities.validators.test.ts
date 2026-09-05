@@ -14,21 +14,41 @@ const firstId = "c40e2a7b-72a8-4aca-a780-d6d239134d38";
 const secondId = "93d913f9-d743-49ac-a814-33f32dbf9eb2";
 
 describe("activity validators", () => {
-  it("coerces a valid filter interval", () => {
+  it.each([true, false, 0, new Date(0), "2026-09-04", "2026-02-30T09:00", "2026-09-04T09:00:60Z"])(
+    "rejects invalid SLA input %j without coercion",
+    (slaDueAt) => {
+      expect(activitySchema.partial().safeParse({ slaDueAt }).success).toBe(false);
+    }
+  );
+
+  it.each(["2026-09-04T10:20", "2026-09-04t10:20:30.123456789012z"])(
+    "preserves the SLA lexical value %s",
+    (slaDueAt) => {
+      expect(activitySchema.partial().parse({ slaDueAt })).toEqual({ slaDueAt });
+    }
+  );
+
+  it("preserves shared civil-date and instant filter categories", () => {
     const result = activityFilterSchema.safeParse({
       clientId: "c40e2a7b-72a8-4aca-a780-d6d239134d38",
-      from: "2026-08-01T00:00:00.000Z",
+      from: "2026-08-01",
       to: "2026-08-31T23:59:59.000Z"
     });
 
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.from).toBeInstanceOf(Date);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        from: { kind: "calendar-date", value: "2026-08-01" },
+        to: { kind: "instant", value: "2026-08-31T23:59:59.000Z" }
+      });
+    }
   });
 
   it.each([
     { clientId: "not-a-uuid" },
     { priority: "URGENT" },
-    { from: "2026-09-01T00:00:00.000Z", to: "2026-08-01T00:00:00.000Z" }
+    { from: "2026-02-30" },
+    { to: "2026-08-01T00:00:00" }
   ])("rejects an invalid filter", (filter) => {
     expect(activityFilterSchema.safeParse(filter).success).toBe(false);
   });

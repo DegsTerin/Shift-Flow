@@ -2,6 +2,7 @@
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LoginResponse, RecordModalCapabilities } from "../lib/types";
+import type * as ApiModule from "../lib/api";
 
 const hookBridge = vi.hoisted(() => ({
   useState: (initial: unknown): unknown => {
@@ -40,10 +41,13 @@ vi.mock("../lib/api", async (importOriginal) => {
   };
 });
 
-import { clearApiSession, setApiSession } from "../lib/api";
+import { captureApiSessionEpoch, clearApiSession, setApiSession } from "../lib/api";
+import type { ShiftLifecycleCommand } from "../lib/utils";
 import { messages } from "../lib/i18n";
 import { ActivityDetail } from "./record-modal-activity-detail";
+import { CreateForm } from "./record-modal-create-form";
 import { GenericDetail, RecordModal } from "./record-modal";
+import { ShiftCoverages } from "./record-modal-coverages";
 
 type StateSlot = { kind: "state"; value: unknown };
 type RefSlot = { kind: "ref"; value: { current: unknown } };
@@ -213,6 +217,34 @@ function teamModalProps(capabilities: RecordModalCapabilities) {
   };
 }
 
+function shiftModalProps(capabilities: RecordModalCapabilities, status = "OPEN") {
+  return {
+    ...modalProps(capabilities),
+    state: {
+      mode: "detail" as const,
+      entity: "shifts" as const,
+      record: {
+        id: "shift-a",
+        name: "Shift A",
+        status,
+        timezone: "Europe/London",
+        startsAt: "2026-09-04T09:00:30.123Z",
+        endsAt: "2026-09-04T17:00:40.987Z"
+      }
+    }
+  };
+}
+
+function shiftCallbacks(tree: ReactElement) {
+  const detail = elements(tree).find((element) => element.type === GenericDetail);
+  if (!detail) throw new Error("Shift detail was not found");
+  return detail.props as {
+    onShiftTransition: (command: ShiftLifecycleCommand) => Promise<void>;
+    setEditing: (editing: boolean) => void;
+    busy: boolean;
+  };
+}
+
 describe("RecordModal mutation lifecycle", () => {
   let runtime: HookRuntime;
 
@@ -229,10 +261,282 @@ describe("RecordModal mutation lifecycle", () => {
     setApiSession(session);
   });
 
+  it("wires UTF-8 byte validation into new-user password input", () => {
+    const tree = CreateForm({
+      entity: "users",
+      t: messages["en-GB"],
+      clients: [],
+      users: [],
+      teams: [],
+      shifts: [],
+      roles: [],
+      busy: false,
+      onSubmit: vi.fn()
+    });
+    const password = elements(tree).find(
+      (element) =>
+        element.type === "input" && (element.props as { name?: string }).name === "password"
+    );
+    const setCustomValidity = vi.fn();
+
+    expect(password?.props).toMatchObject({ maxLength: 72, required: true });
+    (
+      password?.props as {
+        onInput: (event: {
+          currentTarget: { value: string; setCustomValidity: typeof setCustomValidity };
+        }) => void;
+      }
+    ).onInput({ currentTarget: { value: `Aa1!${"é".repeat(35)}`, setCustomValidity } });
+    expect(setCustomValidity).toHaveBeenCalledWith(messages["en-GB"].passwordUtf8Limit);
+  });
+
   afterEach(() => {
     runtime.cleanup();
     clearApiSession();
     vi.unstubAllGlobals();
+  });
+
+  it("composes coverages as a detail sibling with the parent Shift zone and independent reference access", () => {
+    const props = shiftModalProps({ ...none, canWrite: true });
+    const tree = runtime.render({
+      ...props,
+      companyTimezone: "America/Sao_Paulo",
+      referenceAccess: { users: false, clients: false, teams: false, shifts: false, roles: false }
+    });
+    const section = elements(tree).find((element) => element.type === "section");
+    const children = (section?.props as { children: ReactElement[] }).children
+      .flat()
+      .filter(Boolean);
+    expect(children.some((element) => element.type === GenericDetail)).toBe(true);
+    const coverages = children.find((element) => element.type === ShiftCoverages);
+    expect(coverages?.props).toMatchObject({
+      shiftId: "shift-a",
+      timezone: "Europe/London",
+      canWrite: true,
+      canLoadUsers: false,
+      editing: false,
+      busy: false
+    });
+  });
+
+  it("keeps the modal open and reconciles the local coverage GET after the parent reload", async () => {
+    const props = {
+      ...shiftModalProps({ ...none, canWrite: true }),
+      referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+    };
+    const tree = runtime.render(props);
+    const panel = elements(tree).find((element) => element.type === ShiftCoverages)
+      ?.props as Parameters<typeof ShiftCoverages>[0];
+    const request = vi.fn().mockResolvedValue({ id: "coverage-a" });
+    const hooks = { onCurrentSuccess: vi.fn(), reconcileLocal: vi.fn(async () => undefined) };
+    await expect(panel.runCoverageMutation(true, request, hooks)).resolves.toBe("SUCCEEDED");
+    expect(request).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(props.onReload).toHaveBeenCalledWith(captureApiSessionEpoch());
+    expect(hooks.onCurrentSuccess).toHaveBeenCalledWith(captureApiSessionEpoch());
+    expect(hooks.reconcileLocal).toHaveBeenCalledWith(captureApiSessionEpoch());
+    expect(props.onReload.mock.invocationCallOrder[0]).toBeLessThan(
+      hooks.reconcileLocal.mock.invocationCallOrder[0]
+    );
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it.each(["editing", "write", "reference", "record", "zone", "session"])(
+    "rejects a retained coverage runner after %s changes",
+    async (change) => {
+      const props = {
+        ...shiftModalProps({ ...none, canWrite: true }),
+        referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+      };
+      const tree = runtime.render(props);
+      const panel = elements(tree).find((element) => element.type === ShiftCoverages)
+        ?.props as Parameters<typeof ShiftCoverages>[0];
+      if (change === "editing") shiftCallbacks(tree).setEditing(true);
+      if (change === "session")
+        setApiSession({ ...session, user: { ...session.user, companyId: "company-b" } });
+      const changed =
+        change === "write"
+          ? { ...props, capabilities: none }
+          : change === "reference"
+            ? { ...props, referenceAccess: { ...props.referenceAccess, users: false } }
+            : change === "record"
+              ? {
+                  ...props,
+                  state: { ...props.state, record: { ...props.state.record, id: "shift-b" } }
+                }
+              : change === "zone"
+                ? {
+                    ...props,
+                    state: {
+                      ...props.state,
+                      record: { ...props.state.record, timezone: "America/Sao_Paulo" }
+                    }
+                  }
+                : props;
+      const request = vi.fn().mockResolvedValue({ id: "coverage-a" });
+      const hooks = { onCurrentSuccess: vi.fn(), reconcileLocal: vi.fn(async () => undefined) };
+      let result: Promise<unknown> | undefined;
+      runtime.render(changed, () => {
+        result = panel.runCoverageMutation(true, request, hooks);
+      });
+      await result;
+      expect(request).not.toHaveBeenCalled();
+      expect(props.onReload).not.toHaveBeenCalled();
+      expect(hooks.reconcileLocal).not.toHaveBeenCalled();
+    }
+  );
+
+  it("reserves the shared modal operation across coverage POST and reconciliation", async () => {
+    const props = {
+      ...shiftModalProps({ ...none, canWrite: true }),
+      referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+    };
+    const tree = runtime.render(props);
+    const panel = elements(tree).find((element) => element.type === ShiftCoverages)
+      ?.props as Parameters<typeof ShiftCoverages>[0];
+    const pending = deferred<unknown>();
+    const request = vi.fn(() => pending.promise);
+    const hooks = { onCurrentSuccess: vi.fn(), reconcileLocal: vi.fn(async () => undefined) };
+    const first = panel.runCoverageMutation(true, request, hooks);
+    await expect(panel.runCoverageMutation(true, request, hooks)).resolves.toBe("IGNORED");
+    await shiftCallbacks(tree).onShiftTransition("close");
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledOnce();
+    pending.resolve({ id: "coverage-a" });
+    await first;
+    expect(props.onReload).toHaveBeenCalledOnce();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("blocks coverage immediately when Shift editing is entered before another render", async () => {
+    const props = {
+      ...shiftModalProps({ ...none, canWrite: true }),
+      referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+    };
+    const tree = runtime.render(props);
+    const panel = elements(tree).find((element) => element.type === ShiftCoverages)
+      ?.props as Parameters<typeof ShiftCoverages>[0];
+    shiftCallbacks(tree).setEditing(true);
+    const request = vi.fn().mockResolvedValue({ id: "coverage-a" });
+    await expect(
+      panel.runCoverageMutation(true, request, {
+        onCurrentSuccess: vi.fn(),
+        reconcileLocal: vi.fn(async () => undefined)
+      })
+    ).resolves.toBe("IGNORED");
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("retains coverage reconciliation after ordinary unmount without touching the removed form", async () => {
+    const props = {
+      ...shiftModalProps({ ...none, canWrite: true }),
+      referenceAccess: { users: true, clients: false, teams: false, shifts: false, roles: false }
+    };
+    const panel = elements(runtime.render(props)).find((element) => element.type === ShiftCoverages)
+      ?.props as Parameters<typeof ShiftCoverages>[0];
+    const pending = deferred<unknown>();
+    const hooks = { onCurrentSuccess: vi.fn(), reconcileLocal: vi.fn(async () => undefined) };
+    const saving = panel.runCoverageMutation(true, () => pending.promise, hooks);
+    runtime.cleanup();
+    pending.resolve({ id: "coverage-a" });
+    await saving;
+    expect(props.onReload).toHaveBeenCalledOnce();
+    expect(hooks.onCurrentSuccess).not.toHaveBeenCalled();
+    expect(hooks.reconcileLocal).not.toHaveBeenCalled();
+    expect(runtime.updatesAfterCleanup).toBe(0);
+  });
+
+  it.each([
+    { status: "PLANNED", command: "open" },
+    { status: "PLANNED", command: "close" },
+    { status: "PLANNED", command: "cancel" },
+    { status: "OPEN", command: "close" },
+    { status: "OPEN", command: "cancel" },
+    { status: "REOPENED", command: "close" },
+    { status: "REOPENED", command: "cancel" },
+    { status: "CLOSED", command: "reopen" }
+  ] as const)(
+    "submits $command from $status through the real modal operation",
+    async ({ status, command }) => {
+      apiBridge.apiRequest.mockResolvedValueOnce({ id: "shift-a" });
+      const props = shiftModalProps({ ...none, canWrite: true }, status);
+      const epoch = captureApiSessionEpoch();
+      await shiftCallbacks(runtime.render(props)).onShiftTransition(command);
+      expect(apiBridge.apiRequest).toHaveBeenCalledWith(
+        `/api/shifts/shift-a/${command}`,
+        session.accessToken,
+        {
+          method: "POST",
+          body: "{}",
+          signal: expect.any(AbortSignal)
+        }
+      );
+      expect(props.onReload).toHaveBeenCalledWith(epoch);
+      expect(props.onClose).toHaveBeenCalledOnce();
+    }
+  );
+
+  it("keeps defensive Shift callbacks inert for read-only and delete-only capabilities", async () => {
+    for (const capabilities of [none, { ...none, canDelete: true }]) {
+      const callbacks = shiftCallbacks(runtime.render(shiftModalProps(capabilities, "PLANNED")));
+      for (const command of ["open", "close", "reopen", "cancel"] as const)
+        await callbacks.onShiftTransition(command);
+    }
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+  });
+
+  it("refuses Shift commands while editing so an unsaved draft cannot be discarded", async () => {
+    const props = shiftModalProps({ ...none, canWrite: true });
+    shiftCallbacks(runtime.render(props)).setEditing(true);
+    await shiftCallbacks(runtime.render(props)).onShiftTransition("close");
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it.each(["CANCELLED", "UNKNOWN"])("refuses every Shift command from %s", async (status) => {
+    const callbacks = shiftCallbacks(
+      runtime.render(shiftModalProps({ ...none, canWrite: true }, status))
+    );
+    for (const command of ["open", "close", "reopen", "cancel"] as const)
+      await callbacks.onShiftTransition(command);
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+  });
+
+  it("admits only one pending Shift command and reconciles its captured session once", async () => {
+    const pending = deferred<unknown>();
+    apiBridge.apiRequest.mockReturnValueOnce(pending.promise);
+    const props = shiftModalProps({ ...none, canWrite: true });
+    const callbacks = shiftCallbacks(runtime.render(props));
+    const first = callbacks.onShiftTransition("close");
+    await callbacks.onShiftTransition("cancel");
+    expect(apiBridge.apiRequest).toHaveBeenCalledOnce();
+    expect(shiftCallbacks(runtime.render(props)).busy).toBe(true);
+    pending.resolve({ id: "shift-a" });
+    await first;
+    expect(props.onReload).toHaveBeenCalledOnce();
+    expect(props.onClose).toHaveBeenCalledOnce();
+  });
+
+  it("retains a Shift command error without closing and releases the pending guard", async () => {
+    apiBridge.apiRequest.mockRejectedValueOnce(new Error("Shift status changed during transition"));
+    const props = shiftModalProps({ ...none, canWrite: true });
+    await shiftCallbacks(runtime.render(props)).onShiftTransition("close");
+    const settled = runtime.render(props);
+    expect(textOf(settled)).toContain("Shift status changed during transition");
+    expect(shiftCallbacks(settled).busy).toBe(false);
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(props.onReload).not.toHaveBeenCalled();
+  });
+
+  it("suppresses a Shift command settlement after a Company session change", async () => {
+    const pending = deferred<unknown>();
+    apiBridge.apiRequest.mockReturnValueOnce(pending.promise);
+    const props = shiftModalProps({ ...none, canWrite: true });
+    const settlement = shiftCallbacks(runtime.render(props)).onShiftTransition("close");
+    setApiSession({ ...session, user: { ...session.user, companyId: "company-b" } });
+    pending.resolve({ id: "shift-a" });
+    await settlement;
+    expect(props.onReload).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 
   it("keeps defensive mutation callbacks inert for a read-only modal", async () => {
@@ -559,6 +863,83 @@ describe("RecordModal mutation lifecycle", () => {
     expect(textOf(settledTree)).not.toContain("Request failed");
   });
 
+  it.each(["company", "permissions", "logout", "unmount"])(
+    "rejects retained modal mutations before and after cleanup following %s",
+    async (change) => {
+      const props = modalProps({ ...none, canWrite: true, canDelete: true });
+      const tree = runtime.render(props);
+      const detail = elements(tree).find((element) => element.type === ActivityDetail)!;
+      const callbacks = detail.props as {
+        onCloseActivity: () => void;
+        onRemove: () => Promise<void>;
+        busy: boolean;
+      };
+      if (change === "company")
+        setApiSession({ ...session, user: { ...session.user, companyId: "company-b" } });
+      if (change === "permissions")
+        setApiSession({ ...session, user: { ...session.user, permissions: [] } });
+      if (change === "logout") clearApiSession();
+      if (change === "unmount") runtime.cleanup();
+      callbacks.onCloseActivity();
+      await callbacks.onRemove();
+      expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+      expect(props.onClose).not.toHaveBeenCalled();
+      expect(props.onReload).not.toHaveBeenCalled();
+      runtime.cleanup();
+      callbacks.onCloseActivity();
+      await callbacks.onRemove();
+      expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+      expect(runtime.updatesAfterCleanup).toBe(0);
+    }
+  );
+
+  it("keeps a newly mounted successor modal functional without rebinding an old modal", async () => {
+    const props = modalProps({ ...none, canWrite: true });
+    const oldTree = runtime.render(props);
+    const old = elements(oldTree).find((element) => element.type === ActivityDetail)!;
+    setApiSession({ ...session, user: { ...session.user, companyId: "company-b" } });
+    const rerendered = runtime.render(props);
+    const stillOld = elements(rerendered).find((element) => element.type === ActivityDetail)!;
+    (old.props as { onCloseActivity: () => void }).onCloseActivity();
+    (stillOld.props as { onCloseActivity: () => void }).onCloseActivity();
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+    runtime.cleanup();
+    runtime = new HookRuntime();
+    hookBridge.useState = runtime.useState.bind(runtime);
+    hookBridge.useRef = runtime.useRef.bind(runtime);
+    hookBridge.useEffect = runtime.useEffect.bind(runtime);
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "activity-a" });
+    const current = elements(runtime.render(props)).find(
+      (element) => element.type === ActivityDetail
+    )!;
+    (current.props as { onCloseActivity: () => void }).onCloseActivity();
+    await vi.waitFor(() => expect(props.onClose).toHaveBeenCalledOnce());
+    expect(apiBridge.apiRequest).toHaveBeenCalledOnce();
+  });
+
+  it("admits a retained modal callback after same-epoch token rotation", async () => {
+    const props = modalProps({ ...none, canWrite: true });
+    const detail = elements(runtime.render(props)).find(
+      (element) => element.type === ActivityDetail
+    )!;
+    const epoch = captureApiSessionEpoch();
+    const actual = await vi.importActual<typeof ApiModule>("../lib/api");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: { ...session, accessToken: "rotated-token" } })
+      })
+    );
+    Object.assign(document, { cookie: "" });
+    await actual.restoreApiSession();
+    expect(captureApiSessionEpoch()).toBe(epoch);
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "activity-a" });
+    (detail.props as { onCloseActivity: () => void }).onCloseActivity();
+    await vi.waitFor(() => expect(props.onClose).toHaveBeenCalledOnce());
+    expect(props.onReload).toHaveBeenCalledWith(epoch);
+  });
+
   it("releases a failed operation and permits a successful retry", async () => {
     apiBridge.apiRequest
       .mockRejectedValueOnce(new Error("First attempt failed"))
@@ -662,5 +1043,168 @@ describe("RecordModal mutation lifecycle", () => {
       slaDueAt: null
     });
     expect(props.onReload).toHaveBeenCalledOnce();
+  });
+
+  it.each(["2026-11-01T05:30:34.987Z", "2026-11-01T06:30:34.987Z"])(
+    "preserves the SLA fold occurrence %s through the real modal submission",
+    async (slaDueAt) => {
+      const form = new FormData();
+      form.set("title", "Renamed activity");
+      form.set("slaDueAt", "2026-11-01T01:30");
+      vi.stubGlobal("FormData", function FormDataForTest() {
+        return form;
+      });
+      apiBridge.apiRequest.mockResolvedValueOnce({ id: "activity-a" });
+      const props = {
+        ...modalProps({ ...none, canWrite: true }),
+        companyTimezone: "America/New_York",
+        state: {
+          mode: "detail" as const,
+          entity: "activities" as const,
+          record: { id: "activity-a", title: "Original", slaDueAt }
+        }
+      };
+      const tree = runtime.render(props);
+      const detail = elements(tree).find((element) => element.type === ActivityDetail);
+      expect(detail?.props).toMatchObject({ companyTimezone: "America/New_York" });
+      await (
+        detail!.props as {
+          onSubmit: (event: {
+            preventDefault: () => void;
+            currentTarget: unknown;
+          }) => Promise<void>;
+        }
+      ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+      const request = apiBridge.apiRequest.mock.calls[0]?.[2] as { body: string };
+      expect(JSON.parse(request.body)).not.toHaveProperty("slaDueAt");
+      expect(props.onReload).toHaveBeenCalledOnce();
+    }
+  );
+
+  it("preserves both saved Shift instants through a timezone-only modal edit", async () => {
+    const form = new FormData();
+    form.set("name", "Renamed shift");
+    form.set("startsAt", "2026-08-30T13:00");
+    form.set("endsAt", "2026-08-30T21:00");
+    form.set("timezone", "UTC");
+    vi.stubGlobal("FormData", function FormDataForTest() {
+      return form;
+    });
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "shift-a" });
+    const props = {
+      ...modalProps({ ...none, canWrite: true }),
+      state: {
+        mode: "detail" as const,
+        entity: "shifts" as const,
+        record: {
+          id: "shift-a",
+          name: "Shift",
+          startsAt: "2026-08-30T12:00:34.987Z",
+          endsAt: "2026-08-30T20:00:56.789Z",
+          timezone: "Europe/London"
+        }
+      }
+    };
+    const tree = runtime.render(props);
+    const detail = elements(tree).find((element) => element.type === GenericDetail);
+    await (
+      detail!.props as {
+        onSubmit: (event: { preventDefault: () => void; currentTarget: unknown }) => Promise<void>;
+      }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+    const request = apiBridge.apiRequest.mock.calls[0]?.[2] as { body: string };
+    expect(JSON.parse(request.body)).toEqual({ name: "Renamed shift", timezone: "UTC" });
+  });
+
+  it("keeps lifecycle status in the Shift create payload", async () => {
+    const form = new FormData();
+    form.set("name", "Night shift");
+    form.set("startsAt", "2026-09-02T22:00");
+    form.set("endsAt", "2026-09-03T06:00");
+    form.set("timezone", "Europe/London");
+    form.set("status", "PLANNED");
+    function FormDataForTest() {
+      return form;
+    }
+    vi.stubGlobal("FormData", FormDataForTest);
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "shift-a" });
+    const props = {
+      ...modalProps({ ...none, canWrite: true }),
+      state: { mode: "create" as const, entity: "shifts" as const }
+    };
+    const tree = runtime.render(props);
+    const createForm = elements(tree).find((element) => element.type === CreateForm);
+    if (!createForm) throw new Error("Shift create form was not found");
+
+    await (
+      createForm.props as {
+        onSubmit: (event: { preventDefault: () => void; currentTarget: unknown }) => Promise<void>;
+      }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+
+    expect(apiBridge.apiRequest).toHaveBeenCalledWith(
+      "/api/shifts",
+      session.accessToken,
+      expect.objectContaining({ method: "POST" })
+    );
+    const request = apiBridge.apiRequest.mock.calls[0]?.[2] as { body?: string };
+    expect(JSON.parse(request.body ?? "{}")).toEqual({
+      name: "Night shift",
+      startsAt: "2026-09-02T22:00",
+      endsAt: "2026-09-03T06:00",
+      timezone: "Europe/London",
+      status: "PLANNED"
+    });
+  });
+
+  it("omits lifecycle status from the Shift content PATCH payload", async () => {
+    const form = new FormData();
+    form.set("name", "Updated night shift");
+    form.set("startsAt", "2026-09-02T21:00");
+    form.set("endsAt", "2026-09-03T05:00");
+    form.set("timezone", "Europe/London");
+    form.set("status", "CLOSED");
+    function FormDataForTest() {
+      return form;
+    }
+    vi.stubGlobal("FormData", FormDataForTest);
+    apiBridge.apiRequest.mockResolvedValueOnce({ id: "shift-a" });
+    const props = {
+      ...modalProps({ ...none, canWrite: true }),
+      state: {
+        mode: "detail" as const,
+        entity: "shifts" as const,
+        record: {
+          id: "shift-a",
+          name: "Night shift",
+          startsAt: "2026-09-02T22:00:00.000Z",
+          endsAt: "2026-09-03T06:00:00.000Z",
+          timezone: "Europe/London",
+          status: "OPEN"
+        }
+      }
+    };
+    const tree = runtime.render(props);
+    const detail = elements(tree).find((element) => element.type === GenericDetail);
+    if (!detail) throw new Error("Shift detail was not found");
+
+    await (
+      detail.props as {
+        onSubmit: (event: { preventDefault: () => void; currentTarget: unknown }) => Promise<void>;
+      }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: {} });
+
+    expect(apiBridge.apiRequest).toHaveBeenCalledWith(
+      "/api/shifts/shift-a",
+      session.accessToken,
+      expect.objectContaining({ method: "PATCH" })
+    );
+    const request = apiBridge.apiRequest.mock.calls[0]?.[2] as { body?: string };
+    expect(JSON.parse(request.body ?? "{}")).toEqual({
+      name: "Updated night shift",
+      startsAt: "2026-09-02T21:00",
+      endsAt: "2026-09-03T05:00",
+      timezone: "Europe/London"
+    });
   });
 });

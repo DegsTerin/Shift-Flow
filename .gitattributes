@@ -1,0 +1,6 @@
+# en-GB: Preserves every byte-hashed OCI source definition identically across supported checkout platforms.
+docker-compose.yml text eol=lf
+apps/api-dotnet/Dockerfile text eol=lf
+infra/docker/node.Dockerfile text eol=lf
+infra/docker/infrastructure.Dockerfile text eol=lf
+eng/spdx-2.3-schema.json text eol=lf

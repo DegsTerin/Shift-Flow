@@ -27,9 +27,27 @@ public sealed class PermissionAuthorisationHandler(
             return;
         }
 
-        var requestedCompany = httpContext.Request.Headers["x-company-id"].FirstOrDefault()?.Trim();
+        var requestedCompanies = httpContext.Request.Headers["x-company-id"];
+        if (requestedCompanies.Count > 1)
+        {
+            return;
+        }
+
+        var requestedCompany = requestedCompanies.Count == 1
+            ? requestedCompanies[0]?.Trim()
+            : null;
         if (!string.IsNullOrEmpty(requestedCompany) &&
-            !requestedCompany.Equals(companyIdValue, StringComparison.Ordinal))
+            (requestedCompany.Contains(',', StringComparison.Ordinal) ||
+             !requestedCompany.Equals(companyIdValue, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        if (PortfolioSessionContract.IsPortfolio(context.User) &&
+            !PortfolioSessionContract.Grants(
+                context.User,
+                requirement.Resource,
+                requirement.Action))
         {
             return;
         }

@@ -9,6 +9,7 @@ import {
   assertUserInCompany
 } from "../../shared/services/scope.service.js";
 import { CommentsRepository } from "./comments.repository.js";
+import type { PrismaTransactionClient } from "../../shared/lib/prisma.js";
 
 export class CommentsService extends BaseService {
   constructor(private readonly commentsRepository = new CommentsRepository()) {
@@ -28,35 +29,49 @@ export class CommentsService extends BaseService {
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
-    await this.assertCanMutate(req, id, "write");
-    return super.update(req, id, { ...data, editedAt: new Date() });
+    return this.commentsRepository.withTransaction(async (_repository, transaction) => {
+      await this.assertCanMutate(req, id, "write", transaction);
+      return super.update(req, id, { ...data, editedAt: new Date() });
+    });
   }
 
   override async remove(req: ApiRequest, id: string) {
-    await this.assertCanMutate(req, id, "delete");
-    return super.remove(req, id);
+    return this.commentsRepository.withTransaction(async (_repository, transaction) => {
+      await this.assertCanMutate(req, id, "delete", transaction);
+      return super.remove(req, id);
+    });
   }
 
-  private async assertCanMutate(req: ApiRequest, id: string, action: "write" | "delete") {
+  private async assertCanMutate(
+    req: ApiRequest,
+    id: string,
+    action: "write" | "delete",
+    transaction: PrismaTransactionClient
+  ) {
     const companyId = activeCompanyId(req);
-    const comment = (await this.commentsRepository.findMutationContext(id, companyId)) as {
-      authorId?: string | null;
-      activity?: { clientId?: string | null; teamId?: string | null };
-    } | null;
+    const comment = await this.commentsRepository.findMutationContextForUpdate(
+      id,
+      companyId,
+      transaction
+    );
     if (!comment) {
       throw notFound("Comment not found");
     }
     const tenant = {
       companyId,
-      clientId: comment.activity?.clientId ?? undefined,
-      teamId: comment.activity?.teamId ?? undefined
+      clientId: comment.clientId ?? undefined,
+      teamId: comment.teamId ?? undefined
     };
     const hasMutationPermission = req.auth
-      ? await RbacService.hasPermission(req.auth, {
-          resource: "comments",
-          action,
-          tenant
-        })
+      ? await RbacService.hasPermission(
+          req.auth,
+          {
+            resource: "comments",
+            action,
+            tenant
+          },
+          transaction
+        )
       : false;
     if (!hasMutationPermission) {
       throw forbidden(`comments:${action} is required for the comment resource`);
@@ -66,11 +81,15 @@ export class CommentsService extends BaseService {
     }
 
     const canModerate = req.auth
-      ? await RbacService.hasPermission(req.auth, {
-          resource: "comments",
-          action: "moderate",
-          tenant
-        })
+      ? await RbacService.hasPermission(
+          req.auth,
+          {
+            resource: "comments",
+            action: "moderate",
+            tenant
+          },
+          transaction
+        )
       : false;
 
     if (!canModerate) {

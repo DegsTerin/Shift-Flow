@@ -4,9 +4,13 @@ import { pathToFileURL } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { AppError } from "../errors/app-error.js";
 
-type PrismaLike = {
-  $disconnect?: () => Promise<void>;
+export type PrismaTransactionClient = {
   [delegate: string]: unknown;
+};
+
+type PrismaLike = PrismaTransactionClient & {
+  $disconnect?: () => Promise<void>;
+  $transaction?: <T>(operation: (transaction: PrismaTransactionClient) => Promise<T>) => Promise<T>;
 };
 
 type PrismaClientOptions = {
@@ -57,6 +61,13 @@ export async function getPrisma() {
 
 export async function getDelegate<T = Record<string, unknown>>(name: string) {
   const prisma = await getPrisma();
+  return getDelegateFrom<T>(prisma, name);
+}
+
+export function getDelegateFrom<T = Record<string, unknown>>(
+  prisma: PrismaTransactionClient,
+  name: string
+) {
   const delegate = prisma[name];
 
   if (!delegate) {
@@ -64,4 +75,19 @@ export async function getDelegate<T = Record<string, unknown>>(name: string) {
   }
 
   return delegate as T;
+}
+
+export async function withPrismaTransaction<T>(
+  operation: (transaction: PrismaTransactionClient) => Promise<T>
+) {
+  const prisma = await getPrisma();
+  if (typeof prisma.$transaction !== "function") {
+    throw new AppError(
+      "Prisma transactions are unavailable",
+      500,
+      "PRISMA_TRANSACTION_UNAVAILABLE"
+    );
+  }
+
+  return prisma.$transaction(operation);
 }

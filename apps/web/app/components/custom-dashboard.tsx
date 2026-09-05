@@ -52,12 +52,35 @@ const canonicalWidgetTitles: Readonly<Record<string, readonly string[]>> = {
   "chart-team": ["Atividades por equipe", "Activities by team"],
   "chart-client": ["Atividades por cliente", "Activities by client"],
   "chart-priority": ["Atividades por prioridade", "Activities by priority"],
-  "chart-shift": ["Incidentes por turno", "Incidents by shift"],
-  "chart-status": ["Evolucao mensal", "Evolução mensal", "Monthly evolution"],
+  "chart-shift": [
+    "Incidentes por turno",
+    "Incidents by shift",
+    "Atividades por turno",
+    "Activities by shift"
+  ],
+  "chart-status": [
+    "Evolucao mensal",
+    "Evolução mensal",
+    "Monthly evolution",
+    "Monthly trend",
+    "Atividades por status",
+    "Activities by status"
+  ],
   "status-legend": ["Legenda de status", "Status legend"],
   "activity-list": ["Ultimas atividades", "Últimas atividades", "Latest activities"],
-  "team-productivity": ["Produtividade por analista", "Productivity by analyst"],
-  "team-risk": ["SLA em risco", "SLA at risk"],
+  "team-productivity": [
+    "Produtividade por analista",
+    "Productivity by analyst",
+    "Analyst productivity",
+    "Atividades por equipe",
+    "Activities by team"
+  ],
+  "team-risk": [
+    "SLA em risco",
+    "SLA at risk",
+    "Atividades por prioridade",
+    "Activities by priority"
+  ],
   "team-activity-list": ["Ultimas atividades", "Últimas atividades", "Latest activities"]
 };
 

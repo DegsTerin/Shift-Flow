@@ -8,7 +8,8 @@ import { toBoundedSearch, toPagination, toSkipTake } from "../../shared/http/pag
 import { badRequest, forbidden, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { buildAuditData } from "../../shared/services/audit-writer.js";
-import { RbacRepository } from "./rbac.repository.js";
+import type { PrismaTransactionClient } from "../../shared/lib/prisma.js";
+import { RbacRepository, type RbacAuditEvent, type RbacCommandContext } from "./rbac.repository.js";
 
 type PermissionRule = {
   resource: string;
@@ -38,12 +39,47 @@ const superAdminPermission = "*:*";
 const mutableRoleFields = ["name", "description", "color", "scope", "isActive"] as const;
 const mutablePermissionFields = ["resource", "action", "description"] as const;
 
+function canonicalUuid(value: string) {
+  return value.toLowerCase();
+}
+
+function sameUuid(left: string | null | undefined, right: string | null | undefined) {
+  return Boolean(left && right && canonicalUuid(left) === canonicalUuid(right));
+}
+
 function pickAllowedFields(data: Record<string, unknown>, fields: readonly string[]) {
   return Object.fromEntries(
     fields
       .filter((field) => Object.prototype.hasOwnProperty.call(data, field))
       .map((field) => [field, data[field]])
   );
+}
+
+function commandContext(
+  req: ApiRequest,
+  requiredControlPermission: "rbac:write" | "rbac:delete"
+): RbacCommandContext {
+  const actor = req.auth;
+  if (!actor) {
+    throw forbidden("Authentication is required");
+  }
+  const tenantCompanyId = req.tenant?.companyId ? canonicalUuid(req.tenant.companyId) : undefined;
+  const actorCompanyId = actor.companyId ? canonicalUuid(actor.companyId) : undefined;
+  if (tenantCompanyId && actorCompanyId && tenantCompanyId !== actorCompanyId) {
+    throw forbidden("Invalid company context");
+  }
+  const companyId = tenantCompanyId ?? actorCompanyId;
+  if (!companyId) {
+    throw badRequest("Company context is required");
+  }
+
+  return {
+    companyId,
+    actorId: canonicalUuid(actor.id),
+    ...(actor.sessionKind === "portfolio" ? { portfolioCeiling: actor.permissions ?? [] } : {}),
+    requiredControlPermission,
+    auditData: (event: RbacAuditEvent) => buildAuditData(req, { ...event, companyId })
+  };
 }
 
 function roleInclude(now = new Date()) {
@@ -71,18 +107,18 @@ export function assignmentGrantsPermission(
   rule: PermissionRule,
   companyId: string
 ) {
-  if (assignment.companyId !== companyId || !assignment.role) {
+  if (!sameUuid(assignment.companyId, companyId) || !assignment.role) {
     return false;
   }
-  if (assignment.role.companyId && assignment.role.companyId !== companyId) {
+  if (assignment.role.companyId && !sameUuid(assignment.role.companyId, companyId)) {
     return false;
   }
 
   const clientScopeMatches = assignment.clientId
-    ? assignment.clientId === rule.tenant?.clientId
+    ? sameUuid(assignment.clientId, rule.tenant?.clientId)
     : assignment.role.scope !== "CLIENT";
   const teamScopeMatches = assignment.teamId
-    ? assignment.teamId === rule.tenant?.teamId
+    ? sameUuid(assignment.teamId, rule.tenant?.teamId)
     : assignment.role.scope !== "TEAM";
   if (!clientScopeMatches || !teamScopeMatches || assignment.role.isActive === false) {
     return false;
@@ -91,7 +127,9 @@ export function assignmentGrantsPermission(
   const required = `${rule.resource}:${rule.action}`;
   const permissions =
     assignment.role.permissions
-      ?.filter((item) => !item.permission?.companyId || item.permission.companyId === companyId)
+      ?.filter(
+        (item) => !item.permission?.companyId || sameUuid(item.permission.companyId, companyId)
+      )
       .map((item) => `${item.permission?.resource}:${item.permission?.action}`) ?? [];
   return permissions.includes(required) || permissions.includes(superAdminPermission);
 }
@@ -102,7 +140,10 @@ class RolesService extends BaseService {
   }
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {
-    return super.create(req, pickAllowedFields(data, mutableRoleFields));
+    return this.rbacRepository.createRole(
+      commandContext(req, "rbac:write"),
+      pickAllowedFields(data, mutableRoleFields)
+    );
   }
 
   override async list(req: ApiRequest, filters: Record<string, unknown> = {}) {
@@ -143,75 +184,58 @@ class RolesService extends BaseService {
   }
 
   override async remove(req: ApiRequest, id: string) {
-    const companyId = this.requireCompanyId(req);
-    if (!companyId) {
-      throw badRequest("Company context is required");
-    }
     return this.rbacRepository.mutateRole(
+      commandContext(req, "rbac:delete"),
       id,
-      companyId,
       { deletedAt: new Date() },
-      "SOFT_DELETE",
-      (before, after) =>
-        buildAuditData(req, {
-          entityType: "Role",
-          entityId: id,
-          action: "SOFT_DELETE",
-          before,
-          after,
-          companyId
-        })
+      "SOFT_DELETE"
     );
   }
 
   override async update(req: ApiRequest, id: string, data: Record<string, unknown>) {
-    const companyId = this.requireCompanyId(req);
-    if (!companyId) {
-      throw badRequest("Company context is required");
-    }
     return this.rbacRepository.mutateRole(
+      commandContext(req, "rbac:write"),
       id,
-      companyId,
       pickAllowedFields(data, mutableRoleFields),
-      "UPDATE",
-      (before, after) =>
-        buildAuditData(req, {
-          entityType: "Role",
-          entityId: id,
-          action: "UPDATE",
-          before,
-          after,
-          companyId
-        })
+      "UPDATE"
     );
   }
 
   async duplicate(req: ApiRequest, id: string) {
-    const companyId = this.requireCompanyId(req);
-    if (!companyId) {
-      throw badRequest("Company context is required");
-    }
-    const role = await this.rbacRepository.findRole(id, companyId);
-    if (!role) {
-      throw notFound("Role not found");
-    }
-    if (role.isSystem) {
-      throw badRequest("System profiles cannot be duplicated");
-    }
-    return this.rbacRepository.duplicateRole(id, companyId, `${role.name ?? "Perfil"} - copia`);
+    return this.rbacRepository.duplicateRole(commandContext(req, "rbac:write"), id);
   }
 }
 
 class PermissionsService extends BaseService {
-  constructor(repository: RbacRepository) {
-    super(repository.permissions, "Permission", {
+  constructor(private readonly rbacRepository: RbacRepository) {
+    super(rbacRepository.permissions, "Permission", {
       userStamps: false,
       orderBy: [{ resource: "asc" }, { action: "asc" }, { id: "asc" }]
     });
   }
 
   override async create(req: ApiRequest, data: Record<string, unknown>) {
-    return super.create(req, pickAllowedFields(data, mutablePermissionFields));
+    return this.rbacRepository.createPermission(
+      commandContext(req, "rbac:write"),
+      pickAllowedFields(data, mutablePermissionFields)
+    );
+  }
+
+  override async update(
+    _req: ApiRequest,
+    _id: string,
+    _data: Record<string, unknown>
+  ): Promise<never> {
+    void _req;
+    void _id;
+    void _data;
+    throw forbidden("Permission updates are not available through generic operations");
+  }
+
+  override async remove(_req: ApiRequest, _id: string): Promise<never> {
+    void _req;
+    void _id;
+    throw forbidden("Permission removal is not available through generic operations");
   }
 }
 
@@ -220,7 +244,20 @@ export class RbacService {
   static roles = new RolesService(RbacService.repository);
   static permissions = new PermissionsService(RbacService.repository);
 
-  static async hasPermission(user: AuthenticatedUser, rule: PermissionRule) {
+  static async hasPermission(
+    user: AuthenticatedUser,
+    rule: PermissionRule,
+    transaction?: PrismaTransactionClient
+  ) {
+    const requiredPermission = `${rule.resource}:${rule.action}`;
+    if (
+      user.sessionKind === "portfolio" &&
+      !user.permissions?.includes(requiredPermission) &&
+      !user.permissions?.includes(superAdminPermission)
+    ) {
+      return false;
+    }
+
     if (rule.tenant?.companyId && rule.tenant.companyId !== user.companyId) {
       return false;
     }
@@ -231,7 +268,8 @@ export class RbacService {
 
     const assignments = (await RbacService.repository.findAssignmentsForUser(
       user.id,
-      companyId
+      companyId,
+      transaction
     )) as Assignment[];
 
     return assignments.some((assignment) =>
@@ -239,69 +277,16 @@ export class RbacService {
     );
   }
 
-  private static effectiveCompany(user: AuthenticatedUser | undefined, tenant?: TenantContext) {
-    const tenantCompanyId = tenant?.companyId;
-    const userCompanyId = user?.companyId;
-
-    if (tenantCompanyId && userCompanyId && tenantCompanyId !== userCompanyId) {
-      throw forbidden("Invalid company context");
-    }
-
-    const companyId = tenantCompanyId ?? userCompanyId;
-    if (!companyId) {
-      throw badRequest("Company context is required");
-    }
-    return companyId;
-  }
-
-  static async assignRole(
-    actor: AuthenticatedUser | undefined,
-    tenant: TenantContext | undefined,
-    data: Record<string, unknown>
-  ) {
-    const companyId = RbacService.effectiveCompany(actor, tenant);
-
-    const role = await RbacService.repository.findRole(String(data.roleId), companyId);
-    if (!role || role.isActive !== true) {
-      throw badRequest("Role is not active in the current company");
-    }
-
-    const userCompany = await RbacService.repository.findUserCompany(
-      String(data.userId),
-      companyId
-    );
-    if (!userCompany) {
-      throw badRequest("User is not linked to the active company");
-    }
-
+  static async assignRole(req: ApiRequest, data: Record<string, unknown>) {
     const clientId = data.clientId ? String(data.clientId) : undefined;
     const teamId = data.teamId ? String(data.teamId) : undefined;
-    if (role.scope === "CLIENT" && !clientId) {
-      throw badRequest("Client-scoped roles require a client");
-    }
-    if (role.scope === "TEAM" && !teamId) {
-      throw badRequest("Team-scoped roles require a team");
-    }
-
-    const [client, team] = await Promise.all([
-      clientId ? RbacService.repository.findClient(clientId, companyId) : undefined,
-      teamId ? RbacService.repository.findTeam(teamId, companyId) : undefined
-    ]);
-    if (clientId && !client) {
-      throw badRequest("Client does not belong to the active company");
-    }
-    if (teamId && !team) {
-      throw badRequest("Team does not belong to the active company");
-    }
-
     const startsAt = data.startsAt instanceof Date ? data.startsAt : new Date();
     const endsAt = data.endsAt instanceof Date ? data.endsAt : undefined;
     if (endsAt && endsAt <= startsAt) {
       throw badRequest("endsAt must be later than startsAt");
     }
 
-    return RbacService.repository.assignRole({
-      companyId,
+    return RbacService.repository.assignRole(commandContext(req, "rbac:write"), {
       userId: String(data.userId),
       roleId: String(data.roleId),
       ...(clientId ? { clientId } : {}),
@@ -311,45 +296,19 @@ export class RbacService {
     });
   }
 
-  static async assignPermission(
-    actor: AuthenticatedUser | undefined,
-    tenant: TenantContext | undefined,
-    roleId: string,
-    permissionId: string
-  ) {
-    const companyId = RbacService.effectiveCompany(actor, tenant);
-
-    const [role, permission] = await Promise.all([
-      RbacService.repository.findRole(roleId, companyId),
-      RbacService.repository.findPermission(permissionId, companyId)
-    ]);
-    if (!role) {
-      throw badRequest("Role does not belong to the active company");
-    }
-    if (role.isSystem) {
-      throw badRequest("System profile permissions cannot be changed");
-    }
-    if (!permission) {
-      throw badRequest("Permission is not available in the active company");
-    }
-
-    return RbacService.repository.assignPermission(roleId, permissionId, companyId);
+  static async assignPermission(req: ApiRequest, roleId: string, permissionId: string) {
+    return RbacService.repository.assignPermission(
+      commandContext(req, "rbac:write"),
+      roleId,
+      permissionId
+    );
   }
 
-  static async removePermission(
-    actor: AuthenticatedUser | undefined,
-    tenant: TenantContext | undefined,
-    roleId: string,
-    permissionId: string
-  ) {
-    const companyId = RbacService.effectiveCompany(actor, tenant);
-    const role = await RbacService.repository.findRole(roleId, companyId);
-    if (!role) {
-      throw badRequest("Role does not belong to the active company");
-    }
-    if (role.isSystem) {
-      throw badRequest("System profile permissions cannot be changed");
-    }
-    return RbacService.repository.removePermission(roleId, permissionId, companyId);
+  static async removePermission(req: ApiRequest, roleId: string, permissionId: string) {
+    return RbacService.repository.removePermission(
+      commandContext(req, "rbac:write"),
+      roleId,
+      permissionId
+    );
   }
 }

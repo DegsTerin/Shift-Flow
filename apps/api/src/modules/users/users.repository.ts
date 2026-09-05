@@ -8,6 +8,24 @@ type UserRecord = Record<string, unknown> & {
   passwordChangedAt?: Date | null;
 };
 
+type RoleRecord = {
+  id: string;
+  companyId?: string | null;
+  scope?: string;
+  isActive?: boolean;
+};
+
+type PermissionGraphRow = {
+  roleId: string;
+  resource: string;
+  action: string;
+};
+
+export type UserRoleDelegationContext = {
+  actorId: string;
+  portfolioCeiling?: readonly string[];
+};
+
 type TransactionClient = {
   $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
   user: {
@@ -40,6 +58,7 @@ type AuditDataFactory = (before: unknown, after: unknown) => Record<string, unkn
 type UserAggregateUpdate = {
   data?: Record<string, unknown>;
   roleId?: string;
+  roleDelegation?: UserRoleDelegationContext;
   credentialChange?: boolean;
   revokeSessions?: boolean;
 };
@@ -62,6 +81,14 @@ const activeCompanyRoles = (companyId: string, now: Date) => ({
   }
 });
 
+function canonicalUuid(value: string) {
+  return value.toLowerCase();
+}
+
+function sameUuid(left: string | null | undefined, right: string | null | undefined) {
+  return Boolean(left && right && canonicalUuid(left) === canonicalUuid(right));
+}
+
 export class UsersRepository extends BaseRepository {
   constructor(
     private readonly prismaProvider: () => Promise<TransactionPrisma> = async () =>
@@ -74,11 +101,12 @@ export class UsersRepository extends BaseRepository {
     data: Record<string, unknown>,
     companyId: string,
     roleId: string,
+    delegation: UserRoleDelegationContext,
     auditData: AuditDataFactory
   ) {
     const prisma = await this.prisma();
     return prisma.$transaction(async (tx) => {
-      await this.lockAssignableRole(tx, roleId, companyId);
+      await this.assertAuthorisedRoleDelegation(tx, companyId, roleId, delegation);
       const created = await tx.user.create({ data });
       const membership = { companyId, userId: created.id, isDefault: true };
       const assignment = { companyId, userId: created.id, roleId };
@@ -103,6 +131,18 @@ export class UsersRepository extends BaseRepository {
   ) {
     const prisma = await this.prisma();
     return prisma.$transaction(async (tx) => {
+      if (update.roleId) {
+        if (!update.roleDelegation) {
+          throw forbidden("Authenticated role delegation is required");
+        }
+        await this.assertAuthorisedRoleDelegation(
+          tx,
+          companyId,
+          update.roleId,
+          update.roleDelegation,
+          id
+        );
+      }
       const current = await this.lockActiveUser(tx, id);
       const activeMemberships = await this.lockMemberships(tx, id);
       this.assertCompanyMutationBoundary(activeMemberships, companyId, Boolean(update.data));
@@ -194,14 +234,120 @@ export class UsersRepository extends BaseRepository {
     }
   }
 
-  private async lockAssignableRole(tx: TransactionClient, roleId: string, companyId: string) {
-    const roles = await tx.$queryRawUnsafe<Array<{ id: string }>>(
-      'SELECT "id" FROM "roles" WHERE "id" = $1::uuid AND "companyId" = $2::uuid AND "scope" = \'COMPANY\' AND "isActive" = TRUE AND "deletedAt" IS NULL FOR SHARE',
-      roleId,
-      companyId
+  private async assertAuthorisedRoleDelegation(
+    tx: TransactionClient,
+    companyId: string,
+    roleId: string,
+    context: UserRoleDelegationContext,
+    targetUserId?: string
+  ) {
+    const canonicalCompanyId = canonicalUuid(companyId);
+    const actorId = canonicalUuid(context.actorId);
+    const targetId = targetUserId ? canonicalUuid(targetUserId) : undefined;
+    const companies = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+      'SELECT "id" FROM "companies" WHERE "id" = $1::uuid AND "status" = \'ACTIVE\' AND "deletedAt" IS NULL FOR SHARE',
+      canonicalCompanyId
     );
-    if (!roles[0]) {
+    if (companies.length !== 1) throw forbidden("The active company is unavailable");
+
+    const userIds = [...new Set([actorId, ...(targetId ? [targetId] : [])])].sort();
+    for (const userId of userIds) {
+      const targetLock = targetId === userId;
+      const lockStatement = targetLock
+        ? 'SELECT u."id" FROM "users" AS u INNER JOIN "user_companies" AS uc ON uc."userId" = u."id" AND uc."companyId" = $2::uuid AND uc."deletedAt" IS NULL WHERE u."id" = $1::uuid AND u."status" = \'ACTIVE\' AND u."deletedAt" IS NULL FOR UPDATE OF u, uc'
+        : 'SELECT u."id" FROM "users" AS u INNER JOIN "user_companies" AS uc ON uc."userId" = u."id" AND uc."companyId" = $2::uuid AND uc."deletedAt" IS NULL WHERE u."id" = $1::uuid AND u."status" = \'ACTIVE\' AND u."deletedAt" IS NULL FOR SHARE OF u, uc';
+      const memberships = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        lockStatement,
+        userId,
+        canonicalCompanyId
+      );
+      if (memberships.length !== 1) {
+        if (userId === actorId) throw forbidden("The actor is not active in the current company");
+        throw notFound("User not found");
+      }
+    }
+
+    const now = new Date();
+    const assignments = await tx.$queryRawUnsafe<Array<{ id: string; roleId: string }>>(
+      'SELECT "id", "roleId" FROM "user_role_assignments" WHERE "userId" = $1::uuid AND "companyId" = $2::uuid AND "clientId" IS NULL AND "teamId" IS NULL AND "deletedAt" IS NULL AND "startsAt" <= $3 AND ("endsAt" IS NULL OR "endsAt" > $3) ORDER BY "id" FOR SHARE',
+      actorId,
+      canonicalCompanyId,
+      now
+    );
+    const canonicalTargetRoleId = canonicalUuid(roleId);
+    const roleIds = [
+      ...new Set([
+        ...assignments.map((assignment) => canonicalUuid(assignment.roleId)),
+        canonicalTargetRoleId
+      ])
+    ].sort();
+    const roles = new Map<string, RoleRecord>();
+    const permissionsByRole = new Map<string, readonly PermissionGraphRow[]>();
+    for (const currentRoleId of roleIds) {
+      const roleLockStatement =
+        currentRoleId === canonicalTargetRoleId
+          ? 'SELECT "id", "companyId", "scope", "isActive" FROM "roles" WHERE "id" = $1::uuid AND ("companyId" = $2::uuid OR "companyId" IS NULL) AND "deletedAt" IS NULL FOR UPDATE'
+          : 'SELECT "id", "companyId", "scope", "isActive" FROM "roles" WHERE "id" = $1::uuid AND ("companyId" = $2::uuid OR "companyId" IS NULL) AND "deletedAt" IS NULL FOR SHARE';
+      const lockedRoles = await tx.$queryRawUnsafe<RoleRecord[]>(
+        roleLockStatement,
+        currentRoleId,
+        canonicalCompanyId
+      );
+      const role = lockedRoles[0];
+      if (!role) continue;
+      roles.set(canonicalUuid(role.id), role);
+      const permissions = await tx.$queryRawUnsafe<PermissionGraphRow[]>(
+        'SELECT p."resource", p."action", rp."roleId" FROM "role_permissions" AS rp INNER JOIN "permissions" AS p ON p."id" = rp."permissionId" WHERE rp."roleId" = $1::uuid AND (rp."companyId" = $2::uuid OR rp."companyId" IS NULL) AND (p."companyId" = $2::uuid OR p."companyId" IS NULL) AND p."deletedAt" IS NULL ORDER BY rp."id" FOR SHARE OF rp, p',
+        currentRoleId,
+        canonicalCompanyId
+      );
+      permissionsByRole.set(currentRoleId, permissions);
+    }
+
+    const targetRole = roles.get(canonicalTargetRoleId);
+    if (
+      !targetRole ||
+      !sameUuid(targetRole.companyId, canonicalCompanyId) ||
+      targetRole.scope !== "COMPANY" ||
+      targetRole.isActive !== true
+    ) {
       throw badRequest("The user editor accepts active company-scoped profiles only");
+    }
+    const actorRoleIds = assignments
+      .map((assignment) => canonicalUuid(assignment.roleId))
+      .filter((assignmentRoleId) => {
+        const role = roles.get(assignmentRoleId);
+        return Boolean(
+          role &&
+          role.isActive === true &&
+          (role.scope === "GLOBAL" || role.scope === "COMPANY") &&
+          (!role.companyId || sameUuid(role.companyId, canonicalCompanyId))
+        );
+      });
+    const actorPermissions = new Set(
+      actorRoleIds.flatMap((assignmentRoleId) =>
+        (permissionsByRole.get(assignmentRoleId) ?? []).map(
+          (permission) => `${permission.resource}:${permission.action}`
+        )
+      )
+    );
+    const canUse = (permission: string) => {
+      const live = actorPermissions.has(permission) || actorPermissions.has("*:*");
+      const ceiling =
+        context.portfolioCeiling === undefined ||
+        context.portfolioCeiling.includes(permission) ||
+        context.portfolioCeiling.includes("*:*");
+      return live && ceiling;
+    };
+    if (!canUse("users:write")) {
+      throw forbidden("Current company-wide users:write authority is required");
+    }
+    if (
+      (permissionsByRole.get(canonicalTargetRoleId) ?? []).some(
+        (permission) => !canUse(`${permission.resource}:${permission.action}`)
+      )
+    ) {
+      throw forbidden("A profile cannot be delegated beyond the actor's current permissions");
     }
   }
 
@@ -212,7 +358,6 @@ export class UsersRepository extends BaseRepository {
     roleId: string,
     now: Date
   ) {
-    await this.lockAssignableRole(tx, roleId, companyId);
     await tx.$queryRawUnsafe<Array<{ id: string }>>(
       'SELECT "id" FROM "user_role_assignments" WHERE "userId" = $1::uuid AND "companyId" = $2::uuid ORDER BY "id" FOR UPDATE',
       userId,

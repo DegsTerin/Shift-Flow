@@ -46,14 +46,18 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "quality": "npm run format:check && npm run comments:verify && npm run platform:workflow:test && npm run lint && npm run typecheck && npm run prisma:validate && npm run audit:overrides && npm run security:secrets && npm run security:production-config",
+    "quality": "npm run format:check && npm run comments:verify && npm run platform:workflow:test && npm run lint && npm run typecheck && npm run prisma:validate && npm run audit:overrides && npm run security:oci-policy && npm run security:secrets && npm run security:production-config",
     "comments:verify": "node scripts/verify-source-comments.mjs",
     "platform:workflow:test": "pwsh -NoLogo -NoProfile -File ./eng/test-platform-workflow.ps1",
     "security:audit": "npm audit --audit-level=moderate",
+    "security:oci-policy": "node scripts/verify-oci-supply-chain.mjs --policy-only --targets eng/oci-targets.json --exceptions eng/oci-cve-exceptions.json",
+    "security:oci-evidence": "node scripts/verify-oci-runtime-evidence.mjs",
     "security:production-config": "tsx scripts/verify-production-config.mjs",
     "security:secrets": "node scripts/security-scan.mjs",
     "audit:overrides": "node scripts/verify-overrides.mjs",
     "test:e2e": "npm run e2e:prepare && playwright test",
+    "test:visual": "pwsh -NoLogo -NoProfile -File ./eng/visual-regression.ps1",
+    "test:visual:update": "pwsh -NoLogo -NoProfile -File ./eng/visual-regression.ps1 -UpdateSnapshots",
     "e2e:prepare": "prisma migrate deploy && npm run seed:integration && npm run homologation:seed",
     "test:a11y": "playwright test tests/e2e/state07-accessibility.spec.ts",
     "test:load": "playwright test tests/e2e/state07-load.spec.ts",
@@ -62,7 +66,8 @@
     "test:dotnet": "dotnet test apps/api-dotnet/ShiftFlow.slnx --configuration Release",
     "test:runtime:strangler": "pwsh -NoLogo -NoProfile -File ./eng/strangler-runtime.ps1",
     "test:unit": "vitest run --config .config/vitest.config.ts",
-    "test:postgres:users": "vitest run --config .config/vitest.postgres.config.ts",
+    "test:postgres:integration": "vitest run --config .config/vitest.postgres.config.ts",
+    "test:postgres:users": "npm run test:postgres:integration",
     "db:reset:realistic": "node prisma/reset-realistic.mjs",
     "homologation:seed": "node prisma/homologation-seed.mjs",
     "prisma:generate": "prisma generate",
@@ -74,6 +79,7 @@
   "author": "Bruno Araújo - DegsTerin",
   "license": "MIT",
   "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "^7.10.0",
     "bcryptjs": "^3.0.3",
@@ -99,6 +105,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.0.0",
     "@types/supertest": "^7.2.0",
+    "ajv": "6.15.0",
     "eslint": "^10.5.0",
     "postcss": "^8.5.26",
     "prettier": "^3.8.4",
@@ -112,6 +119,7 @@
   },
   "overrides": {
     "deepmerge-ts": "8.0.0",
+    "mysql2": "3.23.1",
     "postcss": "$postcss"
   }
 }

@@ -8,8 +8,10 @@ import { ok } from "../../shared/http/response.js";
 import { forbidden } from "../../shared/errors/app-error.js";
 import { revokeAccessToken } from "../../shared/middlewares/authenticate.js";
 import { AuthService } from "./auth.service.js";
-
-const service = new AuthService();
+import {
+  AuthenticationRequestCancelledError,
+  throwIfAuthenticationRequestCancelled
+} from "./login-verification-gate.js";
 const refreshCookieName = "shiftflow_refresh";
 const csrfCookieName = "shiftflow_csrf";
 
@@ -117,67 +119,97 @@ function withoutRefreshToken<T extends { refreshToken: string }>(
   return { ...payload, authenticationMode: mode };
 }
 
-export const AuthController = {
-  demo: asyncHandler(async (req: ApiRequest, res: Response) => {
-    const result = await service.openDemoSession(req);
-    const csrfToken = generateCsrfToken();
-    setRefreshCookie(res, result.refreshToken, result.expiresAt);
-    setCsrfCookie(res, csrfToken, result.expiresAt);
-    res.json(ok(withoutRefreshToken(result, "demo")));
-  }),
-
-  portfolio: asyncHandler(async (req: ApiRequest, res: Response) => {
-    const result = await service.openPortfolioSession(req);
-    const csrfToken = generateCsrfToken();
-    setRefreshCookie(res, result.refreshToken, result.expiresAt);
-    setCsrfCookie(res, csrfToken, result.expiresAt);
-    res.json(ok(withoutRefreshToken(result, "portfolio")));
-  }),
-
-  login: asyncHandler(async (req: ApiRequest, res: Response) => {
-    const result = await service.login(req, req.body);
-    const csrfToken = generateCsrfToken();
-    setRefreshCookie(res, result.refreshToken, result.expiresAt);
-    setCsrfCookie(res, csrfToken, result.expiresAt);
-    res.json(ok(withoutRefreshToken(result)));
-  }),
-
-  refresh: asyncHandler(async (req: ApiRequest, res: Response) => {
-    try {
-      assertCookieCsrf(req);
-      const result = await service.refresh(req, cookieRefreshToken(req));
+export function createAuthController(service = new AuthService()) {
+  return {
+    demo: asyncHandler(async (req: ApiRequest, res: Response) => {
+      const result = await service.openDemoSession(req);
       const csrfToken = generateCsrfToken();
       setRefreshCookie(res, result.refreshToken, result.expiresAt);
       setCsrfCookie(res, csrfToken, result.expiresAt);
-      res.json(ok(withoutRefreshToken(result)));
-    } catch (error) {
-      clearRefreshCookie(res);
-      clearCsrfCookie(res);
-      throw error;
-    }
-  }),
+      res.json(ok(withoutRefreshToken(result, "demo")));
+    }),
 
-  logout: asyncHandler(async (req: ApiRequest, res: Response) => {
-    try {
-      assertCookieCsrf(req);
-      let accessRevocationError: unknown;
+    portfolio: asyncHandler(async (req: ApiRequest, res: Response) => {
+      const result = await service.openPortfolioSession(req);
+      const csrfToken = generateCsrfToken();
+      setRefreshCookie(res, result.refreshToken, result.expiresAt);
+      setCsrfCookie(res, csrfToken, result.expiresAt);
+      res.json(ok(withoutRefreshToken(result, "portfolio")));
+    }),
+
+    login: asyncHandler(async (req: ApiRequest, res: Response) => {
+      const cancellation = new AbortController();
+      const abort = () => {
+        if (!cancellation.signal.aborted) {
+          cancellation.abort(new AuthenticationRequestCancelledError());
+        }
+      };
+      const onResponseClose = () => {
+        if (!res.writableEnded) abort();
+      };
+      req.once("aborted", abort);
+      res.once("close", onResponseClose);
+      if (req.aborted || (res.destroyed && !res.writableEnded)) {
+        abort();
+      }
+
       try {
-        await revokeAccessToken(bearerAccessToken(req), req);
+        const result = await service.login(req, req.body, cancellation.signal);
+        throwIfAuthenticationRequestCancelled(cancellation.signal);
+        const csrfToken = generateCsrfToken();
+        setRefreshCookie(res, result.refreshToken, result.expiresAt);
+        setCsrfCookie(res, csrfToken, result.expiresAt);
+        res.json(ok(withoutRefreshToken(result)));
       } catch (error) {
-        accessRevocationError = error;
+        if (error instanceof AuthenticationRequestCancelledError && cancellation.signal.aborted) {
+          return;
+        }
+        throw error;
+      } finally {
+        req.off("aborted", abort);
+        res.off("close", onResponseClose);
       }
-      const result = await service.logout(cookieRefreshToken(req));
-      if (accessRevocationError) {
-        throw accessRevocationError;
-      }
-      res.json(ok(result));
-    } finally {
-      clearRefreshCookie(res);
-      clearCsrfCookie(res);
-    }
-  }),
+    }),
 
-  me: asyncHandler(async (req: ApiRequest, res: Response) => {
-    res.json(ok(req.auth));
-  })
-};
+    refresh: asyncHandler(async (req: ApiRequest, res: Response) => {
+      try {
+        assertCookieCsrf(req);
+        const result = await service.refresh(req, cookieRefreshToken(req));
+        const csrfToken = generateCsrfToken();
+        setRefreshCookie(res, result.refreshToken, result.expiresAt);
+        setCsrfCookie(res, csrfToken, result.expiresAt);
+        res.json(ok(withoutRefreshToken(result)));
+      } catch (error) {
+        clearRefreshCookie(res);
+        clearCsrfCookie(res);
+        throw error;
+      }
+    }),
+
+    logout: asyncHandler(async (req: ApiRequest, res: Response) => {
+      try {
+        assertCookieCsrf(req);
+        let accessRevocationError: unknown;
+        try {
+          await revokeAccessToken(bearerAccessToken(req), req);
+        } catch (error) {
+          accessRevocationError = error;
+        }
+        const result = await service.logout(cookieRefreshToken(req));
+        if (accessRevocationError) {
+          throw accessRevocationError;
+        }
+        res.json(ok(result));
+      } finally {
+        clearRefreshCookie(res);
+        clearCsrfCookie(res);
+      }
+    }),
+
+    me: asyncHandler(async (req: ApiRequest, res: Response) => {
+      res.json(ok(req.auth));
+    })
+  };
+}
+
+export const AuthController = createAuthController();

@@ -113,6 +113,13 @@ public static class LegacyAuthentication
                 return;
             }
 
+            if (principal is null ||
+                !PortfolioSessionContract.TryApply(context.SecurityToken, principal))
+            {
+                context.Fail("The legacy token session contract is invalid.");
+                return;
+            }
+
             var credentialVersion = credentialClaim is null
                 ? 0
                 : long.Parse(credentialClaim, System.Globalization.CultureInfo.InvariantCulture);

@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "shiftflow.oci-targets/v1",
+  "classification": "LOCAL_UNSIGNED_PRECURSOR",
+  "policy": {
+    "platform": "linux/amd64",
+    "minimumBlockedSeverity": "MEDIUM",
+    "blockUnknownSeverity": true,
+    "maximumEvidenceAgeHours": 24,
+    "maximumScannerDatabaseAgeHours": 24,
+    "maximumExceptionLifetimeDays": 30,
+    "sbomFormat": "spdx-2.3-json",
+    "sbomProfile": "shiftflow.spdx-2.3-oci-package-profile/v1",
+    "sbomSchema": {
+      "path": "eng/spdx-2.3-schema.json",
+      "sha256": "sha256:3ec6cd5b8ba0c9a3e821da48536fa1b814567dc7e4376efe98d3e7b2a7a8d230",
+      "source": "https://raw.githubusercontent.com/spdx/spdx-spec/v2.3/schemas/spdx-schema.json",
+      "sourceSha256": "sha256:239208b7ac287b3cf5d9a9af23f9d69863971102a5e1587a27a398b43490b89b",
+      "normalisation": "terminal-lf-appended"
+    },
+    "scanFormat": "shiftflow.oci-scan/v1",
+    "attestationPredicateType": "urn:shiftflow:attestation:oci-supply-chain:v1"
+  },
+  "targets": [
+    {
+      "id": "api-dotnet",
+      "composeService": "api-dotnet",
+      "sourceKind": "build",
+      "context": ".",
+      "dockerfile": "apps/api-dotnet/Dockerfile",
+      "target": "runtime"
+    },
+    {
+      "id": "legacy-api",
+      "composeService": "legacy-api",
+      "sourceKind": "build",
+      "context": ".",
+      "dockerfile": "infra/docker/node.Dockerfile",
+      "target": "legacy-api"
+    },
+    {
+      "id": "migration",
+      "composeService": "migrate",
+      "sourceKind": "build",
+      "context": ".",
+      "dockerfile": "infra/docker/node.Dockerfile",
+      "target": "migration"
+    },
+    {
+      "id": "nginx",
+      "composeService": "nginx",
+      "sourceKind": "registry",
+      "image": "nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6"
+    },
+    {
+      "id": "postgres",
+      "composeService": "postgres",
+      "sourceKind": "build",
+      "context": ".",
+      "dockerfile": "infra/docker/infrastructure.Dockerfile",
+      "target": "postgres"
+    },
+    {
+      "id": "redis",
+      "composeService": "redis",
+      "sourceKind": "build",
+      "context": ".",
+      "dockerfile": "infra/docker/infrastructure.Dockerfile",
+      "target": "redis"
+    },
+    {
+      "id": "web",
+      "composeService": "web",
+      "sourceKind": "build",
+      "context": ".",
+      "dockerfile": "infra/docker/node.Dockerfile",
+      "target": "web"
+    }
+  ]
+}
