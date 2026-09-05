@@ -1,15 +1,153 @@
-// en-GB: Exercises Kanban component handlers without requiring a browser runtime.
-import type { ReactElement } from "react";
+// en-GB: Exercises rendered dashboard semantics and Kanban handlers without a browser runtime.
+import type { ReactElement, ReactNode } from "react";
+import { createRequire } from "node:module";
 import { describe, expect, it, vi } from "vitest";
 import { messages } from "../lib/i18n";
-import type { ActivityItem, DashboardConfiguration, Texts } from "../lib/types";
+import type {
+  ActivityItem,
+  DashboardConfiguration,
+  DashboardSummary,
+  Locale,
+  Texts
+} from "../lib/types";
+import { defaultDashboardLayouts } from "../lib/page-config";
 import type { DashboardWidgetDefinition } from "./custom-dashboard";
 import {
   KanbanBoard,
+  MainDashboard,
+  TeamDashboard,
   kanbanActivityDragType,
   prepareMainDashboardLayout,
   withRequiredWidgets
 } from "./views";
+
+// The installed renderer needs only this narrow synchronous HTML contract in the unit suite.
+const { renderToStaticMarkup } = createRequire(import.meta.url)("react-dom/server") as {
+  renderToStaticMarkup: (node: ReactNode) => string;
+};
+
+function dashboardHtml(
+  kind: "MAIN" | "TEAM",
+  locale: Locale,
+  keys: string[],
+  summaryPatch: Partial<DashboardSummary> = {}
+) {
+  const common = {
+    t: messages[locale],
+    locale,
+    teams: [],
+    activities: [],
+    canConfigure: false,
+    charts: {
+      byTeam: [{ teamId: "team-a", _count: { _all: 11 } }],
+      byClient: [],
+      byStatus: [{ status: "PENDING", _count: { _all: 22 } }],
+      byPriority: [{ priority: "HIGH", _count: { _all: 33 } }],
+      byShift: [{ shiftId: "shift-a", _count: { _all: 44 } }]
+    },
+    layout: {
+      ...defaultDashboardLayouts[kind],
+      isDefault: false,
+      widgets: defaultDashboardLayouts[kind].widgets.filter((widget) => keys.includes(widget.key))
+    },
+    onSaveLayout: vi.fn(async () => undefined),
+    onResetLayout: vi.fn(async () => undefined)
+  };
+  return renderToStaticMarkup(
+    kind === "MAIN"
+      ? MainDashboard({
+          ...common,
+          summary: {
+            total: 0,
+            pending: 0,
+            inProgress: 0,
+            done: 0,
+            critical: 0,
+            slaAtRisk: 0,
+            overdue: 0,
+            averageResolutionHours: 2,
+            averageResolutionSample: { count: 1, limit: 500, basis: "LATEST_COMPLETED" },
+            ...summaryPatch
+          }
+        })
+      : TeamDashboard(common)
+  );
+}
+
+describe("Dashboard rendered metric semantics", () => {
+  it.each(["pt-BR", "en-GB"] as const)("renders all four truthful dimensions in %s", (locale) => {
+    const labels = messages[locale];
+    const main = dashboardHtml("MAIN", locale, ["chart-status", "chart-shift"]);
+    const team = dashboardHtml("TEAM", locale, ["team-productivity", "team-risk"]);
+    expect(main).toContain(`<h2>${labels.byStatus}</h2>`);
+    expect(main).toContain(`<h2>${labels.byShift}</h2>`);
+    expect(main).toContain("<b>22</b>");
+    expect(main).toContain("<b>44</b>");
+    expect(team).toContain(`<h2>${labels.byTeam}</h2>`);
+    expect(team).toContain(`<h2>${labels.byPriority}</h2>`);
+    expect(team).toContain("<b>11</b>");
+    expect(team).toContain("<b>33</b>");
+    expect(main).not.toContain(labels.monthly);
+    expect(main).not.toContain(labels.incidentsByShift);
+    expect(team).not.toContain(labels.productivity);
+    expect(team).not.toContain(labels.risk);
+  });
+
+  it.each(["pt-BR", "en-GB"] as const)(
+    "discloses a bounded valid subset instead of OK in %s",
+    (locale) => {
+      const html = dashboardHtml("MAIN", locale, ["summary-average-resolution"], {
+        averageResolutionHours: 3.5,
+        averageResolutionSample: { count: 497, limit: 500, basis: "LATEST_COMPLETED" }
+      });
+      expect(html).toContain("<strong>3.5 h</strong>");
+      expect(html).toContain(
+        messages[locale].averageResolutionSampleNote
+          .replace("{count}", "497")
+          .replace("{limit}", "500")
+      );
+      expect(html).not.toContain("<small>OK</small>");
+    }
+  );
+
+  it.each(["pt-BR", "en-GB"] as const)(
+    "distinguishes no valid durations from a genuine zero-hour sample in %s",
+    (locale) => {
+      const empty = dashboardHtml("MAIN", locale, ["summary-average-resolution"], {
+        averageResolutionHours: 0,
+        averageResolutionSample: { count: 0, limit: 500, basis: "LATEST_COMPLETED" }
+      });
+      const zero = dashboardHtml("MAIN", locale, ["summary-average-resolution"], {
+        averageResolutionHours: 0,
+        averageResolutionSample: { count: 1, limit: 500, basis: "LATEST_COMPLETED" }
+      });
+      expect(empty).toContain(`<strong>${messages[locale].averageResolutionUnavailable}</strong>`);
+      expect(empty).not.toContain("<strong>0 h</strong>");
+      expect(zero).toContain("<strong>0 h</strong>");
+    }
+  );
+
+  it.each(["pt-BR", "en-GB"] as const)(
+    "does not invent sample details for an older response in %s",
+    (locale) => {
+      const html = dashboardHtml("MAIN", locale, ["summary-average-resolution"], {
+        averageResolutionSample: undefined
+      });
+      expect(html).toContain(messages[locale].averageResolutionSampleUnknown);
+      expect(html).toContain(`<strong>${messages[locale].averageResolutionUnavailable}</strong>`);
+      expect(html).not.toContain("500");
+      expect(html).not.toContain("<strong>2 h</strong>");
+    }
+  );
+
+  it("does not display an incoherent sample as an observed mean", () => {
+    const html = dashboardHtml("MAIN", "en-GB", ["summary-average-resolution"], {
+      averageResolutionSample: { count: 501, limit: 500, basis: "LATEST_COMPLETED" }
+    });
+    expect(html).toContain(messages["en-GB"].averageResolutionSampleUnknown);
+    expect(html).not.toContain("<strong>2 h</strong>");
+  });
+});
 
 const activities: ActivityItem[] = [{ id: "activity-1", title: "Incident", status: "PENDING" }];
 

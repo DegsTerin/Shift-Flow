@@ -9,7 +9,11 @@ import type {
   DashboardWidgetDto,
   DashboardWidgetTypeDto
 } from "./dashboard.dto.js";
-import { DashboardRepository, type DashboardConfigurationContext } from "./dashboard.repository.js";
+import {
+  DashboardRepository,
+  completedResolutionSampleLimit,
+  type DashboardConfigurationContext
+} from "./dashboard.repository.js";
 
 const mainDashboardWidgets: DashboardWidgetDto[] = [
   {
@@ -183,7 +187,7 @@ const mainDashboardWidgets: DashboardWidgetDto[] = [
   {
     key: "chart-shift",
     widgetType: "BAR_CHART",
-    title: "Incidentes por turno",
+    title: "Atividades por turno",
     gridColumn: 7,
     gridRow: 12,
     gridWidth: 6,
@@ -195,7 +199,7 @@ const mainDashboardWidgets: DashboardWidgetDto[] = [
   {
     key: "chart-status",
     widgetType: "BAR_CHART",
-    title: "Evolucao mensal",
+    title: "Atividades por status",
     gridColumn: 1,
     gridRow: 15,
     gridWidth: 6,
@@ -246,7 +250,7 @@ const teamDashboardWidgets: DashboardWidgetDto[] = [
   {
     key: "team-productivity",
     widgetType: "BAR_CHART",
-    title: "Produtividade por analista",
+    title: "Atividades por equipe",
     gridColumn: 1,
     gridRow: 3,
     gridWidth: 6,
@@ -258,7 +262,7 @@ const teamDashboardWidgets: DashboardWidgetDto[] = [
   {
     key: "team-risk",
     widgetType: "BAR_CHART",
-    title: "SLA em risco",
+    title: "Atividades por prioridade",
     gridColumn: 7,
     gridRow: 3,
     gridWidth: 6,
@@ -390,7 +394,7 @@ export class DashboardService {
     const done = this.countFromGroup(byStatus, "status", "DONE");
     const critical = this.countFromGroup(byPriority, "priority", "CRITICAL");
 
-    const averageResolutionHours = this.averageResolutionHours(completedActivities);
+    const resolution = this.averageResolution(completedActivities);
 
     return {
       total,
@@ -400,7 +404,7 @@ export class DashboardService {
       critical,
       slaAtRisk,
       overdue,
-      averageResolutionHours
+      ...resolution
     };
   }
 
@@ -525,19 +529,29 @@ export class DashboardService {
     }
   }
 
-  private averageResolutionHours(rows: unknown[]) {
+  private averageResolution(rows: unknown[]) {
     const durations = rows
       .map((item) => {
+        if (!item || typeof item !== "object") return null;
         const record = item as { createdAt?: Date; completedAt?: Date | null };
-        if (!record.createdAt || !record.completedAt) return null;
+        if (!(record.createdAt instanceof Date) || !(record.completedAt instanceof Date))
+          return null;
         const duration = record.completedAt.getTime() - record.createdAt.getTime();
-        return duration >= 0 ? duration / 3600000 : null;
+        return Number.isFinite(duration) && duration >= 0 ? duration / 3600000 : null;
       })
       .filter((item): item is number => typeof item === "number");
-    if (!durations.length) return 0;
-    return (
-      Math.round((durations.reduce((sum, value) => sum + value, 0) / durations.length) * 10) / 10
-    );
+    return {
+      averageResolutionHours: durations.length
+        ? Math.round((durations.reduce((sum, value) => sum + value, 0) / durations.length) * 10) /
+          10
+        : 0,
+      // Invalid durations may reduce the valid subset of the bounded latest-completion sample.
+      averageResolutionSample: {
+        count: durations.length,
+        limit: completedResolutionSampleLimit,
+        basis: "LATEST_COMPLETED" as const
+      }
+    };
   }
 
   private toWidgetRecord(widget: DashboardWidgetDto, fallbackOrder = 0) {

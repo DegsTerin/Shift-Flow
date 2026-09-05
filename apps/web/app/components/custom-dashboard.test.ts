@@ -221,6 +221,47 @@ const twoDefinitions: DashboardWidgetDefinition[] = [
   }
 ];
 
+const metricTitleCases = [
+  {
+    key: "chart-shift",
+    label: "byShift",
+    aliases: [
+      "Incidentes por turno",
+      "Incidents by shift",
+      "Atividades por turno",
+      "Activities by shift"
+    ]
+  },
+  {
+    key: "chart-status",
+    label: "byStatus",
+    aliases: [
+      "Evolucao mensal",
+      "Evolução mensal",
+      "Monthly evolution",
+      "Monthly trend",
+      "Atividades por status",
+      "Activities by status"
+    ]
+  },
+  {
+    key: "team-productivity",
+    label: "byTeam",
+    aliases: [
+      "Produtividade por analista",
+      "Productivity by analyst",
+      "Analyst productivity",
+      "Atividades por equipe",
+      "Activities by team"
+    ]
+  },
+  {
+    key: "team-risk",
+    label: "byPriority",
+    aliases: ["SLA em risco", "SLA at risk", "Atividades por prioridade", "Activities by priority"]
+  }
+] as const;
+
 function configuration(patch: Partial<DashboardConfiguration["widgets"][number]> = {}) {
   return {
     dashboardType: "MAIN" as const,
@@ -644,6 +685,93 @@ describe("CustomizableDashboard persistence integration", () => {
       displayWidgetTitle(configuration({ title: "Owner total" }).widgets[0]!, definition)
     ).toBe("Owner total");
   });
+
+  it.each(metricTitleCases)(
+    "relabels persisted $key defaults without changing custom titles",
+    ({ key, label, aliases }) => {
+      for (const locale of ["pt-BR", "en-GB"] as const) {
+        const t = messages[locale];
+        const definition: DashboardWidgetDefinition = {
+          key,
+          title: t[label],
+          widgetType: "BAR_CHART",
+          defaultWidth: 6,
+          defaultHeight: 3,
+          render: () => null
+        };
+        for (const title of aliases) {
+          const widget = configuration({ key, title }).widgets[0]!;
+          expect(displayWidgetTitle(widget, definition, t.copySuffix)).toBe(t[label]);
+          expect(widget.title).toBe(title);
+          expect(
+            displayWidgetTitle(
+              {
+                ...widget,
+                key: `${key}-1700000000000-1`,
+                settings: { sourceKey: key, titlePresentation: "LOCALISED_COPY" }
+              },
+              definition,
+              t.copySuffix
+            )
+          ).toBe(`${t[label]} ${t.copySuffix}`);
+        }
+        const custom = configuration({ key, title: "Owner's regional comparison" }).widgets[0]!;
+        expect(displayWidgetTitle(custom, definition, t.copySuffix)).toBe(
+          "Owner's regional comparison"
+        );
+        expect(
+          displayWidgetTitle(
+            { ...custom, settings: { sourceKey: key, titlePresentation: "LOCALISED_COPY" } },
+            definition,
+            t.copySuffix
+          )
+        ).toBe(`Owner's regional comparison ${t.copySuffix}`);
+      }
+    }
+  );
+
+  it.each(metricTitleCases)(
+    "keeps persisted $key copies locale-neutral after relabelling",
+    async ({ key, label, aliases }) => {
+      const onSave = vi.fn(async (next: DashboardConfiguration) => next);
+      const definition: DashboardWidgetDefinition = {
+        key,
+        title: texts[label],
+        widgetType: "BAR_CHART",
+        defaultWidth: 6,
+        defaultHeight: 3,
+        render: () => null
+      };
+      const props = {
+        t: texts,
+        config: configuration({ key, title: aliases[0], widgetType: "BAR_CHART" }),
+        definitions: [definition],
+        onSave,
+        onReset: vi.fn(async () => configuration())
+      };
+      runtime.render(props);
+      listeners.get("shiftflow:customize-dashboard")?.();
+      click(runtime.render(props), texts.duplicate);
+      await vi.waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+
+      const saved = onSave.mock.calls[0]?.[0];
+      if (!saved) throw new Error("Expected persisted dashboard configuration");
+      expect(saved.widgets.map((widget) => widget.title)).toEqual([aliases[0], aliases[0]]);
+      expect(saved.widgets[0]?.key).toBe(key);
+      const duplicate = saved.widgets[1];
+      if (!duplicate) throw new Error("Expected duplicated metric widget");
+      expect(duplicate.settings).toMatchObject({
+        sourceKey: key,
+        titlePresentation: "LOCALISED_COPY"
+      });
+      for (const locale of ["pt-BR", "en-GB"] as const) {
+        const t = messages[locale];
+        expect(
+          displayWidgetTitle(duplicate, { ...definition, title: t[label] }, t.copySuffix)
+        ).toBe(`${t[label]} ${t.copySuffix}`);
+      }
+    }
+  );
 
   it("persists locale-neutral duplicate metadata and presents the active locale", async () => {
     const onSave = vi.fn(async (next: DashboardConfiguration) => next);

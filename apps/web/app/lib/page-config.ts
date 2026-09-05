@@ -60,8 +60,8 @@ export const defaultDashboardLayouts: Record<DashboardLayoutKey, DashboardConfig
       ["chart-team", "BAR_CHART", "Atividades por equipe", 6, 3],
       ["chart-client", "BAR_CHART", "Atividades por cliente", 6, 3],
       ["chart-priority", "BAR_CHART", "Atividades por prioridade", 6, 3],
-      ["chart-shift", "BAR_CHART", "Incidentes por turno", 6, 3],
-      ["chart-status", "BAR_CHART", "Evolucao mensal", 6, 3],
+      ["chart-shift", "BAR_CHART", "Atividades por turno", 6, 3],
+      ["chart-status", "BAR_CHART", "Atividades por status", 6, 3],
       ["status-legend", "INDICATOR", "Legenda de status", 6, 1],
       ["activity-list", "RECENT_ACTIVITIES", "Ultimas atividades", 12, 4]
     ].map(([key, widgetType, title, gridWidth, gridHeight], order) => ({
@@ -87,8 +87,8 @@ export const defaultDashboardLayouts: Record<DashboardLayoutKey, DashboardConfig
     metadata: {},
     widgets: [
       ["team-summary", "LIST", "Equipes", 12, 2],
-      ["team-productivity", "BAR_CHART", "Produtividade por analista", 6, 3],
-      ["team-risk", "BAR_CHART", "SLA em risco", 6, 3],
+      ["team-productivity", "BAR_CHART", "Atividades por equipe", 6, 3],
+      ["team-risk", "BAR_CHART", "Atividades por prioridade", 6, 3],
       ["team-activity-list", "RECENT_ACTIVITIES", "Ultimas atividades", 12, 4]
     ].map(([key, widgetType, title, gridWidth, gridHeight], order) => ({
       key: String(key),

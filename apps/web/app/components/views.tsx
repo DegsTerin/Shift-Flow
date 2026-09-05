@@ -211,11 +211,35 @@ export function MainDashboard({
   const teamColors = colorsForTeamGroups(charts.byTeam, teams);
   const teamActivityCounts = activityCountsByTeam(charts.byTeam, teams);
   const dashboardLegend = statusLegend(t);
-  const metric = (key: string, label: string, value: number | string) => (
+  const sample = summary.averageResolutionSample;
+  const sampleKnown = Boolean(
+    sample &&
+    sample.basis === "LATEST_COMPLETED" &&
+    Number.isInteger(sample.count) &&
+    sample.count >= 0 &&
+    Number.isInteger(sample.limit) &&
+    sample.limit > 0 &&
+    sample.count <= sample.limit
+  );
+  const resolutionNote =
+    sampleKnown && sample
+      ? t.averageResolutionSampleNote
+          .replace("{count}", String(sample.count))
+          .replace("{limit}", String(sample.limit))
+      : t.averageResolutionSampleUnknown;
+  const resolutionValue =
+    sampleKnown &&
+    sample &&
+    sample.count > 0 &&
+    Number.isFinite(summary.averageResolutionHours) &&
+    summary.averageResolutionHours >= 0
+      ? `${summary.averageResolutionHours} h`
+      : t.averageResolutionUnavailable;
+  const metric = (key: string, label: string, value: number | string, note?: string) => (
     <article className="metric-card" key={key}>
       <span>{label}</span>
       <strong>{value}</strong>
-      <small>{label === t.risk && Number(value) > 0 ? "SLA" : "OK"}</small>
+      <small>{note ?? (label === t.risk && Number(value) > 0 ? "SLA" : "OK")}</small>
     </article>
   );
   const definitions: DashboardWidgetDefinition[] = [
@@ -282,11 +306,7 @@ export function MainDashboard({
       defaultWidth: 3,
       defaultHeight: 2,
       render: () =>
-        metric(
-          "summary-average-resolution",
-          t.averageResolution,
-          `${summary.averageResolutionHours} h`
-        )
+        metric("summary-average-resolution", t.averageResolution, resolutionValue, resolutionNote)
     },
     {
       key: "kanban-summary",
@@ -379,13 +399,13 @@ export function MainDashboard({
     },
     {
       key: "chart-shift",
-      title: t.incidentsByShift,
+      title: t.byShift,
       widgetType: "BAR_CHART",
       defaultWidth: 6,
       defaultHeight: 3,
       render: () => (
         <ChartPanel
-          title={t.incidentsByShift}
+          title={t.byShift}
           values={charts.byShift.map(countOf)}
           colors={colorsForValues(charts.byShift, palette)}
         />
@@ -393,13 +413,13 @@ export function MainDashboard({
     },
     {
       key: "chart-status",
-      title: t.monthly,
+      title: t.byStatus,
       widgetType: "BAR_CHART",
       defaultWidth: 6,
       defaultHeight: 3,
       render: () => (
         <ChartPanel
-          title={t.monthly}
+          title={t.byStatus}
           values={charts.byStatus.map(countOf)}
           colors={charts.byStatus.map((group) => statusColors[group.status ?? ""] ?? palette[0])}
           labels={charts.byStatus.map((group) => statusLabel(group.status ?? "", t))}
@@ -502,27 +522,23 @@ export function TeamDashboard({
     },
     {
       key: "team-productivity",
-      title: t.productivity,
+      title: t.byTeam,
       widgetType: "BAR_CHART",
       defaultWidth: 6,
       defaultHeight: 3,
       render: () => (
-        <ChartPanel
-          title={t.productivity}
-          values={charts.byTeam.map(countOf)}
-          colors={teamColors}
-        />
+        <ChartPanel title={t.byTeam} values={charts.byTeam.map(countOf)} colors={teamColors} />
       )
     },
     {
       key: "team-risk",
-      title: t.risk,
+      title: t.byPriority,
       widgetType: "BAR_CHART",
       defaultWidth: 6,
       defaultHeight: 3,
       render: () => (
         <ChartPanel
-          title={t.risk}
+          title={t.byPriority}
           values={charts.byPriority.map(countOf)}
           colors={colorsForValues(charts.byPriority, palette)}
           labels={charts.byPriority.map((group) => priorityLabel(group.priority, t))}

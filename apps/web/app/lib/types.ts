@@ -52,6 +52,11 @@ export type DashboardSummary = {
   slaAtRisk: number;
   overdue: number;
   averageResolutionHours: number;
+  averageResolutionSample?: {
+    count: number;
+    limit: number;
+    basis: "LATEST_COMPLETED";
+  };
 };
 export type GroupCount = {
   _count?: { _all?: number };

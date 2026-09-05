@@ -64,6 +64,77 @@ function configuration(): DashboardConfigurationDto {
 }
 
 describe("DashboardService", () => {
+  it.each([0, 1, 500])(
+    "discloses %i valid durations within the bounded latest-completion sample",
+    async (count) => {
+      const repository = {
+        summarySnapshot: vi.fn().mockResolvedValue({
+          total: count,
+          byStatus: [],
+          byPriority: [],
+          slaAtRisk: 0,
+          overdue: 0,
+          completedActivities: Array.from({ length: count }, () => ({
+            createdAt: new Date("2026-08-27T01:00:00Z"),
+            completedAt: new Date("2026-08-27T03:00:00Z")
+          }))
+        })
+      } as unknown as DashboardRepository;
+      await expect(new DashboardService(repository).summary(request())).resolves.toMatchObject({
+        averageResolutionHours: count ? 2 : 0,
+        averageResolutionSample: { count, limit: 500, basis: "LATEST_COMPLETED" }
+      });
+    }
+  );
+
+  it("counts a genuine zero-hour duration while excluding malformed, missing and negative durations", async () => {
+    const instant = new Date("2026-08-27T01:00:00Z");
+    const repository = {
+      summarySnapshot: vi.fn().mockResolvedValue({
+        total: 8,
+        byStatus: [],
+        byPriority: [],
+        slaAtRisk: 0,
+        overdue: 0,
+        completedActivities: [
+          { createdAt: instant, completedAt: instant },
+          { createdAt: instant, completedAt: new Date("2026-08-27T00:00:00Z") },
+          { createdAt: new Date(Number.NaN), completedAt: instant },
+          { createdAt: instant, completedAt: new Date(Number.NaN) },
+          { createdAt: instant, completedAt: null },
+          { createdAt: instant.toISOString(), completedAt: instant },
+          {},
+          null
+        ]
+      })
+    } as unknown as DashboardRepository;
+    await expect(new DashboardService(repository).summary(request())).resolves.toMatchObject({
+      averageResolutionHours: 0,
+      averageResolutionSample: { count: 1, limit: 500, basis: "LATEST_COMPLETED" }
+    });
+  });
+
+  it("describes actual grouping dimensions in virtual defaults without changing widget keys", async () => {
+    const repository = {
+      findConfiguration: vi.fn().mockResolvedValue(null)
+    } as unknown as DashboardRepository;
+    const service = new DashboardService(repository);
+    const main = await service.configuration(request(), "MAIN");
+    const team = await service.configuration(request(), "TEAM");
+    for (const [key, title] of [
+      ["chart-status", "Atividades por status"],
+      ["chart-shift", "Atividades por turno"]
+    ]) {
+      expect(main.widgets.find((widget) => widget.key === key)?.title).toBe(title);
+    }
+    for (const [key, title] of [
+      ["team-productivity", "Atividades por equipe"],
+      ["team-risk", "Atividades por prioridade"]
+    ]) {
+      expect(team.widgets.find((widget) => widget.key === key)?.title).toBe(title);
+    }
+  });
+
   it("uses one clock and a gap-free SLA partition for a summary snapshot", async () => {
     const gte = new Date("2026-08-01T03:00:00.000Z");
     const lt = new Date("2026-09-01T03:00:00.000Z");
@@ -161,7 +232,8 @@ describe("DashboardService", () => {
 
     await expect(service.summary(request())).resolves.toMatchObject({
       critical: 4,
-      averageResolutionHours: 2
+      averageResolutionHours: 2,
+      averageResolutionSample: { count: 1, limit: 500, basis: "LATEST_COMPLETED" }
     });
   });
 
