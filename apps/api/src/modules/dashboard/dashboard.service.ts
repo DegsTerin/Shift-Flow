@@ -1,6 +1,7 @@
 // en-GB: Implements dashboard rules so invariants remain centralised outside the transport layer.
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import { badRequest } from "../../shared/errors/app-error.js";
+import { resolveDateRange, type DateRangeQuery } from "../../shared/services/date-range.service.js";
 import { activeCompanyId, assertTeamInCompany } from "../../shared/services/scope.service.js";
 import type {
   DashboardConfigurationDto,
@@ -302,17 +303,22 @@ export class DashboardService {
     return row?._count?._all ?? 0;
   }
 
-  private where(
+  private async where(
     req: ApiRequest,
     checkedAt: Date,
     slaRiskUntil = new Date(checkedAt.getTime() + 60 * 60 * 1000)
   ) {
+    const companyId = activeCompanyId(req);
     const query = req.query as Record<string, unknown>;
+    const createdAt = await resolveDateRange(companyId, {
+      from: query.from as DateRangeQuery["from"],
+      to: query.to as DateRangeQuery["to"]
+    });
     const search = query.search ? String(query.search).trim() : "";
     const uuidSearch =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(search);
     return {
-      companyId: activeCompanyId(req),
+      companyId,
       deletedAt: null,
       ...(query.teamId ? { teamId: query.teamId } : {}),
       ...(query.assigneeId ? { assigneeId: query.assigneeId } : {}),
@@ -337,18 +343,7 @@ export class DashboardService {
           }
         : {}),
       ...(query.attention === "CRITICAL" ? { AND: [{ priority: "CRITICAL" }] } : {}),
-      ...(query.from || query.to
-        ? {
-            createdAt: {
-              ...(query.from
-                ? { gte: query.from instanceof Date ? query.from : new Date(String(query.from)) }
-                : {}),
-              ...(query.to
-                ? { lte: query.to instanceof Date ? query.to : new Date(String(query.to)) }
-                : {})
-            }
-          }
-        : {}),
+      ...(createdAt ? { createdAt } : {}),
       ...(search
         ? {
             OR: [
@@ -370,7 +365,7 @@ export class DashboardService {
   async summary(req: ApiRequest) {
     const checkedAt = new Date();
     const slaRiskUntil = new Date(checkedAt.getTime() + 60 * 60 * 1000);
-    const where = this.where(req, checkedAt, slaRiskUntil);
+    const where = await this.where(req, checkedAt, slaRiskUntil);
     const snapshot = await this.repository.summarySnapshot(
       where,
       withConditions(
@@ -411,12 +406,12 @@ export class DashboardService {
 
   async charts(req: ApiRequest) {
     const checkedAt = new Date();
-    return this.repository.chartsSnapshot(this.where(req, checkedAt));
+    return this.repository.chartsSnapshot(await this.where(req, checkedAt));
   }
 
   async operationalList(req: ApiRequest) {
     const checkedAt = new Date();
-    return this.repository.operationalList(this.where(req, checkedAt));
+    return this.repository.operationalList(await this.where(req, checkedAt));
   }
 
   async configuration(req: ApiRequest, dashboardType: DashboardTypeDto, teamId?: string) {

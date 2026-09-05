@@ -3,6 +3,7 @@ import type { ApiRequest } from "../../shared/http/request-types.js";
 import { badRequest, notFound } from "../../shared/errors/app-error.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { writeAudit } from "../../shared/services/audit-writer.js";
+import { resolveDateRange, type DateRangeQuery } from "../../shared/services/date-range.service.js";
 import {
   activeCompanyId,
   assertShiftInCompany,
@@ -66,26 +67,20 @@ export class ReportsService extends BaseService {
   }
 
   async activitySummary(req: ApiRequest) {
+    const companyId = activeCompanyId(req);
     const query = req.query as Record<string, unknown>;
+    const createdAt = await resolveDateRange(companyId, {
+      from: query.from as DateRangeQuery["from"],
+      to: query.to as DateRangeQuery["to"]
+    });
     return this.reportsRepository.activitySummary({
-      companyId: this.companyId(req),
+      companyId,
       deletedAt: null,
       ...(query.teamId ? { teamId: query.teamId } : {}),
       ...(query.clientId ? { clientId: query.clientId } : {}),
       ...(query.shiftId ? { shiftId: query.shiftId } : {}),
       ...(query.status ? { status: query.status } : {}),
-      ...(query.from || query.to
-        ? {
-            createdAt: {
-              ...(query.from
-                ? { gte: query.from instanceof Date ? query.from : new Date(String(query.from)) }
-                : {}),
-              ...(query.to
-                ? { lte: query.to instanceof Date ? query.to : new Date(String(query.to)) }
-                : {})
-            }
-          }
-        : {})
+      ...(createdAt ? { createdAt } : {})
     });
   }
 

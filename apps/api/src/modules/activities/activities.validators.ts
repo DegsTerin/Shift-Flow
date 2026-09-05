@@ -1,5 +1,6 @@
 // en-GB: Validates activities input so malformed data cannot cross the module boundary.
 import { z } from "zod";
+import { dateRangeQuerySchema } from "../../shared/services/date-range.service.js";
 
 const activityStatusSchema = z.enum([
   "PENDING",
@@ -43,28 +44,16 @@ export const activityNoteSchema = z
   })
   .default({});
 
-export const activityFilterSchema = z
-  .object({
-    clientId: z.string().uuid().optional(),
-    teamId: z.string().uuid().optional(),
-    shiftId: z.string().uuid().optional(),
-    assigneeId: z.string().uuid().optional(),
-    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
-    status: activityStatusSchema.optional(),
-    attention: z.enum(["OVERDUE", "CRITICAL", "SLA_RISK"]).optional(),
-    search: z.string().trim().max(200).optional(),
-    from: z.coerce.date().optional(),
-    to: z.coerce.date().optional()
-  })
-  .superRefine((value, context) => {
-    if (value.from && value.to && value.to < value.from) {
-      context.addIssue({
-        code: "custom",
-        path: ["to"],
-        message: "to must not be earlier than from"
-      });
-    }
-  });
+export const activityFilterSchema = dateRangeQuerySchema.extend({
+  clientId: z.string().uuid().optional(),
+  teamId: z.string().uuid().optional(),
+  shiftId: z.string().uuid().optional(),
+  assigneeId: z.string().uuid().optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+  status: activityStatusSchema.optional(),
+  attention: z.enum(["OVERDUE", "CRITICAL", "SLA_RISK"]).optional(),
+  search: z.string().trim().max(200).optional()
+});
 
 export const assignActivitySchema = z.object({
   assigneeId: z.string().uuid().nullable(),

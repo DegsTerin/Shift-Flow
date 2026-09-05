@@ -7,13 +7,21 @@ describe("reportFilterSchema", () => {
     expect(reportFilterSchema.safeParse({ status: "APPROVED" }).success).toBe(false);
   });
 
-  it("rejects an inverted reporting interval", () => {
+  it("preserves shared civil-date and instant filter categories", () => {
     expect(
-      reportFilterSchema.safeParse({
-        from: "2026-09-01T00:00:00.000Z",
-        to: "2026-08-01T00:00:00.000Z"
-      }).success
-    ).toBe(false);
+      reportFilterSchema.parse({
+        from: "2026-09-01",
+        to: "2026-09-30T23:59:59.999Z"
+      })
+    ).toMatchObject({
+      from: { kind: "calendar-date", value: "2026-09-01" },
+      to: { kind: "instant", value: "2026-09-30T23:59:59.999Z" }
+    });
+  });
+
+  it("rejects impossible civil dates and offset-less datetimes", () => {
+    expect(reportFilterSchema.safeParse({ from: "2026-02-29" }).success).toBe(false);
+    expect(reportFilterSchema.safeParse({ to: "2026-09-30T23:59:59" }).success).toBe(false);
   });
 
   it("rejects lifecycle fields in a generic report patch", () => {

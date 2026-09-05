@@ -1,6 +1,7 @@
 // en-GB: Exercises activity query and evidence shaping without a database runtime.
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import type { DateRangeQuery } from "../../shared/services/date-range.service.js";
 import type { ActivityTaskBoardRepository } from "./activity-task-board.repository.js";
 import type { ActivitiesRepository } from "./activities.repository.js";
 
@@ -11,12 +12,20 @@ const scopeChecks = vi.hoisted(() => ({
   user: vi.fn().mockResolvedValue(undefined)
 }));
 
+const dateRanges = vi.hoisted(() => ({
+  resolve: vi.fn()
+}));
+
 vi.mock("../../shared/services/scope.service.js", () => ({
   activeCompanyId: (req: ApiRequest) => req.auth?.companyId,
   assertClientInCompany: scopeChecks.client,
   assertShiftInCompany: scopeChecks.shift,
   assertTeamInCompany: scopeChecks.team,
   assertUserInCompany: scopeChecks.user
+}));
+
+vi.mock("../../shared/services/date-range.service.js", () => ({
+  resolveDateRange: dateRanges.resolve
 }));
 
 import {
@@ -26,6 +35,19 @@ import {
 } from "./activities.service.js";
 
 const companyId = "c40e2a7b-72a8-4aca-a780-d6d239134d38";
+const calendarBounds: DateRangeQuery = {
+  from: { kind: "calendar-date", value: "2026-08-01" },
+  to: { kind: "calendar-date", value: "2026-08-31" }
+};
+const instantBounds: DateRangeQuery = {
+  from: { kind: "instant", value: "2026-08-01T00:00:00.123Z" },
+  to: { kind: "instant", value: "2026-08-31T23:59:59.987Z" }
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  dateRanges.resolve.mockResolvedValue(undefined);
+});
 
 function request(query: Record<string, unknown> = {}) {
   return { query, auth: { id: "user-1", email: "owner@example.com", companyId } } as ApiRequest;
@@ -116,18 +138,47 @@ describe("ActivitiesService", () => {
     expect(filteredList).toHaveBeenCalledWith(expect.any(Object), { page: 1, pageSize: 100 });
   });
 
-  it("preserves exact millisecond date boundaries produced by validation", async () => {
-    const from = new Date("2026-08-01T00:00:00.123Z");
-    const to = new Date("2026-08-31T23:59:59.987Z");
+  it("passes authenticated civil bounds to the resolver and wires its exclusive range", async () => {
+    const gte = new Date("2026-08-01T03:00:00.000Z");
+    const lt = new Date("2026-09-01T03:00:00.000Z");
     const filteredList = vi.fn().mockResolvedValue({ items: [], total: 0 });
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lt });
     const service = serviceWith({ filteredList } as Partial<ActivitiesRepository>);
 
-    await service.list(request({ from, to }));
+    await service.list(request(calendarBounds));
 
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
     expect(filteredList).toHaveBeenCalledWith(
-      expect.objectContaining({ createdAt: { gte: from, lte: to } }),
+      expect.objectContaining({ companyId, createdAt: { gte, lt } }),
       expect.any(Object)
     );
+  });
+
+  it("preserves inclusive explicit instants through the Kanban list path", async () => {
+    const gte = new Date("2026-08-01T00:00:00.123Z");
+    const lte = new Date("2026-08-31T23:59:59.987Z");
+    const filteredList = vi.fn().mockResolvedValue({ items: [], total: 0 });
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lte });
+    const service = serviceWith({ filteredList } as Partial<ActivitiesRepository>);
+
+    await service.kanban(request(instantBounds));
+
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, instantBounds);
+    expect(filteredList).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId, createdAt: { gte, lte } }),
+      expect.any(Object)
+    );
+  });
+
+  it("does not query activities when date-range resolution fails closed", async () => {
+    const filteredList = vi.fn();
+    dateRanges.resolve.mockRejectedValueOnce(new Error("timezone unavailable"));
+    const service = serviceWith({ filteredList } as Partial<ActivitiesRepository>);
+
+    await expect(service.list(request(calendarBounds))).rejects.toThrow("timezone unavailable");
+
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
+    expect(filteredList).not.toHaveBeenCalled();
   });
 
   it("uses a public attachment projection for activity detail", async () => {

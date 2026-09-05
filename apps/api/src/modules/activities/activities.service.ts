@@ -5,6 +5,11 @@ import { toPagination } from "../../shared/http/pagination.js";
 import { BaseService } from "../../shared/services/base.service.js";
 import { buildAuditData } from "../../shared/services/audit-writer.js";
 import {
+  resolveDateRange,
+  type DateRangeQuery,
+  type ResolvedDateRange
+} from "../../shared/services/date-range.service.js";
+import {
   activeCompanyId,
   assertClientInCompany,
   assertShiftInCompany,
@@ -138,12 +143,20 @@ export class ActivitiesService extends BaseService {
   }
 
   override async list(req: ApiRequest) {
+    const companyId = activeCompanyId(req);
     const query = req.query as Record<string, unknown>;
+    const createdAt = await resolveDateRange(companyId, {
+      from: query.from as DateRangeQuery["from"],
+      to: query.to as DateRangeQuery["to"]
+    });
     const pagination = toPagination({
       ...query,
       pageSize: query.pageSize ?? 100
     });
-    return this.activitiesRepository.filteredList(this.activityWhere(req), pagination);
+    return this.activitiesRepository.filteredList(
+      this.activityWhere(req, companyId, createdAt),
+      pagination
+    );
   }
 
   override async get(req: ApiRequest, id: string) {
@@ -543,14 +556,14 @@ export class ActivitiesService extends BaseService {
     }
   }
 
-  private activityWhere(req: ApiRequest) {
+  private activityWhere(req: ApiRequest, companyId: string, createdAt?: ResolvedDateRange) {
     const query = req.query as Record<string, unknown>;
     const search = query.search ? String(query.search).trim() : "";
     const now = new Date();
     const uuidSearch =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(search);
     return {
-      companyId: activeCompanyId(req),
+      companyId,
       deletedAt: null,
       ...(query.clientId ? { clientId: String(query.clientId) } : {}),
       ...(query.teamId ? { teamId: String(query.teamId) } : {}),
@@ -572,18 +585,7 @@ export class ActivitiesService extends BaseService {
           }
         : {}),
       ...(query.attention === "CRITICAL" ? { AND: [{ priority: "CRITICAL" }] } : {}),
-      ...(query.from || query.to
-        ? {
-            createdAt: {
-              ...(query.from
-                ? { gte: query.from instanceof Date ? query.from : new Date(String(query.from)) }
-                : {}),
-              ...(query.to
-                ? { lte: query.to instanceof Date ? query.to : new Date(String(query.to)) }
-                : {})
-            }
-          }
-        : {}),
+      ...(createdAt ? { createdAt } : {}),
       ...(search
         ? {
             OR: [

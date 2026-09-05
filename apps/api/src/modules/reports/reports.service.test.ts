@@ -1,12 +1,20 @@
 // en-GB: Exercises report lifecycle integrity without a database runtime.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
 import type { PrismaTransactionClient } from "../../shared/lib/prisma.js";
+import type { DateRangeQuery } from "../../shared/services/date-range.service.js";
 import { writeAudit } from "../../shared/services/audit-writer.js";
 import type { ReportsRepository } from "./reports.repository.js";
 import { ReportsService } from "./reports.service.js";
 
+const dateRanges = vi.hoisted(() => ({
+  resolve: vi.fn()
+}));
+
 vi.mock("../../shared/services/audit-writer.js", () => ({ writeAudit: vi.fn() }));
+vi.mock("../../shared/services/date-range.service.js", () => ({
+  resolveDateRange: dateRanges.resolve
+}));
 vi.mock("../../shared/services/scope.service.js", () => ({
   activeCompanyId: (value: ApiRequest) => value.auth?.companyId,
   assertShiftInCompany: vi.fn().mockResolvedValue(undefined),
@@ -17,6 +25,14 @@ vi.mock("../../shared/services/scope.service.js", () => ({
 const companyId = "c40e2a7b-72a8-4aca-a780-d6d239134d38";
 const reportId = "47ce098b-8a38-4484-a5d1-d0ee4bfb6d45";
 const transaction = { marker: "report-transaction" } as unknown as PrismaTransactionClient;
+const calendarBounds: DateRangeQuery = {
+  from: { kind: "calendar-date", value: "2026-08-01" },
+  to: { kind: "calendar-date", value: "2026-08-31" }
+};
+const instantBounds: DateRangeQuery = {
+  from: { kind: "instant", value: "2026-08-01T00:00:00.123Z" },
+  to: { kind: "instant", value: "2026-08-31T23:59:59.987Z" }
+};
 
 type ReportStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
 type ReportState = {
@@ -94,23 +110,64 @@ function repositoryHarness(initialStatus: ReportStatus, synchroniseFirstTwoReads
   };
 }
 
+beforeEach(() => {
+  dateRanges.resolve.mockResolvedValue(undefined);
+});
+
 afterEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
 });
 
 describe("ReportsService.activitySummary", () => {
-  it("preserves exact millisecond date boundaries produced by validation", async () => {
-    const from = new Date("2026-08-01T00:00:00.123Z");
-    const to = new Date("2026-08-31T23:59:59.987Z");
+  it("preserves inclusive explicit instants from the authenticated range resolver", async () => {
+    const gte = new Date("2026-08-01T00:00:00.123Z");
+    const lte = new Date("2026-08-31T23:59:59.987Z");
     const activitySummary = vi.fn().mockResolvedValue({ total: 0, byStatus: [], byPriority: [] });
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lte });
     const service = new ReportsService({ activitySummary } as unknown as ReportsRepository);
 
-    await service.activitySummary({ ...request(), query: { from, to } } as unknown as ApiRequest);
+    await service.activitySummary({ ...request(), query: instantBounds } as unknown as ApiRequest);
 
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, instantBounds);
     expect(activitySummary).toHaveBeenCalledWith(
-      expect.objectContaining({ createdAt: { gte: from, lte: to } })
+      expect.objectContaining({ companyId, createdAt: { gte, lte } })
     );
+  });
+
+  it("wires an exclusive civil upper bound without changing report filters", async () => {
+    const gte = new Date("2026-08-01T03:00:00.000Z");
+    const lt = new Date("2026-09-01T03:00:00.000Z");
+    const activitySummary = vi.fn().mockResolvedValue({ total: 0, byStatus: [], byPriority: [] });
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lt });
+    const service = new ReportsService({ activitySummary } as unknown as ReportsRepository);
+
+    await service.activitySummary({
+      ...request(),
+      query: { ...calendarBounds, status: "DONE", teamId: "team-1" }
+    } as unknown as ApiRequest);
+
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
+    expect(activitySummary).toHaveBeenCalledWith({
+      companyId,
+      deletedAt: null,
+      teamId: "team-1",
+      status: "DONE",
+      createdAt: { gte, lt }
+    });
+  });
+
+  it("does not query report data when date-range resolution fails closed", async () => {
+    const activitySummary = vi.fn();
+    dateRanges.resolve.mockRejectedValueOnce(new Error("timezone unavailable"));
+    const service = new ReportsService({ activitySummary } as unknown as ReportsRepository);
+
+    await expect(
+      service.activitySummary({ ...request(), query: calendarBounds } as unknown as ApiRequest)
+    ).rejects.toThrow("timezone unavailable");
+
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
+    expect(activitySummary).not.toHaveBeenCalled();
   });
 });
 
