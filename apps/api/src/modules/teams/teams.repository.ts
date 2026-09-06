@@ -70,7 +70,8 @@ export class TeamsRepository extends BaseRepository {
     companyId = canonicalUuid(companyId);
     teamId = canonicalUuid(teamId);
     userId = canonicalUuid(userId);
-    await this.lockMembershipReferences(client, companyId, teamId, userId);
+    // Historical memberships remain removable after the target user's eligibility ends.
+    await this.lockMembershipReferences(client, companyId, teamId, null);
     const members = await this.lockActiveMembers(client, companyId, teamId, userId, false);
     if (members.length === 0) {
       return { changes: [] };
@@ -101,7 +102,7 @@ export class TeamsRepository extends BaseRepository {
     client: TeamMemberMutationClient,
     companyId: string,
     teamId: string,
-    userId: string
+    eligibleUserId: string | null
   ) {
     const companies = await client.$queryRawUnsafe<Array<{ id: string }>>(
       'SELECT "id" FROM "companies" WHERE "id" = $1::uuid AND "status" = \'ACTIVE\' AND "deletedAt" IS NULL FOR SHARE',
@@ -111,13 +112,15 @@ export class TeamsRepository extends BaseRepository {
       throw forbidden("The active company is unavailable");
     }
 
-    const memberships = await client.$queryRawUnsafe<Array<{ id: string }>>(
-      'SELECT u."id" FROM "users" AS u INNER JOIN "user_companies" AS uc ON uc."userId" = u."id" AND uc."companyId" = $2::uuid AND uc."deletedAt" IS NULL WHERE u."id" = $1::uuid AND u."status" = \'ACTIVE\' AND u."deletedAt" IS NULL FOR SHARE OF u, uc',
-      userId,
-      companyId
-    );
-    if (memberships.length !== 1) {
-      throw forbidden("User does not belong to the active company");
+    if (eligibleUserId !== null) {
+      const memberships = await client.$queryRawUnsafe<Array<{ id: string }>>(
+        'SELECT u."id" FROM "users" AS u INNER JOIN "user_companies" AS uc ON uc."userId" = u."id" AND uc."companyId" = $2::uuid AND uc."deletedAt" IS NULL WHERE u."id" = $1::uuid AND u."status" = \'ACTIVE\' AND u."deletedAt" IS NULL FOR SHARE OF u, uc',
+        eligibleUserId,
+        companyId
+      );
+      if (memberships.length !== 1) {
+        throw forbidden("User does not belong to the active company");
+      }
     }
 
     const teams = await client.$queryRawUnsafe<Array<{ id: string }>>(

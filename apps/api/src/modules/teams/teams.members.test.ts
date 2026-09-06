@@ -16,23 +16,48 @@ function request(): ApiRequest {
 
 type TeamHarnessOptions = {
   company?: boolean;
+  companyStatus?: string;
+  companyDeleted?: boolean;
   membership?: boolean;
+  userStatus?: string;
+  userDeleted?: boolean;
   team?: boolean;
+  teamCompanyId?: string;
+  teamDeleted?: boolean;
   memberResponses?: Array<Array<Record<string, unknown> & { id: string }>>;
   updateCounts?: number[];
 };
 
 function teamHarness(options: TeamHarnessOptions = {}) {
   let memberRead = 0;
-  const query = vi.fn(async (statement: string) => {
+  const query = vi.fn(async (statement: string, ...values: unknown[]) => {
     if (statement.includes('FROM "companies"')) {
-      return options.company === false ? [] : [{ id: "company-a" }];
+      const visible =
+        options.company !== false &&
+        values[0] === "company-a" &&
+        (!statement.includes("\"status\" = 'ACTIVE'") ||
+          (options.companyStatus ?? "ACTIVE") === "ACTIVE") &&
+        (!statement.includes('"deletedAt" IS NULL') || !options.companyDeleted);
+      return visible ? [{ id: "company-a" }] : [];
     }
     if (statement.includes('FROM "users"')) {
-      return options.membership === false ? [] : [{ id: "user-a" }];
+      const visible =
+        values[0] === "user-a" &&
+        values[1] === "company-a" &&
+        (!statement.includes('uc."deletedAt" IS NULL') || options.membership !== false) &&
+        (!statement.includes("u.\"status\" = 'ACTIVE'") ||
+          (options.userStatus ?? "ACTIVE") === "ACTIVE") &&
+        (!statement.includes('u."deletedAt" IS NULL') || !options.userDeleted);
+      return visible ? [{ id: "user-a" }] : [];
     }
     if (statement.includes('FROM "teams"')) {
-      return options.team === false ? [] : [{ id: "team-a" }];
+      const visible =
+        options.team !== false &&
+        values[0] === "team-a" &&
+        (!statement.includes('"companyId" = $2::uuid') ||
+          (options.teamCompanyId ?? "company-a") === values[1]) &&
+        (!statement.includes('"deletedAt" IS NULL') || !options.teamDeleted);
+      return visible ? [{ id: "team-a" }] : [];
     }
     if (statement.includes('FROM "team_members"')) {
       return options.memberResponses?.[memberRead++] ?? [];
@@ -154,8 +179,8 @@ describe("TeamsRepository membership mutation", () => {
     ).resolves.toEqual({
       changes: members.map((before) => ({ before, after: { ...before, deletedAt } }))
     });
-    expect(String(success.query.mock.calls[3]?.[0])).toContain("FOR UPDATE");
-    expect(String(success.query.mock.calls[3]?.[0])).not.toContain("LIMIT 2");
+    expect(String(success.query.mock.calls[2]?.[0])).toContain("FOR UPDATE");
+    expect(String(success.query.mock.calls[2]?.[0])).not.toContain("LIMIT 2");
     expect(success.updateMany).toHaveBeenCalledWith({
       where: {
         id: { in: ["member-a", "member-b"] },
@@ -191,9 +216,122 @@ describe("TeamsRepository membership mutation", () => {
     ).resolves.toEqual({ changes: [] });
     expect(state.updateMany).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["invited user", { userStatus: "INVITED" }],
+    ["inactive user", { userStatus: "INACTIVE" }],
+    ["locked user", { userStatus: "LOCKED" }],
+    ["deleted user", { userDeleted: true }],
+    ["ended company membership", { membership: false }]
+  ] as const)(
+    "removes a historical membership for an %s but still rejects addition",
+    async (_label, options) => {
+      const before = {
+        id: "member-a",
+        companyId: "company-a",
+        teamId: "team-a",
+        userId: "user-a",
+        deletedAt: null
+      };
+      const deletedAt = new Date("2026-09-03T10:00:00.123Z");
+      const removal = teamHarness({ ...options, memberResponses: [[before]], updateCounts: [1] });
+      const addition = teamHarness(options);
+      const repository = new TeamsRepository();
+
+      await expect(
+        repository.removeMembersForUpdate(
+          removal.transaction,
+          "COMPANY-A",
+          "TEAM-A",
+          "USER-A",
+          deletedAt
+        )
+      ).resolves.toEqual({
+        changes: [{ before, after: { ...before, deletedAt } }]
+      });
+      expect(removal.query).toHaveBeenCalledTimes(3);
+      const statements = removal.query.mock.calls.map((call) => call[0]);
+      expect(statements[0]).toContain('FROM "companies"');
+      expect(statements[0]).toContain("\"status\" = 'ACTIVE'");
+      expect(statements[0]).toContain('"deletedAt" IS NULL FOR SHARE');
+      expect(statements[1]).toContain('FROM "teams"');
+      expect(statements[1]).toContain(
+        '"id" = $1::uuid AND "companyId" = $2::uuid AND "deletedAt" IS NULL FOR UPDATE'
+      );
+      expect(statements[2]).toContain('FROM "team_members"');
+      expect(statements[2]).toContain(
+        '"companyId" = $1::uuid AND "teamId" = $2::uuid AND "userId" = $3::uuid AND "deletedAt" IS NULL'
+      );
+      expect(statements[2]).toContain('ORDER BY "createdAt", "id" FOR UPDATE');
+      expect(statements.join("\n")).not.toContain('FROM "users"');
+      expect(removal.query.mock.calls.map((call) => call.slice(1))).toEqual([
+        ["company-a"],
+        ["team-a", "company-a"],
+        ["company-a", "team-a", "user-a"]
+      ]);
+      expect(removal.query.mock.invocationCallOrder[2]).toBeLessThan(
+        removal.updateMany.mock.invocationCallOrder[0]
+      );
+
+      await expect(
+        repository.addMemberForUpdate(addition.transaction, {
+          companyId: "company-a",
+          teamId: "team-a",
+          userId: "user-a"
+        })
+      ).rejects.toMatchObject({ code: "FORBIDDEN", statusCode: 403 });
+      expect(addition.query).toHaveBeenCalledTimes(2);
+      expect(addition.create).not.toHaveBeenCalled();
+      expect(addition.updateMany).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    [{ company: false }, "company-a", "FORBIDDEN", 1],
+    [{ companyStatus: "INACTIVE" }, "company-a", "FORBIDDEN", 1],
+    [{ companyStatus: "SUSPENDED" }, "company-a", "FORBIDDEN", 1],
+    [{ companyDeleted: true }, "company-a", "FORBIDDEN", 1],
+    [{}, "company-b", "FORBIDDEN", 1],
+    [{ team: false }, "company-a", "NOT_FOUND", 2],
+    [{ teamDeleted: true }, "company-a", "NOT_FOUND", 2],
+    [{ teamCompanyId: "company-b" }, "company-a", "NOT_FOUND", 2]
+  ] as const)(
+    "rejects removal when its company or team reference is unavailable",
+    async (options, companyId, code, queryCount) => {
+      const state = teamHarness(options);
+      await expect(
+        new TeamsRepository().removeMembersForUpdate(
+          state.transaction,
+          companyId,
+          "team-a",
+          "user-a",
+          new Date()
+        )
+      ).rejects.toMatchObject({ code });
+      expect(state.query).toHaveBeenCalledTimes(queryCount);
+      expect(state.updateMany).not.toHaveBeenCalled();
+      expect(state.create).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe("TeamsService membership audit", () => {
+  it("leaves a zero-count removal audit-free", async () => {
+    const auditCreate = vi.fn();
+    const transaction = { auditLog: { create: auditCreate } } as PrismaTransactionClient;
+    const repository = new TeamsRepository();
+    vi.spyOn(repository, "removeMembersForUpdate").mockResolvedValue({ changes: [] });
+    vi.spyOn(repository, "withTransaction").mockImplementation(
+      async <T>(
+        operation: (value: TeamsRepository, transaction: PrismaTransactionClient) => Promise<T>
+      ) => operation(repository, transaction)
+    );
+    await expect(
+      new TeamsService(repository).removeMember(request(), "team-a", "user-a")
+    ).resolves.toEqual({ count: 0 });
+    expect(auditCreate).not.toHaveBeenCalled();
+  });
+
   it("audits a created member and leaves an existing member audit-free", async () => {
     const auditCreate = vi.fn().mockResolvedValue({ id: "audit-a" });
     const transaction = { auditLog: { create: auditCreate } } as PrismaTransactionClient;
