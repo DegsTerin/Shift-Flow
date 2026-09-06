@@ -16,6 +16,10 @@ type ShiftReportDelegate = {
   findFirst(args: unknown): Promise<unknown | null>;
 };
 
+type ReportLockClient = {
+  $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
+};
+
 export class ReportsRepository extends BaseRepository {
   constructor() {
     super("shiftReport");
@@ -29,6 +33,17 @@ export class ReportsRepository extends BaseRepository {
       activity.count({ where })
     ]);
     return { total, byStatus, byPriority };
+  }
+
+  async findForUpdate(transaction: PrismaTransactionClient, id: string, companyId: string) {
+    const client = transaction as ReportLockClient;
+    // Read the audit preimage only after earlier mutations have released the report lock.
+    const rows = await client.$queryRawUnsafe<Array<Record<string, unknown>>>(
+      'SELECT * FROM "shift_reports" WHERE "id" = $1::uuid AND "companyId" = $2::uuid AND "deletedAt" IS NULL FOR UPDATE',
+      id,
+      companyId
+    );
+    return rows[0] ?? null;
   }
 
   async updateWhenStatus(

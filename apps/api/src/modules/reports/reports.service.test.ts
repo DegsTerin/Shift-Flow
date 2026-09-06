@@ -64,6 +64,9 @@ function repositoryHarness(initialStatus: ReportStatus, synchroniseFirstTwoReads
   const bothReadsReady = new Promise<void>((resolve) => {
     releaseReads = resolve;
   });
+  let transactionCount = 0;
+  let lockTail = Promise.resolve();
+  const unlock = new Map<PrismaTransactionClient, () => void>();
 
   const repository = {
     activitySummary: vi.fn().mockResolvedValue({ total: 0, byStatus: [], byPriority: [] }),
@@ -73,8 +76,23 @@ function repositoryHarness(initialStatus: ReportStatus, synchroniseFirstTwoReads
           value: ReportsRepository,
           valueTransaction: PrismaTransactionClient
         ) => Promise<unknown>
-      ) => operation(repository as unknown as ReportsRepository, transaction)
+      ) => {
+        const client =
+          transactionCount++ === 0 ? transaction : { marker: "concurrent-report-transaction" };
+        try {
+          return await operation(repository as unknown as ReportsRepository, client);
+        } finally {
+          unlock.get(client)?.();
+          unlock.delete(client);
+        }
+      }
     ),
+    findForUpdate: vi.fn(async (client: PrismaTransactionClient) => {
+      const previous = lockTail;
+      lockTail = new Promise<void>((resolve) => unlock.set(client, resolve));
+      await previous;
+      return { ...report };
+    }),
     findById: vi.fn(async () => {
       const snapshot = { ...report };
       if (synchroniseFirstTwoReads && readCount < 2) {
@@ -210,6 +228,12 @@ describe("ReportsService lifecycle", () => {
     const updated = await service.update(request(), reportId, { summary: "Reviewed content" });
 
     expect(updated).toMatchObject({ status: "DRAFT", summary: "Reviewed content" });
+    expect(harness.spies.findForUpdate).toHaveBeenCalledExactlyOnceWith(
+      transaction,
+      reportId,
+      companyId
+    );
+    expect(harness.spies.findById).not.toHaveBeenCalled();
     expect(harness.spies.updateWhenStatus).toHaveBeenCalledWith(
       transaction,
       reportId,
@@ -222,6 +246,12 @@ describe("ReportsService lifecycle", () => {
       expect.anything(),
       expect.objectContaining({ entityType: "ShiftReport", entityId: reportId, action: "UPDATE" }),
       transaction
+    );
+    expect(harness.spies.findForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.spies.updateWhenStatus.mock.invocationCallOrder[0]
+    );
+    expect(harness.spies.updateWhenStatus.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(writeAudit).mock.invocationCallOrder[0]
     );
   });
 
@@ -312,5 +342,92 @@ describe("ReportsService lifecycle", () => {
     expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
     expect(harness.current().status).toBe("APPROVED");
     expect(writeAudit).toHaveBeenCalledOnce();
+  });
+
+  it.each(["DRAFT", "REJECTED"] as const)(
+    "serialises the audit chain for two same-status %s edits",
+    async (status) => {
+      const harness = repositoryHarness(status, true);
+      const service = new ReportsService(harness.repository);
+      const initial = harness.current();
+
+      const results = await Promise.all([
+        service.update(request(), reportId, { summary: "First edit" }),
+        service.update(request(), reportId, { summary: "Second edit" })
+      ]);
+
+      const events = vi.mocked(writeAudit).mock.calls.map((call) => call[1]);
+      expect(events).toHaveLength(2);
+      expect(events[0].before).toEqual(initial);
+      expect(events[0].after).toEqual(results[0]);
+      expect(events[1].before).toEqual(results[0]);
+      expect(events[1].after).toEqual(results[1]);
+      expect(harness.current()).toEqual(results[1]);
+      expect(harness.spies.findForUpdate).toHaveBeenCalledTimes(2);
+      expect(harness.spies.findById).not.toHaveBeenCalled();
+    }
+  );
+
+  it("keeps the unlocked two-read barrier as a stale-preimage counterexample", async () => {
+    const harness = repositoryHarness("DRAFT", true);
+    const initial = harness.current();
+    const snapshots = await Promise.all([
+      harness.repository.findById(reportId, companyId),
+      harness.repository.findById(reportId, companyId)
+    ]);
+    await harness.repository.updateWhenStatus(transaction, reportId, companyId, ["DRAFT"], {
+      summary: "First edit"
+    });
+    expect(snapshots).toEqual([initial, initial]);
+    expect(snapshots[1]).not.toEqual(harness.current());
+  });
+
+  it("revalidates the locked snapshot before an edit after submission", async () => {
+    const harness = repositoryHarness("DRAFT");
+    const service = new ReportsService(harness.repository);
+    const submission = service.submit(request(), reportId);
+    const edit = service.update(request(), reportId, { summary: "Too late" });
+    const results = await Promise.allSettled([submission, edit]);
+
+    expect(results[0].status).toBe("fulfilled");
+    expect(results[1]).toMatchObject({ status: "rejected", reason: { code: "BAD_REQUEST" } });
+    expect(harness.spies.updateWhenStatus).toHaveBeenCalledOnce();
+    expect(writeAudit).toHaveBeenCalledOnce();
+  });
+
+  it("returns not found without mutation or audit when the locked row is absent", async () => {
+    const harness = repositoryHarness("DRAFT");
+    harness.spies.findForUpdate.mockResolvedValueOnce(null as unknown as ReportState);
+    await expect(
+      new ReportsService(harness.repository).submit(request(), reportId)
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(harness.spies.updateWhenStatus).not.toHaveBeenCalled();
+    expect(writeAudit).not.toHaveBeenCalled();
+  });
+
+  it("retains the compare-and-swap failure without an audit", async () => {
+    const harness = repositoryHarness("DRAFT");
+    harness.spies.updateWhenStatus.mockResolvedValueOnce(null);
+    await expect(
+      new ReportsService(harness.repository).submit(request(), reportId)
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Report state changed before the command could be applied"
+    });
+    expect(writeAudit).not.toHaveBeenCalled();
+  });
+
+  it("propagates an audit failure and releases the transaction lock in finally", async () => {
+    const harness = repositoryHarness("DRAFT");
+    const service = new ReportsService(harness.repository);
+    vi.mocked(writeAudit).mockRejectedValueOnce(new Error("Audit unavailable"));
+    await expect(service.update(request(), reportId, { summary: "First edit" })).rejects.toThrow(
+      "Audit unavailable"
+    );
+    await expect(
+      service.update(request(), reportId, { summary: "Next edit" })
+    ).resolves.toMatchObject({ summary: "Next edit" });
+    // This harness models lock lifetime, not database rollback; the PostgreSQL regression proves rollback.
+    expect(harness.spies.findForUpdate).toHaveBeenCalledTimes(2);
   });
 });

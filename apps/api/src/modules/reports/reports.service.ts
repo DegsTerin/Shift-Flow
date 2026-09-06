@@ -136,7 +136,11 @@ export class ReportsService extends BaseService {
   ) {
     const companyId = activeCompanyId(req);
     return this.reportsRepository.withTransaction(async (repository, transaction) => {
-      const before = (await repository.findById(id, companyId)) as ReportRecord | null;
+      const before = (await repository.findForUpdate(
+        transaction,
+        id,
+        companyId
+      )) as ReportRecord | null;
       if (!before) {
         throw notFound("ShiftReport not found");
       }
