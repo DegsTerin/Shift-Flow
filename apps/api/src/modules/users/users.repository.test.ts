@@ -58,6 +58,32 @@ const auditData = (before: unknown, after: unknown) => ({
 const delegation = { actorId: "actor-a" };
 const delegatedRole = (roleId: string) => ({ roleId, roleDelegation: delegation });
 
+type AuthorityUser = {
+  id: string;
+  status: string;
+  companyId?: string;
+  deleted?: boolean;
+  membershipDeleted?: boolean;
+};
+
+function modelAuthorityUsers(users: AuthorityUser[]) {
+  // The result depends on the actual SQL predicates, not an unconditional successful lock.
+  persistence.lockAuthorityUser.mockImplementation(
+    (query: string, userId: string, companyId: string) => {
+      const user = users.find((candidate) => candidate.id === userId);
+      if (!user) return [];
+      const active = !query.includes("u.\"status\" = 'ACTIVE'") || user.status === "ACTIVE";
+      const visible = !query.includes('u."deletedAt" IS NULL') || !user.deleted;
+      const member =
+        !query.includes('uc."companyId" = $2::uuid') ||
+        (user.companyId ?? "company-a") === companyId;
+      const currentMembership =
+        !query.includes('uc."deletedAt" IS NULL') || !user.membershipDeleted;
+      return active && visible && member && currentMembership ? [{ id: user.id }] : [];
+    }
+  );
+}
+
 describe("UsersRepository aggregate mutations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -367,6 +393,150 @@ describe("UsersRepository aggregate mutations", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     expect(persistence.assignmentUpdateMany).not.toHaveBeenCalled();
+    expect(persistence.assignmentCreate).not.toHaveBeenCalled();
+    expect(persistence.auditCreate).not.toHaveBeenCalled();
+  });
+
+  for (const status of ["INVITED", "INACTIVE", "LOCKED"]) {
+    for (const action of ["edit", "activate"]) {
+      it(`allows an active actor to ${action} a distinct ${status} target with a profile`, async () => {
+        modelAuthorityUsers([
+          { id: delegation.actorId, status: "ACTIVE" },
+          { id: "user-1", status }
+        ]);
+        const before = { id: "user-1", status, displayName: "Before", roleAssignments: [] };
+        const data = action === "activate" ? { status: "ACTIVE" } : { displayName: "After" };
+        const after = { ...before, ...data };
+        persistence.userFindFirst.mockResolvedValueOnce(before).mockResolvedValueOnce(after);
+        persistence.userUpdate.mockResolvedValueOnce(after);
+
+        await expect(
+          new UsersRepository().updateAggregate(
+            "user-1",
+            "company-a",
+            { data, ...delegatedRole("role-a") },
+            auditData
+          )
+        ).resolves.toEqual(after);
+
+        const locks = persistence.lockAuthorityUser.mock.calls;
+        expect(locks.map((call) => call[1])).toEqual([delegation.actorId, "user-1"]);
+        expect(locks[0][0]).toContain("u.\"status\" = 'ACTIVE'");
+        expect(locks[0][0]).toContain("FOR SHARE OF u, uc");
+        expect(locks[1][0]).not.toContain('u."status"');
+        expect(locks[1][0]).toContain("FOR UPDATE OF u, uc");
+        expect(persistence.userUpdate).toHaveBeenCalledWith({
+          where: { id: "user-1", deletedAt: null },
+          data
+        });
+        expect(persistence.assignmentCreate).toHaveBeenCalledWith({
+          data: {
+            companyId: "company-a",
+            userId: "user-1",
+            roleId: "role-a",
+            startsAt: expect.any(Date)
+          }
+        });
+        expect(persistence.auditCreate).toHaveBeenCalledWith({ data: auditData(before, after) });
+      });
+    }
+
+    for (const identity of ["distinct", "self", "uppercase self"]) {
+      it(`rejects a ${status} actor for ${identity} administration before any write`, async () => {
+        const actorId = "abcdefab-0000-4000-8000-000000000001";
+        const targetId = identity === "distinct" ? "user-1" : actorId;
+        modelAuthorityUsers([
+          { id: actorId, status },
+          ...(identity === "distinct" ? [{ id: targetId, status: "INACTIVE" }] : [])
+        ]);
+
+        await expect(
+          new UsersRepository().updateAggregate(
+            targetId,
+            "company-a",
+            {
+              data: { status: "ACTIVE" },
+              roleId: "role-a",
+              roleDelegation: {
+                actorId: identity === "uppercase self" ? actorId.toUpperCase() : actorId
+              }
+            },
+            auditData
+          )
+        ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+        expect(persistence.lockAuthorityUser).toHaveBeenCalledOnce();
+        const [query, boundUserId, boundCompanyId] = persistence.lockAuthorityUser.mock.calls[0];
+        expect(boundUserId).toBe(actorId);
+        expect(boundCompanyId).toBe("company-a");
+        expect(query).toContain("u.\"status\" = 'ACTIVE'");
+        expect(query).toContain(identity === "distinct" ? "FOR SHARE" : "FOR UPDATE");
+        expect(persistence.userUpdate).not.toHaveBeenCalled();
+        expect(persistence.assignmentUpdateMany).not.toHaveBeenCalled();
+        expect(persistence.assignmentCreate).not.toHaveBeenCalled();
+        expect(persistence.refreshUpdateMany).not.toHaveBeenCalled();
+        expect(persistence.auditCreate).not.toHaveBeenCalled();
+      });
+    }
+  }
+
+  it.each([
+    { name: "deleted target", deleted: true },
+    { name: "deleted membership", membershipDeleted: true },
+    { name: "foreign membership", companyId: "company-b" }
+  ])("rejects a $name without dropping tenant or deletion filters", async (condition) => {
+    modelAuthorityUsers([
+      { id: delegation.actorId, status: "ACTIVE" },
+      { id: "user-1", status: "INACTIVE", ...condition }
+    ]);
+    await expect(
+      new UsersRepository().updateAggregate(
+        "user-1",
+        "company-a",
+        { data: { status: "ACTIVE" }, ...delegatedRole("role-a") },
+        auditData
+      )
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(persistence.userUpdate).not.toHaveBeenCalled();
+    expect(persistence.assignmentCreate).not.toHaveBeenCalled();
+    expect(persistence.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates a case-different active self target while retaining both actor and target guards", async () => {
+    const actorId = "abcdefab-0000-4000-8000-000000000001";
+    modelAuthorityUsers([{ id: actorId, status: "ACTIVE" }]);
+    persistence.userFindFirst.mockResolvedValue({ id: actorId, status: "ACTIVE" });
+    await new UsersRepository().updateAggregate(
+      actorId,
+      "company-a",
+      { roleId: "role-a", roleDelegation: { actorId: actorId.toUpperCase() } },
+      auditData
+    );
+    expect(persistence.lockAuthorityUser).toHaveBeenCalledOnce();
+    const [query, boundUserId] = persistence.lockAuthorityUser.mock.calls[0];
+    expect(boundUserId).toBe(actorId);
+    expect(query).toContain("u.\"status\" = 'ACTIVE'");
+    expect(query).toContain("FOR UPDATE OF u, uc");
+    expect(query).not.toContain(actorId);
+    expect(persistence.auditCreate).toHaveBeenCalledOnce();
+  });
+
+  it("retains the portfolio delegation ceiling for a non-active target", async () => {
+    modelAuthorityUsers([
+      { id: delegation.actorId, status: "ACTIVE" },
+      { id: "user-1", status: "INACTIVE" }
+    ]);
+    await expect(
+      new UsersRepository().updateAggregate(
+        "user-1",
+        "company-a",
+        {
+          roleId: "role-a",
+          roleDelegation: { ...delegation, portfolioCeiling: ["users:read"] }
+        },
+        auditData
+      )
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(persistence.assignmentCreate).not.toHaveBeenCalled();
     expect(persistence.auditCreate).not.toHaveBeenCalled();
   });

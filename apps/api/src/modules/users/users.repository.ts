@@ -253,9 +253,13 @@ export class UsersRepository extends BaseRepository {
     const userIds = [...new Set([actorId, ...(targetId ? [targetId] : [])])].sort();
     for (const userId of userIds) {
       const targetLock = targetId === userId;
-      const lockStatement = targetLock
-        ? 'SELECT u."id" FROM "users" AS u INNER JOIN "user_companies" AS uc ON uc."userId" = u."id" AND uc."companyId" = $2::uuid AND uc."deletedAt" IS NULL WHERE u."id" = $1::uuid AND u."status" = \'ACTIVE\' AND u."deletedAt" IS NULL FOR UPDATE OF u, uc'
-        : 'SELECT u."id" FROM "users" AS u INNER JOIN "user_companies" AS uc ON uc."userId" = u."id" AND uc."companyId" = $2::uuid AND uc."deletedAt" IS NULL WHERE u."id" = $1::uuid AND u."status" = \'ACTIVE\' AND u."deletedAt" IS NULL FOR SHARE OF u, uc';
+      const actorPredicate = userId === actorId ? " AND u.\"status\" = 'ACTIVE'" : "";
+      const lockClause = targetLock ? "FOR UPDATE OF u, uc" : "FOR SHARE OF u, uc";
+      const lockStatement =
+        'SELECT u."id" FROM "users" AS u INNER JOIN "user_companies" AS uc ON uc."userId" = u."id" AND uc."companyId" = $2::uuid AND uc."deletedAt" IS NULL WHERE u."id" = $1::uuid' +
+        actorPredicate +
+        ' AND u."deletedAt" IS NULL ' +
+        lockClause;
       const memberships = await tx.$queryRawUnsafe<Array<{ id: string }>>(
         lockStatement,
         userId,

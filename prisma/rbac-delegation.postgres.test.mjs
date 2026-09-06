@@ -6,6 +6,7 @@ import { clearTimeout, setTimeout } from "node:timers";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RbacRepository } from "../apps/api/src/modules/rbac/rbac.repository.ts";
+import { UsersRepository } from "../apps/api/src/modules/users/users.repository.ts";
 import { assertSafePostgresIntegrationTarget } from "./seed-safety.mjs";
 
 if (process.env.SHIFTFLOW_POSTGRES_INTEGRATION !== "1") {
@@ -873,4 +874,350 @@ describe("RBAC delegation PostgreSQL integration", () => {
       data: { deletedAt: null }
     });
   });
+});
+
+describe("User administration delegation PostgreSQL integration", () => {
+  const scope = `users-administration-${randomUUID()}`;
+  const companyId = randomUUID();
+  const userIds = [];
+  let prisma;
+  let actor;
+  let actorRole;
+  let previousRole;
+  let selectedRole;
+
+  function barrier() {
+    let release;
+    const promise = new Promise((resolve) => {
+      release = resolve;
+    });
+    return {
+      release,
+      async wait() {
+        let timer;
+        try {
+          await Promise.race([
+            promise,
+            new Promise((_, reject) => {
+              timer = setTimeout(
+                () => reject(new Error("User administration barrier timed out")),
+                2_000
+              );
+            })
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    };
+  }
+
+  function observe(operation) {
+    return operation.then(
+      (value) => ({ value }),
+      (error) => ({ error })
+    );
+  }
+
+  function snapshot(user) {
+    return {
+      id: user.id,
+      status: user.status,
+      displayName: user.displayName,
+      passwordChangedAt: user.passwordChangedAt?.toISOString() ?? null,
+      roleIds: (user.roleAssignments ?? []).map((assignment) => assignment.roleId).sort()
+    };
+  }
+
+  function auditData(userId, actorId = actor.id) {
+    return (before, after) => ({
+      companyId,
+      actorUserId: actorId,
+      entityType: "User",
+      entityId: userId,
+      action: "UPDATE",
+      before: snapshot(before),
+      after: snapshot(after)
+    });
+  }
+
+  function repository(wrap = (transaction) => transaction) {
+    return new UsersRepository(async () => ({
+      $transaction: (operation) =>
+        prisma.$transaction(async (transaction) => {
+          await transaction.$executeRawUnsafe("SET LOCAL lock_timeout = '3000ms'");
+          return operation(wrap(transaction));
+        })
+    }));
+  }
+
+  async function createUser(status, roleId = previousRole.id) {
+    const id = randomUUID();
+    userIds.push(id);
+    const user = await prisma.user.create({
+      data: {
+        id,
+        email: `${scope}-${id}@shiftflow.local`,
+        displayName: `${scope}-${status}`,
+        passwordHash: "not-used-by-this-integration-test",
+        status
+      }
+    });
+    await prisma.userCompany.create({ data: { companyId, userId: id } });
+    const assignment = await prisma.userRoleAssignment.create({
+      data: { companyId, userId: id, roleId }
+    });
+    return { ...user, roleAssignments: [assignment] };
+  }
+
+  function assignments(userId) {
+    return prisma.userRoleAssignment.findMany({
+      where: { companyId, userId },
+      orderBy: { id: "asc" }
+    });
+  }
+
+  function audits(userId) {
+    return prisma.auditLog.findMany({ where: { companyId, entityType: "User", entityId: userId } });
+  }
+
+  beforeAll(async () => {
+    const connectionString = process.env.DATABASE_URL;
+    assertSafePostgresIntegrationTarget(connectionString, process.env.NODE_ENV, process.env.CI);
+    const { PrismaClient } = await import("../generated/prisma/client.js");
+    prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+    await prisma.company.create({ data: { id: companyId, name: scope } });
+    actorRole = await prisma.role.create({
+      data: { companyId, name: `${scope}-actor`, scope: "COMPANY" }
+    });
+    previousRole = await prisma.role.create({
+      data: { companyId, name: `${scope}-previous`, scope: "COMPANY" }
+    });
+    selectedRole = await prisma.role.create({
+      data: { companyId, name: `${scope}-selected`, scope: "COMPANY" }
+    });
+    const write = await prisma.permission.create({
+      data: { companyId, resource: "users", action: "write" }
+    });
+    const read = await prisma.permission.create({
+      data: { companyId, resource: "users", action: "read" }
+    });
+    await prisma.rolePermission.createMany({
+      data: [
+        { companyId, roleId: actorRole.id, permissionId: write.id },
+        { companyId, roleId: actorRole.id, permissionId: read.id },
+        { companyId, roleId: selectedRole.id, permissionId: read.id }
+      ]
+    });
+    actor = await createUser("ACTIVE", actorRole.id);
+  }, 30_000);
+
+  afterAll(async () => {
+    if (!prisma) return;
+    try {
+      await prisma.auditLog.deleteMany({ where: { companyId } });
+      await prisma.refreshToken.deleteMany({ where: { companyId, userId: { in: userIds } } });
+      await prisma.userRoleAssignment.deleteMany({ where: { companyId } });
+      await prisma.rolePermission.deleteMany({ where: { companyId } });
+      await prisma.role.deleteMany({ where: { companyId } });
+      await prisma.permission.deleteMany({ where: { companyId } });
+      await prisma.userCompany.deleteMany({ where: { companyId, userId: { in: userIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+      await prisma.company.deleteMany({ where: { id: companyId } });
+    } finally {
+      await prisma.$disconnect();
+    }
+  }, 30_000);
+
+  for (const status of ["INVITED", "INACTIVE", "LOCKED"]) {
+    for (const action of ["edit", "activate"]) {
+      it(`commits ${action} and profile replacement for a distinct ${status} target`, async () => {
+        const target = await createUser(status);
+        const data =
+          action === "activate" ? { status: "ACTIVE" } : { displayName: `${scope}-edited` };
+        const result = await repository().updateAggregate(
+          target.id,
+          companyId,
+          { data, roleId: selectedRole.id, roleDelegation: { actorId: actor.id } },
+          auditData(target.id)
+        );
+        const persisted = await prisma.user.findUnique({ where: { id: target.id } });
+        expect(persisted).toMatchObject(data);
+        expect(result.status).toBe(action === "activate" ? "ACTIVE" : status);
+        const roles = await assignments(target.id);
+        expect(roles.filter((assignment) => assignment.deletedAt === null)).toEqual([
+          expect.objectContaining({ roleId: selectedRole.id, companyId, userId: target.id })
+        ]);
+        expect(
+          roles.find((assignment) => assignment.roleId === previousRole.id).deletedAt
+        ).toBeInstanceOf(Date);
+        const events = await audits(target.id);
+        expect(events).toHaveLength(1);
+        expect(events[0]).toMatchObject({ actorUserId: actor.id, action: "UPDATE", companyId });
+        expect(events[0].before).toEqual(snapshot(target));
+        expect(events[0].after).toEqual(snapshot(result));
+        expect(events[0].after.roleIds).toEqual([selectedRole.id]);
+      });
+    }
+  }
+
+  it("rolls back the user, profile and requested session revocation after a real audit FK failure", async () => {
+    const target = await createUser("INACTIVE");
+    const before = await prisma.user.findUnique({ where: { id: target.id } });
+    const previousAssignments = await assignments(target.id);
+    const token = await prisma.refreshToken.create({
+      data: {
+        companyId,
+        userId: target.id,
+        familyId: randomUUID(),
+        tokenHash: randomUUID(),
+        expiresAt: new Date(Date.now() + 60_000)
+      }
+    });
+    const absentActorId = randomUUID();
+    expect(await prisma.user.findUnique({ where: { id: absentActorId } })).toBeNull();
+    let mutationObserved = false;
+    const failing = repository(
+      (transaction) =>
+        new Proxy(transaction, {
+          get(current, property, receiver) {
+            if (property !== "auditLog") return Reflect.get(current, property, receiver);
+            return {
+              create: async (args) => {
+                const changed = await current.user.findUnique({ where: { id: target.id } });
+                expect(changed.status).toBe("ACTIVE");
+                expect(changed.passwordChangedAt).toBeInstanceOf(Date);
+                const roles = await current.userRoleAssignment.findMany({
+                  where: { companyId, userId: target.id, deletedAt: null }
+                });
+                expect(roles.map((assignment) => assignment.roleId)).toEqual([selectedRole.id]);
+                const revoked = await current.refreshToken.findUnique({ where: { id: token.id } });
+                expect(revoked.revokedAt).toBeInstanceOf(Date);
+                mutationObserved = true;
+                return current.auditLog.create({
+                  ...args,
+                  data: { ...args.data, actorUserId: absentActorId }
+                });
+              }
+            };
+          }
+        })
+    );
+    await expect(
+      failing.updateAggregate(
+        target.id,
+        companyId,
+        {
+          data: { status: "ACTIVE", passwordHash: "changed-in-rollback-test" },
+          credentialChange: true,
+          revokeSessions: true,
+          roleId: selectedRole.id,
+          roleDelegation: { actorId: actor.id }
+        },
+        auditData(target.id)
+      )
+    ).rejects.toMatchObject({ code: "P2003" });
+    expect(mutationObserved).toBe(true);
+    expect(await prisma.user.findUnique({ where: { id: target.id } })).toEqual(before);
+    expect(await assignments(target.id)).toEqual(previousAssignments);
+    expect(await prisma.refreshToken.findUnique({ where: { id: token.id } })).toEqual(token);
+    expect(await audits(target.id)).toEqual([]);
+  });
+
+  for (const self of [false, true]) {
+    it(`revalidates a deactivated actor after the ${self ? "self UPDATE" : "actor SHARE"} lock waits`, async () => {
+      const currentActor = await createUser("ACTIVE", actorRole.id);
+      const target = self ? currentActor : await createUser("INACTIVE");
+      const before = await prisma.user.findUnique({ where: { id: target.id } });
+      const beforeAssignments = await assignments(target.id);
+      const ready = barrier();
+      const attempted = barrier();
+      const releaseCommit = barrier();
+      const operations = [];
+      let firstPid;
+      let secondPid;
+      let blocked = false;
+      try {
+        operations.push(
+          observe(
+            prisma.$transaction(async (transaction) => {
+              await transaction.$executeRawUnsafe("SET LOCAL lock_timeout = '3000ms'");
+              firstPid = (
+                await transaction.$queryRawUnsafe('SELECT pg_backend_pid()::int AS "pid"')
+              )[0].pid;
+              await transaction.user.update({
+                where: { id: currentActor.id },
+                data: { status: "INACTIVE" }
+              });
+              ready.release();
+              await releaseCommit.wait();
+            })
+          )
+        );
+        await ready.wait();
+        const waiting = repository(
+          (transaction) =>
+            new Proxy(transaction, {
+              get(current, property, receiver) {
+                if (property !== "$queryRawUnsafe") {
+                  return Reflect.get(current, property, receiver);
+                }
+                return async (query, ...values) => {
+                  if (query.includes('FROM "users" AS u') && values[0] === currentActor.id) {
+                    secondPid = (
+                      await current.$queryRawUnsafe('SELECT pg_backend_pid()::int AS "pid"')
+                    )[0].pid;
+                    const pending = current.$queryRawUnsafe(query, ...values);
+                    attempted.release();
+                    return pending;
+                  }
+                  return current.$queryRawUnsafe(query, ...values);
+                };
+              }
+            })
+        );
+        operations.push(
+          observe(
+            waiting.updateAggregate(
+              target.id,
+              companyId,
+              {
+                data: { status: "ACTIVE", displayName: `${scope}-must-not-commit` },
+                roleId: selectedRole.id,
+                roleDelegation: { actorId: currentActor.id.toUpperCase() }
+              },
+              auditData(target.id, currentActor.id)
+            )
+          )
+        );
+        await attempted.wait();
+        expect(firstPid).not.toBe(secondPid);
+        const deadline = performance.now() + 1_500;
+        do {
+          const rows = await prisma.$queryRawUnsafe(
+            'SELECT pg_blocking_pids($1::int) AS "blockers"',
+            secondPid
+          );
+          if (rows[0].blockers.includes(firstPid)) {
+            blocked = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        } while (performance.now() < deadline);
+        expect(blocked).toBe(true);
+        releaseCommit.release();
+        const outcomes = await Promise.all(operations);
+        expect(outcomes[0].error).toBeUndefined();
+        expect(outcomes[1].error).toMatchObject({ code: "FORBIDDEN", statusCode: 403 });
+        expect(await prisma.user.findUnique({ where: { id: target.id } })).toEqual(
+          self ? { ...before, status: "INACTIVE", updatedAt: expect.any(Date) } : before
+        );
+        expect(await assignments(target.id)).toEqual(beforeAssignments);
+        expect(await audits(target.id)).toEqual([]);
+      } finally {
+        [ready, attempted, releaseCommit].forEach((item) => item.release());
+        await Promise.all(operations);
+      }
+    }, 15_000);
+  }
 });
