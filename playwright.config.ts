@@ -15,6 +15,8 @@ if (!databaseUrl) {
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // The browser cases share one seeded identity and database; isolate their mutations.
+  workers: 1,
   outputDir: "dist/playwright-results",
   reporter: [["list"], ["html", { open: "never", outputFolder: "dist/playwright-report" }]],
   timeout: 30_000,
@@ -35,6 +37,7 @@ export default defineConfig({
       timeout: 20_000,
       env: {
         DATABASE_URL: databaseUrl,
+        AUTH_MODE: "required",
         JWT_SECRET: process.env.JWT_SECRET ?? "replace-with-a-local-secret",
         CORS_ORIGIN: "http://localhost:3000",
         API_PORT: "3001",
@@ -49,7 +52,8 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 30_000,
       env: {
-        NEXT_PUBLIC_API_BASE_URL: "http://localhost:3001"
+        NEXT_PUBLIC_API_BASE_URL: "http://localhost:3001",
+        VISUAL_REGRESSION: process.env.VISUAL_REGRESSION ?? "0"
       }
     }
   ],

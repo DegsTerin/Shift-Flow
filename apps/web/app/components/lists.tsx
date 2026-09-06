@@ -3,15 +3,9 @@
 
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { ActivityItem, Locale, TeamRef, Texts } from "../lib/types";
-import {
-  formatDateTime,
-  formatTime,
-  idOf,
-  priorityLabel,
-  slaLabel,
-  statusLabel
-} from "../lib/utils";
+import type { ActivityItem, Locale, ShiftRef, TeamRef, Texts } from "../lib/types";
+import { isNamedTimezone } from "../lib/zoned-datetime";
+import { formatDateTime, idOf, priorityLabel, slaLabel, statusLabel } from "../lib/utils";
 
 export const tablePageSize = 12;
 
@@ -458,10 +452,20 @@ export function TeamsView({
 }
 
 export function shiftCells(locale: Locale) {
-  return (shift: { name?: string; startsAt?: string; endsAt?: string; status?: string }) => [
-    shift.name ?? "-",
-    formatTime(shift.startsAt, locale),
-    formatTime(shift.endsAt, locale),
-    shift.status ?? "-"
-  ];
+  return (shift: ShiftRef) => {
+    const format = (value?: string) => {
+      if (!value || !isNamedTimezone(shift.timezone)) return "-";
+      try {
+        const label = new Intl.DateTimeFormat(locale, {
+          dateStyle: "short",
+          timeStyle: "short",
+          timeZone: shift.timezone
+        }).format(new Date(value));
+        return `${label} (${shift.timezone})`;
+      } catch {
+        return "-";
+      }
+    };
+    return [shift.name ?? "-", format(shift.startsAt), format(shift.endsAt), shift.status ?? "-"];
+  };
 }

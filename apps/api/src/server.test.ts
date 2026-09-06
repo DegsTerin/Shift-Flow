@@ -6,7 +6,7 @@ import { z } from "zod";
 import { app } from "./server.js";
 import { env } from "./shared/config/env.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
-import { loginRateLimit, resetRateLimitBuckets } from "./shared/middlewares/rate-limit.js";
+import { directAccessRateLimit, resetRateLimitBuckets } from "./shared/middlewares/rate-limit.js";
 import { validate } from "./shared/middlewares/validate.js";
 import { logger } from "./shared/observability/logger.js";
 
@@ -39,6 +39,16 @@ describe("ShiftFlow API", () => {
       status: "ready",
       service: "shiftflow-api"
     });
+  });
+
+  it("replaces oversized or unsafe caller request identifiers", async () => {
+    for (const supplied of ["x".repeat(121), "unsafe request;id"]) {
+      const response = await request(app).get("/ready").set("x-request-id", supplied);
+
+      expect(response.status).toBe(200);
+      expect(response.headers["x-request-id"]).not.toBe(supplied);
+      expect(response.headers["x-request-id"]).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/);
+    }
   });
 
   it("returns not found for unknown routes", async () => {
@@ -94,16 +104,16 @@ describe("ShiftFlow API", () => {
     });
   });
 
-  it("rate limits repeated login attempts", async () => {
+  it("rate limits repeated direct-access attempts", async () => {
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     const rateLimitedApp = express();
     rateLimitedApp.use(express.json());
-    rateLimitedApp.post("/login", loginRateLimit, (_req, res) => {
+    rateLimitedApp.post("/direct-access", directAccessRateLimit, (_req, res) => {
       res.status(204).send();
     });
 
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      const response = await request(rateLimitedApp).post("/login").send({
+      const response = await request(rateLimitedApp).post("/direct-access").send({
         email: "missing@example.com",
         password: "invalid-login-password"
       });
@@ -111,7 +121,7 @@ describe("ShiftFlow API", () => {
       expect(response.status).toBe(204);
     }
 
-    const response = await request(rateLimitedApp).post("/login").send({
+    const response = await request(rateLimitedApp).post("/direct-access").send({
       email: "missing@example.com",
       password: "invalid-login-password"
     });

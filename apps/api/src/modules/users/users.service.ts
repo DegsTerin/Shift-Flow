@@ -7,7 +7,7 @@ import { badRequest, forbidden, notFound } from "../../shared/errors/app-error.j
 import { BaseService } from "../../shared/services/base.service.js";
 import { buildAuditData } from "../../shared/services/audit-writer.js";
 import { validatePasswordPolicy } from "../../shared/security/password-policy.js";
-import { UsersRepository } from "./users.repository.js";
+import { UsersRepository, type UserRoleDelegationContext } from "./users.repository.js";
 
 type UserDelegate = {
   findFirst(args: unknown): Promise<unknown | null>;
@@ -113,6 +113,7 @@ export class UsersService extends BaseService {
       },
       companyId,
       roleSelection.role.id,
+      this.roleDelegationContext(req),
       (_before, after) =>
         buildAuditData(req, {
           entityType: "User",
@@ -160,7 +161,12 @@ export class UsersService extends BaseService {
       companyId,
       {
         ...(aggregateData ? { data: aggregateData } : {}),
-        ...(roleSelection ? { roleId: roleSelection.role.id } : {}),
+        ...(roleSelection
+          ? {
+              roleId: roleSelection.role.id,
+              roleDelegation: this.roleDelegationContext(req)
+            }
+          : {}),
         ...(hasPasswordChange ? { credentialChange: true, revokeSessions: true } : {})
       },
       (transactionBefore, after) =>
@@ -257,6 +263,17 @@ export class UsersService extends BaseService {
       throw badRequest("Company context is required");
     }
     return companyId;
+  }
+
+  private roleDelegationContext(req: ApiRequest): UserRoleDelegationContext {
+    const actor = req.auth;
+    if (!actor) {
+      throw forbidden("Authenticated role delegation is required");
+    }
+    return {
+      actorId: actor.id,
+      ...(actor.sessionKind === "portfolio" ? { portfolioCeiling: actor.permissions ?? [] } : {})
+    };
   }
 
   private async assertCanAssignRole(req: ApiRequest, selection: ProductRoleSelection) {

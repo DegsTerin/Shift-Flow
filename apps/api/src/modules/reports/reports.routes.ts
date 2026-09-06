@@ -4,7 +4,11 @@ import { authenticate } from "../../shared/middlewares/authenticate.js";
 import { requirePermission } from "../../shared/middlewares/authorize.js";
 import { validate } from "../../shared/middlewares/validate.js";
 import { ReportsController } from "./reports.controller.js";
-import { reportFilterSchema, shiftReportSchema } from "./reports.validators.js";
+import {
+  reportFilterSchema,
+  shiftReportSchema,
+  shiftReportUpdateSchema
+} from "./reports.validators.js";
 
 export const reportRoutes = Router();
 
@@ -26,7 +30,7 @@ reportRoutes.get("/shifts/:id", requirePermission("reports", "read"), ReportsCon
 reportRoutes.patch(
   "/shifts/:id",
   requirePermission("reports", "write"),
-  validate("body", shiftReportSchema.partial()),
+  validate("body", shiftReportUpdateSchema),
   ReportsController.update
 );
 reportRoutes.post(
@@ -38,4 +42,9 @@ reportRoutes.post(
   "/shifts/:id/approve",
   requirePermission("reports", "approve"),
   ReportsController.approve
+);
+reportRoutes.post(
+  "/shifts/:id/reject",
+  requirePermission("reports", "approve"),
+  ReportsController.reject
 );

@@ -13,6 +13,7 @@ import type {
   UserRef
 } from "../lib/types";
 import { activityHistoryText, activityHistoryTypeLabel } from "../lib/history-labels";
+import { isNamedTimezone, zonedDateInputValue } from "../lib/zoned-datetime";
 import {
   activityStatuses,
   formatDateTime,
@@ -30,6 +31,7 @@ export function ActivityDetail({
   t,
   token,
   locale,
+  companyTimezone,
   clients,
   users,
   teams,
@@ -56,6 +58,7 @@ export function ActivityDetail({
   t: Texts;
   token?: string;
   locale: Locale;
+  companyTimezone?: string;
   clients: ClientRef[];
   users: UserRef[];
   teams: TeamRef[];
@@ -169,14 +172,18 @@ export function ActivityDetail({
           />
         </label>
         <label>
-          SLA
+          SLA{isNamedTimezone(companyTimezone) ? ` (${companyTimezone})` : ""}
           <input
             name="slaDueAt"
             type="datetime-local"
-            defaultValue={activity.slaDueAt ? activity.slaDueAt.slice(0, 16) : ""}
-            disabled={!editing || !capabilities.canWrite}
+            step={60}
+            defaultValue={zonedDateInputValue(activity.slaDueAt, companyTimezone)}
+            disabled={!editing || !capabilities.canWrite || !isNamedTimezone(companyTimezone)}
           />
         </label>
+        {!isNamedTimezone(companyTimezone) ? (
+          <p className="guard-note span-2">{t.timeZoneUnavailable}</p>
+        ) : null}
         <label>
           {t.system}
           <input
@@ -278,7 +285,12 @@ export function ActivityDetail({
           rows={[
             [t.created, formatDateTime(activity.createdAt, locale)],
             [t.updated, formatDateTime(activity.updatedAt, locale)],
-            ["SLA", formatDateTime(activity.slaDueAt, locale)]
+            [
+              "SLA",
+              activity.slaDueAt && isNamedTimezone(companyTimezone)
+                ? `${formatDateTime(activity.slaDueAt, locale, companyTimezone)} (${companyTimezone})`
+                : "-"
+            ]
           ]}
         />
         <InfoPanel

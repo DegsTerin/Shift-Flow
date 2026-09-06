@@ -12,7 +12,7 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import { messages } from "../lib/i18n";
-import { ActivityList, ManagementTable, tablePageSize, TeamsView } from "./lists";
+import { ActivityList, ManagementTable, shiftCells, tablePageSize, TeamsView } from "./lists";
 
 function childElements(node: unknown): ReactElement[] {
   if (Array.isArray(node)) return node.flatMap(childElements);
@@ -36,6 +36,31 @@ function textOf(node: unknown): string {
       : (element.props as { children?: unknown }).children
   );
 }
+
+describe("Shift period cells", () => {
+  it("shows complete dates and the stored zone across a local date boundary", () => {
+    const cells = shiftCells("en-GB")({
+      name: "Night",
+      startsAt: "2026-08-30T01:00:00Z",
+      endsAt: "2026-08-30T09:00:00Z",
+      timezone: "America/Sao_Paulo",
+      status: "OPEN"
+    });
+    expect(cells).toEqual([
+      "Night",
+      "29/08/2026, 22:00 (America/Sao_Paulo)",
+      "30/08/2026, 06:00 (America/Sao_Paulo)",
+      "OPEN"
+    ]);
+  });
+
+  it("does not replace missing or invalid Shift zones with the browser zone", () => {
+    expect(shiftCells("en-GB")({ startsAt: "2026-08-30T01:00:00Z" })[1]).toBe("-");
+    expect(
+      shiftCells("en-GB")({ startsAt: "2026-08-30T01:00:00Z", timezone: "Invalid/Zone" })[1]
+    ).toBe("-");
+  });
+});
 
 describe("ActivityList server pagination", () => {
   it("renders the server page and requests adjacent server pages", () => {

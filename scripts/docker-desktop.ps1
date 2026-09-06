@@ -73,6 +73,7 @@ function Get-DockerDesktopPath {
 
   $candidates = foreach ($basePath in $basePaths) {
     if ($basePath -eq $env:LOCALAPPDATA) {
+      Join-Path $basePath "Programs/DockerDesktop/Docker Desktop.exe"
       Join-Path $basePath "Programs/Docker/Docker/Docker Desktop.exe"
     } else {
       Join-Path $basePath "Docker/Docker/Docker Desktop.exe"

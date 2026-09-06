@@ -17,11 +17,14 @@ export type View =
   | "reports"
   | "settings";
 export type ApiEnvelope<T> = { data: T };
+export type SessionCompany = { id: string; name: string; timezone: string };
 export type SessionUser = {
   id: string;
   email: string;
   displayName?: string;
   companyId?: string;
+  company?: SessionCompany;
+  companies?: SessionCompany[];
   permissions?: string[];
 };
 export type LoginResponse = {
@@ -49,6 +52,11 @@ export type DashboardSummary = {
   slaAtRisk: number;
   overdue: number;
   averageResolutionHours: number;
+  averageResolutionSample?: {
+    count: number;
+    limit: number;
+    basis: "LATEST_COMPLETED";
+  };
 };
 export type GroupCount = {
   _count?: { _all?: number };
@@ -170,6 +178,19 @@ export type ShiftRef = {
   endsAt?: string;
   status?: string;
   timezone?: string;
+};
+export type ShiftCoverageType = "REGULAR" | "ON_CALL" | "VACATION" | "SUBSTITUTE" | "ABSENCE";
+export type ShiftCoverageItem = {
+  id: string;
+  shiftId: string;
+  userId: string;
+  replacementForUserId: string | null;
+  type: ShiftCoverageType;
+  startsAt: string;
+  endsAt: string;
+  note: string | null;
+  user: UserRef;
+  replacementForUser: UserRef | null;
 };
 export type CommentItem = { id: string; body: string; createdAt?: string; author?: UserRef };
 export type AttachmentItem = {

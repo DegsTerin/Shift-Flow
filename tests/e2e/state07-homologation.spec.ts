@@ -22,7 +22,13 @@ async function login(page: Page) {
   ).toBeVisible();
   await page.getByLabel(/E-mail|Email/).fill(credentials.email);
   await page.getByLabel(/Senha|Password/).fill(credentials.password);
+  const loginResponse = page.waitForResponse(
+    (response) =>
+      response.url() === "http://localhost:3001/api/auth/login" &&
+      response.request().method() === "POST"
+  );
   await page.getByRole("button", { name: /Entrar|Sign in/ }).click();
+  expect((await loginResponse).status()).toBe(200);
   await expect(
     page.getByRole("heading", { name: /Dashboard Principal|Main Dashboard/ })
   ).toBeVisible();

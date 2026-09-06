@@ -16,6 +16,7 @@ Set-StrictMode -Version Latest
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $developmentEntrypoint = Join-Path $PSScriptRoot 'development.ps1'
+$agentContractPath = Join-Path $PSScriptRoot 'test-agent-contract.ps1'
 $dotnetEntrypoint = Join-Path $PSScriptRoot 'dotnet.ps1'
 $workflowEnvironmentPath = Join-Path $PSScriptRoot 'workflow.env'
 $syntheticDatabaseUrl = 'postgresql://shiftflow:workflow-local@127.0.0.1:1/shiftflow_workflow?schema=public'
@@ -128,6 +129,7 @@ function Assert-DependenciesReady {
 Push-Location $repositoryRoot
 try {
     & $developmentEntrypoint Doctor -CorePreflightOnly -CoreComponent $Component
+    & $agentContractPath
     & (Join-Path $PSScriptRoot 'test-development-workflow.ps1')
 
     if ($runNode -and -not $SkipInstall) {

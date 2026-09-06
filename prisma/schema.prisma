@@ -156,6 +156,12 @@ enum WidgetType {
   CUSTOM
 }
 
+enum AuthenticationSessionKind {
+  PASSWORD
+  DEMO
+  PORTFOLIO
+}
+
 model Company {
   id        String        @id @default(uuid()) @db.Uuid
   name      String        @db.VarChar(160)
@@ -167,27 +173,28 @@ model Company {
   updatedAt DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt DateTime?     @db.Timestamptz(6)
 
-  clients                 Client[]
-  users                   UserCompany[]
-  teams                   Team[]
-  shifts                  Shift[]
-  roles                   Role[]
-  permissions             Permission[]
-  rolePermissions         RolePermission[]
-  userRoleAssignments     UserRoleAssignment[]
-  activities              Activity[]
-  activityTaskColumns     ActivityTaskColumn[]
-  activityTasks           ActivityTask[]
-  activityTaskHistory     ActivityTaskHistory[]
-  activityHistory         ActivityHistory[]
-  comments                Comment[]
-  attachments             Attachment[]
-  notifications           Notification[]
-  shiftReports            ShiftReport[]
-  auditLogs               AuditLog[]
-  refreshTokens           RefreshToken[]
-  dashboardConfigurations DashboardConfiguration[]
-  dashboardWidgets        DashboardWidget[]
+  clients                           Client[]
+  users                             UserCompany[]
+  teams                             Team[]
+  shifts                            Shift[]
+  roles                             Role[]
+  permissions                       Permission[]
+  rolePermissions                   RolePermission[]
+  userRoleAssignments               UserRoleAssignment[]
+  activities                        Activity[]
+  activityTaskColumns               ActivityTaskColumn[]
+  activityTasks                     ActivityTask[]
+  activityTaskHistory               ActivityTaskHistory[]
+  activityHistory                   ActivityHistory[]
+  comments                          Comment[]
+  attachments                       Attachment[]
+  notifications                     Notification[]
+  shiftReports                      ShiftReport[]
+  auditLogs                         AuditLog[]
+  refreshTokens                     RefreshToken[]
+  authenticationSessionObservations AuthenticationSessionObservation[]
+  dashboardConfigurations           DashboardConfiguration[]
+  dashboardWidgets                  DashboardWidget[]
 
   @@unique([name])
   @@unique([id, status])
@@ -236,25 +243,26 @@ model User {
   updatedAt         DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt         DateTime?  @db.Timestamptz(6)
 
-  companies               UserCompany[]
-  clients                 UserClient[]
-  teamMemberships         TeamMember[]
-  shiftCoverages          ShiftCoverage[]          @relation("ShiftCoverageUser")
-  shiftReplacements       ShiftCoverage[]          @relation("ShiftCoverageReplacement")
-  roleAssignments         UserRoleAssignment[]
-  assignedActivities      Activity[]               @relation("ActivityAssignee")
-  reportedActivities      Activity[]               @relation("ActivityReporter")
-  assignedTasks           ActivityTask[]           @relation("ActivityTaskAssignee")
-  activityHistory         ActivityHistory[]
-  activityTaskHistory     ActivityTaskHistory[]
-  comments                Comment[]
-  attachments             Attachment[]
-  notifications           Notification[]
-  authoredReports         ShiftReport[]            @relation("ShiftReportAuthor")
-  approvedReports         ShiftReport[]            @relation("ShiftReportApprover")
-  auditLogs               AuditLog[]               @relation("AuditActor")
-  refreshTokens           RefreshToken[]
-  dashboardConfigurations DashboardConfiguration[]
+  companies                         UserCompany[]
+  clients                           UserClient[]
+  teamMemberships                   TeamMember[]
+  shiftCoverages                    ShiftCoverage[]                    @relation("ShiftCoverageUser")
+  shiftReplacements                 ShiftCoverage[]                    @relation("ShiftCoverageReplacement")
+  roleAssignments                   UserRoleAssignment[]
+  assignedActivities                Activity[]                         @relation("ActivityAssignee")
+  reportedActivities                Activity[]                         @relation("ActivityReporter")
+  assignedTasks                     ActivityTask[]                     @relation("ActivityTaskAssignee")
+  activityHistory                   ActivityHistory[]
+  activityTaskHistory               ActivityTaskHistory[]
+  comments                          Comment[]
+  attachments                       Attachment[]
+  notifications                     Notification[]
+  authoredReports                   ShiftReport[]                      @relation("ShiftReportAuthor")
+  approvedReports                   ShiftReport[]                      @relation("ShiftReportApprover")
+  auditLogs                         AuditLog[]                         @relation("AuditActor")
+  refreshTokens                     RefreshToken[]
+  authenticationSessionObservations AuthenticationSessionObservation[]
+  dashboardConfigurations           DashboardConfiguration[]
 
   @@index([status, deletedAt])
   @@map("users")
@@ -863,22 +871,45 @@ model AuditLog {
 }
 
 model RefreshToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @db.Uuid
-  companyId String?   @db.Uuid
-  tokenHash String    @unique @db.VarChar(255)
-  userAgent String?   @db.Text
-  ipAddress String?   @db.VarChar(80)
-  expiresAt DateTime  @db.Timestamptz(6)
-  revokedAt DateTime? @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  id          String                    @id @default(uuid()) @db.Uuid
+  userId      String                    @db.Uuid
+  companyId   String?                   @db.Uuid
+  sessionKind AuthenticationSessionKind @default(PASSWORD)
+  familyId    String                    @db.Uuid
+  tokenHash   String                    @unique @db.VarChar(255)
+  userAgent   String?                   @db.Text
+  ipAddress   String?                   @db.VarChar(80)
+  expiresAt   DateTime                  @db.Timestamptz(6)
+  revokedAt   DateTime?                 @db.Timestamptz(6)
+  createdAt   DateTime                  @default(now()) @db.Timestamptz(6)
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
   @@index([userId, expiresAt, revokedAt])
   @@index([companyId, expiresAt, revokedAt])
+  @@index([userId, companyId, sessionKind, expiresAt, revokedAt])
+  @@index([userId, companyId, sessionKind, familyId, revokedAt])
   @@map("refresh_tokens")
+}
+
+model AuthenticationSessionObservation {
+  id          String                    @id @default(uuid()) @db.Uuid
+  userId      String                    @db.Uuid
+  companyId   String                    @db.Uuid
+  sessionKind AuthenticationSessionKind
+  emailHash   String                    @db.VarChar(64)
+  requestId   String?                   @db.VarChar(120)
+  ipAddress   String?                   @db.VarChar(80)
+  userAgent   String?                   @db.Text
+  observedAt  DateTime                  @default(now()) @db.Timestamptz(6)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, companyId, observedAt])
+  @@index([companyId, sessionKind, observedAt])
+  @@map("authentication_session_observations")
 }
 
 model AccessTokenRevocation {

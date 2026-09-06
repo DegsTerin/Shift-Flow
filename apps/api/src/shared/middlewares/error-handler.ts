@@ -51,6 +51,10 @@ export function errorHandler(error: unknown, req: Request, res: Response, _next:
       });
     }
 
+    if (error.retryAfterSeconds !== undefined) {
+      res.setHeader("retry-after", String(error.retryAfterSeconds));
+    }
+
     res.status(error.statusCode).json({
       error: {
         code: error.code,

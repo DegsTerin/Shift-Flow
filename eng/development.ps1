@@ -29,6 +29,7 @@ $lockPath = Join-Path $repositoryRoot 'package-lock.json'
 $globalJsonPath = Join-Path $repositoryRoot 'global.json'
 $dotnetSolutionPath = Join-Path $repositoryRoot 'apps/api-dotnet/ShiftFlow.slnx'
 $dotnetEntrypoint = Join-Path $PSScriptRoot 'dotnet.ps1'
+$agentContractPath = Join-Path $PSScriptRoot 'test-agent-contract.ps1'
 $workflowEnvironmentPath = Join-Path $PSScriptRoot 'workflow.env'
 $syntheticDatabaseUrl = 'postgresql://shiftflow:workflow-local@127.0.0.1:1/shiftflow_workflow?schema=public'
 $isolatedEnvironmentVariables = @(
@@ -133,6 +134,7 @@ function Get-DevelopmentPlan {
         'Quick' {
             @(
                 'Validate repository root, toolchains, package lock and prepared dependencies',
+                'eng/test-agent-contract.ps1',
                 'npm run quality',
                 'npm run test:unit',
                 'npm run build',
@@ -147,7 +149,7 @@ function Get-DevelopmentPlan {
             else {
                 'eng/ci.ps1'
             }
-            @($ciCommand)
+            @("$ciCommand (includes eng/test-agent-contract.ps1)")
         }
     })
 
@@ -242,7 +244,13 @@ function Assert-RepositoryLayout {
     $requiredPaths = @(
             (Join-Path $PSScriptRoot 'build.ps1'),
             (Join-Path $PSScriptRoot 'ci.ps1'),
+            $agentContractPath,
             (Join-Path $PSScriptRoot 'test-development-workflow.ps1'),
+            (Join-Path $repositoryRoot '.codex/config.toml'),
+            (Join-Path $repositoryRoot '.codex/agents/shift-scout.toml'),
+            (Join-Path $repositoryRoot '.codex/agents/shift-implementer.toml'),
+            (Join-Path $repositoryRoot '.codex/agents/shift-verifier.toml'),
+            (Join-Path $repositoryRoot '.codex/agents/shift-security-reviewer.toml'),
             $workflowEnvironmentPath)
     if ($CoreComponent -in @('All', 'Node')) {
         $requiredPaths += @(
@@ -497,6 +505,7 @@ function Invoke-Quick {
     Assert-Toolchains
     Assert-PackageLock
     Assert-DependenciesReady
+    & $agentContractPath
 
     npm run quality
     Assert-LastExitCode -Operation 'Quality checks'

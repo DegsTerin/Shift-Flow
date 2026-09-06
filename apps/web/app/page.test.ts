@@ -1,5 +1,7 @@
 // en-GB: Exercises the real page orchestration across request, pagination and session boundaries.
 import type { ReactElement } from "react";
+import type * as PageDataModule from "./lib/page-data";
+import type * as ApiModule from "./lib/api";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ActivityItem,
@@ -93,6 +95,8 @@ vi.mock("./lib/page-data", () => ({
 }));
 
 import Page from "./page";
+import { PageWorkspace } from "./components/page-workspace";
+import { CustomizableDashboard } from "./components/custom-dashboard";
 import { ActivityList, ManagementTable } from "./components/lists";
 import { FilterBar, IconToggle, ReferenceSelectInput, Select } from "./components/controls";
 import { NotificationCentre } from "./components/notification-centre";
@@ -101,6 +105,7 @@ import { RoleManagementView } from "./components/role-management-view";
 import { KanbanBoard, MainDashboard, ReportsView, TeamDashboard } from "./components/views";
 import { captureApiSessionEpoch, clearApiSession, setApiSession } from "./lib/api";
 import { messages } from "./lib/i18n";
+import { defaultDashboardLayouts } from "./lib/page-config";
 
 type StateSlot = { kind: "state"; value: unknown };
 type RefSlot = { kind: "ref"; value: { current: unknown } };
@@ -210,7 +215,7 @@ class HookRuntime {
     this.cursor = 0;
     this.pendingLayoutEffects = [];
     this.pendingPassiveEffects = [];
-    const tree = Page();
+    const tree = renderPage();
     const layoutEffects = this.pendingLayoutEffects;
     this.pendingLayoutEffects = [];
     layoutEffects.forEach((effect) => effect());
@@ -227,9 +232,20 @@ class HookRuntime {
     this.cursor = 0;
     this.pendingLayoutEffects = [];
     this.pendingPassiveEffects = [];
-    const tree = Page();
+    const tree = renderPage();
     this.pendingLayoutEffects = [];
     this.pendingPassiveEffects = [];
+    return tree;
+  }
+
+  renderComponent(component: () => ReactElement) {
+    this.cursor = 0;
+    this.pendingLayoutEffects = [];
+    this.pendingPassiveEffects = [];
+    const tree = component();
+    this.pendingLayoutEffects.forEach((effect) => effect());
+    this.pendingLayoutEffects = [];
+    this.flushPassiveEffects();
     return tree;
   }
 
@@ -285,6 +301,16 @@ async function flushPromises() {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
+}
+
+let latestRawPage: ReactElement | null = null;
+
+function renderPage() {
+  const tree = Page();
+  latestRawPage = tree;
+  return tree.type === PageWorkspace
+    ? PageWorkspace(tree.props as Parameters<typeof PageWorkspace>[0])
+    : tree;
 }
 
 function elements(node: unknown): ReactElement[] {
@@ -418,6 +444,456 @@ describe("Page request lifecycle", () => {
   let runtime: HookRuntime;
   let clock: FakeClock;
 
+  const dashboardResources: PageDataModule.DashboardResource[] = [
+    "summary",
+    "charts",
+    "operationalActivities",
+    "configuration",
+    "teamDirectory"
+  ];
+  const mainProps = (tree: ReactElement) =>
+    findByType(tree, MainDashboard).props as Parameters<typeof MainDashboard>[0];
+  const workspaceProps = () => latestRawPage!.props as Parameters<typeof PageWorkspace>[0];
+  async function flushDashboard() {
+    for (let turn = 0; turn < 12; turn += 1) await Promise.resolve();
+  }
+  async function liveDashboardRequests() {
+    const actual = await vi.importActual<typeof PageDataModule>("./lib/page-data");
+    const pending: Array<{
+      path: string;
+      resource: PageDataModule.DashboardResource;
+      operation: ReturnType<typeof deferred<unknown>>;
+      signal?: AbortSignal | null;
+    }> = [];
+    const request: PageDataModule.PageRequester = <T>(
+      path: string,
+      token?: string,
+      init?: RequestInit
+    ) => {
+      void token;
+      const resource = path.startsWith("/api/teams?")
+        ? "teamDirectory"
+        : path.includes("/configuration/")
+          ? "configuration"
+          : path.includes("/operational-list")
+            ? "operationalActivities"
+            : path.includes("/summary")
+              ? "summary"
+              : "charts";
+      const operation = deferred<unknown>();
+      pending.push({ path, resource, operation, signal: init?.signal });
+      return operation.promise as Promise<T>;
+    };
+    pageDataBridge.fetchPageData
+      .mockReset()
+      .mockImplementation((options: Parameters<typeof actual.fetchPageData>[0]) =>
+        actual.fetchPageData({ ...options, request })
+      );
+    const latest = (resource: PageDataModule.DashboardResource) => {
+      const entry = [...pending].reverse().find((item) => item.resource === resource);
+      if (!entry) throw new Error(`No pending ${resource} request`);
+      return entry;
+    };
+    const values: PageDataModule.DashboardDataMap = {
+      summary: dashboardSnapshot("live", 7).dashboard.summary,
+      charts,
+      operationalActivities: [activity("live")],
+      configuration: {
+        ...defaultDashboardLayouts.MAIN,
+        isDefault: false,
+        widgets: defaultDashboardLayouts.MAIN.widgets.filter(
+          (widget) => widget.key === "summary-total"
+        )
+      },
+      teamDirectory: {
+        items: [{ id: "team-live", name: "Live team" }],
+        total: 1,
+        page: 1,
+        pageSize: 12
+      }
+    };
+    const resolve = (
+      resource: PageDataModule.DashboardResource,
+      value: unknown = values[resource]
+    ) => latest(resource).operation.resolve(value);
+    const resolveAll = () =>
+      dashboardResources.forEach((resource) => {
+        if (pending.some((entry) => entry.resource === resource)) resolve(resource);
+      });
+    return { pending, latest, values, resolve, resolveAll };
+  }
+
+  it.each(dashboardResources)(
+    "publishes real page settlements while %s hangs and then fails",
+    async (failed) => {
+      const requests = await liveDashboardRequests();
+      await authenticate(scopedSession(["dashboard:read", "dashboard:write", "teams:read"]));
+      dashboardResources
+        .filter((resource) => resource !== failed)
+        .forEach((resource) => requests.resolve(resource));
+      await flushDashboard();
+      let properties = mainProps(runtime.render());
+      expect(properties.availability?.[failed]).toBe("loading");
+      dashboardResources
+        .filter((resource) => resource !== failed)
+        .forEach((resource) => expect(properties.availability?.[resource]).toBe("ready"));
+      requests.latest(failed).operation.reject(new Error(`${failed} unavailable`));
+      await flushDashboard();
+      properties = mainProps(runtime.render());
+      expect(properties.availability?.[failed]).toBe("error");
+      expect(properties.summary.total).toBe(failed === "summary" ? 0 : 7);
+      expect(properties.activities).toEqual(
+        failed === "operationalActivities" ? [] : [activity("live")]
+      );
+      expect(properties.canConfigure).toBe(failed !== "configuration");
+      if (failed === "teamDirectory") expect(properties.pagination).toBeUndefined();
+    }
+  );
+
+  it.each(["dashboard", "team-dashboard"] as const)(
+    "keeps the real %s workspace available while only its pending widget is busy",
+    async (view) => {
+      const requests = await liveDashboardRequests();
+      const initial = await authenticate(scopedSession(["dashboard:read", "teams:read"]));
+      if (view === "team-dashboard") {
+        clickButton(initial, messages["pt-BR"].teamDashboard);
+        runtime.render();
+      }
+      const kind = view === "dashboard" ? "MAIN" : "TEAM";
+      const pendingKey = view === "dashboard" ? "chart-status" : "team-productivity";
+      const readyKey = view === "dashboard" ? "summary-total" : "team-summary";
+      if (view === "dashboard") requests.resolve("summary");
+      requests.resolve("operationalActivities");
+      requests.resolve("teamDirectory");
+      requests.resolve("configuration", {
+        ...defaultDashboardLayouts[kind],
+        isDefault: false,
+        widgets: defaultDashboardLayouts[kind].widgets.filter(
+          (widget) => widget.key === pendingKey || widget.key === readyKey
+        )
+      });
+      // en-GB: The real charts request remains unsettled while sibling lanes publish their data.
+      await flushDashboard();
+      const tree = runtime.render();
+      expect(workspaceProps().loading).toBe(true);
+      expect(workspaceProps().dashboardAvailability).toMatchObject({
+        charts: "loading",
+        configuration: "ready",
+        operationalActivities: "ready",
+        teamDirectory: "ready"
+      });
+      const main = findByType(tree, "main");
+      expect((main.props as { "aria-busy"?: boolean })["aria-busy"]).toBeUndefined();
+      const dashboard =
+        view === "dashboard"
+          ? MainDashboard(mainProps(tree))
+          : TeamDashboard(
+              findByType(tree, TeamDashboard).props as Parameters<typeof TeamDashboard>[0]
+            );
+      const properties = findByType(dashboard, CustomizableDashboard).props as Parameters<
+        typeof CustomizableDashboard
+      >[0];
+      const pendingDefinition = properties.definitions.find(
+        (definition) => definition.key === pendingKey
+      )!;
+      const pendingWidget = properties.config.widgets.find((widget) => widget.key === pendingKey)!;
+      const pending = pendingDefinition.render(pendingWidget) as ReactElement;
+      expect((findByType(pending, "article").props as { "aria-busy"?: boolean })["aria-busy"]).toBe(
+        true
+      );
+      const pendingStatus = findByType(pending, "p");
+      expect(pendingStatus.props).toMatchObject({ role: "status", "aria-live": "polite" });
+      expect(textOf(pendingStatus)).toBe(messages["pt-BR"].dashboardDependencyLoading);
+
+      const readyDefinition = properties.definitions.find(
+        (definition) => definition.key === readyKey
+      )!;
+      const readyWidget = properties.config.widgets.find((widget) => widget.key === readyKey)!;
+      const ready = readyDefinition.render(readyWidget) as ReactElement;
+      const readyTree =
+        typeof ready.type === "function"
+          ? (ready.type as (props: unknown) => ReactElement)(ready.props)
+          : ready;
+      expect(textOf(readyTree)).toContain(view === "dashboard" ? "7" : "Live team");
+      expect(
+        elements(readyTree).some(
+          (element) => (element.props as { "aria-busy"?: boolean })["aria-busy"] === true
+        )
+      ).toBe(false);
+    }
+  );
+
+  it("preserves the real management workspace busy state until its request settles", async () => {
+    const pending = deferred<{ items: never[]; total: number; page: number; pageSize: number }>();
+    pageDataBridge.fetchManagementData.mockReturnValueOnce(pending.promise);
+    const initial = await authenticate(scopedSession(["dashboard:read", "users:read"]));
+    clickButton(initial, messages["pt-BR"].users);
+    runtime.render();
+    const loading = findByType(runtime.render(), "main");
+    expect((loading.props as { "aria-busy"?: boolean })["aria-busy"]).toBe(true);
+
+    pending.resolve({ items: [], total: 0, page: 1, pageSize: 12 });
+    await flushPromises();
+    const ready = findByType(runtime.render(), "main");
+    expect((ready.props as { "aria-busy"?: boolean })["aria-busy"]).toBe(false);
+  });
+
+  it("hides the previous data context before effects and rejects late filter, search and session responses", async () => {
+    const requests = await liveDashboardRequests();
+    await authenticate(scopedSession(["dashboard:read", "teams:read"]));
+    requests.resolve("summary");
+    await flushDashboard();
+    runtime.render();
+    const previousCharts = requests.latest("charts");
+    workspaceProps().changeFilters({ ...workspaceProps().filters, status: "DONE" });
+    let properties = mainProps(runtime.renderWithoutEffects());
+    expect(properties.availability?.summary).toBe("loading");
+    expect(properties.summary.total).toBe(0);
+    previousCharts.operation.resolve({
+      ...charts,
+      byStatus: [{ status: "PENDING", _count: { _all: 99 } }]
+    });
+    await flushDashboard();
+    expect(mainProps(runtime.renderWithoutEffects()).charts.byStatus).toEqual([]);
+    runtime.render();
+    requests.resolveAll();
+    await flushDashboard();
+    runtime.render();
+    workspaceProps().setSearch("new search");
+    properties = mainProps(runtime.renderWithoutEffects());
+    expect(properties.availability?.summary).toBe("loading");
+    expect(properties.summary.total).toBe(0);
+    runtime.render();
+    clock.advanceBy(300);
+    runtime.render();
+    const oldSummary = requests.latest("summary");
+    setApiSession(scopedSession(["dashboard:read", "teams:read"], "other", "company-b"));
+    oldSummary.operation.resolve({ ...requests.values.summary, total: 99 });
+    await flushDashboard();
+    properties = mainProps(runtime.renderWithoutEffects());
+    expect(properties.summary.total).toBe(0);
+    expect(properties.availability?.summary).not.toBe("ready");
+  });
+
+  it("renders inverted filters as unavailable without carrying forward a prior valid sample", async () => {
+    const requests = await liveDashboardRequests();
+    await authenticate(scopedSession(["dashboard:read", "teams:read"]));
+    requests.resolveAll();
+    await flushDashboard();
+    runtime.render();
+    const callCount = requests.pending.length;
+    workspaceProps().changeFilters({
+      ...workspaceProps().filters,
+      from: "2026-09-05",
+      to: "2026-09-04"
+    });
+    const properties = mainProps(runtime.renderWithoutEffects());
+    expect(properties.availability?.summary).toBe("error");
+    expect(properties.summary.total).toBe(0);
+    expect(properties.activities).toEqual([]);
+    runtime.render();
+    expect(requests.pending).toHaveLength(callCount);
+  });
+
+  it("revokes captured save/reset callbacks and pending results until a fresh configuration recovers", async () => {
+    const requests = await liveDashboardRequests();
+    await authenticate(scopedSession(["dashboard:read", "dashboard:write", "teams:read"]));
+    requests.resolveAll();
+    await flushDashboard();
+    let tree = runtime.render();
+    const initialKey = findByType(tree, MainDashboard).key;
+    const old = mainProps(tree);
+    const pendingSave = deferred<DashboardConfiguration>();
+    apiBridge.apiRequest.mockReset().mockReturnValueOnce(pendingSave.promise);
+    const save = old.onSaveLayout({ ...requests.values.configuration, gridGap: 20 });
+    const refresh = workspaceProps().refreshCurrent();
+    requests.latest("configuration").operation.reject(new Error("configuration unavailable"));
+    dashboardResources
+      .filter((resource) => resource !== "configuration")
+      .forEach((resource) => requests.resolve(resource));
+    await refresh;
+    tree = runtime.render();
+    expect(mainProps(tree).canConfigure).toBe(false);
+    expect(mainProps(tree).availability?.configuration).toBe("error");
+    expect(findByType(tree, MainDashboard).key).not.toBe(initialKey);
+    await old.onSaveLayout(requests.values.configuration);
+    await old.onResetLayout();
+    expect(apiBridge.apiRequest).toHaveBeenCalledOnce();
+    pendingSave.resolve({ ...requests.values.configuration, gridGap: 99 });
+    await save;
+    expect(mainProps(runtime.render()).layout.gridGap).not.toBe(99);
+    const recover = workspaceProps().refreshCurrent();
+    requests.resolveAll();
+    await recover;
+    expect(mainProps(runtime.render()).canConfigure).toBe(true);
+    await old.onSaveLayout(requests.values.configuration);
+    expect(apiBridge.apiRequest).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a real customisation draft and cumulative queue through successful revalidation", async () => {
+    const requests = await liveDashboardRequests();
+    await authenticate(scopedSession(["dashboard:read", "dashboard:write", "teams:read"]));
+    requests.resolveAll();
+    await flushDashboard();
+    let tree = runtime.render();
+    const originalKey = findByType(tree, MainDashboard).key;
+    let properties = mainProps(tree);
+    const childRuntime = new HookRuntime();
+    const install = (target: HookRuntime) => {
+      hookBridge.useState = target.useState.bind(target);
+      hookBridge.useRef = target.useRef.bind(target);
+      hookBridge.useMemo = target.useMemo.bind(target);
+      hookBridge.useCallback = target.useCallback.bind(target);
+      hookBridge.useEffect = target.useEffect.bind(target);
+      hookBridge.useLayoutEffect = target.useLayoutEffect.bind(target);
+    };
+    const renderChild = () => {
+      const child = findByType(MainDashboard(properties), CustomizableDashboard);
+      install(childRuntime);
+      try {
+        return childRuntime.renderComponent(() =>
+          CustomizableDashboard(child.props as Parameters<typeof CustomizableDashboard>[0])
+        );
+      } finally {
+        install(runtime);
+      }
+    };
+    const clickControl = (child: ReactElement, label: string) => {
+      const button = elements(child).find(
+        (element) =>
+          element.type === "button" &&
+          (element.props as { "aria-label"?: string })["aria-label"] === label
+      );
+      if (!button) throw new Error(`Missing widget control: ${label}`);
+      (button.props as { onClick: () => void }).onClick();
+    };
+    const first = deferred<DashboardConfiguration>();
+    const second = deferred<DashboardConfiguration>();
+    apiBridge.apiRequest
+      .mockReset()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    try {
+      renderChild();
+      const registration = [...vi.mocked(window.addEventListener).mock.calls]
+        .reverse()
+        .find(([name]) => name === "shiftflow:customize-dashboard");
+      const listener = registration?.[1];
+      if (typeof listener !== "function") throw new Error("Missing customisation listener");
+      listener(new Event("shiftflow:customize-dashboard"));
+      clickControl(renderChild(), messages["pt-BR"].increaseWidth);
+      await flushDashboard();
+      expect(apiBridge.apiRequest).toHaveBeenCalledOnce();
+      clickControl(renderChild(), messages["pt-BR"].increaseHeight);
+
+      const refresh = workspaceProps().refreshCurrent();
+      requests.resolveAll();
+      await refresh;
+      tree = runtime.render();
+      properties = mainProps(tree);
+      expect(findByType(tree, MainDashboard).key).toBe(originalKey);
+      expect(properties.canConfigure).toBe(true);
+      const child = renderChild();
+      expect(
+        elements(child).some(
+          (element) =>
+            (element.props as { "aria-label"?: string })["aria-label"] ===
+            messages["pt-BR"].exitCustomization
+        )
+      ).toBe(true);
+      expect(apiBridge.apiRequest).toHaveBeenCalledOnce();
+      const firstBody = JSON.parse(
+        String(apiBridge.apiRequest.mock.calls[0]?.[2]?.body)
+      ) as DashboardConfiguration;
+      first.resolve(firstBody);
+      await flushDashboard();
+      expect(apiBridge.apiRequest).toHaveBeenCalledTimes(2);
+      const secondBody = JSON.parse(
+        String(apiBridge.apiRequest.mock.calls[1]?.[2]?.body)
+      ) as DashboardConfiguration;
+      expect(secondBody.widgets[0]).toMatchObject({ gridWidth: 3, gridHeight: 3 });
+      second.resolve(secondBody);
+      await flushDashboard();
+      expect(mainProps(runtime.render()).layout.widgets[0]).toMatchObject({
+        gridWidth: 3,
+        gridHeight: 3
+      });
+    } finally {
+      childRuntime.cleanup();
+      install(runtime);
+    }
+  });
+
+  it("confines real directory pagination failure and correction to its own presentation", async () => {
+    const requests = await liveDashboardRequests();
+    await authenticate(scopedSession(["dashboard:read", "teams:read"]));
+    requests.resolve("summary", { ...requests.values.summary, total: 0 });
+    requests.resolve("charts");
+    requests.resolve("operationalActivities", []);
+    requests.resolve("configuration");
+    requests.resolve("teamDirectory", { items: [], total: 40, page: 2, pageSize: 12 });
+    await flushDashboard();
+    let properties = mainProps(runtime.render());
+    expect(properties.availability).toMatchObject({
+      summary: "ready",
+      teamDirectory: "error",
+      operationalActivities: "ready"
+    });
+    expect(properties.summary.total).toBe(0);
+    expect(properties.activities).toEqual([]);
+    expect(properties.pagination).toBeUndefined();
+    workspaceProps().changeTeamDirectoryPage(9);
+    runtime.render();
+    requests.resolve("summary");
+    requests.resolve("charts");
+    requests.resolve("operationalActivities");
+    requests.resolve("configuration");
+    requests.resolve("teamDirectory", { items: [], total: 13, page: 9, pageSize: 12 });
+    await flushDashboard();
+    expect(requests.latest("teamDirectory").path).toContain("page=2&");
+    requests.resolve("teamDirectory", {
+      items: [{ id: "team-13", name: "Final team" }],
+      total: 13,
+      page: 2,
+      pageSize: 12
+    });
+    await flushDashboard();
+    properties = mainProps(runtime.render());
+    expect(properties.availability?.teamDirectory).toBe("ready");
+    expect(properties.summary.total).toBe(7);
+    expect(properties.pagination?.page).toBe(2);
+    expect(properties.teams[0]?.id).toBe("team-13");
+  });
+
+  it("uses real skipped settlements for the TEAM summary and an unauthorised directory", async () => {
+    const requests = await liveDashboardRequests();
+    await authenticate(scopedSession(["dashboard:read"]));
+    requests.resolve("summary");
+    requests.resolve("charts");
+    requests.resolve("operationalActivities");
+    requests.resolve("configuration");
+    await flushDashboard();
+    const tree = runtime.render();
+    clickButton(tree, messages["pt-BR"].teamDashboard);
+    runtime.render();
+    requests.resolve("charts");
+    requests.resolve("operationalActivities", []);
+    requests.resolve("configuration", { ...requests.values.configuration, dashboardType: "TEAM" });
+    await flushDashboard();
+    const properties = findByType(runtime.render(), TeamDashboard).props as Parameters<
+      typeof TeamDashboard
+    >[0];
+    expect(properties.availability).toMatchObject({
+      summary: "skipped",
+      teamDirectory: "skipped",
+      charts: "ready",
+      configuration: "ready",
+      operationalActivities: "ready"
+    });
+    expect(properties.pagination).toBeUndefined();
+    expect(properties.teams).toEqual([]);
+  });
+
   async function authenticate(nextSession = session()) {
     runtime.render();
     setApiSession(nextSession);
@@ -457,6 +933,7 @@ describe("Page request lifecycle", () => {
 
   beforeEach(() => {
     clearApiSession();
+    latestRawPage = null;
     runtime = new HookRuntime();
     clock = new FakeClock();
     hookBridge.useState = runtime.useState.bind(runtime);
@@ -502,6 +979,543 @@ describe("Page request lifecycle", () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  function companySession(companyId = "company-a"): LoginResponse {
+    const companies = [
+      { id: "company-a", name: "London operations", timezone: "Europe/London" },
+      { id: "company-b", name: "Brazil operations", timezone: "America/Sao_Paulo" }
+    ];
+    return {
+      ...session(),
+      authenticationMode: "required",
+      accessToken: `${companyId}-access`,
+      user: {
+        ...session().user,
+        companyId,
+        company: companies.find((company) => company.id === companyId)!,
+        companies
+      }
+    };
+  }
+
+  function installCompanyBrowser() {
+    Object.assign(window, {
+      location: { href: "http://localhost:3000/", hostname: "localhost", protocol: "http:" }
+    });
+    Object.assign(document, { cookie: "" });
+    const storage = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", {
+      getItem: vi.fn((key: string) => storage.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => storage.set(key, value)),
+      removeItem: vi.fn((key: string) => storage.delete(key))
+    });
+    vi.stubGlobal("fetch", vi.fn());
+  }
+
+  it.each(["pt-BR", "en-GB"] as const)(
+    "renders coherent company, timezone and user context in %s including monitor mode",
+    async (locale) => {
+      await authenticate(companySession());
+      workspaceProps().setLocale(locale);
+      let tree = runtime.render();
+      expect(textOf(tree)).toContain("London operations · Europe/London");
+      expect(textOf(tree)).toContain("user-a@example.com");
+      const selection = elements(tree).find(
+        (element) =>
+          element.type === "select" && (element.props as { name?: string }).name === "companyId"
+      )!;
+      const options = elements(selection).filter((element) => element.type === "option");
+      expect(options.map((element) => (element.props as { value: string }).value)).toEqual([
+        "",
+        "company-b"
+      ]);
+      expect(textOf(selection).replace(/\s+/g, " ")).toContain(
+        "Brazil operations · America/Sao_Paulo"
+      );
+      expect((findByType(tree, "form").props as { "aria-label": string })["aria-label"]).toBe(
+        messages[locale].switchCompany
+      );
+      workspaceProps().toggleMonitorMode();
+      tree = runtime.render();
+      expect(textOf(tree)).toContain("London operations · Europe/London");
+      expect(textOf(tree)).toContain("user-a@example.com");
+    }
+  );
+
+  it.each(["demo", "portfolio", "legacy", "singleton", "missing", "mismatch", "timezone"])(
+    "keeps %s company context fail-closed in the workspace",
+    async (kind) => {
+      const candidate = companySession();
+      if (kind === "demo" || kind === "portfolio") candidate.authenticationMode = kind;
+      if (kind === "legacy") delete candidate.authenticationMode;
+      if (kind === "singleton") candidate.user.companies = [candidate.user.company!];
+      if (kind === "missing") delete candidate.user.company;
+      if (kind === "mismatch") candidate.user.companyId = "unexpected-company";
+      if (kind === "timezone")
+        candidate.user.company = { ...candidate.user.company!, timezone: "Invalid/Zone" };
+      const tree = await authenticate(candidate);
+      expect(elements(tree).some((element) => element.type === "form")).toBe(false);
+      if (["missing", "mismatch", "timezone"].includes(kind)) {
+        expect(textOf(tree)).toContain(messages["pt-BR"].companyContextUnavailable);
+        expect(textOf(tree)).not.toContain("Europe/London");
+      }
+    }
+  );
+
+  it("submits the real company login, clears its password immediately, blocks duplicate/logout and resets the workspace", async () => {
+    installCompanyBrowser();
+    await authenticate(companySession());
+    const previousKey = latestRawPage?.key;
+    workspaceProps().setSearch("old company search");
+    runtime.render();
+    const previous = workspaceProps();
+    const login = deferred<Response>();
+    vi.mocked(fetch).mockReturnValueOnce(login.promise);
+    const form = new FormData();
+    form.set("companyId", "company-b");
+    form.set("companyPassword", "test-only-password");
+    form.set("email", "untrusted@example.com");
+    vi.stubGlobal(
+      "FormData",
+      class {
+        constructor() {
+          return form;
+        }
+      }
+    );
+    const reset = vi.fn();
+    const event = { preventDefault: vi.fn(), currentTarget: { reset } } as unknown as Parameters<
+      typeof previous.switchCompany
+    >[0];
+    const switching = previous.switchCompany(event);
+    expect(reset).toHaveBeenCalledOnce();
+    await previous.switchCompany(event);
+    await previous.logout();
+    const busy = runtime.render();
+    expect((findByType(busy, "fieldset").props as { disabled: boolean }).disabled).toBe(true);
+    expect(
+      elements(busy).find(
+        (element) =>
+          element.type === "button" &&
+          (element.props as { "aria-label"?: string })["aria-label"] === messages["pt-BR"].signOut
+      )?.props
+    ).toMatchObject({ disabled: true });
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const init = vi.mocked(fetch).mock.calls[0]?.[1];
+    expect(init?.body).toBe(
+      JSON.stringify({
+        email: "user-a@example.com",
+        password: "test-only-password",
+        companyId: "company-b"
+      })
+    );
+    expect([...new Headers(init?.headers).keys()]).toEqual(["content-type"]);
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+    const target = companySession("company-b");
+    login.resolve({ ok: true, status: 200, json: async () => ({ data: target }) } as Response);
+    await switching;
+    const tree = runtime.render();
+    expect(textOf(tree)).toContain("Brazil operations · America/Sao_Paulo");
+    expect(latestRawPage?.key).not.toBe(previousKey);
+    expect(workspaceProps().search).toBe("");
+    expect(workspaceProps().companySwitchPending).toBe(false);
+    expect(sessionStorage.setItem).toHaveBeenCalledWith("shiftflow.reauthentication-required", "1");
+    expect(sessionStorage.setItem).toHaveBeenCalledOnce();
+  });
+
+  it("blocks a retained selector callback while a record modal preserves its edits", async () => {
+    installCompanyBrowser();
+    await authenticate(companySession());
+    const previous = workspaceProps();
+    const modal = {
+      mode: "detail" as const,
+      entity: "users" as const,
+      record: { id: "shared-user", displayName: "Editing" }
+    };
+    previous.setModal(modal);
+    const tree = runtime.render();
+    const reset = vi.fn();
+    await previous.switchCompany({
+      preventDefault: vi.fn(),
+      currentTarget: { reset }
+    } as unknown as Parameters<typeof previous.switchCompany>[0]);
+    expect((findByType(tree, "fieldset").props as { disabled: boolean }).disabled).toBe(true);
+    expect(textOf(tree)).toContain(messages["pt-BR"].companySwitchModalBlocked);
+    expect(workspaceProps().modal).toEqual(modal);
+    expect(reset).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["rejected", "uncertain"])(
+    "renders the real company authentication %s outcome",
+    async (outcome) => {
+      installCompanyBrowser();
+      await authenticate(companySession());
+      const previous = workspaceProps();
+      const form = new FormData();
+      form.set("companyId", "company-b");
+      form.set("companyPassword", "test-only-password");
+      vi.stubGlobal(
+        "FormData",
+        class {
+          constructor() {
+            return form;
+          }
+        }
+      );
+      vi.mocked(fetch).mockResolvedValueOnce(
+        outcome === "rejected"
+          ? ({
+              ok: false,
+              status: 401,
+              json: async () => ({ error: { message: "Invalid credentials" } })
+            } as Response)
+          : ({ ok: true, status: 200, json: async () => ({ data: {} }) } as Response)
+      );
+      await previous.switchCompany({
+        preventDefault: vi.fn(),
+        currentTarget: { reset: vi.fn() }
+      } as unknown as Parameters<typeof previous.switchCompany>[0]);
+      const tree = runtime.render();
+      expect(textOf(tree)).toContain(
+        outcome === "rejected"
+          ? messages["pt-BR"].companySwitchRejected
+          : messages["pt-BR"].companySwitchUncertain
+      );
+      expect(textOf(tree).includes("London operations")).toBe(outcome === "rejected");
+    }
+  );
+
+  it.each(["pt-BR", "en-GB"] as const)(
+    "reports rejected recovery without claiming a retained company in %s",
+    async (locale) => {
+      installCompanyBrowser();
+      sessionStorage.setItem("shiftflow.reauthentication-required", "1");
+      vi.mocked(localStorage.getItem).mockImplementation((key) =>
+        key === "shiftflow.locale" ? locale : null
+      );
+      runtime.render();
+      await flushPromises();
+      const tree = runtime.render();
+      const form = new FormData();
+      form.set("email", "user-a@example.com");
+      form.set("password", "rejected-test-password");
+      vi.stubGlobal(
+        "FormData",
+        class {
+          constructor() {
+            return form;
+          }
+        }
+      );
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: { message: "Invalid credentials" } })
+      } as Response);
+      await (
+        findByType(tree, "form").props as { onSubmit: (event: unknown) => Promise<void> }
+      ).onSubmit({ preventDefault: vi.fn(), currentTarget: { reset: vi.fn() } });
+      const result = textOf(runtime.render());
+      expect(result).toContain(messages[locale].loginFailed);
+      expect(result).not.toContain(messages[locale].companySwitchRejected);
+      expect(sessionStorage.getItem("shiftflow.reauthentication-required")).toBe("1");
+      expect(captureApiSessionEpoch()).toBeNull();
+      expect(fetch).toHaveBeenCalledOnce();
+    }
+  );
+
+  it("blocks automatic restoration and public bootstrap after a same-tab uncertain result", async () => {
+    installCompanyBrowser();
+    sessionStorage.setItem("shiftflow.reauthentication-required", "1");
+    vi.stubEnv("NEXT_PUBLIC_PORTFOLIO_LOGIN", "true");
+    runtime.render();
+    await flushPromises();
+    const tree = runtime.render();
+    expect(apiBridge.restoreApiSession).not.toHaveBeenCalled();
+    expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+    expect(textOf(tree)).toContain(messages["pt-BR"].companySwitchUncertain);
+    expect(
+      elements(tree).find(
+        (element) =>
+          element.type === "input" && (element.props as { name?: string }).name === "email"
+      )?.props
+    ).toMatchObject({ readOnly: false });
+    const form = new FormData();
+    form.set("email", "user-a@example.com");
+    form.set("password", "fresh-test-password");
+    vi.stubGlobal(
+      "FormData",
+      class {
+        constructor() {
+          return form;
+        }
+      }
+    );
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: companySession("company-b") })
+    } as Response);
+    const reset = vi.fn();
+    await (
+      findByType(tree, "form").props as { onSubmit: (event: unknown) => Promise<void> }
+    ).onSubmit({ preventDefault: vi.fn(), currentTarget: { reset } });
+    expect(reset).toHaveBeenCalledOnce();
+    expect(textOf(runtime.render())).toContain("Brazil operations · America/Sao_Paulo");
+    expect(sessionStorage.getItem("shiftflow.reauthentication-required")).toBeNull();
+  });
+
+  it.each([false, true])(
+    "rejects four retained Page command entries after Company replacement with cleanup=%s",
+    async (cleanup) => {
+      const permissions = [
+        "dashboard:read",
+        "notifications:write",
+        "activities:read",
+        "activities:write",
+        "rbac:read",
+        "rbac:write"
+      ];
+      pageDataBridge.fetchPageData.mockResolvedValue(
+        activitySnapshot([activity("activity-a")], 1, 1, 100)
+      );
+      const initial = await authenticate(scopedSession(permissions));
+      clickButton(initial, messages["pt-BR"].kanban);
+      runtime.render();
+      await flushPromises();
+      runtime.render();
+      const previous = workspaceProps();
+      setApiSession(scopedSession(permissions, "user-a", "company-b"));
+      const epochB = captureApiSessionEpoch();
+      runtime.renderWithoutEffects();
+      if (cleanup) runtime.cleanup();
+      const form = new FormData();
+      form.set("name", "Obsolete role");
+      vi.stubGlobal(
+        "FormData",
+        class {
+          constructor() {
+            return form;
+          }
+        }
+      );
+      const reset = vi.fn();
+      await previous.markNotificationsRead();
+      await previous.moveActivity("activity-a", "DONE");
+      await previous.createRole({
+        preventDefault: vi.fn(),
+        currentTarget: { reset }
+      } as unknown as Parameters<typeof previous.createRole>[0]);
+      await previous.logout();
+      expect(apiBridge.apiRequest).not.toHaveBeenCalled();
+      expect(reset).not.toHaveBeenCalled();
+      expect(captureApiSessionEpoch()).toBe(epochB);
+      if (!cleanup) {
+        runtime.render();
+        expect(workspaceProps()).toMatchObject({
+          actionLoading: false,
+          notificationPendingId: null,
+          dragged: null
+        });
+      }
+    }
+  );
+
+  it("keeps current Page commands functional through same-epoch token rotation", async () => {
+    installCompanyBrowser();
+    const actual = await vi.importActual<typeof ApiModule>("./lib/api");
+    const currentSession = scopedSession([
+      "dashboard:read",
+      "notifications:write",
+      "activities:read",
+      "activities:write",
+      "rbac:read",
+      "rbac:write"
+    ]);
+    pageDataBridge.fetchPageData.mockResolvedValue(
+      activitySnapshot([activity("activity-a")], 1, 1, 100)
+    );
+    const initial = await authenticate(currentSession);
+    clickButton(initial, messages["pt-BR"].kanban);
+    runtime.render();
+    await flushPromises();
+    runtime.render();
+    const current = workspaceProps();
+    const epoch = captureApiSessionEpoch();
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { ...currentSession, accessToken: "rotated-token" } })
+    } as Response);
+    await actual.restoreApiSession();
+    expect(captureApiSessionEpoch()).toBe(epoch);
+    apiBridge.apiRequest.mockResolvedValue(activity("activity-a", "DONE"));
+    const form = new FormData();
+    form.set("name", "Current role");
+    vi.stubGlobal(
+      "FormData",
+      class {
+        constructor() {
+          return form;
+        }
+      }
+    );
+    await current.markNotificationsRead();
+    await current.createRole({
+      preventDefault: vi.fn(),
+      currentTarget: { reset: vi.fn() }
+    } as unknown as Parameters<typeof current.createRole>[0]);
+    await current.moveActivity("activity-a", "DONE");
+    await current.logout();
+    expect(apiBridge.apiRequest.mock.calls.map(([path]) => path)).toEqual([
+      "/api/notifications/mark-all-read",
+      "/api/rbac/roles",
+      "/api/activities/activity-a/move",
+      "/api/auth/logout"
+    ]);
+    expect(captureApiSessionEpoch()).toBeNull();
+  });
+
+  it("keys the authenticated workspace to the active API session epoch", async () => {
+    await authenticate(scopedSession(["dashboard:read"], "user-a"));
+    const firstEpoch = captureApiSessionEpoch();
+    const firstWorkspace = latestRawPage;
+
+    expect(firstWorkspace?.type).toBe(PageWorkspace);
+    expect(firstWorkspace?.key).toBe(String(firstEpoch));
+
+    setApiSession(scopedSession(["dashboard:read"], "user-b"));
+    await flushPromises();
+    runtime.render();
+    await flushPromises();
+    runtime.render();
+    const secondEpoch = captureApiSessionEpoch();
+    const secondWorkspace = latestRawPage;
+
+    expect(secondWorkspace?.type).toBe(PageWorkspace);
+    expect(secondWorkspace?.key).toBe(String(secondEpoch));
+    expect(secondWorkspace?.key).not.toBe(firstWorkspace?.key);
+  });
+
+  it("keeps workspace structure, shell classes and callback arguments at the presenter boundary", async () => {
+    await authenticate(
+      scopedSession([
+        "dashboard:read",
+        "dashboard:write",
+        "rbac:read",
+        "rbac:write",
+        "activities:read",
+        "activities:write"
+      ])
+    );
+    if (!latestRawPage || latestRawPage.type !== PageWorkspace) {
+      throw new Error("Authenticated workspace boundary was not rendered");
+    }
+
+    const baseProps = latestRawPage.props as Parameters<typeof PageWorkspace>[0];
+    const selectView = vi.fn();
+    const setSearch = vi.fn();
+    const resetDashboardLayout = vi.fn().mockResolvedValue(layouts.MAIN);
+    const openDetail = vi.fn().mockResolvedValue(undefined);
+    const assignRolePermission = vi.fn().mockResolvedValue(undefined);
+    const removeRolePermission = vi.fn().mockResolvedValue(undefined);
+    const setModal = vi.fn();
+    const reloadAfterModalMutation = vi.fn().mockResolvedValue(undefined);
+    const dashboardTree = PageWorkspace({
+      ...baseProps,
+      authorisedView: "dashboard",
+      can: () => true,
+      canCreateRecord: () => true,
+      drawerOpen: true,
+      monitorMode: false,
+      navCollapsed: true,
+      openDetail,
+      resetDashboardLayout,
+      selectView,
+      setSearch,
+      view: "dashboard"
+    });
+
+    expect((dashboardTree.props as { className: string }).className).toBe(
+      "app-shell nav-collapsed drawer-open"
+    );
+    const shellChildren = (
+      (dashboardTree.props as { children: unknown[] }).children as Array<ReactElement | null>
+    ).filter((child): child is ReactElement => child !== null);
+    expect(shellChildren.map((child) => child.type)).toEqual(["a", "button", "aside", "main"]);
+
+    const firstMenuItem = baseProps.availableMenu[0];
+    if (!firstMenuItem) throw new Error("Expected at least one authorised menu item");
+    (findButton(dashboardTree, baseProps.t.dashboard).props as { onClick: () => void }).onClick();
+    expect(selectView).toHaveBeenCalledWith(firstMenuItem.id);
+
+    const searchInput = elements(dashboardTree).find(
+      (element) =>
+        element.type === "input" &&
+        (element.props as { "aria-label"?: string })["aria-label"] === baseProps.t.search
+    );
+    (searchInput?.props as { onChange: (event: { target: { value: string } }) => void }).onChange({
+      target: { value: "x".repeat(250) }
+    });
+    expect(setSearch).toHaveBeenCalledWith("x".repeat(200));
+
+    const mainDashboard = findByType(dashboardTree, MainDashboard);
+    await (mainDashboard.props as { onResetLayout: () => Promise<unknown> }).onResetLayout();
+    expect(resetDashboardLayout).toHaveBeenCalledWith("MAIN");
+    const record = activity("boundary-record");
+    (mainDashboard.props as { onOpen: (item: ActivityItem) => void }).onOpen(record);
+    expect(openDetail).toHaveBeenCalledWith("activities", record);
+
+    const roleTree = PageWorkspace({
+      ...baseProps,
+      assignRolePermission,
+      authorisedView: "roles",
+      can: () => true,
+      rbacLoading: false,
+      removeRolePermission,
+      view: "roles"
+    });
+    const roleManagement = findByType(roleTree, RoleManagementView);
+    (
+      roleManagement.props as {
+        onAssignPermission: (roleId: string, permissionId: string) => void;
+        onRemovePermission: (roleId: string, permissionId: string) => void;
+      }
+    ).onAssignPermission("role-a", "permission-a");
+    (
+      roleManagement.props as {
+        onRemovePermission: (roleId: string, permissionId: string) => void;
+      }
+    ).onRemovePermission("role-b", "permission-b");
+    expect(assignRolePermission).toHaveBeenCalledWith("role-a", "permission-a");
+    expect(removeRolePermission).toHaveBeenCalledWith("role-b", "permission-b");
+
+    const modalTree = PageWorkspace({
+      ...baseProps,
+      authorisedView: "dashboard",
+      modal: { entity: "activities", mode: "create" },
+      reloadAfterModalMutation,
+      setModal
+    });
+    const modal = findByType(modalTree, RecordModal);
+    (modal.props as { onClose: () => void }).onClose();
+    expect(setModal).toHaveBeenCalledWith(null);
+    expect((modal.props as { onReload: unknown }).onReload).toBe(reloadAfterModalMutation);
+
+    const monitorTree = PageWorkspace({
+      ...baseProps,
+      drawerOpen: true,
+      modal: null,
+      monitorMode: true,
+      navCollapsed: true
+    });
+    expect((monitorTree.props as { className: string }).className).toBe("app-shell monitor-mode");
+    const monitorChildren = (
+      (monitorTree.props as { children: unknown[] }).children as Array<ReactElement | null>
+    ).filter((child): child is ReactElement => child !== null);
+    expect(monitorChildren.map((child) => child.type)).toEqual(["a", "main"]);
   });
 
   it("shows fixed portfolio fields and signs in without sending a credential", async () => {

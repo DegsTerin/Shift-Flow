@@ -9,6 +9,7 @@ $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $developmentPath = Join-Path $PSScriptRoot 'development.ps1'
 $buildPath = Join-Path $PSScriptRoot 'build.ps1'
 $ciPath = Join-Path $PSScriptRoot 'ci.ps1'
+$agentContractPath = Join-Path $PSScriptRoot 'test-agent-contract.ps1'
 $environmentExamplePath = Join-Path $repositoryRoot '.env.example'
 $nvmPath = Join-Path $repositoryRoot '.nvmrc'
 $packagePath = Join-Path $repositoryRoot 'package.json'
@@ -16,6 +17,7 @@ $workflowPath = Join-Path $repositoryRoot '.github/workflows/release-gates.yml'
 $composePath = Join-Path $repositoryRoot 'docker-compose.yml'
 $nodeDockerfilePath = Join-Path $repositoryRoot 'infra/docker/node.Dockerfile'
 $dotnetDockerfilePath = Join-Path $repositoryRoot 'apps/api-dotnet/Dockerfile'
+$infrastructureDockerfilePath = Join-Path $repositoryRoot 'infra/docker/infrastructure.Dockerfile'
 $prismaConfigPath = Join-Path $repositoryRoot '.config/prisma.ts'
 $unitVitestConfigPath = Join-Path $repositoryRoot '.config/vitest.config.ts'
 $postgresVitestConfigPath = Join-Path $repositoryRoot '.config/vitest.postgres.config.ts'
@@ -25,6 +27,41 @@ $stranglerFixturePath = Join-Path $repositoryRoot 'prisma/strangler-integration-
 $stranglerSecurityControlPath = Join-Path $repositoryRoot 'prisma/strangler-security-control.mjs'
 $stranglerSmokePath = Join-Path $PSScriptRoot 'smoke-strangler.ps1'
 $stranglerRuntimePath = Join-Path $PSScriptRoot 'strangler-runtime.ps1'
+$readinessRuntimePath = Join-Path $repositoryRoot 'prisma/readiness-runtime.mjs'
+$ociVerifierPath = Join-Path $repositoryRoot 'scripts/verify-oci-supply-chain.mjs'
+$ociVerifierTestPath = Join-Path $repositoryRoot 'scripts/verify-oci-supply-chain.test.mjs'
+$ociRuntimeVerifierPath = Join-Path $repositoryRoot 'scripts/verify-oci-runtime-evidence.mjs'
+$ociRuntimeVerifierTestPath = Join-Path $repositoryRoot 'scripts/verify-oci-runtime-evidence.test.mjs'
+$ociTargetsPath = Join-Path $PSScriptRoot 'oci-targets.json'
+$ociExceptionsPath = Join-Path $PSScriptRoot 'oci-cve-exceptions.json'
+$ociSpdxSchemaPath = Join-Path $PSScriptRoot 'spdx-2.3-schema.json'
+$secretHistoryAllowlistPath = Join-Path $PSScriptRoot 'secret-history-allowlist.json'
+$gitAttributesPath = Join-Path $repositoryRoot '.gitattributes'
+$dockerDesktopHelperPath = Join-Path $repositoryRoot 'scripts/docker-desktop.ps1'
+
+if (-not (Test-Path -LiteralPath $agentContractPath -PathType Leaf)) {
+    throw "The project-scoped agent contract validator is missing: $agentContractPath"
+}
+if (-not (Test-Path -LiteralPath $readinessRuntimePath -PathType Leaf)) {
+    throw "The guarded readiness runtime fixture is missing: $readinessRuntimePath"
+}
+
+foreach ($ociPolicyPath in @(
+        $ociVerifierPath,
+        $ociVerifierTestPath,
+        $ociRuntimeVerifierPath,
+        $ociRuntimeVerifierTestPath,
+        $ociTargetsPath,
+        $ociExceptionsPath,
+        $ociSpdxSchemaPath,
+        $infrastructureDockerfilePath,
+        $secretHistoryAllowlistPath,
+        $gitAttributesPath
+    )) {
+    if (-not (Test-Path -LiteralPath $ociPolicyPath -PathType Leaf)) {
+        throw "The local OCI policy precursor file is missing: $ociPolicyPath"
+    }
+}
 
 function Assert-Plan {
     [CmdletBinding()]
@@ -74,6 +111,26 @@ function Get-DeclaredIsolatedVariables {
             Sort-Object -Unique)
 }
 
+function Assert-ExactObjectProperties {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Value,
+
+        [Parameter(Mandatory)]
+        [string[]]$Expected,
+
+        [Parameter(Mandatory)]
+        [string]$Location
+    )
+
+    $observedProperties = @($Value.PSObject.Properties.Name | Sort-Object)
+    $expectedProperties = @($Expected | Sort-Object)
+    if (($observedProperties -join "`n") -cne ($expectedProperties -join "`n")) {
+        throw "The local OCI policy object '$Location' has unexpected or missing properties."
+    }
+}
+
 $developmentScript = Get-Content -LiteralPath $developmentPath -Raw
 $buildScript = Get-Content -LiteralPath $buildPath -Raw
 $ciScript = Get-Content -LiteralPath $ciPath -Raw
@@ -82,11 +139,29 @@ $workflow = Get-Content -LiteralPath $workflowPath -Raw
 $composeConfiguration = Get-Content -LiteralPath $composePath -Raw
 $nodeDockerfile = Get-Content -LiteralPath $nodeDockerfilePath -Raw
 $dotnetDockerfile = Get-Content -LiteralPath $dotnetDockerfilePath -Raw
+$infrastructureDockerfile = Get-Content -LiteralPath $infrastructureDockerfilePath -Raw
 $postgresRegression = Get-Content -LiteralPath $postgresRegressionPath -Raw
 $stranglerFixture = Get-Content -LiteralPath $stranglerFixturePath -Raw
 $stranglerSecurityControl = Get-Content -LiteralPath $stranglerSecurityControlPath -Raw
 $stranglerSmoke = Get-Content -LiteralPath $stranglerSmokePath -Raw
 $stranglerRuntime = Get-Content -LiteralPath $stranglerRuntimePath -Raw
+$readinessRuntime = Get-Content -LiteralPath $readinessRuntimePath -Raw
+$ociVerifier = Get-Content -LiteralPath $ociVerifierPath -Raw
+$ociRuntimeVerifier = Get-Content -LiteralPath $ociRuntimeVerifierPath -Raw
+$ociTargets = Get-Content -LiteralPath $ociTargetsPath -Raw | ConvertFrom-Json
+$ociExceptions = Get-Content -LiteralPath $ociExceptionsPath -Raw | ConvertFrom-Json
+$gitAttributes = Get-Content -LiteralPath $gitAttributesPath -Raw
+$dockerDesktopHelper = Get-Content -LiteralPath $dockerDesktopHelperPath -Raw
+$checkoutCount = [regex]::Matches(
+    $workflow,
+    '(?m)^\s*uses:\s*actions/checkout@[0-9a-f]{40}\s*$').Count
+$nonPersistentCheckoutCount = [regex]::Matches(
+    $workflow,
+    '(?m)^\s*persist-credentials:\s*false\s*$').Count
+if ($checkoutCount -ne 5 -or $nonPersistentCheckoutCount -ne $checkoutCount -or
+    $workflow -match '(?m)^\s*persist-credentials:\s*true\s*$') {
+    throw 'Every release-gate checkout must remove its Git credential before later steps run.'
+}
 $documentedProjectVariables = @(
     Get-Content -LiteralPath $environmentExamplePath |
         ForEach-Object {
@@ -103,15 +178,27 @@ $runtimeEnvironmentBoundary = [regex]::Match(
     $stranglerRuntime,
     '(?s)\$runtimeVariableNames\s*=\s*@\((?<body>.*?)\r?\n\)')
 $expectedRuntimeVariables = @(
+    'DATABASE_URL',
     'E2E_EMAIL',
     'E2E_PASSWORD',
     'JWT_ACCESS_SECRET',
     'JWT_SECRET',
     'POSTGRES_PASSWORD',
+    'SHIFTFLOW_DISPOSABLE_RUNTIME',
     'SMOKE_ACTION',
     'SMOKE_CREDENTIAL_VERSION',
     'SMOKE_JWT_ID'
 )
+
+$perUserDockerDesktopPath = 'Join-Path $basePath "Programs/DockerDesktop/Docker Desktop.exe"'
+$legacyPerUserDockerDesktopPath = 'Join-Path $basePath "Programs/Docker/Docker/Docker Desktop.exe"'
+if ([regex]::Matches(
+        $dockerDesktopHelper,
+        [regex]::Escape($perUserDockerDesktopPath)).Count -ne 1 -or
+    $dockerDesktopHelper.IndexOf($perUserDockerDesktopPath, [System.StringComparison]::Ordinal) -gt
+    $dockerDesktopHelper.IndexOf($legacyPerUserDockerDesktopPath, [System.StringComparison]::Ordinal)) {
+    throw 'The Docker Desktop helper must prefer the supported per-user installation path.'
+}
 $observedRuntimeVariables = @(
     [regex]::Matches($runtimeEnvironmentBoundary.Groups['body'].Value, "'(?<name>[A-Z0-9_]+)'") |
         ForEach-Object { $_.Groups['name'].Value } |
@@ -212,6 +299,464 @@ if ($package.scripts.build -cne 'pwsh -NoLogo -NoProfile -File ./eng/build.ps1' 
     throw 'Quick and Full must reach the raw application build only through the canonical metadata-preserving wrapper.'
 }
 
+$expectedOciPolicyScript = 'node scripts/verify-oci-supply-chain.mjs --policy-only --targets eng/oci-targets.json --exceptions eng/oci-cve-exceptions.json'
+$expectedOciEvidenceScript = 'node scripts/verify-oci-runtime-evidence.mjs'
+$expectedQualityScript = 'npm run format:check && npm run comments:verify && npm run platform:workflow:test && npm run lint && npm run typecheck && npm run prisma:validate && npm run audit:overrides && npm run security:oci-policy && npm run security:secrets && npm run security:production-config'
+$qualityScript = [string]$package.scripts.quality
+$overrideGatePosition = $qualityScript.IndexOf(
+    'npm run audit:overrides',
+    [System.StringComparison]::Ordinal)
+$ociPolicyGatePosition = $qualityScript.IndexOf(
+    'npm run security:oci-policy',
+    [System.StringComparison]::Ordinal)
+$secretGatePosition = $qualityScript.IndexOf(
+    'npm run security:secrets',
+    [System.StringComparison]::Ordinal)
+if ($qualityScript -cne $expectedQualityScript -or
+    $package.scripts.'security:oci-policy' -cne $expectedOciPolicyScript -or
+    $package.scripts.'security:oci-evidence' -cne $expectedOciEvidenceScript -or
+    [regex]::Matches(
+        $qualityScript,
+        [regex]::Escape('npm run security:oci-policy')).Count -ne 1 -or
+    $overrideGatePosition -lt 0 -or
+    $ociPolicyGatePosition -lt $overrideGatePosition -or
+    $secretGatePosition -lt $ociPolicyGatePosition) {
+    throw 'Quality must execute the exact local OCI policy precursor once, after override audit and before secret scanning.'
+}
+foreach ($forbiddenOciOperation in @(
+        'node:child_process',
+        'node:http',
+        'node:https',
+        'node:net',
+        'node:tls',
+        'fetch(',
+        'docker build',
+        'docker compose')) {
+    if ($ociVerifier.Contains($forbiddenOciOperation, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "The local OCI policy precursor must not perform external operation '$forbiddenOciOperation'."
+    }
+}
+foreach ($forbiddenRuntimeVerifierOperation in @(
+        'node:child_process',
+        'node:http',
+        'node:https',
+        'node:net',
+        'node:tls',
+        'fetch(')) {
+    if ($ociRuntimeVerifier.Contains(
+            $forbiddenRuntimeVerifierOperation,
+            [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "The OCI runtime evidence verifier must not perform external operation '$forbiddenRuntimeVerifierOperation'."
+    }
+}
+
+$ociWorkflow = [regex]::Match(
+    $workflow,
+    '(?ms)^  oci-evidence-gate:\s*$.*?(?=^  runtime-gates:\s*$)')
+if (-not $ociWorkflow.Success) {
+    throw 'The release workflow must contain the blocking OCI evidence job.'
+}
+$ociWorkflowText = $ociWorkflow.Value
+foreach ($targetId in @('api-dotnet', 'legacy-api', 'migration', 'nginx', 'postgres', 'redis', 'web')) {
+    if ([regex]::Matches(
+            $ociWorkflowText,
+            "(?m)^\s*- id:\s*$([regex]::Escape($targetId))\s*$").Count -ne 1) {
+        throw "The OCI evidence matrix must cover target '$targetId' exactly once."
+    }
+}
+$ociTargetContracts = [ordered]@{
+    'api-dotnet' = @('sourceKind: build', 'dockerfile: apps/api-dotnet/Dockerfile', 'target: runtime')
+    'legacy-api' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: legacy-api')
+    'migration' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: migration')
+    'nginx' = @('sourceKind: registry', 'image: nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6')
+    'postgres' = @('sourceKind: build', 'dockerfile: infra/docker/infrastructure.Dockerfile', 'target: postgres')
+    'redis' = @('sourceKind: build', 'dockerfile: infra/docker/infrastructure.Dockerfile', 'target: redis')
+    'web' = @('sourceKind: build', 'dockerfile: infra/docker/node.Dockerfile', 'target: web')
+}
+foreach ($targetId in $ociTargetContracts.Keys) {
+    $targetBlock = [regex]::Match(
+        $ociWorkflowText,
+        '(?ms)^          - id: ' + [regex]::Escape($targetId) + '\r?$' +
+        '(?<body>.*?)(?=^          - id: |^    steps:)')
+    if (-not $targetBlock.Success) {
+        throw "The OCI evidence matrix is missing the exact block for '$targetId'."
+    }
+    foreach ($targetContract in $ociTargetContracts[$targetId]) {
+        if ([regex]::Matches(
+                $targetBlock.Value,
+                '(?m)^            ' + [regex]::Escape($targetContract) + '\s*$').Count -ne 1) {
+            throw "OCI evidence target '$targetId' is missing contract '$targetContract'."
+        }
+    }
+}
+foreach ($requiredOciWorkflowContract in @(
+        'uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
+        'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8',
+        '--metadata-file "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.provenance.json"',
+        '--provenance=mode=max',
+        'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
+        '--source-commit "$GITHUB_SHA"',
+        'format: spdx-json',
+        'format: json',
+        'severity: UNKNOWN,MEDIUM,HIGH,CRITICAL',
+        'node scripts/verify-oci-runtime-evidence.mjs "${arguments[@]}"')) {
+    if (-not $ociWorkflowText.Contains(
+            $requiredOciWorkflowContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The OCI evidence job is missing contract '$requiredOciWorkflowContract'."
+    }
+}
+if ([regex]::Matches(
+        $ociWorkflowText,
+        'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8').Count -ne 2 -or
+    [regex]::Matches($ociWorkflowText, '(?m)^          cache: "false"\s*$').Count -ne 2 -or
+    $ociWorkflowText -match '(?mi)^\s*push:\s*true' -or
+    $ociWorkflowText -match '(?i)--push(?:\s|$)' -or
+    $workflow -notmatch '(?m)^\s*needs:\s*\[core-gate, dotnet-gate, oci-evidence-gate\]\s*$') {
+    throw 'OCI evidence must be generated and enforced locally without publishing or bypassing downstream gates.'
+}
+
+function Assert-OciDiagnosticWorkflow {
+    param([Parameter(Mandatory)][string]$Text)
+
+    $normalised = $Text.Replace("`r`n", "`n")
+    $stepBlocks = @([regex]::Matches(
+            $normalised,
+            '(?ms)^      - name: (?<name>[^\n]+)\n.*?(?=^      - name: |\z)'))
+    $steps = [ordered]@{}
+    foreach ($step in $stepBlocks) {
+        $name = $step.Groups['name'].Value
+        if ($steps.Contains($name)) { throw "Duplicate OCI evidence step '$name'." }
+        $steps[$name] = $step.Value.TrimEnd()
+    }
+    $orderedNames = @(
+        'Record bounded evidence context',
+        'Setup Docker containerd image store',
+        'Setup Docker Buildx',
+        'Build local subject and capture Buildx metadata',
+        'Select digest-pinned registry subject',
+        'Generate local SPDX evidence',
+        'Generate and enforce vulnerability evidence',
+        'Validate evidence bindings without publication',
+        'Record evidence outcomes and report presence',
+        'Retain bounded OCI diagnostic evidence')
+    $lastPosition = -1
+    foreach ($name in $orderedNames) {
+        $position = $normalised.IndexOf("      - name: $name`n", [System.StringComparison]::Ordinal)
+        if ($position -le $lastPosition -or -not $steps.Contains($name)) {
+            throw "The bounded OCI evidence step '$name' is missing or out of order."
+        }
+        $lastPosition = $position
+    }
+    $expectedDocker = @'
+      - name: Setup Docker containerd image store
+        id: setup_docker
+        if: matrix.sourceKind == 'build'
+        uses: docker/setup-docker-action@77e84dbf09b47d1e29270283c22f16145aa85ca1
+        with:
+          version: v29.7.2
+          daemon-config: |
+            { "features": { "containerd-snapshotter": true } }
+'@
+    $expectedUpload = @'
+      - name: Retain bounded OCI diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: oci-evidence-${{ matrix.id }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.context.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.status.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.spdx.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.scan.json
+            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.provenance.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: false
+          include-hidden-files: false
+'@
+    if ($steps['Setup Docker containerd image store'] -cne $expectedDocker.Replace("`r`n", "`n") -or
+        $steps['Retain bounded OCI diagnostic evidence'] -cne $expectedUpload.Replace("`r`n", "`n") -or
+        $stepBlocks[-1].Groups['name'].Value -cne 'Retain bounded OCI diagnostic evidence' -or
+        [regex]::Matches($normalised, 'uses: actions/upload-artifact@').Count -ne 1) {
+        throw 'OCI evidence must use the exact containerd setup and final bounded, immutable diagnostic upload contract.'
+    }
+    $context = $steps['Record bounded evidence context']
+    $status = $steps['Record evidence outcomes and report presence']
+    foreach ($contract in @(
+            'id: evidence_context',
+            'EVIDENCE_TARGET: ${{ matrix.id }}',
+            'EVIDENCE_SOURCE_KIND: ${{ matrix.sourceKind }}',
+            'EVIDENCE_PR_HEAD: ${{ github.event.pull_request.head.sha }}',
+            'targetId: process.env.EVIDENCE_TARGET',
+            'sourceKind: process.env.EVIDENCE_SOURCE_KIND',
+            'testedCommit: process.env.GITHUB_SHA',
+            'pullRequestHead: process.env.EVIDENCE_PR_HEAD || null',
+            'runId: process.env.GITHUB_RUN_ID',
+            'runAttempt: process.env.GITHUB_RUN_ATTEMPT',
+            'const evidenceDirectory = path.join(process.env.RUNNER_TEMP, "oci-evidence")',
+            'fs.mkdirSync(evidenceDirectory, { recursive: true })',
+            'fs.writeFileSync(path.join(evidenceDirectory, `${context.targetId}.context.json`), JSON.stringify(context, null, 2) + "\n")')) {
+        if (-not $context.Contains($contract, [System.StringComparison]::Ordinal)) {
+            throw "The bounded OCI evidence context is missing '$contract'."
+        }
+    }
+    foreach ($stepId in @('evidence_context', 'setup_docker', 'setup_buildx', 'build_subject',
+            'registry_subject', 'generate_sbom', 'generate_scan', 'validate_evidence')) {
+        if ([regex]::Matches($normalised, '(?m)^        id: ' + $stepId + '$').Count -ne 1 -or
+            [regex]::Matches($status, [regex]::Escape('${{ steps.' + $stepId + '.outcome }}')).Count -ne 1) {
+            throw "The diagnostic status must retain the exact outcome of '$stepId'."
+        }
+    }
+    foreach ($contract in @(
+            '        if: always()',
+            'testedCommit: process.env.GITHUB_SHA',
+            'runId: process.env.GITHUB_RUN_ID',
+            'runAttempt: process.env.GITHUB_RUN_ATTEMPT',
+            '["context.json", "spdx.json", "scan.json", "provenance.json"]',
+            'const evidenceDirectory = path.join(process.env.RUNNER_TEMP, "oci-evidence")',
+            'fs.mkdirSync(evidenceDirectory, { recursive: true })',
+            'fs.existsSync(path.join(evidenceDirectory, `${targetId}.${suffix}`))',
+            'fs.writeFileSync(path.join(evidenceDirectory, `${targetId}.status.json`), JSON.stringify(status, null, 2) + "\n")')) {
+        if (-not $status.Contains($contract, [System.StringComparison]::Ordinal)) {
+            throw "The bounded OCI evidence status is missing '$contract'."
+        }
+    }
+    foreach ($contract in @(
+            '--metadata-file "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.provenance.json"',
+            'output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.spdx.json',
+            'output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.scan.json',
+            '--sbom "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.spdx.json"',
+            '--scan "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.scan.json"',
+            '--provenance "$RUNNER_TEMP/oci-evidence/${{ matrix.id }}.provenance.json"')) {
+        if ([regex]::Matches($normalised, [regex]::Escape($contract)).Count -ne 1) {
+            throw "Every OCI evidence producer and reader must use its bounded external report path: '$contract'."
+        }
+    }
+    $build = $steps['Build local subject and capture Buildx metadata']
+    $cleanSourceContracts = @(
+        'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
+        'source_status="$(git --no-optional-locks status --porcelain=v1 --untracked-files=all --ignored)"',
+        'test -z "$source_status"',
+        'docker buildx build')
+    $lastPosition = -1
+    foreach ($contract in $cleanSourceContracts) {
+        $position = $build.IndexOf($contract, [System.StringComparison]::Ordinal)
+        if ($position -le $lastPosition -or
+            [regex]::Matches($build, [regex]::Escape($contract)).Count -ne 1) {
+            throw 'OCI builds must verify the exact HEAD and fail on tracked, untracked or ignored source changes before building.'
+        }
+        $lastPosition = $position
+    }
+    if ($normalised -match '(?mi)^\s*(?:continue-on-error:|push:\s*true)' -or
+        $normalised -match '(?i)--push(?:\s|$)' -or
+        $normalised -match 'steps\.[a-z_]+\.conclusion' -or
+        [regex]::Matches($normalised, '(?m)^          version: v0[.]74[.]0$').Count -ne 2 -or
+        [regex]::Matches($normalised, '(?m)^          ignore-unfixed: "false"$').Count -ne 2 -or
+        [regex]::Matches($build, '(?m)^          BUILDX_GIT_CHECK_DIRTY: "1"$').Count -ne 1 -or
+        $steps['Generate and enforce vulnerability evidence'] -notmatch '(?m)^          exit-code: "1"$' -or
+        $steps['Generate and enforce vulnerability evidence'] -notmatch '(?m)^          severity: UNKNOWN,MEDIUM,HIGH,CRITICAL$' -or
+        $steps['Build local subject and capture Buildx metadata'] -notmatch '(?m)^            --load \\$' -or
+        $steps['Build local subject and capture Buildx metadata'] -notmatch '(?m)^            --platform linux/amd64 \\$' -or
+        $steps['Build local subject and capture Buildx metadata'] -notmatch '(?m)^            --provenance=mode=max \\$') {
+        throw 'Diagnostic retention must not change strict scan failures, image loading, provenance or publication boundaries.'
+    }
+}
+
+Assert-OciDiagnosticWorkflow -Text $ociWorkflowText
+if ([regex]::Matches($workflow, 'uses: actions/upload-artifact@').Count -ne 1) {
+    throw 'The release workflow may upload only the bounded OCI diagnostic reports, never runtime or workspace state.'
+}
+$dockerStep = [regex]::Match(
+    $ociWorkflowText,
+    '(?ms)^      - name: Setup Docker containerd image store\r?\n.*?(?=^      - name: )').Value
+$buildxStep = [regex]::Match(
+    $ociWorkflowText,
+    '(?ms)^      - name: Setup Docker Buildx\r?\n.*?(?=^      - name: )').Value
+$uploadStep = [regex]::Match(
+    $ociWorkflowText,
+    '(?ms)^      - name: Retain bounded OCI diagnostic evidence\r?\n.*?\z').Value
+$ociCounterexamples = [ordered]@{
+    'missing containerd setup' = $ociWorkflowText.Replace($dockerStep, '')
+    'containerd setup after Buildx' = $ociWorkflowText.Replace($dockerStep + $buildxStep, $buildxStep + $dockerStep)
+    'disabled containerd image store' = $ociWorkflowText.Replace('"containerd-snapshotter": true', '"containerd-snapshotter": false')
+    'workspace upload' = $ociWorkflowText.Replace('            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.context.json', '            ${{ github.workspace }}')
+    'wildcard upload' = $ociWorkflowText.Replace('            ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.context.json', '            ${{ runner.temp }}/oci-evidence/**')
+    'colliding upload name' = $ociWorkflowText.Replace('name: oci-evidence-${{ matrix.id }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}', 'name: oci-evidence')
+    'success-only upload' = $ociWorkflowText.Replace($uploadStep, $uploadStep.Replace('if: always()', 'if: success()'))
+    'registry publication' = $ociWorkflowText.Replace('--load', '--load --push')
+    'scan failure bypass' = $ociWorkflowText.Replace('id: generate_scan', "id: generate_scan`n        continue-on-error: true")
+    'unfixed vulnerability waiver' = $ociWorkflowText.Replace('ignore-unfixed: "false"', 'ignore-unfixed: "true"')
+    'masked step conclusion' = $ociWorkflowText.Replace('steps.generate_scan.outcome', 'steps.generate_scan.conclusion')
+    'missing Buildx dirty check' = $ociWorkflowText.Replace('          BUILDX_GIT_CHECK_DIRTY: "1"', '')
+    'disabled Buildx dirty check' = $ociWorkflowText.Replace('BUILDX_GIT_CHECK_DIRTY: "1"', 'BUILDX_GIT_CHECK_DIRTY: "false"')
+    'missing source cleanliness assertion' = $ociWorkflowText.Replace('          test -z "$source_status"', '')
+    'ignored source changes admitted' = $ociWorkflowText.Replace('--untracked-files=all --ignored', '--untracked-files=all')
+    'in-checkout context and status' = $ociWorkflowText.Replace('path.join(process.env.RUNNER_TEMP, "oci-evidence")', 'path.join(process.env.GITHUB_WORKSPACE, "oci-evidence")')
+    'in-checkout Buildx metadata' = $ociWorkflowText.Replace('--metadata-file "$RUNNER_TEMP/oci-evidence/', '--metadata-file "oci-evidence/')
+    'in-checkout SPDX report' = $ociWorkflowText.Replace('output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.spdx.json', 'output: oci-evidence/${{ matrix.id }}.spdx.json')
+    'in-checkout scan report' = $ociWorkflowText.Replace('output: ${{ runner.temp }}/oci-evidence/${{ matrix.id }}.scan.json', 'output: oci-evidence/${{ matrix.id }}.scan.json')
+    'in-checkout SPDX validation' = $ociWorkflowText.Replace('--sbom "$RUNNER_TEMP/oci-evidence/', '--sbom "oci-evidence/')
+    'in-checkout scan validation' = $ociWorkflowText.Replace('--scan "$RUNNER_TEMP/oci-evidence/', '--scan "oci-evidence/')
+    'in-checkout provenance validation' = $ociWorkflowText.Replace('--provenance "$RUNNER_TEMP/oci-evidence/', '--provenance "oci-evidence/')
+    'in-checkout upload' = $ociWorkflowText.Replace('            ${{ runner.temp }}/oci-evidence/', '            oci-evidence/')
+}
+foreach ($name in $ociCounterexamples.Keys) {
+    if ($ociCounterexamples[$name] -ceq $ociWorkflowText) {
+        throw "The OCI diagnostic counterexample '$name' did not change the candidate."
+    }
+    $rejected = $false
+    try { Assert-OciDiagnosticWorkflow -Text $ociCounterexamples[$name] }
+    catch { $rejected = $true }
+    if (-not $rejected) { throw "The OCI diagnostic contract accepted counterexample '$name'." }
+}
+Write-Output "Rejected all $($ociCounterexamples.Count) unsafe OCI diagnostic workflow counterexamples."
+
+if (-not (Get-Content -LiteralPath $unitVitestConfigPath -Raw).Contains(
+        '"scripts/**/*.test.mjs"',
+        [System.StringComparison]::Ordinal)) {
+    throw 'The central unit-test configuration must discover the local OCI policy regression.'
+}
+
+Assert-ExactObjectProperties -Value $ociTargets -Expected @(
+    'schemaVersion',
+    'classification',
+    'policy',
+    'targets'
+) -Location 'targets'
+Assert-ExactObjectProperties -Value $ociTargets.policy -Expected @(
+    'platform',
+    'minimumBlockedSeverity',
+    'blockUnknownSeverity',
+    'maximumEvidenceAgeHours',
+    'maximumScannerDatabaseAgeHours',
+    'maximumExceptionLifetimeDays',
+    'sbomFormat',
+    'sbomProfile',
+    'sbomSchema',
+    'scanFormat',
+    'attestationPredicateType'
+) -Location 'targets.policy'
+Assert-ExactObjectProperties -Value $ociTargets.policy.sbomSchema -Expected @(
+    'path',
+    'sha256',
+    'source',
+    'sourceSha256',
+    'normalisation'
+) -Location 'targets.policy.sbomSchema'
+if ($ociTargets.schemaVersion -cne 'shiftflow.oci-targets/v1' -or
+    $ociTargets.classification -cne 'LOCAL_UNSIGNED_PRECURSOR' -or
+    $ociTargets.policy.platform -cne 'linux/amd64' -or
+    $ociTargets.policy.minimumBlockedSeverity -cne 'MEDIUM' -or
+    $ociTargets.policy.blockUnknownSeverity -cne $true -or
+    $ociTargets.policy.maximumEvidenceAgeHours -ne 24 -or
+    $ociTargets.policy.maximumScannerDatabaseAgeHours -ne 24 -or
+    $ociTargets.policy.maximumExceptionLifetimeDays -ne 30 -or
+    $ociTargets.policy.sbomFormat -cne 'spdx-2.3-json' -or
+    $ociTargets.policy.sbomProfile -cne 'shiftflow.spdx-2.3-oci-package-profile/v1' -or
+    $ociTargets.policy.sbomSchema.path -cne 'eng/spdx-2.3-schema.json' -or
+    $ociTargets.policy.sbomSchema.sha256 -cne 'sha256:3ec6cd5b8ba0c9a3e821da48536fa1b814567dc7e4376efe98d3e7b2a7a8d230' -or
+    $ociTargets.policy.sbomSchema.source -cne 'https://raw.githubusercontent.com/spdx/spdx-spec/v2.3/schemas/spdx-schema.json' -or
+    $ociTargets.policy.sbomSchema.sourceSha256 -cne 'sha256:239208b7ac287b3cf5d9a9af23f9d69863971102a5e1587a27a398b43490b89b' -or
+    $ociTargets.policy.sbomSchema.normalisation -cne 'terminal-lf-appended' -or
+    $ociTargets.policy.scanFormat -cne 'shiftflow.oci-scan/v1' -or
+    $ociTargets.policy.attestationPredicateType -cne 'urn:shiftflow:attestation:oci-supply-chain:v1') {
+    throw 'The local OCI policy precursor must preserve its exact fail-closed policy values.'
+}
+$observedSpdxSchemaHash = 'sha256:' + (Get-FileHash -LiteralPath $ociSpdxSchemaPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($observedSpdxSchemaHash -cne $ociTargets.policy.sbomSchema.sha256 -or
+    $package.devDependencies.ajv -cne '6.15.0') {
+    throw 'The local OCI policy precursor must pin its exact SPDX 2.3 schema bytes and direct validator dependency.'
+}
+foreach ($strictAjvOption in @(
+        'coerceTypes: false',
+        'ownProperties: true',
+        'removeAdditional: false',
+        'strictDefaults: true',
+        'strictKeywords: true',
+        'strictNumbers: true',
+        'useDefaults: false',
+        'validateSchema: true')) {
+    if ([regex]::Matches(
+            $ociVerifier,
+            [regex]::Escape($strictAjvOption)).Count -ne 1) {
+        throw "The local OCI policy precursor must compile SPDX with exact Ajv option '$strictAjvOption'."
+    }
+}
+if ($ociVerifier.Contains('unknownFormats:', [System.StringComparison]::Ordinal)) {
+    throw 'The local OCI policy precursor must not ignore unknown schema formats.'
+}
+$byteHashedOciPaths = @(
+    'docker-compose[.]yml',
+    'apps/api-dotnet/Dockerfile',
+    'infra/docker/node[.]Dockerfile',
+    'infra/docker/infrastructure[.]Dockerfile',
+    'eng/spdx-2[.]3-schema[.]json'
+)
+foreach ($byteHashedOciPath in $byteHashedOciPaths) {
+    if ([regex]::Matches(
+            $gitAttributes,
+            "(?m)^$byteHashedOciPath text eol=lf\s*$").Count -ne 1) {
+        throw 'Every byte-hashed OCI source definition must retain LF bytes on every supported checkout platform.'
+    }
+}
+
+$expectedOciTargets = @(
+    [ordered]@{
+        id = 'api-dotnet'; composeService = 'api-dotnet'; sourceKind = 'build'; context = '.'
+        dockerfile = 'apps/api-dotnet/Dockerfile'; target = 'runtime'
+    },
+    [ordered]@{
+        id = 'legacy-api'; composeService = 'legacy-api'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/node.Dockerfile'; target = 'legacy-api'
+    },
+    [ordered]@{
+        id = 'migration'; composeService = 'migrate'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/node.Dockerfile'; target = 'migration'
+    },
+    [ordered]@{
+        id = 'nginx'; composeService = 'nginx'; sourceKind = 'registry'
+        image = 'nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6'
+    },
+    [ordered]@{
+        id = 'postgres'; composeService = 'postgres'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/infrastructure.Dockerfile'; target = 'postgres'
+    },
+    [ordered]@{
+        id = 'redis'; composeService = 'redis'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/infrastructure.Dockerfile'; target = 'redis'
+    },
+    [ordered]@{
+        id = 'web'; composeService = 'web'; sourceKind = 'build'; context = '.'
+        dockerfile = 'infra/docker/node.Dockerfile'; target = 'web'
+    }
+)
+$observedOciTargets = @($ociTargets.targets)
+if ($observedOciTargets.Count -ne $expectedOciTargets.Count) {
+    throw 'The local OCI policy precursor must contain exactly seven image targets.'
+}
+for ($targetIndex = 0; $targetIndex -lt $expectedOciTargets.Count; $targetIndex++) {
+    $expectedTarget = $expectedOciTargets[$targetIndex]
+    $observedTarget = $observedOciTargets[$targetIndex]
+    Assert-ExactObjectProperties -Value $observedTarget -Expected @($expectedTarget.Keys) -Location "targets[$targetIndex]"
+    foreach ($propertyName in $expectedTarget.Keys) {
+        $observedValue = [string]$observedTarget.PSObject.Properties[$propertyName].Value
+        if ($observedValue -cne [string]$expectedTarget[$propertyName]) {
+            throw "The local OCI policy target at index $targetIndex does not match '$propertyName'."
+        }
+    }
+}
+Assert-ExactObjectProperties -Value $ociExceptions -Expected @(
+    'schemaVersion',
+    'exceptions'
+) -Location 'exceptions'
+if ($ociExceptions.schemaVersion -cne 'shiftflow.oci-cve-exceptions/v1' -or
+    $null -eq $ociExceptions.exceptions -or
+    $ociExceptions.exceptions -isnot [System.Collections.IList] -or
+    @($ociExceptions.exceptions).Count -ne 0) {
+    throw 'The tracked local OCI exception register must start empty and use its exact schema.'
+}
+
 foreach ($requiredBuildRestoration in @(
         '[System.IO.File]::ReadAllBytes($nextMetadataPath)',
         '[System.IO.File]::WriteAllBytes($nextMetadataPath, $metadataBytes)',
@@ -244,21 +789,22 @@ Assert-Plan -Task 'Setup' -Offline -Expected @(
 Assert-Plan -Task 'Quick' -Expected @(
     'PLAN|version=1|task=Quick|mode=Online|classification=NON_GATE',
     'STEP|1|Validate repository root, toolchains, package lock and prepared dependencies',
-    'STEP|2|npm run quality',
-    'STEP|3|npm run test:unit',
-    'STEP|4|npm run build',
-    'STEP|5|eng/dotnet.ps1 -SkipRestore -SkipAudit',
-    'STEP|6|git diff --check for worktree and index'
+    'STEP|2|eng/test-agent-contract.ps1',
+    'STEP|3|npm run quality',
+    'STEP|4|npm run test:unit',
+    'STEP|5|npm run build',
+    'STEP|6|eng/dotnet.ps1 -SkipRestore -SkipAudit',
+    'STEP|7|git diff --check for worktree and index'
 )
 
 Assert-Plan -Task 'Full' -Expected @(
     'PLAN|version=1|task=Full|mode=Online|classification=WORKFLOW',
-    'STEP|1|eng/ci.ps1'
+    'STEP|1|eng/ci.ps1 (includes eng/test-agent-contract.ps1)'
 )
 
 Assert-Plan -Task 'Full' -Offline -Expected @(
     'PLAN|version=1|task=Full|mode=Offline|classification=INCOMPLETE_NON_GATE',
-    'STEP|1|eng/ci.ps1 -Offline'
+    'STEP|1|eng/ci.ps1 -Offline (includes eng/test-agent-contract.ps1)'
 )
 
 foreach ($centralConfigPath in @(
@@ -284,9 +830,12 @@ if ($package.scripts.'test:unit' -cne
     'vitest run --config .config/vitest.config.ts') {
     throw 'The unit-test gate must use the central Vitest configuration.'
 }
-if ($package.scripts.'test:postgres:users' -cne
+if ($package.scripts.'test:postgres:integration' -cne
     'vitest run --config .config/vitest.postgres.config.ts') {
-    throw 'The PostgreSQL User regression must use its dedicated opt-in Vitest configuration.'
+    throw 'The PostgreSQL integration gate must use its dedicated opt-in Vitest configuration.'
+}
+if ($package.scripts.'test:postgres:users' -cne 'npm run test:postgres:integration') {
+    throw 'The legacy PostgreSQL User script must remain a compatibility alias.'
 }
 if (-not $nodeDockerfile.Contains(
         'COPY .config/prisma.ts ./.config/prisma.ts',
@@ -325,6 +874,51 @@ foreach ($requiredQuickDiffContract in @(
     }
 }
 
+if ([regex]::Matches(
+        $quickFunction,
+        '(?m)^\s*& \$agentContractPath\s*$').Count -ne 1) {
+    throw 'Quick must invoke the project-scoped agent contract exactly once before product checks.'
+}
+
+$requiredQuickSteps = @(
+    @{
+        Name = 'npm quality'
+        Pattern = '(?m)^\s*npm run quality\s*$'
+    },
+    @{
+        Name = 'unit tests'
+        Pattern = '(?m)^\s*npm run test:unit\s*$'
+    },
+    @{
+        Name = 'application build'
+        Pattern = '(?m)^\s*npm run build\s*$'
+    },
+    @{
+        Name = '.NET checks'
+        Pattern = '(?m)^\s*& \$dotnetEntrypoint -SkipRestore -SkipAudit\s*$'
+    }
+)
+foreach ($requiredQuickStep in $requiredQuickSteps) {
+    if ([regex]::Matches(
+            $quickFunction,
+            $requiredQuickStep.Pattern).Count -ne 1) {
+        throw "Quick must invoke $($requiredQuickStep.Name) exactly once."
+    }
+}
+
+$quickStepPatterns = @(
+    '(?m)^\s*& \$agentContractPath\s*$'
+) + @($requiredQuickSteps | ForEach-Object { $_.Pattern })
+$quickStepIndexes = @($quickStepPatterns | ForEach-Object {
+        [regex]::Match($quickFunction, $_).Index
+    })
+for ($index = 0; $index -lt ($quickStepIndexes.Count - 1); $index++) {
+    if ($quickStepIndexes[$index] -lt 0 -or
+        $quickStepIndexes[$index] -ge $quickStepIndexes[$index + 1]) {
+        throw 'Quick must run the agent contract, npm quality, unit tests, build and .NET checks in strict order.'
+    }
+}
+
 foreach ($forbiddenCoreOperation in @(
         'migrate deploy',
         'seed:integration',
@@ -344,12 +938,20 @@ if ([regex]::Matches(
         [regex]::Escape('test-development-workflow.ps1')).Count -ne 1) {
     throw 'CI must invoke the development workflow policy test exactly once.'
 }
+if ([regex]::Matches(
+        $ciScript,
+        '(?m)^\s*& \$agentContractPath\s*$').Count -ne 1) {
+    throw 'CI must invoke the project-scoped agent contract exactly once.'
+}
 
 $ciScrub = $ciScript.IndexOf(
     'Remove-Item -LiteralPath "Env:$variableName" -ErrorAction SilentlyContinue',
     [System.StringComparison]::Ordinal)
 $ciPolicy = $ciScript.IndexOf(
     "& (Join-Path `$PSScriptRoot 'test-development-workflow.ps1')",
+    [System.StringComparison]::Ordinal)
+$ciAgentContract = $ciScript.IndexOf(
+    '& $agentContractPath',
     [System.StringComparison]::Ordinal)
 $ciPreflight = $ciScript.IndexOf(
     '& $developmentEntrypoint Doctor -CorePreflightOnly -CoreComponent $Component',
@@ -367,12 +969,14 @@ $ciDependenciesReady = $ciScript.IndexOf(
     [System.StringComparison]::Ordinal)
 if ($ciScrub -lt 0 -or
     $ciPreflight -lt 0 -or
+    $ciAgentContract -lt 0 -or
     $ciPolicy -lt 0 -or
     $ciInstallBranch -lt 0 -or
     $ciGenerate -lt 0 -or
     $ciDependenciesReady -lt 0 -or
     $ciScrub -gt $ciPreflight -or
-    $ciPreflight -gt $ciPolicy -or
+    $ciPreflight -gt $ciAgentContract -or
+    $ciAgentContract -gt $ciPolicy -or
     $ciPolicy -gt $ciInstallBranch -or
     $ciInstallBranch -gt $ciGenerate -or
     $ciGenerate -gt $ciDependenciesReady -or
@@ -437,6 +1041,8 @@ $expectedScripts = @{
     'build:dotnet' = 'dotnet build apps/api-dotnet/ShiftFlow.slnx --configuration Release'
     'test:dotnet' = 'dotnet test apps/api-dotnet/ShiftFlow.slnx --configuration Release'
     'test:runtime:strangler' = 'pwsh -NoLogo -NoProfile -File ./eng/strangler-runtime.ps1'
+    'security:oci-policy' = 'node scripts/verify-oci-supply-chain.mjs --policy-only --targets eng/oci-targets.json --exceptions eng/oci-cve-exceptions.json'
+    'security:oci-evidence' = 'node scripts/verify-oci-runtime-evidence.mjs'
 }
 foreach ($scriptName in $expectedScripts.Keys) {
     if ($package.scripts.$scriptName -cne $expectedScripts[$scriptName]) {
@@ -468,7 +1074,7 @@ $remoteMigration = $workflow.IndexOf(
     'run: npx prisma migrate deploy',
     [System.StringComparison]::Ordinal)
 $remotePostgresIntegration = $workflow.IndexOf(
-    'run: npm run test:postgres:users',
+    'run: npm run test:postgres:integration',
     [System.StringComparison]::Ordinal)
 $remoteIntegrationSeed = $workflow.IndexOf(
     'run: node prisma/integration-seed.mjs',
@@ -502,13 +1108,13 @@ foreach ($dotnetWorkflowContract in @(
 }
 if ([regex]::Matches(
         $workflow,
-        '(?m)^\s*run:\s*npm run test:postgres:users\s*$').Count -ne 1 -or
+        '(?m)^\s*run:\s*npm run test:postgres:integration\s*$').Count -ne 1 -or
     -not $workflow.Contains('SHIFTFLOW_POSTGRES_INTEGRATION: "1"', [System.StringComparison]::Ordinal) -or
     $remotePostgresIntegration -lt 0 -or
     $remoteIntegrationSeed -lt 0 -or
     $remotePostgresIntegration -lt $remoteMigration -or
     $remotePostgresIntegration -gt $remoteIntegrationSeed) {
-    throw 'The disposable runtime must execute the opt-in User aggregate PostgreSQL regression after migrations and before shared seed data.'
+    throw 'The disposable runtime must execute the opt-in PostgreSQL integration gate after migrations and before shared seed data.'
 }
 if ([regex]::Matches(
         $workflow,
@@ -544,7 +1150,7 @@ if ($stranglerJob -lt 0 -or
     throw 'The strangler runtime job must run the canonical disposable gate exactly once and only after the existing runtime gate.'
 }
 
-if ([regex]::Matches($workflow, '(?m)^\s*runs-on:\s*ubuntu-24[.]04\s*$').Count -ne 4 -or
+if ([regex]::Matches($workflow, '(?m)^\s*runs-on:\s*ubuntu-24[.]04\s*$').Count -ne 5 -or
     $workflow.Contains('ubuntu-latest', [System.StringComparison]::Ordinal) -or
     [regex]::Matches($workflow, [regex]::Escape('Write-Output "::add-mask::$e2ePassword"')).Count -ne 1 -or
     [regex]::Matches($workflow, [regex]::Escape('Write-Output "::add-mask::$jwtSecret"')).Count -ne 1) {
@@ -649,10 +1255,409 @@ if ($runtimeAuthority -lt 0 -or
     throw 'The runtime gate must confirm local Docker authority before credentials or Docker access and emit PASS only after successful cleanup.'
 }
 
+$expectedReadinessScenarios = @(
+    'fully-migrated',
+    'current-migration-absent',
+    'current-ledger-unfinished',
+    'current-ledger-rolled-back',
+    'split-decoy-schema',
+    'core-table-view',
+    'rbac-index-wrong-owner',
+    'rbac-index-wrong-definition',
+    'auth-column-malformed',
+    'auth-constraints-malformed',
+    'auth-index-malformed'
+)
+$readinessScenarioBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)\$readinessScenarios\s*=\s*@\((?<body>.*?)\r?\n\)')
+$fixtureScenarioBlock = [regex]::Match(
+    $readinessRuntime,
+    '(?s)const scenarios = Object[.]freeze\(\[(?<body>.*?)\r?\n\]\);')
+$runtimeReadinessScenarios = @(
+    [regex]::Matches($readinessScenarioBlock.Groups['body'].Value, "'(?<name>[a-z-]+)'") |
+        ForEach-Object { $_.Groups['name'].Value })
+$fixtureReadinessScenarios = @(
+    [regex]::Matches($fixtureScenarioBlock.Groups['body'].Value, '"(?<name>[a-z-]+)"') |
+        ForEach-Object { $_.Groups['name'].Value })
+if (-not $readinessScenarioBlock.Success -or
+    -not $fixtureScenarioBlock.Success -or
+    ($runtimeReadinessScenarios -join "`n") -cne ($expectedReadinessScenarios -join "`n") -or
+    ($fixtureReadinessScenarios -join "`n") -cne ($expectedReadinessScenarios -join "`n")) {
+    throw 'The readiness runtime must declare the exact ordered eleven-scenario matrix in both orchestrator and fixture.'
+}
+
+$runtimeStackStart = $stranglerRuntime.IndexOf(
+    '    docker compose @composeArguments up --detach --build --wait',
+    [System.StringComparison]::Ordinal)
+$runtimeReadinessCall = $stranglerRuntime.IndexOf(
+    '    $readinessMatrixEvidence = Invoke-ReadinessRuntimeMatrix -RunId $readinessRunId',
+    [System.StringComparison]::Ordinal)
+$runtimeSharedSeed = $stranglerRuntime.IndexOf(
+    '    docker compose @composeArguments run --rm --env E2E_EMAIL --env E2E_PASSWORD migrate node prisma/integration-seed.mjs',
+    [System.StringComparison]::Ordinal)
+$runtimeDatabaseReplacement = $stranglerRuntime.IndexOf(
+    '    $env:DATABASE_URL = New-ReadinessDatabaseUrl',
+    [System.StringComparison]::Ordinal)
+$runtimeFirstStackCleanup = $stranglerRuntime.IndexOf(
+    '    docker compose @composeArguments down --volumes --remove-orphans',
+    [System.StringComparison]::Ordinal)
+if ($runtimeStackStart -lt 0 -or
+    $runtimeReadinessCall -lt $runtimeStackStart -or
+    $runtimeSharedSeed -lt $runtimeReadinessCall -or
+    $runtimeDatabaseReplacement -lt 0 -or
+    $runtimeDatabaseReplacement -gt $runtimeFirstStackCleanup -or
+    [regex]::Matches(
+        $stranglerRuntime,
+        '(?m)^    \$readinessMatrixEvidence = Invoke-ReadinessRuntimeMatrix -RunId \$readinessRunId\s*$').Count -ne 1) {
+    throw 'The readiness matrix must run exactly once after the healthy ordinary stack and before any seed, using a replaced DATABASE_URL.'
+}
+
+foreach ($runtimeReadinessContract in @(
+        '[System.Security.Cryptography.RandomNumberGenerator]::GetBytes(12)).ToLowerInvariant()',
+        "-cnotmatch '^[0-9a-f]{24}`$'",
+        "`$env:SHIFTFLOW_DISPOSABLE_RUNTIME = 'CONFIRMED_DISPOSABLE_STRANGLER'",
+        '$generatedSecretValues = [System.Collections.Generic.List[string]]::new()',
+        '$redactedValues = @($generatedSecretValues)',
+        '[void]$generatedSecretValues.Add($generatedSecret)',
+        'postgresql://shiftflow:${encodedPassword}@postgres:5432/${DatabaseName}?${query}',
+        'schema=active%2Cpublic&options=-csearch_path%3Dactive%2Cpublic',
+        "'run', '--rm', '--no-deps'",
+        "'--no-TTY'",
+        "'migrate', 'node', 'prisma/readiness-runtime.mjs'",
+        '--env "DATABASE_URL=$DatabaseUrl"',
+        '--detach',
+        '--no-deps',
+        '--name $ContainerName',
+        'ConvertFrom-Json -NoEnumerate -ErrorAction Stop',
+        '$outputLines.Count -gt 64',
+        '$outputText.Length -gt 12000',
+        '$receipts.Count -ne 1',
+        '$actualProperties = @($Receipt.PSObject.Properties.Name | Sort-Object)',
+        "has missing or extra properties.",
+        'contains a malformed JSON receipt.',
+        '$templateReceipt = Invoke-ReadinessFixture -Action create-template -RunId $RunId',
+        '$scenarioReceipt = Invoke-ReadinessFixture',
+        '$probeReceipt = Invoke-ReadinessHostProbe',
+        '$validatedScenarioReceipts += 1',
+        '$validatedHostReceipts += 1',
+        '$validatedScenarioReceipts -ne 11',
+        '$validatedHostReceipts -ne 22',
+        '$readinessMatrixEvidence.ScenarioReceipts',
+        '$readinessMatrixEvidence.HostReceipts',
+        'docker logs --tail 200 $verifiedContainerId',
+        'docker rm --force $verifiedContainerId',
+        'Write-ReadinessSecondaryFailure',
+        '$runtimeDiagnostics += @(docker compose @composeArguments logs --no-color --tail 200 2>&1)',
+        'Protect-ReadinessDiagnostics',
+        'finally {',
+        "Assert-NativeSuccess 'Migrate the dedicated readiness template database'",
+        "-Action create-scenario",
+        "-Action probe")) {
+    if (-not $stranglerRuntime.Contains(
+            $runtimeReadinessContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The strangler readiness matrix is missing contract '$runtimeReadinessContract'."
+    }
+}
+if ([regex]::Matches(
+        $stranglerRuntime,
+        [regex]::Escape('docker rm --force $verifiedContainerId')).Count -ne 1 -or
+    $stranglerRuntime.Contains(
+        'docker rm --force $containerName',
+        [System.StringComparison]::Ordinal) -or
+    $stranglerRuntime.Contains(
+        'docker rm --force $candidateContainerId',
+        [System.StringComparison]::Ordinal) -or
+    $stranglerRuntime.Contains(
+        '$callerEnvironment[''DATABASE_URL''].Value',
+        [System.StringComparison]::Ordinal)) {
+    throw 'The readiness matrix must remove only a verified container ID and must never consume caller DATABASE_URL.'
+}
+$readinessVerifiedStartBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Start-VerifiedReadinessHostContainer \{(?<body>.*?)(?=\r?\nfunction Invoke-ReadinessHostProbe \{)')
+$verifiedStartBody = $readinessVerifiedStartBlock.Groups['body'].Value
+$verifiedStartCommand = $verifiedStartBody.IndexOf(
+    '$startOutput = @(docker compose @composeArguments run',
+    [System.StringComparison]::Ordinal)
+$verifiedStartExitGate = $verifiedStartBody.IndexOf(
+    'if ($startExitCode -ne 0)',
+    [System.StringComparison]::Ordinal)
+$verifiedStartIdGate = $verifiedStartBody.IndexOf(
+    "`$containerIdLines[0] -cnotmatch '^[0-9a-f]{64}`$'",
+    [System.StringComparison]::Ordinal)
+$verifiedOwnershipInspect = $verifiedStartBody.IndexOf(
+    '$ownershipOutput = @(docker inspect',
+    [System.StringComparison]::Ordinal)
+$verifiedOwnershipGate = $verifiedStartBody.IndexOf(
+    '$ownership[0] -cne "/$ContainerName"',
+    [System.StringComparison]::Ordinal)
+$verifiedIdReturn = $verifiedStartBody.IndexOf(
+    'return $candidateContainerId',
+    [System.StringComparison]::Ordinal)
+if (-not $readinessVerifiedStartBlock.Success -or
+    $verifiedStartCommand -lt 0 -or
+    $verifiedStartExitGate -lt $verifiedStartCommand -or
+    $verifiedStartIdGate -lt $verifiedStartExitGate -or
+    $verifiedOwnershipInspect -lt $verifiedStartIdGate -or
+    $verifiedOwnershipGate -lt $verifiedOwnershipInspect -or
+    $verifiedIdReturn -lt $verifiedOwnershipGate) {
+    throw 'A readiness host ID may be returned only after successful start, full-ID validation and ownership inspection.'
+}
+foreach ($ownershipContract in @(
+        'com.docker.compose.project',
+        'com.docker.compose.service',
+        'com.docker.compose.oneoff',
+        '$ownership[1] -cne $ProjectName',
+        '$ownership[2] -cne $HostName',
+        "`$ownership[3] -cne 'True'")) {
+    if (-not $verifiedStartBody.Contains(
+            $ownershipContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "Readiness host ownership validation is missing contract '$ownershipContract'."
+    }
+}
+$readinessHostProbeBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Invoke-ReadinessHostProbe \{(?<body>.*?)(?=\r?\nfunction Invoke-ReadinessRuntimeMatrix \{)')
+$readinessProbeRethrow = $readinessHostProbeBlock.Groups['body'].Value.IndexOf(
+    'throw $probeFailure',
+    [System.StringComparison]::Ordinal)
+$readinessRemovalRethrow = $readinessHostProbeBlock.Groups['body'].Value.IndexOf(
+    'throw $removalFailure',
+    [System.StringComparison]::Ordinal)
+if (-not $readinessHostProbeBlock.Success -or
+    $readinessHostProbeBlock.Groups['body'].Value -notmatch
+        '(?s)\$verifiedContainerId = \$null.*try \{.*\$verifiedContainerId = Start-VerifiedReadinessHostContainer.*Invoke-ReadinessFixture.*\} catch \{.*docker logs --tail 200 \$verifiedContainerId.*\} finally \{\s*if \(\$null -ne \$verifiedContainerId\) \{.*docker rm --force \$verifiedContainerId' -or
+    $readinessProbeRethrow -lt 0 -or
+    $readinessRemovalRethrow -lt 0 -or
+    $readinessProbeRethrow -gt $readinessRemovalRethrow) {
+    throw 'Each readiness host case must preserve its first failure and remove only a successfully verified ID in finally.'
+}
+$hostSecondaryFailure = $readinessHostProbeBlock.Groups['body'].Value.IndexOf(
+    'Write-ReadinessSecondaryFailure',
+    [System.StringComparison]::Ordinal)
+if ($hostSecondaryFailure -lt 0 -or
+    $hostSecondaryFailure -gt $readinessProbeRethrow) {
+    throw 'A host probe failure must remain primary while a removal failure is emitted as bounded secondary evidence.'
+}
+$readinessFixtureBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Invoke-ReadinessFixture \{(?<body>.*?)(?=\r?\nfunction Start-VerifiedReadinessHostContainer \{)')
+$fixtureExitGate = $readinessFixtureBlock.Groups['body'].Value.IndexOf(
+    'if ($fixtureExitCode -ne 0)',
+    [System.StringComparison]::Ordinal)
+$fixtureReceiptParse = $readinessFixtureBlock.Groups['body'].Value.IndexOf(
+    'return ConvertFrom-ReadinessReceiptOutput',
+    [System.StringComparison]::Ordinal)
+if (-not $readinessFixtureBlock.Success -or
+    $fixtureExitGate -lt 0 -or
+    $fixtureReceiptParse -lt $fixtureExitGate) {
+    throw 'A fixture receipt may be parsed only after the Compose action exits successfully.'
+}
+$readinessReceiptAssertionBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Assert-ExactReadinessReceipt \{(?<body>.*?)(?=\r?\nfunction ConvertFrom-ReadinessReceiptOutput \{)')
+foreach ($receiptContract in @(
+        "status = 'created'",
+        "action = 'create-template'",
+        "action = 'create-scenario'",
+        "status = 'verified'",
+        "action = 'probe'",
+        'database = Get-ReadinessDatabaseName',
+        'scenario = $Scenario',
+        'host = $HostName',
+        'container = Get-ReadinessContainerName',
+        '$actualProperties -join "`n"',
+        '$expectedProperties -join "`n"')) {
+    if (-not $readinessReceiptAssertionBlock.Success -or
+        -not $readinessReceiptAssertionBlock.Groups['body'].Value.Contains(
+            $receiptContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "Readiness receipt validation is missing exact contract '$receiptContract'."
+    }
+}
+$readinessMatrixBlock = [regex]::Match(
+    $stranglerRuntime,
+    '(?s)function Invoke-ReadinessRuntimeMatrix \{(?<body>.*?)(?=\r?\n\}\r?\n\r?\ntry \{)')
+$scenarioReceiptPosition = $readinessMatrixBlock.Groups['body'].Value.IndexOf(
+    '$scenarioReceipt = Invoke-ReadinessFixture',
+    [System.StringComparison]::Ordinal)
+$scenarioCountPosition = $readinessMatrixBlock.Groups['body'].Value.IndexOf(
+    '$validatedScenarioReceipts += 1',
+    [System.StringComparison]::Ordinal)
+$hostReceiptPosition = $readinessMatrixBlock.Groups['body'].Value.IndexOf(
+    '$probeReceipt = Invoke-ReadinessHostProbe',
+    [System.StringComparison]::Ordinal)
+$hostCountPosition = $readinessMatrixBlock.Groups['body'].Value.IndexOf(
+    '$validatedHostReceipts += 1',
+    [System.StringComparison]::Ordinal)
+if (-not $readinessMatrixBlock.Success -or
+    $scenarioReceiptPosition -lt 0 -or
+    $scenarioCountPosition -lt $scenarioReceiptPosition -or
+    $hostReceiptPosition -lt 0 -or
+    $hostCountPosition -lt $hostReceiptPosition -or
+    $stranglerRuntime.Contains(
+        'readinessScenarios = $readinessScenarios.Count',
+        [System.StringComparison]::Ordinal) -or
+    $stranglerRuntime.Contains(
+        'readinessHostChecks = $readinessScenarios.Count * $readinessHosts.Count',
+        [System.StringComparison]::Ordinal)) {
+    throw 'Readiness success totals must be incremented only after validated scenario and host receipts return.'
+}
+$generatedSecretCapture = $stranglerRuntime.IndexOf(
+    '[void]$generatedSecretValues.Add($generatedSecret)',
+    [System.StringComparison]::Ordinal)
+$environmentRestoration = $stranglerRuntime.IndexOf(
+    '$restoredEnvironment = [System.Environment]::GetEnvironmentVariables(',
+    [System.StringComparison]::Ordinal)
+$outerPrimaryFailure = $stranglerRuntime.IndexOf(
+    'if ($null -ne $firstFailure)',
+    [System.StringComparison]::Ordinal)
+$outerSecondaryFailure = $stranglerRuntime.IndexOf(
+    'Write-ReadinessSecondaryFailure',
+    $outerPrimaryFailure,
+    [System.StringComparison]::Ordinal)
+$outerPrimaryRethrow = $stranglerRuntime.IndexOf(
+    'throw $firstFailure',
+    $outerPrimaryFailure,
+    [System.StringComparison]::Ordinal)
+if ($generatedSecretCapture -lt 0 -or
+    $environmentRestoration -lt $generatedSecretCapture -or
+    $outerPrimaryFailure -lt $environmentRestoration -or
+    $outerSecondaryFailure -lt $outerPrimaryFailure -or
+    $outerPrimaryRethrow -lt $outerSecondaryFailure) {
+    throw 'Generated secret redaction must survive restoration and outer secondary failures must be emitted before rethrowing the primary failure.'
+}
+
+foreach ($fixtureReadinessContract in @(
+        'CONFIRMED_DISPOSABLE_STRANGLER',
+        'databaseUrl.protocol !== "postgresql:"',
+        'databaseUrl.hostname !== "postgres"',
+        'databaseUrl.port !== "5432"',
+        'userName !== "shiftflow"',
+        'databaseName !== expectedDatabase',
+        'databaseUrl.search !== "?schema=public"',
+        'databaseUrl.hash !== ""',
+        '/^[0-9a-f]{24}$/',
+        'GENERATED_DATABASE_PATTERN',
+        'GENERATED_CONTAINER_PATTERN',
+        'quoteIdentifier',
+        'CREATE DATABASE ${quoteGeneratedDatabase(databaseName)} WITH OWNER "shiftflow" TEMPLATE template0',
+        'TEMPLATE ${quoteGeneratedDatabase(templateName)}',
+        'BEGIN',
+        'ROLLBACK',
+        '20260903023000_add_authentication_session_observations',
+        'authentication_session_observations',
+        'refresh_tokens_userId_companyId_sessionKind_expiresAt_revokedAt_idx',
+        'refresh_tokens_userId_companyId_sessionKind_familyId_revokedAt_idx',
+        'user_role_assignments_active_exact_key',
+        'authentication_session_observations_pkey',
+        'authentication_session_observations_userId_fkey',
+        'authentication_session_observations_companyId_fkey',
+        'authentication_session_observations_companyId_sessionKind_observedAt_idx',
+        'CREATE SCHEMA "active" AUTHORIZATION "shiftflow"',
+        'CREATE VIEW public."audit_logs"',
+        'REFERENCES public."companies"("id")',
+        'WHERE "deletedAt" IS NOT NULL',
+        'ALTER COLUMN "familyId" DROP NOT NULL',
+        'ALTER COLUMN "emailHash" TYPE text',
+        'const NEGATIVE_CONFIRMATION_SAMPLES = 5;',
+        'lastObservation.status === 200',
+        'consecutiveMatches += 1',
+        'consecutiveMatches = 0',
+        'consecutiveMatches >= NEGATIVE_CONFIRMATION_SAMPLES',
+        'await confirmNegativeReadiness(baseUrl, host, scenario)',
+        'preservePrimaryFailure',
+        'new AggregateError(',
+        'catch (endError)',
+        '"PostgreSQL client shutdown"',
+        'catch (rollbackError)',
+        '"scenario rollback"',
+        '"/health"',
+        '"/ready"',
+        'READINESS_CHECK_FAILED',
+        'checks?.postgresql === "unavailable"',
+        'checks?.redis === "available"',
+        'checks?.dataProtection === "available"')) {
+    if (-not $readinessRuntime.Contains(
+            $fixtureReadinessContract,
+            [System.StringComparison]::Ordinal)) {
+        throw "The guarded readiness fixture is missing contract '$fixtureReadinessContract'."
+    }
+}
+$negativeReadinessBlock = [regex]::Match(
+    $readinessRuntime,
+    '(?s)async function confirmNegativeReadiness\(.*?\) \{(?<body>.*?)(?=\r?\n\}\r?\n\r?\nasync function probeScenario)')
+$negativeReadinessBody = $negativeReadinessBlock.Groups['body'].Value
+$negativeHttp200Gate = $negativeReadinessBody.IndexOf(
+    'if (lastObservation.status === 200)',
+    [System.StringComparison]::Ordinal)
+$negativeExpectedMatch = $negativeReadinessBody.IndexOf(
+    'if (isExpectedReadiness(lastObservation, host, false))',
+    [System.StringComparison]::Ordinal)
+$negativeConfirmation = $negativeReadinessBody.IndexOf(
+    'consecutiveMatches >= NEGATIVE_CONFIRMATION_SAMPLES',
+    [System.StringComparison]::Ordinal)
+$negativeReset = $negativeReadinessBody.IndexOf(
+    'consecutiveMatches = 0',
+    $negativeReadinessBody.IndexOf('} else {', [System.StringComparison]::Ordinal),
+    [System.StringComparison]::Ordinal)
+if (-not $negativeReadinessBlock.Success -or
+    $negativeHttp200Gate -lt 0 -or
+    $negativeExpectedMatch -lt $negativeHttp200Gate -or
+    $negativeConfirmation -lt $negativeExpectedMatch -or
+    $negativeReset -lt $negativeConfirmation) {
+    throw 'Negative readiness must reject any post-liveness HTTP 200 before counting five consecutive exact 503 observations and reset on transients.'
+}
+$probeScenarioBlock = [regex]::Match(
+    $readinessRuntime,
+    '(?s)async function probeScenario\(.*?\) \{(?<body>.*?)(?=\r?\n\}\r?\n\r?\nfunction sanitiseError)')
+$probeHealthPosition = $probeScenarioBlock.Groups['body'].Value.IndexOf(
+    '"/health"',
+    [System.StringComparison]::Ordinal)
+$probeNegativePosition = $probeScenarioBlock.Groups['body'].Value.IndexOf(
+    'await confirmNegativeReadiness(baseUrl, host, scenario)',
+    [System.StringComparison]::Ordinal)
+if (-not $probeScenarioBlock.Success -or
+    $probeHealthPosition -lt 0 -or
+    $probeNegativePosition -lt $probeHealthPosition) {
+    throw 'Every negative readiness confirmation must start only after exact host liveness succeeds.'
+}
+$withClientBlock = [regex]::Match(
+    $readinessRuntime,
+    '(?s)async function withClient\(.*?\) \{(?<body>.*?)(?=\r?\n\}\r?\n\r?\nasync function createTemplate)')
+$clientPrimaryCapture = $withClientBlock.Groups['body'].Value.IndexOf(
+    'primaryError = error',
+    [System.StringComparison]::Ordinal)
+$clientEndFailure = $withClientBlock.Groups['body'].Value.IndexOf(
+    'throw preservePrimaryFailure(primaryError, endError, "PostgreSQL client shutdown")',
+    [System.StringComparison]::Ordinal)
+$scenarioRollbackFailure = $readinessRuntime.IndexOf(
+    'throw preservePrimaryFailure(error, rollbackError, "scenario rollback")',
+    [System.StringComparison]::Ordinal)
+if (-not $withClientBlock.Success -or
+    $clientPrimaryCapture -lt 0 -or
+    $clientEndFailure -lt $clientPrimaryCapture -or
+    $scenarioRollbackFailure -lt 0) {
+    throw 'PostgreSQL rollback and client shutdown failures must retain the first query or mutation failure as primary evidence.'
+}
+$fixtureEnvironmentReads = @(
+    [regex]::Matches($readinessRuntime, 'process[.]env[.](?<name>[A-Z0-9_]+)') |
+        ForEach-Object { $_.Groups['name'].Value } |
+        Sort-Object -Unique)
+if (($fixtureEnvironmentReads -join "`n") -cne "DATABASE_URL`nSHIFTFLOW_DISPOSABLE_RUNTIME" -or
+    $readinessRuntime.Contains('dotenv/config', [System.StringComparison]::Ordinal) -or
+    $readinessRuntime.Contains('process.argv', [System.StringComparison]::Ordinal) -eq $false -or
+    [regex]::Matches(
+        $readinessRuntime,
+        [regex]::Escape('await waitForObservation(')).Count -ne 2) {
+    throw 'The readiness fixture must use only its two controlled environment inputs and probe liveness before readiness.'
+}
+
 $immutableComposeImages = [ordered]@{
-    postgres = 'postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685'
-    redis = 'redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232'
-    nginx = 'nginx:1.29.1-alpine@sha256:42a516af16b852e33b7682d5ef8acbd5d13fe08fecadc7ed98605ba5e3b26ab8'
+    nginx = 'nginx:1.30.4-alpine-slim@sha256:77da26c31397bf6694b4bf93275f5b40b0b120ba1b8f114264b603e592c561d6'
 }
 foreach ($serviceName in $immutableComposeImages.Keys) {
     $serviceBlock = [regex]::Match(
@@ -672,6 +1677,9 @@ foreach ($localServiceName in @('postgres', 'redis')) {
         $composeConfiguration,
         '(?ms)^  ' + [regex]::Escape($localServiceName) + ':\r?\n(?<body>.*?)(?=^  \S|\z)')
     if (-not $localServiceBlock.Success -or
+        $localServiceBlock.Value -match '(?m)^    image:' -or
+        $localServiceBlock.Value -notmatch ('(?m)^      target: ' + $localServiceName + '\s*$') -or
+        $localServiceBlock.Value -notmatch '(?m)^      dockerfile: infra/docker/infrastructure[.]Dockerfile\s*$' -or
         $localServiceBlock.Value.IndexOf(
             '      - local-access',
             [System.StringComparison]::Ordinal) -lt 0) {
@@ -684,13 +1692,71 @@ if ($composeConfiguration -notmatch '(?ms)^  local-access:\r?\n    internal: fal
 $runtimeJob = [regex]::Match(
     $workflow,
     '(?ms)^  runtime-gates:\r?\n(?<body>.*?)(?=^  [a-zA-Z0-9_-]+:\r?$|\z)')
-$workflowPostgresImage = '        image: ' + $immutableComposeImages.postgres
-if (-not $runtimeJob.Success -or
-    [regex]::Matches(
-        $runtimeJob.Value,
-        '(?m)^' + [regex]::Escape($workflowPostgresImage) + '\s*$').Count -ne 1 -or
-    [regex]::Matches($runtimeJob.Value, '(?m)^        image:\s+postgres:').Count -ne 1) {
-    throw 'The runtime-gates PostgreSQL service must use its exact immutable image contract.'
+function Assert-ScannedPostgresBootstrap {
+    param([Parameter(Mandatory)][string]$Text)
+    $normalised = $Text.Replace("`r`n", "`n")
+    $contracts = @(
+        'uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5',
+        'docker build --file infra/docker/infrastructure.Dockerfile --target postgres --tag "$image_tag" .',
+        'image_id="$(docker image inspect --format ''{{.Id}}'' "$image_tag")"',
+        'image-ref: ${{ steps.runtime_postgres.outputs.image_id }}',
+        'docker run --detach --pull never --name "$owner" --label "shiftflow.ci.owner=$owner"',
+        'test "$(docker inspect --format ''{{.Image}}'' "$owner")" = "$POSTGRES_IMAGE_ID"',
+        'for attempt in $(seq 1 30); do',
+        'Remove only job-owned PostgreSQL resources')
+    $lastPosition = -1
+    foreach ($contract in $contracts) {
+        $position = $normalised.IndexOf($contract, [System.StringComparison]::Ordinal)
+        if ($position -le $lastPosition -or [regex]::Matches($normalised, [regex]::Escape($contract)).Count -ne 1) {
+            throw 'The PostgreSQL bootstrap must build after checkout, scan the exact image, run its immutable identity and clean up in order.'
+        }
+        $lastPosition = $position
+    }
+    $ownerValidation = $normalised.IndexOf('[[ "$owner" =~ ^shiftflow-ci-postgres-[0-9]+-[0-9]+$ ]]', [System.StringComparison]::Ordinal)
+    $ownerPublication = $normalised.IndexOf('echo "owner=$owner" >> "$GITHUB_OUTPUT"', [System.StringComparison]::Ordinal)
+    $volumeCreation = $normalised.IndexOf('docker volume create --label "shiftflow.ci.owner=$owner" "${owner}-data"', [System.StringComparison]::Ordinal)
+    if ($ownerValidation -lt 0 -or $ownerPublication -le $ownerValidation -or $volumeCreation -le $ownerPublication) {
+        throw 'The validated cleanup owner must be published before the first resource-creation attempt, including ambiguous CLI failure.'
+    }
+    foreach ($contract in @(
+            'uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8',
+            'version: v0.74.0', 'scanners: vuln', 'vuln-type: os,library',
+            'exit-code: "1"', 'ignore-unfixed: "false"', 'severity: UNKNOWN,MEDIUM,HIGH,CRITICAL',
+            'cache: "false"', 'POSTGRES_IMAGE_ID: ${{ steps.runtime_postgres.outputs.image_id }}',
+            '[[ "$POSTGRES_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]',
+            '            "$POSTGRES_IMAGE_ID"',
+            'POSTGRES_RESOURCE_OWNER: ${{ steps.start_runtime_postgres.outputs.owner }}',
+            'if test -z "$POSTGRES_RESOURCE_OWNER"; then exit 0; fi',
+            'test "$POSTGRES_RESOURCE_OWNER" = "$owner"',
+            'test "$(docker inspect --format ''{{index .Config.Labels "shiftflow.ci.owner"}}'' "$container_id")" = "$owner"',
+            'test "$(docker volume inspect --format ''{{index .Labels "shiftflow.ci.owner"}}'' "$volume_name")" = "$owner"',
+            'test -z "$remaining_containers$remaining_volumes"')) {
+        if (-not $normalised.Contains($contract, [System.StringComparison]::Ordinal)) {
+            throw "The actual-image PostgreSQL security/ownership contract is missing '$contract'."
+        }
+    }
+    if ($normalised -match '(?m)^    services:|continue-on-error:|docker (?:system|volume|container) prune' -or
+        $normalised -notmatch '(?m)^      - name: Remove only job-owned PostgreSQL resources\n        if: always\(\)$') {
+        throw 'PostgreSQL bootstrap must never use an unscanned service, bypass failures or perform unbounded cleanup.'
+    }
+}
+if (-not $runtimeJob.Success) { throw 'The runtime-gates job is missing.' }
+Assert-ScannedPostgresBootstrap -Text $runtimeJob.Value
+$postgresCounterexamples = [ordered]@{
+    'cleanup owner published after mutation' = $runtimeJob.Value.Replace('echo "owner=$owner" >> "$GITHUB_OUTPUT"', '').Replace('docker volume create --label "shiftflow.ci.owner=$owner" "${owner}-data"', "docker volume create --label `"shiftflow.ci.owner=`$owner`" `"`${owner}-data`"`n          echo `"owner=`$owner`" >> `"`$GITHUB_OUTPUT`"")
+    'mutable image scan' = $runtimeJob.Value.Replace('image-ref: ${{ steps.runtime_postgres.outputs.image_id }}', 'image-ref: postgres:16-alpine')
+    'runtime pull allowed' = $runtimeJob.Value.Replace('--pull never', '--pull always')
+    'container image identity omitted' = $runtimeJob.Value.Replace('test "$(docker inspect --format ''{{.Image}}'' "$owner")" = "$POSTGRES_IMAGE_ID"', '')
+    'unowned cleanup' = $runtimeJob.Value.Replace('test "$POSTGRES_RESOURCE_OWNER" = "$owner"', '')
+    'cleanup only after success' = $runtimeJob.Value.Replace('if: always()', 'if: success()')
+    'unfixed scan waiver' = $runtimeJob.Value.Replace('ignore-unfixed: "false"', 'ignore-unfixed: "true"')
+}
+foreach ($name in $postgresCounterexamples.Keys) {
+    if ($postgresCounterexamples[$name] -ceq $runtimeJob.Value) { throw "PostgreSQL counterexample '$name' did not mutate its input." }
+    $rejected = $false
+    try { Assert-ScannedPostgresBootstrap -Text $postgresCounterexamples[$name] }
+    catch { $rejected = $true }
+    if (-not $rejected) { throw "PostgreSQL bootstrap accepted '$name'." }
 }
 if (-not $composeConfiguration.Contains(
         'API_RATE_LIMIT_WINDOW_MS: "600000"',
@@ -706,7 +1772,7 @@ foreach ($composeSecurityContract in @(
         throw "The disposable profile is missing state or authority contract '$composeSecurityContract'."
     }
 }
-$immutableNodeImage = 'node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b'
+$immutableNodeImage = 'node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
 $externalNodeStages = @([regex]::Matches($nodeDockerfile, '(?im)^FROM\s+node:[^\r\n]+$'))
 $expectedNodeStages = @('dependencies', 'legacy-api', 'web')
 if ($externalNodeStages.Count -ne $expectedNodeStages.Count) {
@@ -743,6 +1809,104 @@ foreach ($stageName in $immutableDotNetStages.Keys) {
         throw "ASP.NET Core stage '$stageName' must use its exact immutable base image."
     }
 }
+
+function Assert-DerivedRuntimePackaging {
+    param([string]$Infrastructure, [string]$Node)
+    $requiredInfrastructure = @(
+        'FROM golang:1.26.7-alpine3.24@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468 AS gosu-build',
+        'FROM postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 AS postgres',
+        'FROM redis:8.2.9-alpine@sha256:30abb90e62f14b737010746def3ba99cc79fe19dcdb3d37b41f21fc62e7da19d AS redis',
+        'ENV GOTOOLCHAIN=local CGO_ENABLED=0',
+        '00ef15d982eb58d62cf67c6517d9560bb92cff5d1347f16b03e03bb3a6da08f2b85e8c3e6c23ae644f174f8da8e9154dcfe4ee379f894882e92b3602d7d079ed  /tmp/gosu-1.19.tar.gz',
+        'sha512sum -c -',
+        'go mod edit -go=1.26.0 -require=golang.org/x/sys@v0.44.0',
+        'github.com/moby/sys/user v0.1.0 h1:WmZ93f5Ux6het5iituh9x2zAG7NFY9Aqi49jjE1PaQg=',
+        'golang.org/x/sys v0.44.0 h1:ildZl3J4uzeKP07r2F++Op7E9B29JRUy+a27EibtBTQ=',
+        'go mod verify', 'go build -trimpath -buildvcs=false -ldflags=''-d -w'' -o /out/gosu .',
+        'go version -m /out/gosu',
+        'COPY --from=gosu-build --chmod=0755 /out/gosu /usr/local/bin/gosu',
+        'libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 libuuid=2.42.3-r1',
+        'libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 setpriv=2.41.6-r1',
+        'test "$(readlink /usr/local/bin/su-exec)" = gosu')
+    foreach ($contract in $requiredInfrastructure) {
+        if (-not $Infrastructure.Contains($contract, [System.StringComparison]::Ordinal)) {
+            throw "The derived infrastructure packaging is missing '$contract'."
+        }
+    }
+    if ($Infrastructure -match '(?im)^(?:USER|ENTRYPOINT|CMD|STOPSIGNAL)\s|GOSUMDB=off|--allow-untrusted' -or
+        [regex]::Matches($Infrastructure, '(?im)^FROM ').Count -ne 3) {
+        throw 'Infrastructure derivation must retain upstream runtime identities, entrypoints and signals with verified packages.'
+    }
+    $checksumPosition = $Infrastructure.IndexOf('sha512sum -c -', [System.StringComparison]::Ordinal)
+    if ($checksumPosition -gt $Infrastructure.IndexOf('tar -xzf ', [System.StringComparison]::Ordinal)) {
+        throw 'Gosu source must be authenticated before extraction.'
+    }
+    if ([regex]::Matches($Node, [regex]::Escape('rm -r /usr/local/lib/node_modules/npm')).Count -ne 3) {
+        throw 'Only the three final Node runtime stages may remove the verified global npm tree.'
+    }
+    foreach ($stage in @([regex]::Matches($Node, '(?ms)^FROM [^\r\n]+ AS (?<name>[^\r\n]+)\r?\n(?<body>.*?)(?=^FROM |\z)'))) {
+        $body = $stage.Groups['body'].Value
+        $name = $stage.Groups['name'].Value
+        if ($name -in @('migration', 'legacy-api', 'web')) {
+            $lastPosition = -1
+            foreach ($contract in @(
+                    'test "$(readlink -f /usr/local/bin/npm)" = /usr/local/lib/node_modules/npm/bin/npm-cli.js',
+                    'test "$(readlink -f /usr/local/bin/npx)" = /usr/local/lib/node_modules/npm/bin/npx-cli.js',
+                    'require("/usr/local/lib/node_modules/npm/package.json").name',
+                    'rm -r /usr/local/lib/node_modules/npm',
+                    'rm /usr/local/bin/npm /usr/local/bin/npx',
+                    'USER node')) {
+                $position = $body.IndexOf($contract, [System.StringComparison]::Ordinal)
+                if ($position -le $lastPosition) { throw "Final Node stage '$name' must verify exact npm targets before removal and privilege dropping." }
+                $lastPosition = $position
+            }
+        } elseif ($body.Contains('rm -r /usr/local/lib/node_modules/npm', [System.StringComparison]::Ordinal)) {
+            throw 'Build stages must retain global npm.'
+        }
+    }
+}
+Assert-DerivedRuntimePackaging -Infrastructure $infrastructureDockerfile -Node $nodeDockerfile
+$packagingCounterexamples = [ordered]@{
+    'unauthenticated gosu source' = $infrastructureDockerfile.Replace('sha512sum -c -', 'true')
+    'setuid gosu mode' = $infrastructureDockerfile.Replace('--chmod=0755', '--chmod=4755')
+    'replaced upstream user' = $infrastructureDockerfile + "`nUSER root`n"
+    'disabled Go module verification' = $infrastructureDockerfile.Replace('go mod verify', 'true')
+}
+foreach ($name in $packagingCounterexamples.Keys) {
+    $rejected = $false
+    try { Assert-DerivedRuntimePackaging -Infrastructure $packagingCounterexamples[$name] -Node $nodeDockerfile }
+    catch { $rejected = $true }
+    if (-not $rejected) { throw "Derived packaging accepted '$name'." }
+}
+$unverifiedNpmRemoval = $nodeDockerfile.Replace('test "$(readlink -f /usr/local/bin/npm)" = /usr/local/lib/node_modules/npm/bin/npm-cli.js', 'true')
+$rejected = $false
+try { Assert-DerivedRuntimePackaging -Infrastructure $infrastructureDockerfile -Node $unverifiedNpmRemoval }
+catch { $rejected = $true }
+if (-not $rejected) { throw 'Final Node packaging accepted removal without verifying the global npm destination.' }
+if (-not $dotnetDockerfile.Contains('RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0', [System.StringComparison]::Ordinal)) {
+    throw 'The ASP.NET Core final image must include the exact OpenSSL correction.'
+}
+foreach ($contract in @(
+        'function Get-RuntimeImageIdentities',
+        'ps --all --quiet $service',
+        "docker inspect --format '{{.Image}}'",
+        '$actualRuntimeImages = Get-RuntimeImageIdentities',
+        '$finalRuntimeImages = Get-RuntimeImageIdentities',
+        'actualRuntimeImages = $actualRuntimeImages',
+        'function Assert-InfrastructurePackaging',
+        'gosu postgres id -G', 'actual_home=', 'shiftflow_missing_user',
+        'test ! -u /usr/local/bin/gosu', 'su-exec postgres true',
+        'SHOW server_version_num', 'SELECT system_identifier FROM pg_control_system()',
+        '$restartedIdentifier -cne $systemIdentifier', '$restartedMigrations -cne $migrationCount',
+        'CONFIG GET appendonly', 'CONFIG GET maxmemory-policy',
+        '$remainingRedisTtl -gt $redisTtl',
+        'test ! -e /usr/local/lib/node_modules/npm',
+        './node_modules/.bin/prisma --version', 'nginx nginx -t')) {
+    if (-not $stranglerRuntime.Contains($contract, [System.StringComparison]::Ordinal)) {
+        throw "The canonical runtime is missing derived-packaging evidence '$contract'."
+    }
+}
+Write-Output 'Rejected all 12 unsafe PostgreSQL bootstrap and derived-packaging counterexamples.'
 
 foreach ($smokeContract in @(
         "Join-Path `$repositoryRoot 'scripts/docker-desktop.ps1'",

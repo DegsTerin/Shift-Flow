@@ -23,14 +23,19 @@ describe("requirePermission", () => {
     vi.restoreAllMocks();
   });
 
-  it("rejects a permission excluded from the signed session before consulting live RBAC", async () => {
-    const livePermission = vi.spyOn(RbacService, "hasPermission").mockResolvedValue(true);
+  it("delegates the portfolio ceiling and live authority decision to the central service", async () => {
+    const livePermission = vi.spyOn(RbacService, "hasPermission").mockResolvedValue(false);
     const next = vi.fn() as NextFunction;
+    const req = request(["dashboard:read"]);
 
-    await requirePermission("users", "read")(request(["dashboard:read"]), {} as Response, next);
+    await requirePermission("users", "read")(req, {} as Response, next);
 
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: "FORBIDDEN" }));
-    expect(livePermission).not.toHaveBeenCalled();
+    expect(livePermission).toHaveBeenCalledWith(req.auth, {
+      resource: "users",
+      action: "read",
+      tenant: req.tenant
+    });
   });
 
   it("rejects a signed permission that live RBAC has revoked", async () => {

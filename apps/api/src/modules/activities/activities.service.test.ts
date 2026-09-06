@@ -1,6 +1,7 @@
 // en-GB: Exercises activity query and evidence shaping without a database runtime.
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiRequest } from "../../shared/http/request-types.js";
+import type { DateRangeQuery } from "../../shared/services/date-range.service.js";
 import type { ActivityTaskBoardRepository } from "./activity-task-board.repository.js";
 import type { ActivitiesRepository } from "./activities.repository.js";
 
@@ -11,12 +12,25 @@ const scopeChecks = vi.hoisted(() => ({
   user: vi.fn().mockResolvedValue(undefined)
 }));
 
+const dateRanges = vi.hoisted(() => ({
+  resolve: vi.fn()
+}));
+
+const datetimes = vi.hoisted(() => ({ resolve: vi.fn() }));
+vi.mock("../../shared/services/zoned-datetime.service.js", () => ({
+  resolveCompanyDatetime: datetimes.resolve
+}));
+
 vi.mock("../../shared/services/scope.service.js", () => ({
   activeCompanyId: (req: ApiRequest) => req.auth?.companyId,
   assertClientInCompany: scopeChecks.client,
   assertShiftInCompany: scopeChecks.shift,
   assertTeamInCompany: scopeChecks.team,
   assertUserInCompany: scopeChecks.user
+}));
+
+vi.mock("../../shared/services/date-range.service.js", () => ({
+  resolveDateRange: dateRanges.resolve
 }));
 
 import {
@@ -26,6 +40,20 @@ import {
 } from "./activities.service.js";
 
 const companyId = "c40e2a7b-72a8-4aca-a780-d6d239134d38";
+const calendarBounds: DateRangeQuery = {
+  from: { kind: "calendar-date", value: "2026-08-01" },
+  to: { kind: "calendar-date", value: "2026-08-31" }
+};
+const instantBounds: DateRangeQuery = {
+  from: { kind: "instant", value: "2026-08-01T00:00:00.123Z" },
+  to: { kind: "instant", value: "2026-08-31T23:59:59.987Z" }
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  dateRanges.resolve.mockResolvedValue(undefined);
+  datetimes.resolve.mockImplementation(async (_companyId, value) => value);
+});
 
 function request(query: Record<string, unknown> = {}) {
   return { query, auth: { id: "user-1", email: "owner@example.com", companyId } } as ApiRequest;
@@ -89,6 +117,41 @@ function evidencedRepository(previous: Record<string, unknown> = {}) {
 }
 
 describe("ActivitiesService", () => {
+  it("resolves a create SLA in the authenticated Company before persisting evidence", async () => {
+    const resolved = new Date("2026-07-04T09:20:30.123Z");
+    datetimes.resolve.mockResolvedValueOnce(resolved);
+    const { repository, captured } = evidencedRepository();
+    await serviceWith(repository).create(request(), {
+      clientId: "client-1",
+      teamId: "team-1",
+      title: "Incident",
+      slaDueAt: "2026-07-04T10:20:30.123"
+    });
+    expect(datetimes.resolve).toHaveBeenCalledWith(companyId, "2026-07-04T10:20:30.123");
+    expect(captured.createData?.slaDueAt).toEqual(resolved);
+  });
+
+  it("resolves a changed SLA before the audited update and omits an unchanged SLA", async () => {
+    const resolved = new Date("2026-07-04T09:20:30.123Z");
+    datetimes.resolve.mockResolvedValueOnce(resolved);
+    const { repository, captured } = evidencedRepository();
+    const service = serviceWith(repository);
+    await service.update(request(), "activity-1", { slaDueAt: "2026-07-04T10:20:30.123" });
+    expect(captured.mutationData?.slaDueAt).toEqual(resolved);
+    await service.update(request(), "activity-1", { title: "Unchanged SLA" });
+    expect(captured.mutationData).not.toHaveProperty("slaDueAt");
+    expect(datetimes.resolve).toHaveBeenCalledOnce();
+  });
+
+  it("does not mutate when Company SLA resolution fails", async () => {
+    datetimes.resolve.mockRejectedValueOnce(new Error("Company timezone unavailable"));
+    const { repository } = evidencedRepository();
+    await expect(
+      serviceWith(repository).update(request(), "activity-1", { slaDueAt: "2026-07-04T10:20" })
+    ).rejects.toThrow("Company timezone unavailable");
+    expect(repository.updateWithEvidence).not.toHaveBeenCalled();
+  });
+
   it("honours requested pagination and combines attention with explicit filters", async () => {
     const filteredList = vi.fn().mockResolvedValue({ items: [], total: 0, page: 2, pageSize: 10 });
     const service = serviceWith({ filteredList } as Partial<ActivitiesRepository>);
@@ -116,18 +179,47 @@ describe("ActivitiesService", () => {
     expect(filteredList).toHaveBeenCalledWith(expect.any(Object), { page: 1, pageSize: 100 });
   });
 
-  it("preserves exact millisecond date boundaries produced by validation", async () => {
-    const from = new Date("2026-08-01T00:00:00.123Z");
-    const to = new Date("2026-08-31T23:59:59.987Z");
+  it("passes authenticated civil bounds to the resolver and wires its exclusive range", async () => {
+    const gte = new Date("2026-08-01T03:00:00.000Z");
+    const lt = new Date("2026-09-01T03:00:00.000Z");
     const filteredList = vi.fn().mockResolvedValue({ items: [], total: 0 });
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lt });
     const service = serviceWith({ filteredList } as Partial<ActivitiesRepository>);
 
-    await service.list(request({ from, to }));
+    await service.list(request(calendarBounds));
 
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
     expect(filteredList).toHaveBeenCalledWith(
-      expect.objectContaining({ createdAt: { gte: from, lte: to } }),
+      expect.objectContaining({ companyId, createdAt: { gte, lt } }),
       expect.any(Object)
     );
+  });
+
+  it("preserves inclusive explicit instants through the Kanban list path", async () => {
+    const gte = new Date("2026-08-01T00:00:00.123Z");
+    const lte = new Date("2026-08-31T23:59:59.987Z");
+    const filteredList = vi.fn().mockResolvedValue({ items: [], total: 0 });
+    dateRanges.resolve.mockResolvedValueOnce({ gte, lte });
+    const service = serviceWith({ filteredList } as Partial<ActivitiesRepository>);
+
+    await service.kanban(request(instantBounds));
+
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, instantBounds);
+    expect(filteredList).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId, createdAt: { gte, lte } }),
+      expect.any(Object)
+    );
+  });
+
+  it("does not query activities when date-range resolution fails closed", async () => {
+    const filteredList = vi.fn();
+    dateRanges.resolve.mockRejectedValueOnce(new Error("timezone unavailable"));
+    const service = serviceWith({ filteredList } as Partial<ActivitiesRepository>);
+
+    await expect(service.list(request(calendarBounds))).rejects.toThrow("timezone unavailable");
+
+    expect(dateRanges.resolve).toHaveBeenCalledWith(companyId, calendarBounds);
+    expect(filteredList).not.toHaveBeenCalled();
   });
 
   it("uses a public attachment projection for activity detail", async () => {

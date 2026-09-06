@@ -18,13 +18,21 @@ function widget(key: string, order: number) {
 }
 
 describe("dashboardFilterSchema", () => {
-  it("rejects an inverted date interval", () => {
+  it("preserves shared civil-date and instant filter categories", () => {
     expect(
-      dashboardFilterSchema.safeParse({
-        from: "2026-09-01T00:00:00.000Z",
-        to: "2026-08-01T00:00:00.000Z"
-      }).success
-    ).toBe(false);
+      dashboardFilterSchema.parse({
+        from: "2026-09-01",
+        to: "2026-09-30T23:59:59.123-03:00"
+      })
+    ).toMatchObject({
+      from: { kind: "calendar-date", value: "2026-09-01" },
+      to: { kind: "instant", value: "2026-09-30T23:59:59.123-03:00" }
+    });
+  });
+
+  it("rejects impossible civil dates and offset-less datetimes", () => {
+    expect(dashboardFilterSchema.safeParse({ from: "2026-02-30" }).success).toBe(false);
+    expect(dashboardFilterSchema.safeParse({ to: "2026-09-30T23:59:59" }).success).toBe(false);
   });
 
   it("accepts combinable status, priority and attention filters", () => {

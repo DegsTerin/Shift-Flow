@@ -9,6 +9,7 @@ const packageLock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
 const expectedOverrides = {
   "deepmerge-ts": "8.0.0",
+  mysql2: "3.23.1",
   postcss: "$postcss"
 };
 
@@ -22,6 +23,28 @@ function npmExplain(packageName) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]
   });
+}
+
+function npmDependencyInstances(packageName) {
+  const tree = JSON.parse(
+    execSync(`npm ls ${packageName} --all --json`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    })
+  );
+  if (Array.isArray(tree.problems) && tree.problems.length > 0) {
+    fail(`${packageName} dependency tree reports problems: ${tree.problems.join("; ")}`);
+  }
+
+  const instances = [];
+  const visit = (node) => {
+    for (const [dependencyName, dependency] of Object.entries(node?.dependencies ?? {})) {
+      if (dependencyName === packageName) instances.push(dependency);
+      visit(dependency);
+    }
+  };
+  visit(tree);
+  return instances;
 }
 
 for (const [packageName, expectedVersion] of Object.entries(expectedOverrides)) {
@@ -44,9 +67,29 @@ if (deepmergeLock !== expectedOverrides["deepmerge-ts"]) {
   );
 }
 
+const mysql2Lock = packageLock.packages?.["node_modules/mysql2"]?.version;
+if (mysql2Lock !== expectedOverrides.mysql2) {
+  fail(`mysql2 lockfile version mismatch: expected ${expectedOverrides.mysql2}, got ${mysql2Lock}`);
+}
+
 const deepmergeExplain = npmExplain("deepmerge-ts");
 if (!deepmergeExplain.includes("deepmerge-ts@8.0.0 overridden")) {
   fail("deepmerge-ts security override is not active in npm explain output.");
+}
+
+const mysql2Explain = npmExplain("mysql2");
+if (!mysql2Explain.includes(`mysql2@${expectedOverrides.mysql2} overridden`)) {
+  fail("mysql2 security override is not active in npm explain output.");
+}
+const mysql2Instances = npmDependencyInstances("mysql2");
+if (
+  mysql2Instances.length !== 1 ||
+  mysql2Instances[0]?.version !== expectedOverrides.mysql2 ||
+  mysql2Instances[0]?.overridden !== true ||
+  mysql2Instances[0]?.invalid === true ||
+  mysql2Instances[0]?.extraneous === true
+) {
+  fail("mysql2 must resolve to exactly one valid, non-extraneous overridden instance.");
 }
 
 const postcssExplain = npmExplain("postcss");
@@ -79,6 +122,7 @@ console.log(
       overrides: expectedOverrides,
       resolved: {
         "deepmerge-ts": deepmergeLock,
+        mysql2: { version: mysql2Lock, instances: mysql2Instances.length },
         postcss: postcssLock
       }
     },

@@ -20,7 +20,7 @@ vi.mock("../../shared/lib/prisma.js", () => ({
   getPrisma: vi.fn().mockResolvedValue({ $transaction: persistence.transaction })
 }));
 
-import { DashboardRepository } from "./dashboard.repository.js";
+import { DashboardRepository, completedResolutionSampleLimit } from "./dashboard.repository.js";
 
 const companyId = "c40e2a7b-72a8-4aca-a780-d6d239134d38";
 const userId = "8f536533-317b-41ea-ab86-d7545910e3cb";
@@ -156,6 +156,8 @@ describe("DashboardRepository", () => {
       take: 500
     });
     expect(concurrency.maximum()).toBe(1);
+    expect(completedResolutionSampleLimit).toBe(500);
+    expect(persistence.activityFindMany).toHaveBeenCalledOnce();
   });
 
   it("reads all chart groupings in canonical order from one snapshot", async () => {

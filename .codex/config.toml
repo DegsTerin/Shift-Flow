@@ -1,0 +1,25 @@
+# en-GB: Materialises the governed Shift-Flow agent pool and its local execution boundary.
+model = "gpt-5.6-sol"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 3
+interrupt_message = true
+
+[agents.shift-scout]
+description = "Read-only discovery, reproduction and evidence capture for one bounded Shift-Flow finding."
+config_file = "agents/shift-scout.toml"
+
+[agents.shift-implementer]
+description = "Sole candidate writer for one coordinator-owned Shift-Flow increment; never an approver or integrator."
+config_file = "agents/shift-implementer.toml"
+
+[agents.shift-verifier]
+description = "Independent read-only verification of a Shift-Flow candidate and its promotion evidence."
+config_file = "agents/shift-verifier.toml"
+
+[agents.shift-security-reviewer]
+description = "Independent read-only security review for sensitive Shift-Flow candidates."
+config_file = "agents/shift-security-reviewer.toml"

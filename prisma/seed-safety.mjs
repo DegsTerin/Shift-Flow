@@ -1,7 +1,13 @@
 // en-GB: Guards destructive seeds and PostgreSQL integration so they target only approved disposable local databases.
+import { Buffer } from "node:buffer";
 import { URL } from "node:url";
 
 export const destructiveSeedConfirmation = "DELETE_CONFIRMED_LOCAL_SHIFTFLOW_DATA";
+export const seedBcryptRounds = 12;
+export const destructiveSeedTransactionOptions = Object.freeze({
+  maxWait: 10_000,
+  timeout: 120_000
+});
 
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const allowedDatabasePattern = /^shiftflow(?:[_-][a-z0-9_-]+)?$/i;
@@ -87,6 +93,30 @@ export function assertSafeDestructiveSeed({ databaseUrl, nodeEnv, confirmation, 
       "REALISTIC_SEED_PASSWORD or E2E_PASSWORD with at least 12 characters is required."
     );
   }
+  assertBcryptPasswordLength(password, "destructive realistic seed");
 
   return { host: target.hostname, databaseName };
+}
+
+export function assertBcryptPasswordLength(password, purpose) {
+  if (typeof password !== "string") {
+    throw new TypeError(`${purpose} requires a password string.`);
+  }
+  if (Buffer.byteLength(password, "utf8") > 72) {
+    throw new Error(`${purpose} password must not exceed 72 UTF-8 bytes.`);
+  }
+}
+
+export async function runAtomicDestructiveSeed(databaseClient, seedOperation) {
+  if (!databaseClient || typeof databaseClient.$transaction !== "function") {
+    throw new TypeError("A database client with transaction support is required.");
+  }
+  if (typeof seedOperation !== "function") {
+    throw new TypeError("The destructive seed operation must be a function.");
+  }
+
+  return databaseClient.$transaction(
+    async (transactionClient) => seedOperation(transactionClient),
+    destructiveSeedTransactionOptions
+  );
 }

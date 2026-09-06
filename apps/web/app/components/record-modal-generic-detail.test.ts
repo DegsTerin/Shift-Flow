@@ -54,7 +54,8 @@ function recordFor(entity: View) {
 
 function renderGeneric(
   entity: "users" | "clients" | "teams" | "shifts",
-  capabilities: RecordModalCapabilities
+  capabilities: RecordModalCapabilities,
+  busy = false
 ) {
   return GenericDetail({
     entity,
@@ -66,7 +67,7 @@ function renderGeneric(
     ],
     roles: [],
     editing: false,
-    busy: false,
+    busy,
     capabilities,
     setEditing: vi.fn(),
     onSubmit: vi.fn(),
@@ -100,6 +101,133 @@ function textOf(node: unknown): string {
 }
 
 describe("GenericDetail capability matrix", () => {
+  it.each([
+    { status: "PLANNED", labels: ["Open shift", "Close shift", "Cancel shift"] },
+    { status: "OPEN", labels: ["Close shift", "Cancel shift"] },
+    { status: "REOPENED", labels: ["Close shift", "Cancel shift"] },
+    { status: "CLOSED", labels: ["Reopen shift"] },
+    { status: "CANCELLED", labels: [] },
+    { status: "UNKNOWN", labels: [] }
+  ])("shows the precise Shift command matrix for $status", ({ status, labels }) => {
+    const tree = GenericDetail({
+      entity: "shifts",
+      record: { ...recordFor("shifts"), status },
+      t: messages["en-GB"],
+      users: [],
+      roles: [],
+      editing: false,
+      busy: false,
+      capabilities: { ...none, canWrite: true },
+      setEditing: vi.fn(),
+      onSubmit: vi.fn(),
+      onRemove: vi.fn(),
+      onAddTeamMember: vi.fn(),
+      onRemoveTeamMember: vi.fn(),
+      onShiftTransition: vi.fn(async () => undefined)
+    });
+    const commands = expandedElements(tree).filter(
+      (element) => element.type === "button" && textOf(element).includes("shift")
+    );
+    expect(commands.map(textOf)).toEqual(labels);
+    expect(
+      commands.every(
+        (element) =>
+          (element.props as { type: string; disabled: boolean }).type === "button" &&
+          !(element.props as { disabled: boolean }).disabled
+      )
+    ).toBe(true);
+  });
+
+  it.each([
+    { busy: true, editing: false },
+    { busy: false, editing: true }
+  ])("blocks Shift transition buttons during busy=$busy/editing=$editing", ({ busy, editing }) => {
+    const onShiftTransition = vi.fn(async () => undefined);
+    const tree = GenericDetail({
+      entity: "shifts",
+      record: { ...recordFor("shifts"), status: "PLANNED" },
+      t: messages["en-GB"],
+      users: [],
+      roles: [],
+      editing,
+      busy,
+      capabilities: { ...none, canWrite: true },
+      setEditing: vi.fn(),
+      onSubmit: vi.fn(),
+      onRemove: vi.fn(),
+      onAddTeamMember: vi.fn(),
+      onRemoveTeamMember: vi.fn(),
+      onShiftTransition
+    });
+    const commands = expandedElements(tree).filter(
+      (element) => element.type === "button" && textOf(element).includes("shift")
+    );
+    expect(commands).toHaveLength(3);
+    for (const command of commands) {
+      const props = command.props as { disabled: boolean; onClick: () => void };
+      expect(props.disabled).toBe(true);
+      props.onClick();
+    }
+    expect(onShiftTransition).not.toHaveBeenCalled();
+  });
+
+  it("keeps Shift command authority independent from delete authority", () => {
+    for (const capabilities of [none, { ...none, canDelete: true }]) {
+      const tree = renderGeneric("shifts", capabilities);
+      expect(
+        expandedElements(tree).filter(
+          (element) => element.type === "button" && textOf(element).includes("shift")
+        )
+      ).toHaveLength(0);
+    }
+  });
+
+  it("dispatches the selected valid Shift command without submitting an edit", () => {
+    const onShiftTransition = vi.fn(async () => undefined);
+    const onSubmit = vi.fn();
+    const tree = GenericDetail({
+      entity: "shifts",
+      record: { ...recordFor("shifts"), status: "CLOSED" },
+      t: messages["en-GB"],
+      users: [],
+      roles: [],
+      editing: false,
+      busy: false,
+      capabilities: { ...none, canWrite: true },
+      setEditing: vi.fn(),
+      onSubmit,
+      onRemove: vi.fn(),
+      onAddTeamMember: vi.fn(),
+      onRemoveTeamMember: vi.fn(),
+      onShiftTransition
+    });
+    const reopen = expandedElements(tree).find(
+      (element) => element.type === "button" && textOf(element) === "Reopen shift"
+    );
+    (reopen?.props as { onClick: () => void }).onClick();
+    expect(onShiftTransition).toHaveBeenCalledWith("reopen");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("wires UTF-8 byte validation into edited user passwords", () => {
+    const tree = renderGeneric("users", { ...none, canWrite: true });
+    const password = expandedElements(tree).find(
+      (element) =>
+        element.type === "input" && (element.props as { name?: string }).name === "password"
+    );
+    const setCustomValidity = vi.fn();
+
+    expect(password?.props).toMatchObject({ maxLength: 72 });
+    (
+      password?.props as {
+        onInput: (event: {
+          currentTarget: { value: string; setCustomValidity: typeof setCustomValidity };
+        }) => void;
+      }
+    ).onInput({ currentTarget: { value: `Aa1!${"é".repeat(35)}`, setCustomValidity } });
+    expect(setCustomValidity).toHaveBeenCalledWith(messages["en-GB"].passwordUtf8Limit);
+  });
+
   for (const entity of ["users", "clients", "teams", "shifts"] as const) {
     it(`keeps ${entity} read-only without write or delete controls`, () => {
       const text = textOf(renderGeneric(entity, none));
@@ -126,6 +254,18 @@ describe("GenericDetail capability matrix", () => {
 
     expect(text).not.toContain(messages["en-GB"].add);
     expect(text).not.toContain(messages["en-GB"].remove);
+  });
+
+  it("freezes the generic edit-state toggle while a modal mutation is pending", () => {
+    const idleTree = renderGeneric("clients", { ...none, canWrite: true });
+    const busyTree = renderGeneric("clients", { ...none, canWrite: true }, true);
+    const editButton = (tree: unknown) =>
+      expandedElements(tree).find(
+        (element) => element.type === "button" && textOf(element).includes(messages["en-GB"].edit)
+      );
+
+    expect((editButton(idleTree)?.props as { disabled?: boolean }).disabled).toBe(false);
+    expect((editButton(busyTree)?.props as { disabled?: boolean }).disabled).toBe(true);
   });
 
   it("separates member addition from removal authority", () => {
@@ -212,5 +352,34 @@ describe("GenericDetail capability matrix", () => {
 
     expect(roleSelect?.props).toMatchObject({ value: "role-a" });
     expect((roleSelect?.props as { placeholder?: string }).placeholder).toBeUndefined();
+  });
+
+  it("keeps Shift lifecycle status read-only while content fields are editable", () => {
+    const tree = GenericDetail({
+      entity: "shifts",
+      record: recordFor("shifts"),
+      t: messages["en-GB"],
+      users: [],
+      roles: [],
+      editing: true,
+      busy: false,
+      capabilities: { ...none, canWrite: true },
+      setEditing: vi.fn(),
+      onSubmit: vi.fn(),
+      onRemove: vi.fn(),
+      onAddTeamMember: vi.fn(async () => undefined),
+      onRemoveTeamMember: vi.fn(async () => undefined)
+    });
+    const controls = expandedElements(tree);
+    const nameInput = controls.find(
+      (element) => element.type === "input" && (element.props as { name?: string }).name === "name"
+    );
+    const statusSelect = controls.find(
+      (element) =>
+        element.type === "select" && (element.props as { name?: string }).name === "status"
+    );
+
+    expect((nameInput?.props as { disabled?: boolean }).disabled).toBe(false);
+    expect((statusSelect?.props as { disabled?: boolean }).disabled).toBe(true);
   });
 });

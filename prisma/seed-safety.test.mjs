@@ -1,9 +1,11 @@
 // en-GB: Verifies destructive seed and PostgreSQL integration preflights reject unsafe database targets.
 import { describe, expect, it } from "vitest";
 import {
+  assertBcryptPasswordLength,
   assertSafeDestructiveSeed,
   assertSafePostgresIntegrationTarget,
-  destructiveSeedConfirmation
+  destructiveSeedConfirmation,
+  seedBcryptRounds
 } from "./seed-safety.mjs";
 
 const safeInput = {
@@ -14,6 +16,10 @@ const safeInput = {
 };
 
 describe("realistic seed safety", () => {
+  it("uses the same bcrypt work factor for every newly seeded credential", () => {
+    expect(seedBcryptRounds).toBe(12);
+  });
+
   it("accepts an explicitly confirmed loopback ShiftFlow database", () => {
     expect(assertSafeDestructiveSeed(safeInput)).toEqual({
       host: "127.0.0.1",
@@ -44,6 +50,24 @@ describe("realistic seed safety", () => {
     [{ ...safeInput, password: undefined }, "at least 12 characters"]
   ])("rejects an unsafe target before database initialisation", (input, message) => {
     expect(() => assertSafeDestructiveSeed(input)).toThrow(message);
+  });
+
+  it("accepts 72 ASCII bytes and rejects 73 for seeded bcrypt credentials", () => {
+    const accepted = `Aa1!${"x".repeat(68)}`;
+
+    expect(() => assertBcryptPasswordLength(accepted, "test seed")).not.toThrow();
+    expect(() => assertBcryptPasswordLength(`${accepted}x`, "test seed")).toThrow(
+      "must not exceed 72 UTF-8 bytes"
+    );
+  });
+
+  it("counts multibyte seed passwords by UTF-8 bytes", () => {
+    const accepted = `Aa1!${"é".repeat(34)}`;
+
+    expect(() => assertBcryptPasswordLength(accepted, "test seed")).not.toThrow();
+    expect(() => assertBcryptPasswordLength(`${accepted}é`, "test seed")).toThrow(
+      "must not exceed 72 UTF-8 bytes"
+    );
   });
 });
 

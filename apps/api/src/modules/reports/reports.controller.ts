@@ -20,5 +20,8 @@ export const ReportsController = {
   }),
   approve: asyncHandler(async (req: ApiRequest, res: Response) => {
     res.json(ok(await service.approve(req, uuidParam(req.params.id, "id"))));
+  }),
+  reject: asyncHandler(async (req: ApiRequest, res: Response) => {
+    res.json(ok(await service.reject(req, uuidParam(req.params.id, "id"))));
   })
 };

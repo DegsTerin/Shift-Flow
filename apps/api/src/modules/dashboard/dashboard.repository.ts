@@ -3,6 +3,7 @@ import { badRequest, conflict, forbidden, notFound } from "../../shared/errors/a
 import { getDelegate, getPrisma } from "../../shared/lib/prisma.js";
 
 type ActivityGroupField = "teamId" | "clientId" | "status" | "priority" | "shiftId";
+export const completedResolutionSampleLimit = 500;
 
 type ActivityDelegate = {
   count(args?: unknown): Promise<number>;
@@ -174,7 +175,7 @@ export class DashboardRepository {
       },
       select: { createdAt: true, completedAt: true },
       orderBy: [{ completedAt: "desc" }, { id: "desc" }],
-      take: 500
+      take: completedResolutionSampleLimit
     });
   }
 

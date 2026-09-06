@@ -1,5 +1,11 @@
 // en-GB: Encapsulates application persistence so data access remains consistent and testable.
-import { getDelegate } from "../lib/prisma.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  getDelegate,
+  getDelegateFrom,
+  withPrismaTransaction,
+  type PrismaTransactionClient
+} from "../lib/prisma.js";
 import { notFound } from "../errors/app-error.js";
 
 type Delegate = {
@@ -17,6 +23,8 @@ function isRecordNotFoundError(cause: unknown) {
   );
 }
 
+const transactionContext = new AsyncLocalStorage<PrismaTransactionClient>();
+
 export type ListArgs = {
   where?: Record<string, unknown>;
   skip?: number;
@@ -29,7 +37,23 @@ export class BaseRepository {
   constructor(private readonly delegateName: string) {}
 
   private async delegate() {
-    return getDelegate<Delegate>(this.delegateName);
+    const transaction = transactionContext.getStore();
+    return transaction
+      ? getDelegateFrom<Delegate>(transaction, this.delegateName)
+      : getDelegate<Delegate>(this.delegateName);
+  }
+
+  async withTransaction<T>(
+    operation: (repository: this, transaction: PrismaTransactionClient) => Promise<T>
+  ) {
+    const activeTransaction = transactionContext.getStore();
+    if (activeTransaction) {
+      return operation(this, activeTransaction);
+    }
+
+    return withPrismaTransaction((transaction) =>
+      transactionContext.run(transaction, () => operation(this, transaction))
+    );
   }
 
   async list(args: ListArgs = {}) {
